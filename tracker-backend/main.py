@@ -85,7 +85,7 @@ def call_gemini_cli(email_body: str) -> Optional[Dict[str, Any]]:
             text=True,
             shell=(os.name == 'nt')
         )
-        stdout, stderr = process.communicate(input=full_input, timeout=30)
+        stdout, stderr = process.communicate(input=full_input, timeout=60)
         
         if process.returncode != 0:
             logger.error(f"Gemini CLI error: {stderr}")
@@ -130,73 +130,118 @@ def validate_parsed_data(data: Dict[str, Any]) -> bool:
     return True
 
 @firestore.transactional
-def distribute_to_huchas(transaction, movement_ref, amount: float, owner_id: str):
+def process_movement_transaction(transaction, mov_ref, movimiento: Dict[str, Any], owner_id: str):
     """
-    Firestore transaction to distribute an income among huchas.
+    Firestore transaction to save the movement and update huchas (both ingreso and gasto).
+    If no huchas exist, it creates a default "Cuenta Principal".
     """
+    # Check if movement already exists
+    mov_snapshot = mov_ref.get(transaction=transaction)
+    if mov_snapshot.exists:
+        logger.info(f"Movement {mov_ref.id} already exists. Skipping.")
+        return
+
     huchas_ref = db.collection("huchas")
     query = huchas_ref.where("id_propietario", "==", owner_id).order_by("orden")
     
     # Get all huchas for the owner - ALL READS MUST HAPPEN FIRST
     huchas_docs = list(query.stream(transaction=transaction))
+    amount = float(movimiento["importe"])
+    distributions = {} # doc_id -> amount_change (positive or negative)
     
+    target_gasto_hucha_id = None
+    new_hucha_ref = None
+    new_hucha_data = None
+
     if not huchas_docs:
-        logger.warning(f"No huchas found for user {owner_id}. Income not distributed.")
-        return
+        logger.info(f"No huchas found for user {owner_id}. Creating default 'Cuenta Principal'.")
+        new_hucha_ref = huchas_ref.document()
+        target_gasto_hucha_id = new_hucha_ref.id
+        
+        if movimiento["tipo"] == "ingreso":
+            distributions[target_gasto_hucha_id] = amount
+        else:
+            distributions[target_gasto_hucha_id] = -amount
+            
+        new_hucha_data = {
+            "id_propietario": owner_id,
+            "nombre": "Cuenta Principal",
+            "tipo_aportacion": "resto",
+            "saldo_acumulado": distributions[target_gasto_hucha_id],
+            "orden": 1,
+            "es_principal": True,
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firestore.SERVER_TIMESTAMP
+        }
+    else:
+        if movimiento["tipo"] == "ingreso":
+            total_percentage = sum(
+                doc.to_dict().get("valor_aportacion", 0) 
+                for doc in huchas_docs 
+                if doc.to_dict().get("tipo_aportacion") == "porcentaje"
+            )
+            if total_percentage > 100:
+                logger.error(f"Total percentage ({total_percentage}%) exceeds 100%. Income not distributed.")
+            else:
+                remaining_amount = amount
+                # 1. Flat amounts
+                for doc in huchas_docs:
+                    data = doc.to_dict()
+                    if data.get("tipo_aportacion") == "flat":
+                        flat_val = float(data.get("valor_aportacion", 0))
+                        to_add = min(flat_val, remaining_amount)
+                        distributions[doc.id] = to_add
+                        remaining_amount -= to_add
 
-    # Validate percentages using to_dict().get() for safety
-    total_percentage = sum(
-        doc.to_dict().get("valor_aportacion", 0) 
-        for doc in huchas_docs 
-        if doc.to_dict().get("tipo_aportacion") == "porcentaje"
-    )
-    if total_percentage > 100:
-        logger.error(f"Total percentage ({total_percentage}%) exceeds 100% for user {owner_id}.")
-        return
+                # 2. Percentages
+                for doc in huchas_docs:
+                    data = doc.to_dict()
+                    if data.get("tipo_aportacion") == "porcentaje":
+                        perc_val = float(data.get("valor_aportacion", 0))
+                        to_add = amount * (perc_val / 100.0)
+                        to_add = min(to_add, remaining_amount)
+                        distributions[doc.id] = distributions.get(doc.id, 0) + to_add
+                        remaining_amount -= to_add
 
-    remaining_amount = amount
-    distributions = {} # doc_id -> amount_to_add
-    
-    # 1. Flat amounts
-    for doc in huchas_docs:
-        data = doc.to_dict()
-        if data.get("tipo_aportacion") == "flat":
-            flat_val = float(data.get("valor_aportacion", 0))
-            to_add = min(flat_val, remaining_amount)
-            distributions[doc.id] = to_add
-            remaining_amount -= to_add
-
-    # 2. Percentages (calculated from the ORIGINAL amount)
-    for doc in huchas_docs:
-        data = doc.to_dict()
-        if data.get("tipo_aportacion") == "porcentaje":
-            perc_val = float(data.get("valor_aportacion", 0))
-            to_add = amount * (perc_val / 100.0)
-            # We don't subtract from remaining_amount yet to allow percentages to be of the total
-            # but we must ensure we don't distribute more than we have left
-            to_add = min(to_add, remaining_amount)
-            distributions[doc.id] = distributions.get(doc.id, 0) + to_add
-            remaining_amount -= to_add
-
-    # 3. Remainder (Resto) or Principal
-    resto_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("tipo_aportacion") == "resto"), None)
-    if not resto_hucha:
-        resto_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("es_principal")), None)
-    
-    if resto_hucha and remaining_amount > 0:
-        distributions[resto_hucha.id] = distributions.get(resto_hucha.id, 0) + remaining_amount
-        remaining_amount = 0
+                # 3. Resto
+                resto_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("tipo_aportacion") == "resto"), None)
+                if not resto_hucha:
+                    resto_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("es_principal")), None)
+                if not resto_hucha and huchas_docs:
+                    resto_hucha = huchas_docs[0]
+                
+                if resto_hucha and remaining_amount > 0:
+                    distributions[resto_hucha.id] = distributions.get(resto_hucha.id, 0) + remaining_amount
+        else:
+            # Es gasto
+            target_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("es_principal")), None)
+            if not target_hucha:
+                target_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("tipo_aportacion") == "resto"), None)
+            if not target_hucha and huchas_docs:
+                target_hucha = huchas_docs[0]
+                
+            target_gasto_hucha_id = target_hucha.id
+            distributions[target_gasto_hucha_id] = -amount
 
     # Apply updates - ALL WRITES MUST HAPPEN AFTER ALL READS
-    for hucha_id, add_amount in distributions.items():
-        hucha_ref = huchas_ref.document(hucha_id)
-        # Find the snapshot we already read to get the current balance
-        hucha_snapshot = next(doc for doc in huchas_docs if doc.id == hucha_id)
-        current_balance = hucha_snapshot.to_dict().get("saldo_acumulado", 0) or 0
-        transaction.update(hucha_ref, {
-            "saldo_acumulado": current_balance + add_amount
-        })
-        logger.info(f"Distributed {add_amount:.2f} to hucha {hucha_id}")
+    for doc in huchas_docs:
+        change = distributions.get(doc.id, 0)
+        if change != 0:
+            current_balance = doc.to_dict().get("saldo_acumulado", 0) or 0
+            transaction.update(huchas_ref.document(doc.id), {
+                "saldo_acumulado": current_balance + change,
+                "updated_at": firestore.SERVER_TIMESTAMP
+            })
+            logger.info(f"Updated hucha {doc.id} balance by {change:.2f}")
+            
+    if new_hucha_ref and new_hucha_data:
+        transaction.set(new_hucha_ref, new_hucha_data)
+        logger.info(f"Created default hucha {new_hucha_ref.id} with balance {new_hucha_data['saldo_acumulado']:.2f}")
+
+    if target_gasto_hucha_id:
+        movimiento["hucha_id"] = target_gasto_hucha_id
+        
+    transaction.set(mov_ref, movimiento)
 
 import re
 
@@ -250,15 +295,12 @@ def process_emails():
         }
         
         try:
-            # Write to Firestore
+            # Write to Firestore via Transaction
             mov_ref = db.collection("movimientos").document(doc_id)
-            mov_ref.set(movimiento)
-            logger.info(f"Movement {doc_id} recorded successfully.")
+            transaction = db.transaction()
+            process_movement_transaction(transaction, mov_ref, movimiento, UID_PROPIETARIO)
             
-            # If income, distribute to huchas
-            if movimiento["tipo"] == "ingreso":
-                transaction = db.transaction()
-                distribute_to_huchas(transaction, mov_ref, movimiento["importe"], UID_PROPIETARIO)
+            logger.info(f"Movement {doc_id} recorded successfully via transaction.")
                 
             # Mark as read
             if mark_email_as_read(email_id):

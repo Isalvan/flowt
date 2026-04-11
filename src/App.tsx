@@ -18,6 +18,7 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
+  runTransaction,
 } from 'firebase/firestore';
 import {
   BarChart,
@@ -53,6 +54,7 @@ interface Movimiento {
   concepto: string;
   importe: number;
   fecha_operacion: any;
+  hucha_id?: string;
 }
 
 interface Hucha {
@@ -223,6 +225,39 @@ const App: React.FC = () => {
     setIsModalOpen(false);
     setEditingId(null);
     setNewHucha({ nombre: '', tipo_aportacion: 'porcentaje', valor_aportacion: 0, objetivo: 0, es_principal: false });
+  };
+
+  const handleChangeMovimientoHucha = async (mov: Movimiento, newHuchaId: string) => {
+    if (!newHuchaId || mov.hucha_id === newHuchaId) return;
+    const oldHuchaId = mov.hucha_id;
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const movRef = doc(db, 'movimientos', mov.id);
+        const newHuchaRef = doc(db, 'huchas', newHuchaId);
+        const oldHuchaRef = oldHuchaId ? doc(db, 'huchas', oldHuchaId) : null;
+
+        const newHuchaDoc = await transaction.get(newHuchaRef);
+        let oldHuchaDoc = null;
+        if (oldHuchaRef) oldHuchaDoc = await transaction.get(oldHuchaRef);
+
+        if (oldHuchaRef && oldHuchaDoc && oldHuchaDoc.exists()) {
+          transaction.update(oldHuchaRef, {
+            saldo_acumulado: (oldHuchaDoc.data().saldo_acumulado || 0) + mov.importe
+          });
+        }
+        
+        if (newHuchaDoc.exists()) {
+          transaction.update(newHuchaRef, {
+            saldo_acumulado: (newHuchaDoc.data().saldo_acumulado || 0) - mov.importe
+          });
+        }
+
+        transaction.update(movRef, { hucha_id: newHuchaId });
+      });
+    } catch (error) {
+      console.error("Error cambiando hucha del movimiento:", error);
+    }
   };
 
   const totalIngresos = useMemo(
@@ -492,9 +527,23 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
-                    <p className={`text-sm font-bold ${m.tipo === 'ingreso' ? 'text-sky-700' : 'text-orange-700'}`}>
-                      {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
-                    </p>
+                    <div className="flex flex-col items-end gap-2">
+                      <p className={`text-sm font-bold ${m.tipo === 'ingreso' ? 'text-sky-700' : 'text-orange-700'}`}>
+                        {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
+                      </p>
+                      {m.tipo === 'gasto' && huchas.length > 0 && (
+                        <select
+                          className="text-[10px] font-semibold bg-slate-50 border border-slate-200 text-slate-600 rounded px-1.5 py-0.5 w-full max-w-[120px] focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                          value={m.hucha_id || ''}
+                          onChange={(e) => handleChangeMovimientoHucha(m, e.target.value)}
+                        >
+                          <option value="" disabled>Asignar hucha...</option>
+                          {huchas.map(h => (
+                            <option key={h.id} value={h.id}>{h.nombre}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                   </div>
                 ))
               ) : (

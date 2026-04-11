@@ -16,8 +16,8 @@ service cloud.firestore {
       // Permitir crear si es el dueño
       allow create: if isAuthenticated() && isOwner(request.resource.data);
       
-      // Permitir leer (get y list) si el documento ya tiene su UID
-      allow read: if isAuthenticated() && isOwner(resource.data);
+      // Permitir leer (get y list) y actualizar si el documento ya tiene su UID
+      allow read, update: if isAuthenticated() && isOwner(resource.data);
     }
 
     match /huchas/{hucha} {
