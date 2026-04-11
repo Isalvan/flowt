@@ -45,6 +45,7 @@ import {
   X,
   Trash2,
   Edit,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { auth, db } from './firebase';
 
@@ -106,6 +107,14 @@ const App: React.FC = () => {
     valor_aportacion: 0,
     objetivo: 0,
     es_principal: false
+  });
+  
+  // Transfer State
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [transferData, setTransferData] = useState({
+    fromHuchaId: '',
+    toHuchaId: '',
+    amount: 0
   });
 
   useEffect(() => {
@@ -201,11 +210,57 @@ const App: React.FC = () => {
   };
 
   const handleDeleteHucha = async (id: string) => {
+    if (huchas.length === 1) {
+      alert('No puedes eliminar tu única cartera. Crea otra primero.');
+      return;
+    }
     if (!confirm('¿Estás seguro de que quieres eliminar esta cartera?')) return;
     try {
       await deleteDoc(doc(db, 'huchas', id));
     } catch (error) {
       console.error("Error al eliminar hucha:", error);
+    }
+  };
+
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !transferData.fromHuchaId || !transferData.toHuchaId || transferData.amount <= 0) return;
+    if (transferData.fromHuchaId === transferData.toHuchaId) {
+      alert('Debes seleccionar carteras distintas.');
+      return;
+    }
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const fromRef = doc(db, 'huchas', transferData.fromHuchaId);
+        const toRef = doc(db, 'huchas', transferData.toHuchaId);
+
+        const fromDoc = await transaction.get(fromRef);
+        const toDoc = await transaction.get(toRef);
+
+        if (!fromDoc.exists() || !toDoc.exists()) throw new Error("Una de las huchas no existe");
+
+        const fromBalance = fromDoc.data().saldo_acumulado || 0;
+        if (fromBalance < transferData.amount) {
+          throw new Error("Saldo insuficiente en la cartera de origen");
+        }
+
+        transaction.update(fromRef, {
+          saldo_acumulado: fromBalance - transferData.amount,
+          updated_at: serverTimestamp()
+        });
+
+        transaction.update(toRef, {
+          saldo_acumulado: (toDoc.data().saldo_acumulado || 0) + transferData.amount,
+          updated_at: serverTimestamp()
+        });
+      });
+
+      setIsTransferModalOpen(false);
+      setTransferData({ fromHuchaId: '', toHuchaId: '', amount: 0 });
+    } catch (error: any) {
+      console.error("Error en la transferencia:", error);
+      alert(error.message || "Error al transferir fondos.");
     }
   };
 
@@ -561,13 +616,23 @@ const App: React.FC = () => {
               <PiggyBank className="text-sky-600" size={22} />
               <h3 className="section-title">Mis huchas</h3>
             </div>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="btn-dark inline-flex items-center gap-2 rounded-full bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
-            >
-              <PlusCircle size={15} />
-              Nueva hucha
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsTransferModalOpen(true)}
+                disabled={huchas.length < 2}
+                className="btn-secondary inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ArrowRightLeft size={15} />
+                Transferir
+              </button>
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="btn-dark inline-flex items-center gap-2 rounded-full bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+              >
+                <PlusCircle size={15} />
+                Nueva hucha
+              </button>
+            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -737,6 +802,96 @@ const App: React.FC = () => {
                   className="flex-1 px-4 py-3 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition shadow-lg shadow-slate-900/20"
                 >
                   {editingId ? 'Guardar Cambios' : 'Crear Hucha'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Transferir */}
+      {isTransferModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-appear-up">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">Transferir Fondos</h3>
+              <button 
+                onClick={() => {
+                  setIsTransferModalOpen(false);
+                  setTransferData({ fromHuchaId: '', toHuchaId: '', amount: 0 });
+                }}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X size={20} className="text-slate-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleTransfer} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Origen (Sale de)</label>
+                <select
+                  required
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition"
+                  value={transferData.fromHuchaId}
+                  onChange={(e) => setTransferData({...transferData, fromHuchaId: e.target.value})}
+                >
+                  <option value="" disabled>Selecciona la cartera origen</option>
+                  {huchas.map(h => (
+                    <option key={h.id} value={h.id} disabled={h.saldo_acumulado <= 0}>
+                      {h.nombre} ({formatCurrency(h.saldo_acumulado)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Destino (Entra en)</label>
+                <select
+                  required
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition"
+                  value={transferData.toHuchaId}
+                  onChange={(e) => setTransferData({...transferData, toHuchaId: e.target.value})}
+                >
+                  <option value="" disabled>Selecciona la cartera destino</option>
+                  {huchas.map(h => (
+                    <option key={h.id} value={h.id} disabled={h.id === transferData.fromHuchaId}>
+                      {h.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Importe a transferir (€)</label>
+                <input
+                  required
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="Ej: 50.00"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition"
+                  value={transferData.amount || ''}
+                  onChange={(e) => setTransferData({...transferData, amount: Number(e.target.value)})}
+                />
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTransferModalOpen(false);
+                    setTransferData({ fromHuchaId: '', toHuchaId: '', amount: 0 });
+                  }}
+                  className="flex-1 px-4 py-3 rounded-xl border border-slate-200 font-semibold text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!transferData.fromHuchaId || !transferData.toHuchaId || transferData.amount <= 0 || transferData.fromHuchaId === transferData.toHuchaId}
+                  className="flex-1 px-4 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700 transition shadow-lg shadow-sky-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Transferir
                 </button>
               </div>
             </form>
