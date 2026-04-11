@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+from gmail_client import get_unread_emails_from_bank, mark_email_as_read
+
 # --- Configuration & Initialization ---
 
 # Load environment variables
@@ -204,17 +206,18 @@ def process_emails():
     """
     Main processing loop.
     """
-    emails = get_unread_emails_from_bank()
+    emails = get_unread_emails_from_bank(BANK_SENDER, MAX_EMAILS_PER_RUN)
     
     for email in emails:
         email_id = email["id"]
+        message_id = email.get("message_id", email_id)
         
         # Security check: Exact sender match
         if email["from"] != BANK_SENDER:
             logger.warning(f"Skipping email from unknown sender: {email['from']}")
             continue
             
-        logger.info(f"Processing email {email_id}...")
+        logger.info(f"Processing email {email_id} (Message-ID: {message_id})...")
         
         parsed_data = call_gemini_cli(email["body"])
         
@@ -224,7 +227,7 @@ def process_emails():
             continue
             
         # Generate secure ID
-        doc_id = hashlib.sha256(email_id.encode()).hexdigest()
+        doc_id = hashlib.sha256(message_id.encode()).hexdigest()
         
         # Construct movement document
         # Map fields from prompt.md to INSTRUCTIONS.md schema
@@ -249,8 +252,11 @@ def process_emails():
                 transaction = db.transaction()
                 distribute_to_huchas(transaction, mov_ref, movimiento["importe"], UID_PROPIETARIO)
                 
-            # Mark as read (Simulated)
-            logger.info(f"Email {email_id} marked as processed.")
+            # Mark as read
+            if mark_email_as_read(email_id):
+                logger.info(f"Email {email_id} marked as processed.")
+            else:
+                logger.error(f"Failed to mark email {email_id} as read.")
             
         except Exception as e:
             logger.error(f"Error writing to Firestore for email {email_id}: {e}")
