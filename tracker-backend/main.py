@@ -49,29 +49,6 @@ except Exception as e:
     logger.error(f"Failed to initialize Firebase: {e}")
     exit(1)
 
-# --- Mock Data & Functions ---
-
-def get_unread_emails_from_bank() -> List[Dict[str, str]]:
-    """
-    Mocks the retrieval of unread emails from the bank.
-    In a real scenario, this would call a Gmail MCP or API.
-    """
-    # Dummy data for testing
-    return [
-        {
-            "id": "msg-12345",
-            "from": BANK_SENDER,
-            "body": "Has recibido un Bizum de 50.00 EUR de Juan Perez el 2024-10-25.",
-            "subject": "Notificación de Ingreso"
-        },
-        {
-            "id": "msg-67890",
-            "from": BANK_SENDER,
-            "body": "Compra en MERCADONA por importe de 25.50 EUR el 2024-10-25.",
-            "subject": "Notificación de Gasto"
-        }
-    ][:MAX_EMAILS_PER_RUN]
-
 # --- Core Logic ---
 
 def call_gemini_cli(email_body: str) -> Optional[Dict[str, Any]]:
