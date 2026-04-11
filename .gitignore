@@ -27,3 +27,5 @@ dist-ssr
 .env
 serviceAccountKey.json
 tracker-backend/.venv/
+token.json
+credentials.json

@@ -1,0 +1,37 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "tipo": {
+        "type": ["string", "null"],
+        "enum": ["gasto", "ingreso", null],
+        "description": "Tipo de movimiento financiero"
+      },
+      "importe": {
+        "type": ["number", "null"],
+        "description": "Cantidad numérica del movimiento"
+      },
+      "moneda": {
+        "type": ["string", "null"],
+        "description": "Código ISO 4217 de la moneda (ej: EUR, USD)"
+      },
+      "fecha": {
+        "type": ["string", "null"],
+        "format": "date-time",
+        "description": "Fecha de la operación en formato ISO 8601"
+      },
+      "descripcion": {
+        "type": "string",
+        "maxLength": 100,
+        "description": "Resumen factual del movimiento"
+      },
+      "confianza": {
+        "type": "string",
+        "enum": ["alta", "media", "baja"],
+        "description": "Nivel de certeza de la extracción"
+      }
+    },
+    "required": ["tipo", "importe", "moneda", "fecha", "descripcion", "confianza"]
+  }
+}

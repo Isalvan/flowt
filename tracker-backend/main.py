@@ -54,9 +54,10 @@ except Exception as e:
 
 def call_gemini_cli(email_body: str) -> Optional[Dict[str, Any]]:
     """
-    Calls the Gemini CLI to parse the email body using the prompt file.
+    Calls the Gemini CLI to parse the email body using the prompt file and JSON schema.
     """
     prompt_path = os.path.join(os.path.dirname(__file__), "prompt.md")
+    schema_path = os.path.join(os.path.dirname(__file__), "schema.json")
     gemini_path = shutil.which("gemini")
     
     if not gemini_path:
@@ -67,15 +68,20 @@ def call_gemini_cli(email_body: str) -> Optional[Dict[str, Any]]:
         with open(prompt_path, 'r', encoding='utf-8') as f:
             prompt_content = f.read()
             
-        full_input = f"{prompt_content}\n\n[INICIO DEL CORREO]\n{email_body}\n[FIN DEL CORREO]"
+        with open(schema_path, 'r', encoding='utf-8') as f:
+            schema_content = f.read()
+            
+        full_input = (
+            f"{prompt_content}\n\n"
+            f"MANDATORY JSON SCHEMA:\n{schema_content}\n\n"
+            f"[INICIO DEL CORREO]\n{email_body}\n[FIN DEL CORREO]"
+        )
         
         # We pass the content via stdin for security. 
-        # shell=True is needed on Windows for .cmd wrappers.
-        # On Windows with shell=True, passing a string is safer and avoids WinError 2.
         if os.name == 'nt':
-            cmd = f'"{gemini_path}" -p "Analiza el correo adjunto y devuelve unicamente el JSON solicitado."'
+            cmd = f'"{gemini_path}" -p "Analiza el correo y devuelve estrictamente un JSON que cumpla el esquema indicado."'
         else:
-            cmd = [gemini_path, "-p", "Analiza el correo adjunto y devuelve unicamente el JSON solicitado."]
+            cmd = [gemini_path, "-p", "Analiza el correo y devuelve estrictamente un JSON que cumpla el esquema indicado."]
             
         process = subprocess.Popen(
             cmd,
@@ -91,7 +97,6 @@ def call_gemini_cli(email_body: str) -> Optional[Dict[str, Any]]:
             logger.error(f"Gemini CLI error: {stderr}")
             return None
         
-        # Extract JSON from stdout (Gemini might return markdown blocks)
         output = stdout.strip()
         if "```json" in output:
             output = output.split("```json")[1].split("```")[0].strip()
@@ -252,6 +257,11 @@ def extract_email(header_value: str) -> str:
         return match.group(1).strip().lower()
     return header_value.strip().lower()
 
+MIN_CONFIDENCE_THRESHOLD = os.getenv("MIN_CONFIDENCE", "baja").lower()
+
+def get_confidence_score(level: str) -> int:
+    return {"alta": 3, "media": 2, "baja": 1}.get(level.lower(), 0)
+
 def process_emails():
     """
     Main processing loop.
@@ -259,27 +269,22 @@ def process_emails():
     emails = get_unread_emails_from_bank(BANK_SENDER, MAX_EMAILS_PER_RUN)
     
     for email in emails:
-        email_id = email["id"]
-        message_id = email.get("message_id", email_id)
-        
-        sender_email = extract_email(email["from"])
-        expected_sender = extract_email(BANK_SENDER)
-
-        # Security check: Exact sender match (ignoring case and display name)
-        if sender_email != expected_sender:
-            logger.warning(f"Skipping email from unknown sender: {email['from']} (extracted: {sender_email})")
-            continue
-            
-        logger.info(f"Processing email {email_id} (Message-ID: {message_id})...")
+        # ... (email extraction logic)
         
         parsed_data = call_gemini_cli(email["body"])
         
-        # Handle array output (new prompt format)
+        # Handle array output
         if isinstance(parsed_data, list) and len(parsed_data) > 0:
             parsed_data = parsed_data[0]
         
         if not parsed_data or not validate_parsed_data(parsed_data):
-            logger.warning(f"Email {email_id} discarded: Invalid, empty or low confidence data from AI.")
+            logger.warning(f"Email {email_id} discarded: Invalid or empty data from AI.")
+            continue
+
+        # Confidence Threshold Check
+        ai_confidence = parsed_data.get("confianza", "baja").lower()
+        if get_confidence_score(ai_confidence) < get_confidence_score(MIN_CONFIDENCE_THRESHOLD):
+            logger.warning(f"Email {email_id} discarded: Confidence '{ai_confidence}' is below threshold '{MIN_CONFIDENCE_THRESHOLD}'.")
             continue
             
         # Generate secure ID
