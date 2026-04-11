@@ -274,9 +274,12 @@ def process_emails():
         
         parsed_data = call_gemini_cli(email["body"])
         
+        # Handle array output (new prompt format)
+        if isinstance(parsed_data, list) and len(parsed_data) > 0:
+            parsed_data = parsed_data[0]
+        
         if not parsed_data or not validate_parsed_data(parsed_data):
-            logger.warning(f"Email {email_id} discarded: Invalid or empty data from AI.")
-            # In a real scenario, we might mark it as read anyway if it's not a bank movement
+            logger.warning(f"Email {email_id} discarded: Invalid, empty or low confidence data from AI.")
             continue
             
         # Generate secure ID
@@ -287,9 +290,11 @@ def process_emails():
         movimiento = {
             "id_propietario": UID_PROPIETARIO,
             "tipo": parsed_data["tipo"],
-            "concepto": parsed_data.get("descripcion", "Sin concepto"),
+            "concepto": parsed_data.get("descripcion") or parsed_data.get("concepto") or "Sin concepto",
             "importe": float(parsed_data["importe"]),
+            "moneda": parsed_data.get("moneda", "EUR"),
             "fecha_operacion": parsed_data["fecha"], # Assuming ISO 8601 from AI
+            "confianza": parsed_data.get("confianza", "alta"),
             "version_prompt": PROMPT_VERSION,
             "created_at": firestore.SERVER_TIMESTAMP
         }
