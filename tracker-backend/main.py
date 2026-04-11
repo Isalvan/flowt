@@ -3,6 +3,7 @@ import json
 import hashlib
 import subprocess
 import logging
+import shutil
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
@@ -56,17 +57,35 @@ def call_gemini_cli(email_body: str) -> Optional[Dict[str, Any]]:
     Calls the Gemini CLI to parse the email body using the prompt file.
     """
     prompt_path = os.path.join(os.path.dirname(__file__), "prompt.md")
+    gemini_path = shutil.which("gemini")
+    
+    if not gemini_path:
+        logger.error("Gemini CLI executable not found in PATH.")
+        return None
     
     try:
-        # gemini ask --prompt-file prompt.md "email body"
-        # We use shell=False for security as per INSTRUCTIONS.md
+        with open(prompt_path, 'r', encoding='utf-8') as f:
+            prompt_content = f.read()
+            
+        full_input = f"{prompt_content}\n\n[INICIO DEL CORREO]\n{email_body}\n[FIN DEL CORREO]"
+        
+        # We pass the content via stdin for security. 
+        # shell=True is needed on Windows for .cmd wrappers.
+        # On Windows with shell=True, passing a string is safer and avoids WinError 2.
+        if os.name == 'nt':
+            cmd = f'"{gemini_path}" -p "Analiza el correo adjunto y devuelve unicamente el JSON solicitado."'
+        else:
+            cmd = [gemini_path, "-p", "Analiza el correo adjunto y devuelve unicamente el JSON solicitado."]
+            
         process = subprocess.Popen(
-            ["gemini", "ask", "--prompt-file", prompt_path, email_body],
+            cmd,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
+            shell=(os.name == 'nt')
         )
-        stdout, stderr = process.communicate(timeout=30)
+        stdout, stderr = process.communicate(input=full_input, timeout=30)
         
         if process.returncode != 0:
             logger.error(f"Gemini CLI error: {stderr}")
@@ -179,6 +198,15 @@ def distribute_to_huchas(transaction, movement_ref, amount: float, owner_id: str
         })
         logger.info(f"Distributed {add_amount:.2f} to hucha {hucha_id}")
 
+import re
+
+def extract_email(header_value: str) -> str:
+    """Extracts the email address from a From header (e.g. 'Name <email@domain.com>' -> 'email@domain.com')"""
+    match = re.search(r'<([^>]+)>', header_value)
+    if match:
+        return match.group(1).strip().lower()
+    return header_value.strip().lower()
+
 def process_emails():
     """
     Main processing loop.
@@ -189,9 +217,12 @@ def process_emails():
         email_id = email["id"]
         message_id = email.get("message_id", email_id)
         
-        # Security check: Exact sender match
-        if email["from"] != BANK_SENDER:
-            logger.warning(f"Skipping email from unknown sender: {email['from']}")
+        sender_email = extract_email(email["from"])
+        expected_sender = extract_email(BANK_SENDER)
+
+        # Security check: Exact sender match (ignoring case and display name)
+        if sender_email != expected_sender:
+            logger.warning(f"Skipping email from unknown sender: {email['from']} (extracted: {sender_email})")
             continue
             
         logger.info(f"Processing email {email_id} (Message-ID: {message_id})...")
