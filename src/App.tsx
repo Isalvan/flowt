@@ -13,8 +13,6 @@ import {
   onSnapshot,
   orderBy,
   limit,
-  addDoc,
-  updateDoc,
   deleteDoc,
   doc,
   serverTimestamp,
@@ -218,16 +216,43 @@ const App: React.FC = () => {
     };
 
     try {
-      if (editingId) {
-        await updateDoc(doc(db, 'huchas', editingId), huchaData);
-      } else {
-        await addDoc(collection(db, 'huchas'), {
-          ...huchaData,
-          saldo_acumulado: 0,
-          orden: huchas.length + 1,
-          created_at: serverTimestamp()
-        });
-      }
+      await runTransaction(db, async (transaction) => {
+        // If this hucha is being set as principal, we need to unset any other principal
+        if (huchaData.es_principal) {
+          const otherPrincipals = huchas.filter(h => h.es_principal && h.id !== editingId);
+          for (const h of otherPrincipals) {
+            transaction.update(doc(db, 'huchas', h.id), { 
+              es_principal: false,
+              updated_at: serverTimestamp()
+            });
+          }
+        }
+
+        // If this hucha is being set as type "resto", we need to unset any other "resto"
+        if (huchaData.tipo_aportacion === 'resto') {
+          const otherRestos = huchas.filter(h => h.tipo_aportacion === 'resto' && h.id !== editingId);
+          for (const h of otherRestos) {
+            transaction.update(doc(db, 'huchas', h.id), { 
+              tipo_aportacion: 'flat', // Default fallback
+              valor_aportacion: 0,
+              updated_at: serverTimestamp()
+            });
+          }
+        }
+
+        if (editingId) {
+          transaction.update(doc(db, 'huchas', editingId), huchaData);
+        } else {
+          const newDocRef = doc(collection(db, 'huchas'));
+          transaction.set(newDocRef, {
+            ...huchaData,
+            saldo_acumulado: 0,
+            orden: huchas.length + 1,
+            created_at: serverTimestamp()
+          });
+        }
+      });
+
       closeModal();
       showToast(editingId ? "Cartera actualizada" : "Cartera creada", "success");
     } catch (error) {
@@ -442,6 +467,11 @@ const App: React.FC = () => {
 
   const balance = totalIngresos - totalGastos;
 
+  const principalHucha = useMemo(
+    () => huchas.find(h => h.es_principal),
+    [huchas]
+  );
+
   const chartData = useMemo(() => {
     const months: Record<string, { name: string; ingresos: number; gastos: number }> = {};
     const now = new Date();
@@ -586,7 +616,7 @@ const App: React.FC = () => {
         )}
 
         <section className="animate-appear-up rounded-[2.5rem] border border-white bg-white/80 p-6 shadow-2xl shadow-slate-900/5 backdrop-blur-xl sm:p-10 transition-all hover:shadow-slate-900/10">
-          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+          <div className="grid gap-8 lg:grid-cols-[1fr_400px] lg:items-center">
             <div>
               <p className="inline-flex items-center gap-2 rounded-full border border-slate-100 bg-slate-50/50 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
                 <ReceiptText size={14} />
@@ -599,27 +629,40 @@ const App: React.FC = () => {
                 Ingresos y gastos en tiempo real.
               </p>
 
-              <div className="mt-10 grid gap-4 sm:grid-cols-3">
-                <article className="rounded-3xl border border-white bg-white/50 p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">Balance</p>
-                  <p className={`mt-2 text-2xl font-black tabular-nums ${balance >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>
-                    {formatCurrency(balance)}
+              <div className="mt-10 grid gap-4 grid-cols-2 lg:grid-cols-4">
+                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">Cartera Principal</p>
+                  <p className="mt-2 text-lg sm:text-xl font-black text-slate-900 tabular-nums">
+                    {formatCurrency(principalHucha?.saldo_acumulado || 0)}
                   </p>
                 </article>
-                <article className="rounded-3xl border border-white bg-white/50 p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group border-b-sky-200">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-sky-600 transition-colors">Ingresos</p>
-                  <p className="mt-2 text-2xl font-black text-sky-600 tabular-nums">+{formatCurrency(totalIngresos)}</p>
+                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">Saldo Carteras</p>
+                  <p className="mt-2 text-lg sm:text-xl font-black text-slate-900 tabular-nums">
+                    {formatCurrency(balance - (principalHucha?.saldo_acumulado || 0))}
+                  </p>
                 </article>
-                <article className="rounded-3xl border border-white bg-white/50 p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group border-b-orange-200">
+                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group border-b-sky-200">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-sky-600 transition-colors">Ingresos</p>
+                  <p className="mt-2 text-lg sm:text-xl font-black text-sky-600 tabular-nums">+{formatCurrency(totalIngresos)}</p>
+                </article>
+                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group border-b-orange-200">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-orange-600 transition-colors">Gastos</p>
-                  <p className="mt-2 text-2xl font-black text-orange-600 tabular-nums">-{formatCurrency(totalGastos)}</p>
+                  <p className="mt-2 text-lg sm:text-xl font-black text-orange-600 tabular-nums">-{formatCurrency(totalGastos)}</p>
                 </article>
               </div>
             </div>
 
             <div className="rounded-[2rem] border-4 border-white bg-slate-900 p-8 text-white shadow-[0_25px_60px_-15px_rgba(15,23,42,0.4)] transition-transform hover:scale-[1.02]">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Saldo Consolidado</p>
-              <p className="mt-3 font-title text-5xl font-black tabular-nums tracking-tighter leading-none">{formatCurrency(balance)}</p>
+              <div className="mb-6 pb-6 border-b border-white/10">
+                <p className="text-[10px] font-black uppercase tracking-widest text-sky-400 mb-1">Saldo Disponible (Cartera Principal)</p>
+                <p className="font-title text-5xl font-black tabular-nums tracking-tighter leading-none text-white">
+                  {formatCurrency(principalHucha?.saldo_acumulado || 0)}
+                </p>
+              </div>
+
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Saldo Consolidado (Total Huchas)</p>
+              <p className="mt-2 font-title text-3xl font-black tabular-nums tracking-tighter leading-none text-slate-300 opacity-80">{formatCurrency(balance)}</p>
 
               <div className="mt-10 grid grid-cols-2 gap-4 text-sm font-bold">
                 <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 transition-all hover:bg-white/10">
@@ -755,7 +798,7 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {huchas.length > 0 ? (
               huchas.map((h) => {
                 const progress = h.objetivo ? Math.min((h.saldo_acumulado / h.objetivo) * 100, 100) : 0;

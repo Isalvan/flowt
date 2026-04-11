@@ -4,6 +4,7 @@ import hashlib
 import subprocess
 import logging
 import shutil
+import argparse
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
@@ -15,73 +16,114 @@ from gmail_client import get_unread_emails_from_bank, mark_email_as_read
 
 # --- Configuration & Initialization ---
 
-# Load environment variables
-load_dotenv()
+def parse_args():
+    parser = argparse.ArgumentParser(description="Bank Movement Tracker Backend")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    return parser.parse_args()
 
-BANK_SENDER = os.getenv("BANK_SENDER")
-UID_PROPIETARIO = os.getenv("UID_PROPIETARIO")
-MAX_EMAILS_PER_RUN = int(os.getenv("MAX_EMAILS_PER_RUN", "10"))
+# Global config variables (will be initialized in setup_config)
+BANK_SENDER = None
+UID_PROPIETARIO = None
+MAX_EMAILS_PER_RUN = None
+AI_MODEL = None
 PROMPT_VERSION = "v1"
-
-# Setup Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler("tracker.log"),
-        logging.StreamHandler()
-    ]
-)
+args = None
 logger = logging.getLogger(__name__)
 
-# Initialize Firebase
-try:
-    # Look for serviceAccountKey.json in the same directory as the script
-    cred_path = os.path.join(os.path.dirname(__file__), "serviceAccountKey.json")
-    if os.path.exists(cred_path):
-        cred = credentials.Certificate(cred_path)
-        firebase_admin.initialize_app(cred)
-    else:
-        # Fallback to default credentials (e.g. for local emulators or GCP environment)
-        firebase_admin.initialize_app()
+def setup_config(cli_args=None):
+    global BANK_SENDER, UID_PROPIETARIO, MAX_EMAILS_PER_RUN, AI_MODEL, args, logger
+    
+    args = cli_args or argparse.Namespace(verbose=False)
+    
+    # Load environment variables
+    load_dotenv()
+
+    BANK_SENDER = os.getenv("BANK_SENDER")
+    UID_PROPIETARIO = os.getenv("UID_PROPIETARIO")
+    MAX_EMAILS_PER_RUN = int(os.getenv("MAX_EMAILS_PER_RUN", "10"))
+    AI_MODEL = os.getenv("AI_MODEL", "gemini-3-flash-preview")
+
+    # Setup Logging
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    
+    # Clear existing handlers to avoid duplicates during setup_config calls
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+        
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler("tracker.log"),
+            logging.StreamHandler()
+        ]
+    )
+    # Re-get logger after basicConfig
+    logger = logging.getLogger(__name__)
+
+    if args.verbose:
+        logger.debug("Verbose logging enabled.")
+
+    # Initialize Firebase
+    global db
+    if not firebase_admin._apps:
+        try:
+            cred_path = os.path.join(os.path.dirname(__file__), "serviceAccountKey.json")
+            if os.path.exists(cred_path):
+                cred = credentials.Certificate(cred_path)
+                firebase_admin.initialize_app(cred)
+            else:
+                firebase_admin.initialize_app()
+            logger.info("Firebase initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize Firebase: {e}")
+            # In tests we might not want to exit(1)
+            if __name__ == "__main__":
+                exit(1)
+    
     db = firestore.client()
-    logger.info("Firebase initialized successfully.")
-except Exception as e:
-    logger.error(f"Failed to initialize Firebase: {e}")
-    exit(1)
+    return db
+
+# Default DB instance for module-level access if needed (but prefer setup_config)
+db = None
 
 # --- Core Logic ---
 
-def call_gemini_cli(email_body: str) -> Optional[Dict[str, Any]]:
+def call_gemini_cli(email_body: str, email_date: str) -> Optional[Dict[str, Any]]:
     """
     Calls the Gemini CLI to parse the email body using the prompt file and JSON schema.
     """
     prompt_path = os.path.join(os.path.dirname(__file__), "prompt.md")
     schema_path = os.path.join(os.path.dirname(__file__), "schema.json")
     gemini_path = shutil.which("gemini")
-    
+
     if not gemini_path:
         logger.error("Gemini CLI executable not found in PATH.")
         return None
-    
+
     try:
         with open(prompt_path, 'r', encoding='utf-8') as f:
             prompt_content = f.read()
-            
+
         with open(schema_path, 'r', encoding='utf-8') as f:
             schema_content = f.read()
-            
+
         full_input = (
             f"{prompt_content}\n\n"
             f"MANDATORY JSON SCHEMA:\n{schema_content}\n\n"
+            f"FECHA DE ENVÍO DEL CORREO: {email_date}\n\n"
             f"[INICIO DEL CORREO]\n{email_body}\n[FIN DEL CORREO]"
         )
+
+        if args.verbose:
+            logger.debug(f"--- Gemini CLI Input ---\n{full_input}\n--- End Input ---")
         
         # We pass the content via stdin for security. 
         if os.name == 'nt':
-            cmd = f'"{gemini_path}" -p "Analiza el correo y devuelve estrictamente un JSON que cumpla el esquema indicado."'
+            cmd = f'"{gemini_path}" -m {AI_MODEL} -p "Analiza el correo y devuelve estrictamente un JSON que cumpla el esquema indicado."'
         else:
-            cmd = [gemini_path, "-p", "Analiza el correo y devuelve estrictamente un JSON que cumpla el esquema indicado."]
+            cmd = [gemini_path, "-m", AI_MODEL, "-p", "Analiza el correo y devuelve estrictamente un JSON que cumpla el esquema indicado."]
             
         process = subprocess.Popen(
             cmd,
@@ -98,10 +140,20 @@ def call_gemini_cli(email_body: str) -> Optional[Dict[str, Any]]:
             return None
         
         output = stdout.strip()
+        if args.verbose:
+            logger.debug(f"--- Gemini CLI Raw Output ---\n{output}\n--- End Output ---")
+
+        # Extract JSON content even if there's noise around it
         if "```json" in output:
             output = output.split("```json")[1].split("```")[0].strip()
         elif "```" in output:
             output = output.split("```")[1].split("```")[0].strip()
+        else:
+            # Find the first '[' or '{' and the last ']' or '}'
+            import re
+            match = re.search(r'([\[\{].*[\]\}])', output, re.DOTALL)
+            if match:
+                output = match.group(1).strip()
             
         return json.loads(output)
     except subprocess.TimeoutExpired:
@@ -137,17 +189,17 @@ def validate_parsed_data(data: Dict[str, Any]) -> bool:
 @firestore.transactional
 def process_movement_transaction(transaction, mov_ref, movimiento: Dict[str, Any], owner_id: str):
     """
-    Firestore transaction to save the movement and update huchas (both ingreso and gasto).
-    If no huchas exist, it creates a default "Cuenta Principal".
+    Firestore transaction to save the movement and update huchas.
+    Returns True if a new movement was created, False if it already existed.
     """
     # Check if movement already exists
     mov_snapshot = mov_ref.get(transaction=transaction)
     if mov_snapshot.exists:
-        logger.info(f"Movement {mov_ref.id} already exists. Skipping.")
-        return
+        return False
 
     huchas_ref = db.collection("huchas")
     query = huchas_ref.where("id_propietario", "==", owner_id).order_by("orden")
+    # ... rest of the logic remains the same ...
     
     # Get all huchas for the owner - ALL READS MUST HAPPEN FIRST
     huchas_docs = list(query.stream(transaction=transaction))
@@ -208,20 +260,30 @@ def process_movement_transaction(transaction, mov_ref, movimiento: Dict[str, Any
                         distributions[doc.id] = distributions.get(doc.id, 0) + to_add
                         remaining_amount -= to_add
 
-                # 3. Resto
+                # 3. Resto (Income Overflow)
+                # We strictly look for the hucha defined as "resto"
                 resto_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("tipo_aportacion") == "resto"), None)
+                
+                # Fallback: If no "resto" hucha exists, use the one marked as principal
                 if not resto_hucha:
                     resto_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("es_principal")), None)
+                
+                # Final Fallback: First available hucha (to ensure money is always stored)
                 if not resto_hucha and huchas_docs:
                     resto_hucha = huchas_docs[0]
                 
                 if resto_hucha and remaining_amount > 0:
                     distributions[resto_hucha.id] = distributions.get(resto_hucha.id, 0) + remaining_amount
         else:
-            # Es gasto
+            # Es gasto (Default Expense Pocket)
+            # We strictly look for the hucha marked as "principal"
             target_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("es_principal")), None)
+            
+            # Fallback: If no principal hucha exists, use the one defined as "resto"
             if not target_hucha:
                 target_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("tipo_aportacion") == "resto"), None)
+            
+            # Final Fallback: First available
             if not target_hucha and huchas_docs:
                 target_hucha = huchas_docs[0]
                 
@@ -247,6 +309,7 @@ def process_movement_transaction(transaction, mov_ref, movimiento: Dict[str, Any
         movimiento["hucha_id"] = target_gasto_hucha_id
         
     transaction.set(mov_ref, movimiento)
+    return True
 
 import re
 
@@ -269,57 +332,67 @@ def process_emails():
     emails = get_unread_emails_from_bank(BANK_SENDER, MAX_EMAILS_PER_RUN)
     
     for email in emails:
-        # ... (email extraction logic)
+        email_id = email["id"]
+        # message_id = email["message_id"] # We'll use email_id for more consistent testing
+        email_date = email["date_sent"]
         
-        parsed_data = call_gemini_cli(email["body"])
+        raw_movements = call_gemini_cli(email["body"], email_date)
         
-        # Handle array output
-        if isinstance(parsed_data, list) and len(parsed_data) > 0:
-            parsed_data = parsed_data[0]
-        
-        if not parsed_data or not validate_parsed_data(parsed_data):
-            logger.warning(f"Email {email_id} discarded: Invalid or empty data from AI.")
+        if not raw_movements:
+            logger.warning(f"Email {email_id} discarded: No data returned from AI.")
             continue
 
-        # Confidence Threshold Check
-        ai_confidence = parsed_data.get("confianza", "baja").lower()
-        if get_confidence_score(ai_confidence) < get_confidence_score(MIN_CONFIDENCE_THRESHOLD):
-            logger.warning(f"Email {email_id} discarded: Confidence '{ai_confidence}' is below threshold '{MIN_CONFIDENCE_THRESHOLD}'.")
-            continue
-            
-        # Generate secure ID
-        doc_id = hashlib.sha256(message_id.encode()).hexdigest()
+        # Ensure we have a list of movements
+        movements_list = raw_movements if isinstance(raw_movements, list) else [raw_movements]
         
-        # Construct movement document
-        # Map fields from prompt.md to INSTRUCTIONS.md schema
-        movimiento = {
-            "id_propietario": UID_PROPIETARIO,
-            "tipo": parsed_data["tipo"],
-            "concepto": parsed_data.get("descripcion") or parsed_data.get("concepto") or "Sin concepto",
-            "importe": float(parsed_data["importe"]),
-            "moneda": parsed_data.get("moneda", "EUR"),
-            "fecha_operacion": parsed_data["fecha"], # Assuming ISO 8601 from AI
-            "confianza": parsed_data.get("confianza", "alta"),
-            "version_prompt": PROMPT_VERSION,
-            "created_at": firestore.SERVER_TIMESTAMP
-        }
-        
-        try:
-            # Write to Firestore via Transaction
-            mov_ref = db.collection("movimientos").document(doc_id)
-            transaction = db.transaction()
-            process_movement_transaction(transaction, mov_ref, movimiento, UID_PROPIETARIO)
-            
-            logger.info(f"Movement {doc_id} recorded successfully via transaction.")
+        for index, parsed_data in enumerate(movements_list):
+            if not validate_parsed_data(parsed_data):
+                logger.warning(f"Movement {index} from email {email_id} discarded: Invalid data.")
+                continue
+
+            # Confidence Threshold Check
+            ai_confidence = parsed_data.get("confianza", "baja").lower()
+            if get_confidence_score(ai_confidence) < get_confidence_score(MIN_CONFIDENCE_THRESHOLD):
+                logger.warning(f"Movement {index} from email {email_id} discarded: Confidence '{ai_confidence}' below threshold.")
+                continue
                 
-            # Mark as read
-            if mark_email_as_read(email_id):
-                logger.info(f"Email {email_id} marked as processed.")
-            else:
-                logger.error(f"Failed to mark email {email_id} as read.")
+            # Generate secure ID based on Gmail ID and movement index
+            unique_id = f"{email_id}_{index}"
+            doc_id = hashlib.sha256(unique_id.encode()).hexdigest()
             
-        except Exception as e:
-            logger.error(f"Error writing to Firestore for email {email_id}: {e}")
+            # Construct movement document
+            movimiento = {
+                "id_propietario": UID_PROPIETARIO,
+                "tipo": parsed_data["tipo"],
+                "concepto": parsed_data.get("descripcion") or parsed_data.get("concepto") or "Sin concepto",
+                "importe": float(parsed_data["importe"]),
+                "moneda": parsed_data.get("moneda", "EUR"),
+                "fecha_operacion": parsed_data["fecha"],
+                "confianza": parsed_data.get("confianza", "alta"),
+                "version_prompt": PROMPT_VERSION,
+                "created_at": firestore.SERVER_TIMESTAMP,
+                "email_id": email_id
+            }
+            
+            try:
+                mov_ref = db.collection("movimientos").document(doc_id)
+                transaction = db.transaction()
+                # Capture the return value from the transaction
+                was_recorded = process_movement_transaction(transaction, mov_ref, movimiento, UID_PROPIETARIO)
+                
+                if was_recorded:
+                    logger.info(f"Movement {doc_id} (index {index}) recorded successfully.")
+                else:
+                    logger.info(f"Movement {doc_id} (index {index}) already exists. Skipping.")
+                    
+            except Exception as e:
+                logger.error(f"Error saving movement {index} for email {email_id}: {e}")
+
+        # Mark email as read only after processing all its movements
+        if mark_email_as_read(email_id):
+            logger.info(f"Email {email_id} marked as processed.")
+        else:
+            logger.error(f"Failed to mark email {email_id} as read.")
 
 import time
 
@@ -353,6 +426,7 @@ def run_tracker_app():
         time.sleep(cooldown_seconds)
 
 if __name__ == "__main__":
+    setup_config(parse_args())
     if not BANK_SENDER or not UID_PROPIETARIO:
         logger.error("BANK_SENDER or UID_PROPIETARIO not set in .env")
         exit(1)

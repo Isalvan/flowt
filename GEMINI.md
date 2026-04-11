@@ -1,0 +1,38 @@
+# LootRadar - Project Context & Decisions
+
+## Project Overview
+Automated financial tracker that extracts movements (income/expenses) from bank notification emails using Gemini AI and records them in Firestore, distributing funds across "huchas" (savings pockets).
+
+## Architecture
+- **Frontend**: React + Tailwind + Recharts (deployed on Firebase Hosting).
+- **Backend**: Python script (`main.py`) using Gmail API and Gemini CLI.
+- **Database**: Firestore.
+
+## Key Decisions & Implementation Details
+
+### Data Extraction
+- **Model**: `gemini-3-flash-preview` (configurable via `AI_MODEL` in `.env`).
+- **Date Logic**: Uses "FECHA DE ENVÍO DEL CORREO" (Sent Date) from Gmail headers as a fallback or primary date if the email body lacks a specific transaction date.
+- **Multiple Movements**: A single email can contain multiple movements. The system processes all of them.
+- **Deduplication**: Uses a SHA-256 hash of `gmail_id + movement_index` as the Firestore document ID to prevent duplicate processing while allowing multiple movements from the same email.
+- **Robust JSON Parsing**: Implemented regex-based extraction to isolate JSON blocks from Gemini CLI output, ignoring non-JSON noise (logs, MCP warnings).
+
+### Huchas (Savings Pockets) Distribution
+- **Income**: Distributed among huchas based on rules:
+  1. `flat`: Fixed amounts first.
+  2. `porcentaje`: Percentage of the total amount.
+  3. `resto`: Remaining balance goes to the pocket marked as "resto" or "es_principal".
+- **Expenses**: Subtracted directly from the "principal" or "resto" pocket.
+
+### Developer Tools
+- **Verbose Mode**: Run with `--verbose` to see full prompt inputs and raw AI outputs.
+- **Test Suite**: Pytest covered for core logic, multiple movements, and JSON extraction.
+
+## Recent Changes (2026-04-11)
+- Implemented extraction of `Date` header from Gmail.
+- Added instruction to `prompt.md` to prioritize email sent date.
+- Added support for multiple movements per email.
+- Switched deduplication ID to use internal Gmail ID instead of Header Message-ID.
+- Added `--verbose` flag and improved logging.
+- Refactored `main.py` for testability (moved config to `setup_config`).
+- Updated and verified test suite.
