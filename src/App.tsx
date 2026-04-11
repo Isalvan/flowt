@@ -747,17 +747,19 @@ const App: React.FC = () => {
                         {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
                       </p>
                       {m.tipo === 'gasto' && huchas.length > 0 && (
-                        <select
-                          className="text-[9px] font-black uppercase tracking-widest bg-slate-100 border-none text-slate-500 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:bg-white focus:text-sky-600 cursor-pointer transition-all hover:bg-slate-200"
-                          value={m.hucha_id || ''}
-                          onChange={(e) => handleChangeMovimientoHucha(m, e.target.value)}
-                          aria-label="Asignar a hucha"
-                        >
-                          <option value="" disabled>Cartera...</option>
-                          {huchas.map(h => (
-                            <option key={h.id} value={h.id}>{h.nombre}</option>
-                          ))}
-                        </select>
+                        <div className="transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:translate-x-2 sm:group-hover:translate-x-0">
+                          <select
+                            className="text-[9px] font-black uppercase tracking-widest bg-slate-100 border-none text-slate-500 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:bg-white focus:text-sky-600 cursor-pointer transition-all hover:bg-slate-200"
+                            value={m.hucha_id || ''}
+                            onChange={(e) => handleChangeMovimientoHucha(m, e.target.value)}
+                            aria-label="Asignar a hucha"
+                          >
+                            <option value="" disabled>Cartera...</option>
+                            {huchas.map(h => (
+                              <option key={h.id} value={h.id}>{h.nombre}</option>
+                            ))}
+                          </select>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -821,7 +823,7 @@ const App: React.FC = () => {
                         </span>
                       </div>
                       
-                      <div className="flex gap-2 opacity-0 transition-all group-hover:opacity-100 translate-y-2 group-hover:translate-y-0">
+                      <div className="flex gap-2 transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-2 sm:group-hover:translate-y-0">
                         <button 
                           onClick={() => openEditModal(h)}
                           className="flex h-11 w-11 items-center justify-center bg-slate-100 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-2xl transition-all active:scale-90 focus:outline-none focus:ring-4 focus:ring-sky-500/10"
