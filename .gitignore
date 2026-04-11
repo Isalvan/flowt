@@ -7,10 +7,20 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+.venv
+tracker-backend/.venv/
+
+# Build and cache
 dist
 dist-ssr
+.firebase/
 *.local
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
 
 # Editor directories and files
 .vscode/*
@@ -23,9 +33,19 @@ dist-ssr
 *.sln
 *.sw?
 
-# Project specific
+# Project specific / Sensitive
 .env
 serviceAccountKey.json
-tracker-backend/.venv/
 token.json
 credentials.json
+tracker-backend/token.json
+tracker-backend/credentials.json
+tracker-backend/serviceAccountKey.json
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Gemini / Agents
+.codex
+.agents/
