@@ -117,6 +117,17 @@ const App: React.FC = () => {
     amount: 0
   });
 
+  // Delete State
+  const [deleteHuchaData, setDeleteHuchaData] = useState<{
+    hucha: Hucha | null;
+    mode: 'auto' | 'manual';
+    manualDistributions: Record<string, number>;
+  }>({
+    hucha: null,
+    mode: 'auto',
+    manualDistributions: {}
+  });
+
   useEffect(() => {
     if (!import.meta.env.VITE_FIREBASE_API_KEY) {
       setIsFirebaseConfigured(false);
@@ -209,16 +220,97 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeleteHucha = async (id: string) => {
+  const handleDeleteHucha = async (hucha: Hucha) => {
     if (huchas.length === 1) {
-      alert('No puedes eliminar tu única cartera. Crea otra primero.');
+      alert('No puedes eliminar tu unica cartera. Crea otra primero.');
       return;
     }
-    if (!confirm('¿Estás seguro de que quieres eliminar esta cartera?')) return;
+    if (hucha.saldo_acumulado <= 0) {
+      if (!confirm(`¿Estas seguro de que quieres eliminar la cartera "${hucha.nombre}"?`)) return;
+      try {
+        await deleteDoc(doc(db, 'huchas', hucha.id));
+      } catch (error) {
+        console.error("Error al eliminar hucha:", error);
+      }
+    } else {
+      // Tiene fondos, abrir modal de reparticion
+      const initialDistributions: Record<string, number> = {};
+      huchas.filter(h => h.id !== hucha.id).forEach(h => initialDistributions[h.id] = 0);
+      setDeleteHuchaData({ hucha, mode: 'auto', manualDistributions: initialDistributions });
+    }
+  };
+
+  const confirmDeleteHuchaWithFunds = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { hucha, mode, manualDistributions } = deleteHuchaData;
+    if (!hucha || hucha.saldo_acumulado <= 0) return;
+
     try {
-      await deleteDoc(doc(db, 'huchas', id));
-    } catch (error) {
-      console.error("Error al eliminar hucha:", error);
+      await runTransaction(db, async (transaction) => {
+        const remainingHuchas = huchas.filter(h => h.id !== hucha.id);
+        let dists: Record<string, number> = {};
+        
+        if (mode === 'auto') {
+          // Auto distribution logic (same as backend)
+          let remaining = hucha.saldo_acumulado;
+          
+          remainingHuchas.forEach(h => {
+            if (h.tipo_aportacion === 'flat' && remaining > 0) {
+              const val = h.valor_aportacion || 0;
+              const toAdd = Math.min(val, remaining);
+              dists[h.id] = toAdd;
+              remaining -= toAdd;
+            }
+          });
+          
+          remainingHuchas.forEach(h => {
+            if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
+              const perc = h.valor_aportacion || 0;
+              let toAdd = hucha.saldo_acumulado * (perc / 100);
+              toAdd = Math.min(toAdd, remaining);
+              dists[h.id] = (dists[h.id] || 0) + toAdd;
+              remaining -= toAdd;
+            }
+          });
+          
+          let restoHucha = remainingHuchas.find(h => h.tipo_aportacion === 'resto') 
+                        || remainingHuchas.find(h => h.es_principal)
+                        || remainingHuchas[0];
+                        
+          if (restoHucha && remaining > 0) {
+            dists[restoHucha.id] = (dists[restoHucha.id] || 0) + remaining;
+          }
+        } else {
+          // Manual distribution logic
+          let sum = 0;
+          Object.values(manualDistributions).forEach(val => sum += val);
+          // Allow small floating point differences
+          if (Math.abs(sum - hucha.saldo_acumulado) > 0.01) {
+            throw new Error(`Debes distribuir exactamente ${formatCurrency(hucha.saldo_acumulado)}`);
+          }
+          dists = manualDistributions;
+        }
+
+        // Apply
+        const huchaRefs = remainingHuchas.map(h => doc(db, 'huchas', h.id));
+        const huchaDocs = await Promise.all(huchaRefs.map(ref => transaction.get(ref)));
+        
+        transaction.delete(doc(db, 'huchas', hucha.id));
+        
+        huchaDocs.forEach(d => {
+          if (d.exists() && dists[d.id]) {
+            transaction.update(d.ref, {
+              saldo_acumulado: (d.data().saldo_acumulado || 0) + dists[d.id],
+              updated_at: serverTimestamp()
+            });
+          }
+        });
+      });
+
+      setDeleteHuchaData({ hucha: null, mode: 'auto', manualDistributions: {} });
+    } catch (error: any) {
+      console.error("Error distribuyendo hucha:", error);
+      alert(error.message || "Error al eliminar la hucha.");
     }
   };
 
@@ -669,7 +761,7 @@ const App: React.FC = () => {
                           <Edit size={14} />
                         </button>
                         <button 
-                          onClick={() => handleDeleteHucha(h.id)}
+                          onClick={() => handleDeleteHucha(h)}
                           className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                           title="Eliminar hucha"
                         >
@@ -892,6 +984,100 @@ const App: React.FC = () => {
                   className="flex-1 px-4 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700 transition shadow-lg shadow-sky-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Transferir
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Eliminar Hucha con Fondos */}
+      {deleteHuchaData.hucha && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-appear-up">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">Eliminar Cartera</h3>
+              <button 
+                onClick={() => setDeleteHuchaData({ hucha: null, mode: 'auto', manualDistributions: {} })}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X size={20} className="text-slate-500" />
+              </button>
+            </div>
+
+            <form onSubmit={confirmDeleteHuchaWithFunds} className="p-6 space-y-4">
+              <div className="rounded-2xl border border-amber-300 bg-amber-50/85 px-4 py-3 text-sm text-amber-900">
+                <p>
+                  La cartera <strong>"{deleteHuchaData.hucha.nombre}"</strong> contiene <strong>{formatCurrency(deleteHuchaData.hucha.saldo_acumulado)}</strong>.
+                  ¿Qué quieres hacer con este dinero?
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Método de distribución</label>
+                <select
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition"
+                  value={deleteHuchaData.mode}
+                  onChange={(e) => setDeleteHuchaData({...deleteHuchaData, mode: e.target.value as 'auto'|'manual'})}
+                >
+                  <option value="auto">Repartir automáticamente (según reglas)</option>
+                  <option value="manual">Distribuir manualmente</option>
+                </select>
+              </div>
+
+              {deleteHuchaData.mode === 'manual' && (
+                <div className="space-y-3 pt-2">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Asigna los fondos a las demás carteras:</p>
+                  {huchas.filter(h => h.id !== deleteHuchaData.hucha?.id).map(h => (
+                    <div key={h.id} className="flex items-center justify-between gap-3">
+                      <label className="text-sm font-medium text-slate-700 truncate flex-1">{h.nombre}</label>
+                      <div className="relative w-32">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="w-full px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-right pr-6"
+                          value={deleteHuchaData.manualDistributions[h.id] || ''}
+                          onChange={(e) => setDeleteHuchaData({
+                            ...deleteHuchaData,
+                            manualDistributions: {
+                              ...deleteHuchaData.manualDistributions,
+                              [h.id]: Number(e.target.value)
+                            }
+                          })}
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">€</span>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div className="pt-2 flex items-center justify-between text-sm">
+                    <span className="font-semibold text-slate-700">Total asignado:</span>
+                    <span className={`font-bold ${
+                      Object.values(deleteHuchaData.manualDistributions).reduce((a,b)=>a+b, 0) === deleteHuchaData.hucha.saldo_acumulado
+                        ? 'text-emerald-600'
+                        : 'text-rose-600'
+                    }`}>
+                      {formatCurrency(Object.values(deleteHuchaData.manualDistributions).reduce((a,b)=>a+b, 0))} / {formatCurrency(deleteHuchaData.hucha.saldo_acumulado)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteHuchaData({ hucha: null, mode: 'auto', manualDistributions: {} })}
+                  className="flex-1 px-4 py-3 rounded-xl border border-slate-200 font-semibold text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={deleteHuchaData.mode === 'manual' && Math.abs(Object.values(deleteHuchaData.manualDistributions).reduce((a,b)=>a+b, 0) - deleteHuchaData.hucha.saldo_acumulado) > 0.01}
+                  className="flex-1 px-4 py-3 rounded-xl bg-rose-600 text-white font-semibold hover:bg-rose-700 transition shadow-lg shadow-rose-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Eliminar Cartera
                 </button>
               </div>
             </form>
