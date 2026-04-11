@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Regla base: El usuario debe estar autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Regla base: El documento pertenece al usuario
+    function isOwner(data) {
+      return request.auth.uid == data.id_propietario;
+    }
+
+    match /movimientos/{movimiento} {
+      // Permitir crear si es el dueño
+      allow create: if isAuthenticated() && isOwner(request.resource.data);
+      
+      // Permitir leer (get y list) si el documento ya tiene su UID
+      allow read: if isAuthenticated() && isOwner(resource.data);
+    }
+
+    match /huchas/{hucha} {
+      allow create: if isAuthenticated() && isOwner(request.resource.data);
+      
+      // En update, verificamos que no se intente cambiar el dueño
+      allow read, update: if isAuthenticated() && isOwner(resource.data);
+      
+      // Permitir borrar al dueño (añadido para que puedas gestionar tus huchas)
+      allow delete: if isAuthenticated() && isOwner(resource.data);
+    }
+  }
+}
