@@ -17,6 +17,8 @@ import {
   doc,
   serverTimestamp,
   runTransaction,
+  startAfter,
+  getDocs,
 } from 'firebase/firestore';
 import {
   BarChart,
@@ -129,6 +131,53 @@ const App: React.FC = () => {
     manualDistributions: {}
   });
 
+  // History State
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [history, setHistory] = useState<Movimiento[]>([]);
+  const [lastDoc, setLastDoc] = useState<any>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const openHistoryModal = async () => {
+    setIsHistoryModalOpen(true);
+    setHistory([]);
+    setLastDoc(null);
+    setHasMore(true);
+    await loadMoreHistory(true);
+  };
+
+  const loadMoreHistory = async (reset = false) => {
+    if (!user || isHistoryLoading || (!hasMore && !reset)) return;
+    
+    setIsHistoryLoading(true);
+    try {
+      const q = query(
+        collection(db, 'movimientos'),
+        where('id_propietario', '==', user.uid),
+        orderBy('fecha_operacion', 'desc'),
+        ...(reset ? [] : [startAfter(lastDoc)]),
+        limit(15)
+      );
+
+      const snapshot = await getDocs(q);
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Movimiento));
+      
+      if (reset) {
+        setHistory(docs);
+      } else {
+        setHistory(prev => [...prev, ...docs]);
+      }
+      
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      setHasMore(snapshot.docs.length === 15);
+    } catch (error) {
+      console.error("Error fetching history:", error);
+      showToast("Error al cargar el historial");
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
   // UI Feedback State
   const [toast, setToast] = useState<{message: string, type: 'error' | 'success'} | null>(null);
   const [confirmModal, setConfirmModal] = useState<{
@@ -186,7 +235,7 @@ const App: React.FC = () => {
       collection(db, 'movimientos'),
       where('id_propietario', '==', user.uid),
       orderBy('fecha_operacion', 'desc'),
-      limit(20),
+      limit(5),
     );
 
     const unsubMov = onSnapshot(qMov, (snapshot) => {
@@ -757,7 +806,10 @@ const App: React.FC = () => {
           <article className="glass-panel rounded-[2.5rem] p-8 shadow-xl transition-all hover:shadow-2xl">
             <div className="mb-8 flex items-center justify-between gap-4">
               <h3 className="section-title text-slate-900 font-black uppercase tracking-widest text-[11px]">Actividad Reciente</h3>
-              <button className="h-10 px-5 rounded-2xl bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-200 hover:text-slate-900 active:scale-95 focus:outline-none focus:ring-4 focus:ring-slate-100">
+              <button 
+                onClick={openHistoryModal}
+                className="h-10 px-5 rounded-2xl bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-200 hover:text-slate-900 active:scale-95 focus:outline-none focus:ring-4 focus:ring-slate-100"
+              >
                 Historial
               </button>
             </div>
@@ -1233,6 +1285,95 @@ const App: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Historial Completo */}
+      {isHistoryModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-xl animate-fade-in" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl h-[85vh] flex flex-col overflow-hidden border-4 border-white animate-in fade-in zoom-in duration-300">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-xl shadow-slate-900/20">
+                  <ReceiptText size={24} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">Historial Completo</h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Todos tus movimientos</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="h-12 w-12 flex items-center justify-center rounded-2xl bg-white border-2 border-slate-100 text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all active:scale-90 shadow-sm"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 space-y-4 custom-scrollbar bg-white">
+              {history.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between rounded-3xl border border-slate-50 bg-slate-50/30 p-5 transition-all hover:border-sky-100 hover:bg-white hover:shadow-xl group"
+                >
+                  <div className="flex items-center gap-5">
+                    <div
+                      className={`flex h-12 w-12 items-center justify-center rounded-2xl shadow-sm transition-transform group-hover:scale-110 ${
+                        m.tipo === 'ingreso'
+                          ? 'bg-sky-50 text-sky-600 ring-1 ring-sky-100'
+                          : 'bg-orange-50 text-orange-600 ring-1 ring-orange-100'
+                      }`}
+                    >
+                      {m.tipo === 'ingreso' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                    </div>
+                    <div>
+                      <p className="text-base font-black text-slate-900 tracking-tight leading-none">{m.concepto}</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{formatDate(m.fecha_operacion)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2">
+                    <p className={`text-lg font-black tabular-nums ${m.tipo === 'ingreso' ? 'text-sky-700' : 'text-orange-700'}`}>
+                      {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
+                    </p>
+                    {m.tipo === 'gasto' && huchas.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">Hucha:</span>
+                        <select
+                          className="text-[9px] font-black uppercase tracking-widest bg-white border-2 border-slate-100 text-slate-500 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:text-sky-600 cursor-pointer transition-all hover:bg-slate-50"
+                          value={m.hucha_id || ''}
+                          onChange={(e) => handleChangeMovimientoHucha(m, e.target.value)}
+                        >
+                          <option value="" disabled>Seleccionar...</option>
+                          {huchas.map(h => (
+                            <option key={h.id} value={h.id}>{h.nombre}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {hasMore && (
+                <div className="pt-6">
+                  <button
+                    onClick={() => loadMoreHistory()}
+                    disabled={isHistoryLoading}
+                    className="w-full py-5 rounded-3xl border-4 border-dashed border-slate-100 text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] hover:border-sky-200 hover:text-sky-500 hover:bg-sky-50/30 transition-all active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {isHistoryLoading ? 'Cargando...' : 'Cargar más movimientos'}
+                  </button>
+                </div>
+              )}
+
+              {!hasMore && history.length > 0 && (
+                <div className="py-10 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Fin del historial</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
