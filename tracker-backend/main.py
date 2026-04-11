@@ -311,9 +311,40 @@ def process_emails():
         except Exception as e:
             logger.error(f"Error writing to Firestore for email {email_id}: {e}")
 
+import time
+
+def run_tracker_app():
+    """
+    Runs the tracker app continuously with a cooldown and retries.
+    """
+    logger.info("Starting Tracker App. Press Ctrl+C to exit.")
+    cooldown_seconds = 120  # 2 minutes
+    max_retries = 3
+    
+    while True:
+        retries = 0
+        success = False
+        
+        while retries < max_retries and not success:
+            try:
+                logger.info("Checking for new bank emails...")
+                process_emails()
+                success = True
+            except Exception as e:
+                retries += 1
+                logger.error(f"Error during email processing (Attempt {retries}/{max_retries}): {e}")
+                if retries < max_retries:
+                    time.sleep(5)  # Short wait before retry
+                
+        if not success:
+            logger.error("Max retries reached. Waiting for next cycle.")
+            
+        logger.info(f"Sleeping for {cooldown_seconds // 60} minutes...")
+        time.sleep(cooldown_seconds)
+
 if __name__ == "__main__":
     if not BANK_SENDER or not UID_PROPIETARIO:
         logger.error("BANK_SENDER or UID_PROPIETARIO not set in .env")
         exit(1)
         
-    process_emails()
+    run_tracker_app()
