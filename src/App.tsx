@@ -46,6 +46,7 @@ import {
   ArrowRightLeft,
   AlertTriangle,
   CheckCircle2,
+  Download,
 } from 'lucide-react';
 import { auth, db } from './firebase';
 
@@ -136,9 +137,29 @@ const App: React.FC = () => {
     onConfirm: () => void;
   } | null>(null);
 
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+
   const showToast = (message: string, type: 'error' | 'success' = 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+    }
   };
 
   useEffect(() => {
@@ -581,8 +602,19 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {user && (
-            <div className="flex items-center gap-2 rounded-full border border-slate-100 bg-white p-1.5 shadow-sm transition-shadow hover:shadow-md sm:gap-3 sm:pr-5">
+          <div className="flex items-center gap-2">
+            {installPrompt && (
+              <button
+                onClick={handleInstallApp}
+                className="hidden sm:inline-flex items-center gap-2 rounded-xl bg-sky-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-sky-600 border border-sky-100 hover:bg-sky-100 transition-all active:scale-95 mr-2"
+              >
+                <Download size={14} />
+                Descargar App
+              </button>
+            )}
+            
+            {user && (
+              <div className="flex items-center gap-2 rounded-full border border-slate-100 bg-white p-1.5 shadow-sm transition-shadow hover:shadow-md sm:gap-3 sm:pr-5">
               <img
                 src={user.photoURL || ''}
                 alt=""
@@ -601,6 +633,7 @@ const App: React.FC = () => {
               </button>
             </div>
           )}
+          </div>
         </div>
       </header>
 
@@ -628,6 +661,16 @@ const App: React.FC = () => {
               <p className="mt-4 text-base font-bold text-slate-400 sm:text-lg">
                 Ingresos y gastos en tiempo real.
               </p>
+
+              {installPrompt && (
+                <button
+                  onClick={handleInstallApp}
+                  className="mt-6 flex w-full sm:hidden items-center justify-center gap-3 rounded-2xl bg-sky-500 p-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-sky-500/20 active:scale-95 transition-all"
+                >
+                  <Download size={18} />
+                  Instalar Aplicación
+                </button>
+              )}
 
               <div className="mt-10 grid gap-4 grid-cols-2 lg:grid-cols-4">
                 <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group">
