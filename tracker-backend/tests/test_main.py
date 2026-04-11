@@ -187,6 +187,72 @@ def test_process_multiple_movements_success(mock_config, mock_gmail_client, mock
     # Verify email marked as read only once
     mock_mark.assert_called_once_with("multi-msg")
 
+def test_process_income_resto_decoupling(mock_config, mock_gmail_client, mock_subprocess):
+    mock_get, mock_mark = mock_gmail_client
+    mock_firestore, mock_collection = mock_config
+    
+    mock_get.return_value = [{"id": "inc-1", "message_id": "m1", "from": "b", "date_sent": "d", "body": "b"}]
+    mock_subprocess.return_value.communicate.return_value = ('[{"tipo": "ingreso", "importe": 100.0, "fecha": "2024-10-25", "descripcion": "I", "moneda": "EUR", "confianza": "alta"}]', '')
+    mock_subprocess.return_value.returncode = 0
+    
+    mock_doc = MagicMock()
+    mock_collection.document.return_value = mock_doc
+    mock_doc.get.return_value.exists = False
+    
+    # Two huchas: one principal, one resto. Income should go to resto.
+    mock_hucha_principal = MagicMock()
+    mock_hucha_principal.id = "h-principal"
+    mock_hucha_principal.to_dict.return_value = {"tipo_aportacion": "flat", "valor_aportacion": 0, "es_principal": True, "saldo_acumulado": 0}
+    
+    mock_hucha_resto = MagicMock()
+    mock_hucha_resto.id = "h-resto"
+    mock_hucha_resto.to_dict.return_value = {"tipo_aportacion": "resto", "es_principal": False, "saldo_acumulado": 0}
+    
+    mock_query = MagicMock()
+    mock_query.stream.return_value = [mock_hucha_principal, mock_hucha_resto]
+    mock_collection.where.return_value.order_by.return_value = mock_query
+    
+    main.process_emails()
+    
+    # Check that transaction.update was called for h-resto with the full amount
+    mock_firestore.transaction.return_value.update.assert_any_call(
+        mock_collection.document("h-resto"),
+        pytest.approx({"saldo_acumulado": 100.0, "updated_at": main.firestore.SERVER_TIMESTAMP})
+    )
+
+def test_process_expense_principal_decoupling(mock_config, mock_gmail_client, mock_subprocess):
+    mock_get, mock_mark = mock_gmail_client
+    mock_firestore, mock_collection = mock_config
+    
+    mock_get.return_value = [{"id": "exp-1", "message_id": "m2", "from": "b", "date_sent": "d", "body": "b"}]
+    mock_subprocess.return_value.communicate.return_value = ('[{"tipo": "gasto", "importe": 50.0, "fecha": "2024-10-25", "descripcion": "G", "moneda": "EUR", "confianza": "alta"}]', '')
+    mock_subprocess.return_value.returncode = 0
+    
+    mock_doc = MagicMock()
+    mock_collection.document.return_value = mock_doc
+    mock_doc.get.return_value.exists = False
+    
+    # Two huchas: one principal, one resto. Expense should come from principal.
+    mock_hucha_principal = MagicMock()
+    mock_hucha_principal.id = "h-principal"
+    mock_hucha_principal.to_dict.return_value = {"tipo_aportacion": "flat", "valor_aportacion": 0, "es_principal": True, "saldo_acumulado": 100}
+    
+    mock_hucha_resto = MagicMock()
+    mock_hucha_resto.id = "h-resto"
+    mock_hucha_resto.to_dict.return_value = {"tipo_aportacion": "resto", "es_principal": False, "saldo_acumulado": 100}
+    
+    mock_query = MagicMock()
+    mock_query.stream.return_value = [mock_hucha_principal, mock_hucha_resto]
+    mock_collection.where.return_value.order_by.return_value = mock_query
+    
+    main.process_emails()
+    
+    # Check that transaction.update was called for h-principal subtracting the amount
+    mock_firestore.transaction.return_value.update.assert_any_call(
+        mock_collection.document("h-principal"),
+        pytest.approx({"saldo_acumulado": 50.0, "updated_at": main.firestore.SERVER_TIMESTAMP})
+    )
+
 def test_validate_parsed_data():
     assert main.validate_parsed_data({"tipo": "gasto", "importe": 50.0, "fecha": "2024-10-25"}) == True
     assert main.validate_parsed_data({"tipo": "invalid", "importe": 50.0, "fecha": "2024-10-25"}) == False
