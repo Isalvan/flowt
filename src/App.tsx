@@ -49,6 +49,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Download,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { auth, db } from './firebase';
 
@@ -115,6 +117,10 @@ const formatDate = (dateValue: any) => {
 };
 
 const App: React.FC = () => {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light';
+    return window.localStorage.getItem('flowt-theme') === 'dark' ? 'dark' : 'light';
+  });
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
@@ -234,6 +240,11 @@ const App: React.FC = () => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   };
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    window.localStorage.setItem('flowt-theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -694,6 +705,15 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-100 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 active:scale-95"
+              aria-label={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
+              title={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
+            >
+              {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+              <span className="hidden sm:inline">{theme === 'light' ? 'Oscuro' : 'Claro'}</span>
+            </button>
             {installPrompt && (
               <button
                 onClick={handleInstallApp}
