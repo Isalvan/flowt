@@ -28,6 +28,12 @@ Automated financial tracker that extracts movements (income/expenses) from bank 
 - **Verbose Mode**: Run with `--verbose` to see full prompt inputs and raw AI outputs.
 - **Test Suite**: Pytest covered for core logic, multiple movements, and JSON extraction.
 
+## Recent Changes (2026-04-12)
+- Fixed `'charmap' codec can't encode characters` error in `call_gemini_cli` by implementing `strip_non_cp1252` cleaning.
+- Resolved process hangs by refactoring `call_gemini_cli` to use a stable text-mode pipe with `utf-8` encoding and `replace` error handling, ensuring compatibility between the Python backend and the Node-based Gemini CLI.
+- Added robust timeout (60s) and error logging to the AI communication loop.
+- Verified character cleaning preserves accents (áéíóúñ) while removing emojis.
+
 ## Recent Changes (2026-04-11)
 - Implemented extraction of `Date` header from Gmail.
 - Added instruction to `prompt.md` to prioritize email sent date.

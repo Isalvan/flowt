@@ -87,8 +87,28 @@ const MOCK_HUCHAS: Hucha[] = [
 const formatCurrency = (value: number) =>
   value.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
+const parseMovimientoDate = (dateValue: any): Date | null => {
+  if (!dateValue) return null;
+
+  if (dateValue?.toDate instanceof Function) {
+    const d = dateValue.toDate();
+    return d instanceof Date && !Number.isNaN(d.getTime()) ? d : null;
+  }
+
+  if (dateValue instanceof Date) {
+    return !Number.isNaN(dateValue.getTime()) ? dateValue : null;
+  }
+
+  if (typeof dateValue === 'string') {
+    const d = new Date(dateValue);
+    return !Number.isNaN(d.getTime()) ? d : null;
+  }
+
+  return null;
+};
+
 const formatDate = (dateValue: any) => {
-  const value = dateValue?.toDate?.();
+  const value = parseMovimientoDate(dateValue);
   return value instanceof Date && !Number.isNaN(value.getTime())
     ? value.toLocaleDateString('es-ES')
     : '---';
@@ -187,6 +207,28 @@ const App: React.FC = () => {
   } | null>(null);
 
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+  // Movement Editing State
+  const [editingMovimientoId, setEditingMovimientoId] = useState<string | null>(null);
+  const [tempConcepto, setTempConcepto] = useState("");
+
+  const handleUpdateMovimientoConcepto = async (movId: string) => {
+    if (!tempConcepto.trim()) {
+      setEditingMovimientoId(null);
+      return;
+    }
+    try {
+      const movRef = doc(db, 'movimientos', movId);
+      await runTransaction(db, async (transaction) => {
+        transaction.update(movRef, { concepto: tempConcepto.trim() });
+      });
+      setEditingMovimientoId(null);
+      showToast("Concepto actualizado", "success");
+    } catch (error) {
+      console.error("Error al actualizar concepto:", error);
+      showToast("Error al actualizar el nombre");
+    }
+  };
 
   const showToast = (message: string, type: 'error' | 'success' = 'error') => {
     setToast({ message, type });
@@ -552,7 +594,7 @@ const App: React.FC = () => {
       months[key] = { name, ingresos: 0, gastos: 0 };
     }
     movimientos.forEach((m) => {
-      const date = m.fecha_operacion?.toDate?.() || new Date();
+      const date = parseMovimientoDate(m.fecha_operacion) || new Date();
       const key = `${date.getFullYear()}-${date.getMonth()}`;
       if (months[key]) {
         if (m.tipo === 'ingreso') months[key].ingresos += m.importe;
@@ -832,7 +874,48 @@ const App: React.FC = () => {
                         {m.tipo === 'ingreso' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
                       </div>
                       <div>
-                        <p className="text-sm font-black text-slate-900 tracking-tight">{m.concepto}</p>
+                        {editingMovimientoId === m.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              autoFocus
+                              type="text"
+                              className="text-sm font-black text-slate-900 tracking-tight bg-slate-50 border-2 border-sky-100 rounded-xl px-2 py-1 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:bg-white"
+                              value={tempConcepto}
+                              onChange={(e) => setTempConcepto(e.target.value)}
+                              onBlur={() => handleUpdateMovimientoConcepto(m.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleUpdateMovimientoConcepto(m.id);
+                                if (e.key === 'Escape') setEditingMovimientoId(null);
+                              }}
+                            />
+                            <button
+                              onClick={() => handleUpdateMovimientoConcepto(m.id)}
+                              className="text-emerald-500 hover:text-emerald-600 transition-colors"
+                            >
+                              <CheckCircle2 size={16} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 group/concept">
+                            <p 
+                              className="text-sm font-black text-slate-900 tracking-tight cursor-pointer hover:text-sky-600 transition-colors"
+                              onClick={() => {
+                                setEditingMovimientoId(m.id);
+                                setTempConcepto(m.concepto);
+                              }}
+                            >
+                              {m.concepto}
+                            </p>
+                            <Edit 
+                              size={12} 
+                              className="text-slate-300 opacity-0 group-hover/concept:opacity-100 transition-opacity cursor-pointer hover:text-sky-500" 
+                              onClick={() => {
+                                setEditingMovimientoId(m.id);
+                                setTempConcepto(m.concepto);
+                              }}
+                            />
+                          </div>
+                        )}
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{formatDate(m.fecha_operacion)}</p>
                       </div>
                     </div>
@@ -1328,7 +1411,48 @@ const App: React.FC = () => {
                       {m.tipo === 'ingreso' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
                     </div>
                     <div>
-                      <p className="text-base font-black text-slate-900 tracking-tight leading-none">{m.concepto}</p>
+                      {editingMovimientoId === m.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            autoFocus
+                            type="text"
+                            className="text-sm font-black text-slate-900 tracking-tight bg-slate-50 border-2 border-sky-100 rounded-xl px-2 py-1 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:bg-white"
+                            value={tempConcepto}
+                            onChange={(e) => setTempConcepto(e.target.value)}
+                            onBlur={() => handleUpdateMovimientoConcepto(m.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleUpdateMovimientoConcepto(m.id);
+                              if (e.key === 'Escape') setEditingMovimientoId(null);
+                            }}
+                          />
+                          <button
+                            onClick={() => handleUpdateMovimientoConcepto(m.id)}
+                            className="text-emerald-500 hover:text-emerald-600 transition-colors"
+                          >
+                            <CheckCircle2 size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 group/concept">
+                          <p 
+                            className="text-base font-black text-slate-900 tracking-tight leading-none cursor-pointer hover:text-sky-600 transition-colors"
+                            onClick={() => {
+                              setEditingMovimientoId(m.id);
+                              setTempConcepto(m.concepto);
+                            }}
+                          >
+                            {m.concepto}
+                          </p>
+                          <Edit 
+                            size={12} 
+                            className="text-slate-300 opacity-0 group-hover/concept:opacity-100 transition-opacity cursor-pointer hover:text-sky-500" 
+                            onClick={() => {
+                              setEditingMovimientoId(m.id);
+                              setTempConcepto(m.concepto);
+                            }}
+                          />
+                        </div>
+                      )}
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{formatDate(m.fecha_operacion)}</p>
                     </div>
                   </div>

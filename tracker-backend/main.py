@@ -5,6 +5,10 @@ import subprocess
 import logging
 import shutil
 import argparse
+import signal
+import tempfile
+import re
+from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
@@ -88,6 +92,111 @@ def setup_config(cli_args=None):
 # Default DB instance for module-level access if needed (but prefer setup_config)
 db = None
 
+# --- Helpers ---
+
+def strip_non_cp1252(text: str) -> str:
+    """
+    Removes characters that cannot be encoded in cp1252 (Windows default).
+    This prevents 'charmap' codec crashes on Windows shells/pipes.
+    """
+    if not text:
+        return text
+    # Encode to cp1252 and ignore errors, then decode back to string
+    return text.encode('cp1252', errors='ignore').decode('cp1252')
+
+def terminate_process_tree(process: subprocess.Popen) -> None:
+    """
+    Kills the full Gemini process tree to avoid zombie/child hangs.
+    """
+    if process.poll() is not None:
+        return
+
+    try:
+        if os.name == 'nt':
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=10
+            )
+        else:
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+    except Exception:
+        process.kill()
+
+def parse_amount(amount_text: str) -> Optional[float]:
+    if not amount_text:
+        return None
+    normalized = amount_text.replace(" ", "")
+    # 1.234,56 -> 1234.56
+    if "," in normalized and "." in normalized:
+        normalized = normalized.replace(".", "").replace(",", ".")
+    else:
+        normalized = normalized.replace(",", ".")
+    try:
+        return float(normalized)
+    except ValueError:
+        return None
+
+def fallback_extract_movement(email_body: str, email_date: str) -> Optional[List[Dict[str, Any]]]:
+    """
+    Lightweight extractor used when Gemini CLI times out.
+    """
+    body = email_body or ""
+    body_l = body.lower()
+
+    amount = None
+    currency = None
+
+    amount_patterns = [
+        r"(?:cargad[oa].{0,80}?cantidad de|importe de)\s*\*?([0-9\.\,]+)\s*([A-Z]{3}|EUR|USD|GBP)",
+        r"([0-9\.\,]+)\s*(EUR|USD|GBP|[A-Z]{3})"
+    ]
+
+    for pattern in amount_patterns:
+        match = re.search(pattern, body, re.IGNORECASE | re.DOTALL)
+        if match:
+            amount = parse_amount(match.group(1))
+            currency = (match.group(2) or "").upper()
+            if amount is not None:
+                break
+
+    concept_match = re.search(r"concepto(?:\s+de)?\s*[:\-]?\s*\*?([^*\n\.]+)", body, re.IGNORECASE)
+    concept = concept_match.group(1).strip() if concept_match else None
+
+    is_gasto = any(k in body_l for k in ["cargo", "compra", "pago", "domiciliaci", "retirada"])
+    is_ingreso = any(k in body_l for k in ["abono", "ingreso", "transferencia entrante", "devoluci", "nómina", "nomina"])
+
+    if is_gasto and not is_ingreso:
+        tipo = "gasto"
+    elif is_ingreso and not is_gasto:
+        tipo = "ingreso"
+    else:
+        tipo = None
+
+    try:
+        dt = parsedate_to_datetime(email_date)
+        fecha_iso = dt.isoformat()
+    except Exception:
+        fecha_iso = None
+
+    if tipo is None or amount is None:
+        return None
+
+    if concept:
+        descripcion = f"{'Cargo' if tipo == 'gasto' else 'Abono'} {concept}".strip()
+    else:
+        descripcion = "Movimiento bancario detectado"
+
+    return [{
+        "tipo": tipo,
+        "importe": amount,
+        "moneda": currency or "EUR",
+        "fecha": fecha_iso,
+        "descripcion": descripcion[:100],
+        "confianza": "media"
+    }]
+
 # --- Core Logic ---
 
 def call_gemini_cli(email_body: str, email_date: str) -> Optional[Dict[str, Any]]:
@@ -116,27 +225,87 @@ def call_gemini_cli(email_body: str, email_date: str) -> Optional[Dict[str, Any]
             f"[INICIO DEL CORREO]\n{email_body}\n[FIN DEL CORREO]"
         )
 
+        # Clean input for Windows cp1252 compatibility (strips emojis, etc.)
+        full_input = strip_non_cp1252(full_input)
+
         if args.verbose:
             logger.debug(f"--- Gemini CLI Input ---\n{full_input}\n--- End Input ---")
         
-        # We pass the content via stdin for security. 
-        if os.name == 'nt':
-            cmd = f'"{gemini_path}" -m {AI_MODEL} -p "Analiza el correo y devuelve estrictamente un JSON que cumpla el esquema indicado."'
+        # Define command in non-interactive mode.
+        # On Windows, .cmd launchers are more stable through cmd /c.
+        prompt_instruction = "Analiza el correo y devuelve estrictamente un JSON que cumpla el esquema indicado."
+        if os.name == 'nt' and gemini_path.lower().endswith(('.cmd', '.bat')):
+            cmd = ["cmd.exe", "/c", gemini_path, "-m", AI_MODEL, "-p", prompt_instruction]
         else:
-            cmd = [gemini_path, "-m", AI_MODEL, "-p", "Analiza el correo y devuelve estrictamente un JSON que cumpla el esquema indicado."]
-            
-        process = subprocess.Popen(
-            cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            shell=(os.name == 'nt')
-        )
-        stdout, stderr = process.communicate(input=full_input, timeout=60)
+            cmd = [gemini_path, "-m", AI_MODEL, "-p", prompt_instruction]
+
+        timeout_seconds = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "120"))
+        env = os.environ.copy()
+        env.setdefault("CI", "1")
+        env.setdefault("GEMINI_DISABLE_EXTENSIONS", "1")
+        env.setdefault("GEMINI_NO_HOOKS", "1")
+
+        temp_prompt_path = None
+        try:
+            # Avoid stdin deadlocks in Windows shells by passing prompt through @temp_file.
+            # Gemini CLI accepts "-p @<file_path>" to load prompt content from disk.
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".txt",
+                delete=False,
+                encoding="utf-8",
+                newline="\n"
+            ) as temp_prompt_file:
+                temp_prompt_file.write(full_input)
+                temp_prompt_path = temp_prompt_file.name
+
+            cmd = cmd[:-1] + [f"@{temp_prompt_path}"]
+            if args.verbose:
+                logger.debug(f"Launching Gemini CLI (timeout={timeout_seconds}s): {' '.join(cmd)}")
+
+            popen_kwargs = {
+                "stdout": subprocess.PIPE,
+                "stderr": subprocess.PIPE,
+                "text": True,
+                "encoding": "utf-8",
+                "errors": "replace",
+                "shell": False,
+                "env": env
+            }
+            if os.name == 'nt':
+                popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+            else:
+                popen_kwargs["preexec_fn"] = os.setsid
+
+            process = subprocess.Popen(
+                cmd,
+                **popen_kwargs
+            )
+            stdout, stderr = process.communicate(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            terminate_process_tree(process)
+            logger.error(f"Timeout calling Gemini CLI after {timeout_seconds}s.")
+            fallback_data = fallback_extract_movement(email_body, email_date)
+            if fallback_data:
+                logger.warning("Using regex fallback extraction after Gemini timeout.")
+                return fallback_data
+            return None
+        except Exception as e:
+            logger.error(f"Error calling Gemini CLI: {e}")
+            return None
+        finally:
+            if temp_prompt_path and os.path.exists(temp_prompt_path):
+                try:
+                    os.remove(temp_prompt_path)
+                except Exception:
+                    pass
         
         if process.returncode != 0:
             logger.error(f"Gemini CLI error: {stderr}")
+            fallback_data = fallback_extract_movement(email_body, email_date)
+            if fallback_data:
+                logger.warning("Using regex fallback extraction after Gemini non-zero exit.")
+                return fallback_data
             return None
         
         output = stdout.strip()
@@ -310,8 +479,6 @@ def process_movement_transaction(transaction, mov_ref, movimiento: Dict[str, Any
         
     transaction.set(mov_ref, movimiento)
     return True
-
-import re
 
 def extract_email(header_value: str) -> str:
     """Extracts the email address from a From header (e.g. 'Name <email@domain.com>' -> 'email@domain.com')"""

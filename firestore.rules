@@ -7,27 +7,27 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Regla base: El documento pertenece al usuario
-    function isOwner(data) {
-      return request.auth.uid == data.id_propietario;
-    }
-
     match /movimientos/{movimiento} {
       // Permitir crear si es el dueño
-      allow create: if isAuthenticated() && isOwner(request.resource.data);
+      allow create: if isAuthenticated() && 
+                      request.resource.data.id_propietario == request.auth.uid;
       
-      // Permitir leer (get y list) y actualizar si el documento ya tiene su UID
-      allow read, update: if isAuthenticated() && isOwner(resource.data);
+      // Permitir leer y actualizar si el documento pertenece al usuario
+      allow read, update: if isAuthenticated() && 
+                             resource.data.id_propietario == request.auth.uid;
     }
 
     match /huchas/{hucha} {
-      allow create: if isAuthenticated() && isOwner(request.resource.data);
+      allow create: if isAuthenticated() && 
+                      request.resource.data.id_propietario == request.auth.uid;
       
-      // En update, verificamos que no se intente cambiar el dueño
-      allow read, update: if isAuthenticated() && isOwner(resource.data);
+      // En update, verificamos que el dueño actual sea el que hace la petición
+      allow read, update: if isAuthenticated() && 
+                             resource.data.id_propietario == request.auth.uid;
       
-      // Permitir borrar al dueño (añadido para que puedas gestionar tus huchas)
-      allow delete: if isAuthenticated() && isOwner(resource.data);
+      // Permitir borrar al dueño
+      allow delete: if isAuthenticated() && 
+                        resource.data.id_propietario == request.auth.uid;
     }
   }
 }
