@@ -1,5 +1,16 @@
 # LootRadar - Project Context & Decisions
 
+## Recent Changes (2026-04-18)
+- **Completed Manual Migration**: Successfully processed 5 pending emails using the new `/manual` workflow.
+- **Improved Fallback Logic**: 
+    - Implemented `BeautifulSoup` cleaning for HTML emails in `fallback_logic.py`.
+    - Centralized extraction logic to avoid code duplication between `main.py` and manual scripts.
+- **Fixed Encoding & Communication**:
+    - Resolved `UnicodeEncodeError` in Windows console by sanitizing outputs.
+    - Fixed `db` initialization and name collisions in `3_enviar.py`.
+- **Database integrity**: All pending movements were recorded and distributed across huchas correctly.
+
+
 ## Project Overview
 Automated financial tracker that extracts movements (income/expenses) from bank notification emails using Gemini AI and records them in Firestore, distributing funds across "huchas" (savings pockets).
 
