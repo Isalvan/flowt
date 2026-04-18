@@ -9,6 +9,8 @@
     - Resolved `UnicodeEncodeError` in Windows console by sanitizing outputs.
     - Fixed `db` initialization and name collisions in `3_enviar.py`.
 - **Database integrity**: All pending movements were recorded and distributed across huchas correctly.
+- **Frontend Refactor**: Rebuilt UI with React, Recharts (linear trends), and Highcharts (circular categories). Implemented a premium glassmorphic design system.
+- **Git & Workspace Management**: Reorganized manual files and added `/temp` exclusion in `.gitignore`.
 
 
 ## Project Overview
