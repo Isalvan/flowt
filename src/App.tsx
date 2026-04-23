@@ -169,6 +169,7 @@ const App: React.FC = () => {
   // History State
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [history, setHistory] = useState<Movimiento[]>([]);
+  const [chartMovements, setChartMovements] = useState<Movimiento[]>([]);
   const [lastDoc, setLastDoc] = useState<any>(null);
   const [hasMore, setHasMore] = useState(true);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
@@ -204,10 +205,16 @@ const App: React.FC = () => {
       const snapshot = await getDocs(q);
       const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Movimiento));
       
+      const sortedDocs = [...docs].sort((a, b) => {
+        const dA = parseMovimientoDate(a.fecha_operacion)?.getTime() || 0;
+        const dB = parseMovimientoDate(b.fecha_operacion)?.getTime() || 0;
+        return dB - dA;
+      });
+
       if (reset) {
-        setHistory(docs);
+        setHistory(sortedDocs);
       } else {
-        setHistory(prev => [...prev, ...docs]);
+        setHistory(prev => [...prev, ...sortedDocs]);
       }
       
       setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
@@ -340,7 +347,31 @@ const App: React.FC = () => {
 
     const unsubMov = onSnapshot(qMov, (snapshot) => {
       const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Movimiento));
-      setMovimientos(docs);
+      // Safety sort: ensure newest is always first even if Firestore types are mixed
+      const sorted = [...docs].sort((a, b) => {
+        const dA = parseMovimientoDate(a.fecha_operacion)?.getTime() || 0;
+        const dB = parseMovimientoDate(b.fecha_operacion)?.getTime() || 0;
+        return dB - dA;
+      });
+      setMovimientos(sorted);
+    });
+
+    // Chart Data Query (last 6 months of movements)
+    const qChart = query(
+      collection(db, 'movimientos'),
+      where('id_propietario', '==', user.uid),
+      orderBy('fecha_operacion', 'desc'),
+      limit(100), // Fetch enough for the chart
+    );
+
+    const unsubChart = onSnapshot(qChart, (snapshot) => {
+      const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Movimiento));
+      const sorted = [...docs].sort((a, b) => {
+        const dA = parseMovimientoDate(a.fecha_operacion)?.getTime() || 0;
+        const dB = parseMovimientoDate(b.fecha_operacion)?.getTime() || 0;
+        return dB - dA;
+      });
+      setChartMovements(sorted);
     });
 
     const qHuchas = query(
@@ -368,11 +399,22 @@ const App: React.FC = () => {
         );
         let total_ingresos = 0;
         let total_gastos = 0;
-        allMovSnapshot.forEach((d) => {
+        
+        for (const d of allMovSnapshot.docs) {
           const m = d.data();
-          if (m.tipo === 'ingreso') total_ingresos += m.importe ?? 0;
-          else total_gastos += m.importe ?? 0;
-        });
+          const importe = m.importe ?? 0;
+          if (m.tipo === 'ingreso') total_ingresos += importe;
+          else total_gastos += importe;
+
+          // Normalize date if it's a string (historical fix)
+          if (typeof m.fecha_operacion === 'string') {
+            const normalizedDate = parseMovimientoDate(m.fecha_operacion);
+            if (normalizedDate) {
+              await setDoc(doc(db, 'movimientos', d.id), { fecha_operacion: normalizedDate }, { merge: true });
+            }
+          }
+        }
+
         await setDoc(doc(db, 'stats', user.uid), {
           total_ingresos,
           total_gastos,
@@ -384,6 +426,7 @@ const App: React.FC = () => {
 
     return () => {
       unsubMov();
+      unsubChart();
       unsubHuchas();
       unsubStats();
     };
@@ -672,7 +715,7 @@ const App: React.FC = () => {
       const name = d.toLocaleDateString('es-ES', { month: 'short' });
       months[key] = { name, ingresos: 0, gastos: 0 };
     }
-    movimientos.forEach((m) => {
+    chartMovements.forEach((m) => {
       const date = parseMovimientoDate(m.fecha_operacion) || new Date();
       const key = `${date.getFullYear()}-${date.getMonth()}`;
       if (months[key]) {
@@ -681,7 +724,7 @@ const App: React.FC = () => {
       }
     });
     return Object.values(months);
-  }, [movimientos]);
+  }, [chartMovements]);
 
   const timelineChartData = useMemo(() => {
     if (!huchas.length) return [];
@@ -1020,8 +1063,8 @@ const App: React.FC = () => {
                 Timeline
               </button>
             </div>
-            <div className="h-[280px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-[280px] w-full min-h-[280px]">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontWeight: 800, fontSize: 10 }} />

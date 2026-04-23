@@ -328,6 +328,43 @@ def process_emails():
             unique_id = f"{email_id}_{index}"
             doc_id = hashlib.sha256(unique_id.encode()).hexdigest()
             
+            # Normalize date to datetime object for Firestore (ensures correct sorting)
+            raw_fecha = parsed_data["fecha"]
+            fecha_dt = None
+            
+            try:
+                if isinstance(raw_fecha, str):
+                    # Try ISO format first (Gemini default)
+                    if 'T' in raw_fecha:
+                        fecha_dt = datetime.fromisoformat(raw_fecha.replace('Z', '+00:00'))
+                    elif '-' in raw_fecha:
+                        # Handle YYYY-MM-DD
+                        parts = raw_fecha.split('-')
+                        if len(parts) == 3:
+                            fecha_dt = datetime(int(parts[0]), int(parts[1]), int(parts[2]), tzinfo=timezone.utc)
+                    elif '/' in raw_fecha:
+                        # Handle DD/MM/YYYY from fallback or messy AI
+                        parts = raw_fecha.split('/')
+                        if len(parts) == 3:
+                            # Assume DD/MM/YYYY or DD/MM/YY
+                            day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
+                            if year < 100: year += 2000
+                            fecha_dt = datetime(year, month, day, tzinfo=timezone.utc)
+                
+                # If parsing failed or was email_date string
+                if not fecha_dt:
+                    # Try to parse as email header date
+                    try:
+                        fecha_dt = parsedate_to_datetime(email_date)
+                    except:
+                        fecha_dt = datetime.now(timezone.utc)
+            except Exception as date_err:
+                logger.warning(f"Date parsing failed for {raw_fecha}: {date_err}. Using email_date.")
+                try:
+                    fecha_dt = parsedate_to_datetime(email_date)
+                except:
+                    fecha_dt = datetime.now(timezone.utc)
+
             # Construct movement document
             movimiento = {
                 "id_propietario": UID_PROPIETARIO,
@@ -335,7 +372,7 @@ def process_emails():
                 "concepto": parsed_data.get("descripcion") or parsed_data.get("concepto") or "Sin concepto",
                 "importe": float(parsed_data["importe"]),
                 "moneda": parsed_data.get("moneda", "EUR"),
-                "fecha_operacion": parsed_data["fecha"],
+                "fecha_operacion": fecha_dt, # Store as actual Timestamp in Firestore
                 "confianza": parsed_data.get("confianza", "alta"),
                 "version_prompt": PROMPT_VERSION,
                 "created_at": firestore.SERVER_TIMESTAMP,
