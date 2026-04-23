@@ -15,5 +15,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Firebase cache
+# Firebase and Google Auth
 .firebase/
+serviceAccountKey.json
+token.json
+credentials.json
