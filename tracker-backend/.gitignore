@@ -5,6 +5,7 @@ temp/
 
 # Environment and Virtualenv
 .env
+.env.yaml
 .venv/
 env/
 venv/

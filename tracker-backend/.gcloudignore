@@ -1,0 +1,17 @@
+.gcloudignore
+.git
+.gitignore
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.log
+manual/
+tests/
+temp/
+README.md
+GEMINI.md
+INSTRUCTIONS.md
+.env
+# No ignoramos token.json ni serviceAccountKey.json porque los necesitamos en la funcion

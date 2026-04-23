@@ -12,8 +12,10 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 
+import functions_framework
 from gmail_client import get_unread_emails_from_bank, mark_email_as_read
 from fallback_logic import fallback_extract_movement
+from ai_parser import clean_body, extract_with_gemini
 
 # --- Configuration & Initialization ---
 
@@ -275,17 +277,17 @@ def process_emails():
         if email_id in FAILED_IDS_IN_SESSION:
             continue
 
-        # Extraer movimientos usando Regex (Lógica de Fallback/Manual)
-        logger.info(f"Procesando correo {email_id} usando lógica de extracción directa (sin IA)...")
-        raw_movements = fallback_extract_movement(email["body"], email_date)
-        
+        # 1. Limpiar HTML gigante (ahorra tokens)
+        body_clean = clean_body(email["body"])
+        logger.info(f"Procesando correo {email_id} con Gemini 1.5 Flash...")
+        # 2. Llamar a la IA
+        raw_movements = extract_with_gemini(body_clean, email_date)
+        # 3. Fallback en caso de error de la IA
         if raw_movements is None:
-            logger.error(f"No se pudo extraer información del correo {email_id}. Saltando.")
-            FAILED_IDS_IN_SESSION.add(email_id)
-            continue
-            
+            logger.warning(f"Fallo en Gemini para {email_id}. Intentando Fallback Regex...")
+            raw_movements = fallback_extract_movement(email["body"], email_date)
         if not raw_movements:
-            logger.warning(f"Email {email_id} descartado: No se detectaron movimientos.")
+            # Movimiento ignorado (ej: era una recarga)
             continue
 
         # Ensure we have a list of movements
@@ -340,41 +342,31 @@ def process_emails():
         else:
             logger.error(f"Failed to mark email {email_id} as read.")
 
-import time
+@functions_framework.http
+def gmail_webhook(request):
+    """
+    Entrypoint para Google Cloud Functions.
+    Se ejecuta cuando Pub/Sub detecta un correo nuevo o se llama a la URL directamente.
+    """
+    setup_config()
 
-def run_tracker_app():
-    """
-    Runs the tracker app continuously with a cooldown and retries.
-    """
-    logger.info("Starting Tracker App. Press Ctrl+C to exit.")
-    cooldown_seconds = 120  # 2 minutes
-    max_retries = 3
-    
-    while True:
-        retries = 0
-        success = False
-        
-        while retries < max_retries and not success:
-            try:
-                logger.info("Checking for new bank emails...")
-                process_emails()
-                success = True
-            except Exception as e:
-                retries += 1
-                logger.error(f"Error during email processing (Attempt {retries}/{max_retries}): {e}")
-                if retries < max_retries:
-                    time.sleep(5)  # Short wait before retry
-                
-        if not success:
-            logger.error("Max retries reached. Waiting for next cycle.")
-            
-        logger.info(f"Sleeping for {cooldown_seconds // 60} minutes...")
-        time.sleep(cooldown_seconds)
+    if not BANK_SENDER or not UID_PROPIETARIO:
+        return ("Faltan variables de entorno", 500)
+
+    try:
+        logger.info("Webhook recibido. Comprobando correos nuevos...")
+        process_emails()
+        return ("Correos procesados correctamente", 200)
+    except Exception as e:
+        logger.error(f"Error en el Webhook: {e}")
+        return (f"Error: {e}", 500)
 
 if __name__ == "__main__":
     setup_config(parse_args())
     if not BANK_SENDER or not UID_PROPIETARIO:
-        logger.error("BANK_SENDER or UID_PROPIETARIO not set in .env")
+        logger.error("BANK_SENDER o UID_PROPIETARIO no configurados.")
         exit(1)
-        
-    run_tracker_app()
+    
+    logger.info("Ejecución manual/programada iniciada...")
+    process_emails()
+    logger.info("Ejecución finalizada.")
