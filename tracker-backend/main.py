@@ -130,6 +130,10 @@ def process_movement_transaction(transaction, mov_ref, movimiento: Dict[str, Any
     if mov_snapshot.exists:
         return False
 
+    # Read stats doc before any writes
+    stats_ref = db.collection("stats").document(owner_id)
+    stats_snapshot = stats_ref.get(transaction=transaction)
+
     huchas_ref = db.collection("huchas")
     query = huchas_ref.where("id_propietario", "==", owner_id).order_by("orden")
     # ... rest of the logic remains the same ...
@@ -240,8 +244,24 @@ def process_movement_transaction(transaction, mov_ref, movimiento: Dict[str, Any
 
     if target_gasto_hucha_id:
         movimiento["hucha_id"] = target_gasto_hucha_id
-        
+
     transaction.set(mov_ref, movimiento)
+
+    # Update global stats atomically
+    amount = float(movimiento["importe"])
+    current_stats = stats_snapshot.to_dict() or {}
+    if movimiento["tipo"] == "ingreso":
+        new_total_ingresos = current_stats.get("total_ingresos", 0) + amount
+        new_total_gastos = current_stats.get("total_gastos", 0)
+    else:
+        new_total_ingresos = current_stats.get("total_ingresos", 0)
+        new_total_gastos = current_stats.get("total_gastos", 0) + amount
+    transaction.set(stats_ref, {
+        "total_ingresos": new_total_ingresos,
+        "total_gastos": new_total_gastos,
+        "updated_at": firestore.SERVER_TIMESTAMP,
+    })
+
     return True
 
 def extract_email(header_value: str) -> str:
