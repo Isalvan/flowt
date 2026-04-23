@@ -157,6 +157,9 @@ const App: React.FC = () => {
     manualDistributions: {}
   });
 
+  // Global stats (total_ingresos / total_gastos from Firestore stats doc)
+  const [userStats, setUserStats] = useState<{ total_ingresos: number; total_gastos: number } | null>(null);
+
   // History State
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [history, setHistory] = useState<Movimiento[]>([]);
@@ -307,9 +310,20 @@ const App: React.FC = () => {
       setHuchas(docs);
     });
 
+    const unsubStats = onSnapshot(doc(db, 'stats', user.uid), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setUserStats({
+          total_ingresos: data.total_ingresos ?? 0,
+          total_gastos: data.total_gastos ?? 0,
+        });
+      }
+    });
+
     return () => {
       unsubMov();
       unsubHuchas();
+      unsubStats();
     };
   }, [user, isFirebaseConfigured]);
 
@@ -578,16 +592,8 @@ const App: React.FC = () => {
     }
   };
 
-  const totalIngresos = useMemo(
-    () => movimientos.filter((m) => m.tipo === 'ingreso').reduce((acc, m) => acc + m.importe, 0),
-    [movimientos],
-  );
-
-  const totalGastos = useMemo(
-    () => movimientos.filter((m) => m.tipo === 'gasto').reduce((acc, m) => acc + m.importe, 0),
-    [movimientos],
-  );
-
+  const totalIngresos = userStats?.total_ingresos ?? 0;
+  const totalGastos = userStats?.total_gastos ?? 0;
   const balance = totalIngresos - totalGastos;
 
   const principalHucha = useMemo(
