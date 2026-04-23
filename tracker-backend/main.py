@@ -360,3 +360,13 @@ def gmail_webhook(request):
     except Exception as e:
         logger.error(f"Error en el Webhook: {e}")
         return (f"Error: {e}", 500)
+
+if __name__ == "__main__":
+    setup_config(parse_args())
+    if not BANK_SENDER or not UID_PROPIETARIO:
+        logger.error("BANK_SENDER o UID_PROPIETARIO no configurados.")
+        exit(1)
+    
+    logger.info("Ejecución manual/programada iniciada...")
+    process_emails()
+    logger.info("Ejecución finalizada.")

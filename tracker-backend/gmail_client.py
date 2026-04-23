@@ -35,9 +35,17 @@ def get_gmail_service():
             if not os.path.exists(credentials_path):
                 logger.error(f"Credentials file not found at {credentials_path}")
                 return None
+            
+            # En la nube no podemos abrir un navegador (run_local_server).
+            # Por tanto, si llegamos aquí es porque el token no existe o ha fallado.
+            if os.getenv("K_SERVICE"): # Variable de entorno automática en Google Cloud
+                logger.error("Error: token.json no válido o inexistente en Google Cloud. No se puede realizar autenticación interactiva.")
+                return None
+
             flow = InstalledAppFlow.from_client_secrets_file(
                 credentials_path, SCOPES)
             creds = flow.run_local_server(port=0)
+        
         # Save the credentials for the next run
         with open(token_path, 'w') as token:
             token.write(creds.to_json())

@@ -1,0 +1,44 @@
+name: Run Flowt Tracker
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # Ejecutar cada 30 minutos
+  workflow_dispatch: # Permitir ejecucion manual desde la web de GitHub
+
+jobs:
+  run-tracker:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd tracker-backend
+          pip install -r requirements.txt
+
+      - name: Create Secret Files
+        run: |
+          cd tracker-backend
+          echo "${{ secrets.GMAIL_CREDENTIALS_BASE64 }}" | base64 -d > credentials.json
+          echo "${{ secrets.GMAIL_TOKEN_BASE64 }}" | base64 -d > token.json
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}" | base64 -d > serviceAccountKey.json
+
+      - name: Run Tracker
+        env:
+          BANK_SENDER: ${{ secrets.BANK_SENDER }}
+          UID_PROPIETARIO: ${{ secrets.UID_PROPIETARIO }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+          MAX_EMAILS_PER_RUN: 10
+          MIN_CONFIDENCE: baja
+        run: |
+          cd tracker-backend
+          python main.py
