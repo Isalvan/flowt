@@ -36,10 +36,10 @@ def get_gmail_service():
                 logger.error(f"Credentials file not found at {credentials_path}")
                 return None
             
-            # En la nube no podemos abrir un navegador (run_local_server).
-            # Por tanto, si llegamos aquí es porque el token no existe o ha fallado.
-            if os.getenv("K_SERVICE"): # Variable de entorno automática en Google Cloud
-                logger.error("Error: token.json no válido o inexistente en Google Cloud. No se puede realizar autenticación interactiva.")
+            # En entornos CI/CD (GitHub Actions) o Nube (GCP) no podemos abrir un navegador.
+            # Si llegamos aquí es porque el token no existe o ha fallado el refresco.
+            if os.getenv("K_SERVICE") or os.getenv("GITHUB_ACTIONS"):
+                logger.error("Error: token.json no válido o inexistente en entorno remoto. No se puede realizar autenticación interactiva.")
                 return None
 
             flow = InstalledAppFlow.from_client_secrets_file(
