@@ -29,6 +29,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  AreaChart,
+  Area,
 } from 'recharts';
 import {
   Wallet,
@@ -52,6 +54,7 @@ import {
   Download,
   Moon,
   Sun,
+  BarChart2,
 } from 'lucide-react';
 import { auth, db } from './firebase';
 
@@ -86,6 +89,8 @@ const MOCK_HUCHAS: Hucha[] = [
   { id: '1', nombre: 'Vacaciones', saldo_acumulado: 1200, objetivo: 3000, tipo_aportacion: 'porcentaje', valor_aportacion: 10, orden: 1 },
   { id: '2', nombre: 'Fondo de emergencia', saldo_acumulado: 5000, objetivo: 10000, tipo_aportacion: 'resto', orden: 2, es_principal: true },
 ];
+
+const TIMELINE_COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#f97316'];
 
 const formatCurrency = (value: number) =>
   value.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
@@ -168,6 +173,13 @@ const App: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
+  // Timeline State
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [timelineMovimientos, setTimelineMovimientos] = useState<Movimiento[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineRange, setTimelineRange] = useState<'week' | 'month' | '3months' | 'year' | 'all'>('month');
+  const [hiddenHuchas, setHiddenHuchas] = useState<Set<string>>(new Set());
+
   const openHistoryModal = async () => {
     setIsHistoryModalOpen(true);
     setHistory([]);
@@ -206,6 +218,37 @@ const App: React.FC = () => {
     } finally {
       setIsHistoryLoading(false);
     }
+  };
+
+  const loadTimelineData = async () => {
+    if (!isFirebaseConfigured) {
+      setTimelineMovimientos(MOCK_MOVIMIENTOS);
+      return;
+    }
+    if (!user) return;
+    setTimelineLoading(true);
+    try {
+      const q = query(
+        collection(db, 'movimientos'),
+        where('id_propietario', '==', user.uid),
+        orderBy('fecha_operacion', 'desc'),
+      );
+      const snapshot = await getDocs(q);
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Movimiento));
+      setTimelineMovimientos(docs);
+    } catch (err) {
+      console.error('Error loading timeline:', err);
+      showToast('Error al cargar la línea de tiempo');
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
+  const openTimeline = async () => {
+    setIsTimelineOpen(true);
+    setHiddenHuchas(new Set());
+    setTimelineRange('month');
+    await loadTimelineData();
   };
 
   // UI Feedback State
@@ -640,6 +683,108 @@ const App: React.FC = () => {
     return Object.values(months);
   }, [movimientos]);
 
+  const timelineChartData = useMemo(() => {
+    if (!huchas.length) return [];
+
+    type Point = {
+      dateLabel: string;
+      timestamp: number;
+      total: number;
+      lastMovement?: { concepto: string; tipo: 'ingreso' | 'gasto'; importe: number };
+      [key: string]: any;
+    };
+
+    const makePoint = (ts: number, label: string, state: Record<string, number>, mov?: Movimiento): Point => ({
+      dateLabel: label,
+      timestamp: ts,
+      total: Object.values(state).reduce((s, v) => s + v, 0),
+      ...(mov ? { lastMovement: { concepto: mov.concepto, tipo: mov.tipo, importe: mov.importe } } : {}),
+      ...state,
+    });
+
+    const sortedDesc = [...timelineMovimientos].sort((a, b) => {
+      const ta = parseMovimientoDate(a.fecha_operacion)?.getTime() ?? 0;
+      const tb = parseMovimientoDate(b.fecha_operacion)?.getTime() ?? 0;
+      return tb - ta;
+    });
+
+    let running: Record<string, number> = {};
+    huchas.forEach(h => { running[h.id] = h.saldo_acumulado; });
+
+    const points: Point[] = [];
+    const nowTs = Date.now();
+    points.push(makePoint(nowTs, new Date(nowTs).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }), running));
+
+    for (const mov of sortedDesc) {
+      const date = parseMovimientoDate(mov.fecha_operacion);
+      if (!date) continue;
+
+      // Push state AFTER this movement (before undoing it)
+      points.push(makePoint(date.getTime(), date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }), running, mov));
+
+      // Undo this movement to go further back in time
+      const next = { ...running };
+      if (mov.tipo === 'gasto') {
+        const hId = mov.hucha_id ?? huchas.find(h => h.es_principal)?.id ?? huchas[0]?.id;
+        if (hId) next[hId] = (next[hId] ?? 0) + mov.importe;
+      } else {
+        let rem = mov.importe;
+        for (const h of huchas) {
+          if (h.tipo_aportacion === 'flat' && (h.valor_aportacion ?? 0) > 0 && rem > 0) {
+            const amt = Math.min(h.valor_aportacion!, rem);
+            next[h.id] = (next[h.id] ?? 0) - amt;
+            rem -= amt;
+          }
+        }
+        for (const h of huchas) {
+          if (h.tipo_aportacion === 'porcentaje' && (h.valor_aportacion ?? 0) > 0 && rem > 0) {
+            const share = mov.importe * (h.valor_aportacion! / 100);
+            const amt = Math.min(share, rem);
+            next[h.id] = (next[h.id] ?? 0) - amt;
+            rem -= amt;
+          }
+        }
+        const restoH = huchas.find(h => h.tipo_aportacion === 'resto') ?? huchas.find(h => h.es_principal) ?? huchas[0];
+        if (restoH && rem > 0) next[restoH.id] = (next[restoH.id] ?? 0) - rem;
+      }
+      running = next;
+    }
+
+    // `running` is now the state before all movements
+
+    points.sort((a, b) => a.timestamp - b.timestamp);
+
+    // Determine range start
+    const nowDate = new Date();
+    let startTs = 0;
+    if (timelineRange === 'week') startTs = nowDate.getTime() - 7 * 24 * 60 * 60 * 1000;
+    else if (timelineRange === 'month') startTs = new Date(nowDate.getFullYear(), nowDate.getMonth() - 1, nowDate.getDate()).getTime();
+    else if (timelineRange === '3months') startTs = new Date(nowDate.getFullYear(), nowDate.getMonth() - 3, nowDate.getDate()).getTime();
+    else if (timelineRange === 'year') startTs = new Date(nowDate.getFullYear() - 1, nowDate.getMonth(), nowDate.getDate()).getTime();
+
+    let filtered = startTs > 0 ? points.filter(p => p.timestamp >= startTs) : [...points];
+
+    // Add anchor point showing balance at range start
+    if (startTs > 0) {
+      const beforeRange = points.filter(p => p.timestamp < startTs);
+      const anchorState = beforeRange.length > 0 ? beforeRange[beforeRange.length - 1] : makePoint(startTs, '', running);
+      const anchor = { ...anchorState };
+      anchor.dateLabel = new Date(startTs).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+      anchor.timestamp = startTs;
+      anchor.lastMovement = undefined;
+      filtered = [anchor, ...filtered];
+    }
+
+    // Aggregate by day: keep the last state per day
+    const byDay: Record<string, Point> = {};
+    for (const p of filtered) {
+      const key = new Date(p.timestamp).toDateString();
+      if (!byDay[key] || p.timestamp > byDay[key].timestamp) byDay[key] = p;
+    }
+
+    return Object.values(byDay).sort((a, b) => a.timestamp - b.timestamp);
+  }, [timelineMovimientos, huchas, timelineRange]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6 bg-gray-50">
@@ -865,7 +1010,16 @@ const App: React.FC = () => {
 
         <section className="mt-8 grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
           <article className="glass-panel rounded-[2.5rem] p-8 shadow-xl transition-all hover:shadow-2xl">
-            <h3 className="section-title text-slate-900 font-black uppercase tracking-widest text-[11px] mb-8">Evolución Semestral</h3>
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="section-title text-slate-900 font-black uppercase tracking-widest text-[11px]">Evolución Semestral</h3>
+              <button
+                onClick={openTimeline}
+                className="inline-flex items-center gap-2 h-10 px-5 rounded-2xl bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-sky-50 hover:text-sky-600 active:scale-95"
+              >
+                <BarChart2 size={14} />
+                Timeline
+              </button>
+            </div>
             <div className="h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
@@ -1541,6 +1695,180 @@ const App: React.FC = () => {
                 <div className="py-10 text-center">
                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Fin del historial</p>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Línea de Tiempo */}
+      {isTimelineOpen && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/90 backdrop-blur-xl" role="dialog" aria-modal="true">
+          <div className="bg-white w-full sm:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden border-4 border-white sm:max-w-5xl h-[92vh] sm:h-[88vh]">
+
+            {/* Header */}
+            <div className="p-6 sm:p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center shadow-sm shadow-sky-500/10">
+                  <BarChart2 size={24} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">Línea de Tiempo</h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Evolución del saldo</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsTimelineOpen(false)}
+                className="h-12 w-12 flex items-center justify-center rounded-2xl bg-white border-2 border-slate-100 text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all active:scale-90 shadow-sm"
+                aria-label="Cerrar"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Range selector */}
+            <div className="px-6 sm:px-8 py-4 border-b border-slate-100 shrink-0">
+              <div className="flex gap-2 overflow-x-auto pb-0.5 no-scrollbar">
+                {(['week', 'month', '3months', 'year', 'all'] as const).map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setTimelineRange(r)}
+                    className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                      timelineRange === r
+                        ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/20'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    {r === 'week' ? 'Última semana' : r === 'month' ? 'Último mes' : r === '3months' ? 'Últimos 3 meses' : r === 'year' ? 'Este año' : 'Todo'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Hucha toggles */}
+            {huchas.length > 0 && (
+              <div className="px-6 sm:px-8 py-3 flex gap-2 flex-wrap shrink-0 border-b border-slate-50">
+                {huchas.map((h, i) => {
+                  const color = TIMELINE_COLORS[i % TIMELINE_COLORS.length];
+                  const hidden = hiddenHuchas.has(h.id);
+                  return (
+                    <button
+                      key={h.id}
+                      onClick={() => setHiddenHuchas(prev => {
+                        const next = new Set(prev);
+                        if (next.has(h.id)) next.delete(h.id);
+                        else next.add(h.id);
+                        return next;
+                      })}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                        hidden ? 'bg-slate-100 text-slate-400' : 'text-white shadow-lg'
+                      }`}
+                      style={hidden ? {} : { backgroundColor: color }}
+                    >
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: hidden ? '#94a3b8' : 'white' }} />
+                      {h.nombre}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Chart area */}
+            <div className="flex-1 p-4 sm:p-8 min-h-0">
+              {timelineLoading ? (
+                <div className="flex items-center justify-center h-full gap-4">
+                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-100 border-t-sky-500" />
+                  <p className="text-sm font-black uppercase tracking-widest text-slate-400">Cargando...</p>
+                </div>
+              ) : timelineChartData.length < 2 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-4">
+                  <BarChart2 className="text-slate-200" size={48} />
+                  <p className="text-sm font-black uppercase tracking-widest text-slate-300">Sin datos suficientes</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={timelineChartData} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      {huchas.map((h, i) => (
+                        <linearGradient key={h.id} id={`tl-grad-${h.id}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={TIMELINE_COLORS[i % TIMELINE_COLORS.length]} stopOpacity={0.4} />
+                          <stop offset="95%" stopColor={TIMELINE_COLORS[i % TIMELINE_COLORS.length]} stopOpacity={0.05} />
+                        </linearGradient>
+                      ))}
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis
+                      dataKey="dateLabel"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#94a3b8', fontWeight: 800, fontSize: 10 }}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#94a3b8', fontWeight: 800, fontSize: 10 }}
+                      width={44}
+                      tickFormatter={(v: number) => {
+                        if (Math.abs(v) >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
+                        if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`;
+                        return `${Math.round(v)}`;
+                      }}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const pt = payload[0]?.payload;
+                        return (
+                          <div className="rounded-2xl bg-white shadow-2xl border border-slate-100 p-4 max-w-[220px]">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">{pt?.dateLabel}</p>
+                            {payload.map((entry: any) => {
+                              const h = huchas.find(h => h.id === entry.dataKey);
+                              if (!h) return null;
+                              return (
+                                <div key={entry.dataKey} className="flex items-center justify-between gap-3 mb-1.5">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                                    <span className="text-[11px] font-bold text-slate-600 truncate">{h.nombre}</span>
+                                  </div>
+                                  <span className="text-[11px] font-black text-slate-900 tabular-nums shrink-0">{formatCurrency(entry.value ?? 0)}</span>
+                                </div>
+                              );
+                            })}
+                            <div className="border-t border-slate-100 mt-2 pt-2 flex items-center justify-between gap-3">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total</span>
+                              <span className="text-sm font-black text-slate-900 tabular-nums">{formatCurrency(pt?.total ?? 0)}</span>
+                            </div>
+                            {pt?.lastMovement && (
+                              <div className={`mt-3 p-3 rounded-xl ${pt.lastMovement.tipo === 'ingreso' ? 'bg-sky-50' : 'bg-orange-50'}`}>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Último movimiento</p>
+                                <p className="text-[11px] font-black text-slate-700 truncate">{pt.lastMovement.concepto}</p>
+                                <p className={`text-sm font-black tabular-nums mt-1 ${pt.lastMovement.tipo === 'ingreso' ? 'text-sky-600' : 'text-orange-600'}`}>
+                                  {pt.lastMovement.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(pt.lastMovement.importe)}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }}
+                    />
+                    {huchas
+                      .filter(h => !hiddenHuchas.has(h.id))
+                      .map((h, i) => (
+                        <Area
+                          key={h.id}
+                          type="monotone"
+                          dataKey={h.id}
+                          stackId="1"
+                          stroke={TIMELINE_COLORS[i % TIMELINE_COLORS.length]}
+                          fill={`url(#tl-grad-${h.id})`}
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 4, strokeWidth: 2 }}
+                        />
+                      ))}
+                  </AreaChart>
+                </ResponsiveContainer>
               )}
             </div>
           </div>
