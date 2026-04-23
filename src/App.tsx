@@ -19,6 +19,7 @@ import {
   runTransaction,
   startAfter,
   getDocs,
+  setDoc,
 } from 'firebase/firestore';
 import {
   BarChart,
@@ -310,13 +311,31 @@ const App: React.FC = () => {
       setHuchas(docs);
     });
 
-    const unsubStats = onSnapshot(doc(db, 'stats', user.uid), (snapshot) => {
+    const unsubStats = onSnapshot(doc(db, 'stats', user.uid), async (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
         setUserStats({
           total_ingresos: data.total_ingresos ?? 0,
           total_gastos: data.total_gastos ?? 0,
         });
+      } else {
+        // One-time migration: build stats from all existing movements
+        const allMovSnapshot = await getDocs(
+          query(collection(db, 'movimientos'), where('id_propietario', '==', user.uid))
+        );
+        let total_ingresos = 0;
+        let total_gastos = 0;
+        allMovSnapshot.forEach((d) => {
+          const m = d.data();
+          if (m.tipo === 'ingreso') total_ingresos += m.importe ?? 0;
+          else total_gastos += m.importe ?? 0;
+        });
+        await setDoc(doc(db, 'stats', user.uid), {
+          total_ingresos,
+          total_gastos,
+          updated_at: serverTimestamp(),
+        });
+        // The onSnapshot above will fire again with the new doc
       }
     });
 
