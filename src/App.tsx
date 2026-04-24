@@ -782,7 +782,36 @@ const App: React.FC = () => {
       if (!byDay[key] || p.timestamp > byDay[key].timestamp) byDay[key] = p;
     }
 
-    return Object.values(byDay).sort((a, b) => a.timestamp - b.timestamp);
+    const dayPoints = Object.values(byDay).sort((a, b) => a.timestamp - b.timestamp);
+    if (dayPoints.length === 0) return [];
+
+    // Fill every calendar day so the X axis is continuous (carry balance forward on days with no movements)
+    const filled: Point[] = [];
+    const startDay = new Date(dayPoints[0].timestamp);
+    startDay.setHours(0, 0, 0, 0);
+    const endDay = new Date(nowTs);
+    endDay.setHours(0, 0, 0, 0);
+
+    const cursor = new Date(startDay);
+    let prev = dayPoints[0];
+
+    while (cursor <= endDay) {
+      const key = cursor.toDateString();
+      if (byDay[key]) {
+        filled.push(byDay[key]);
+        prev = byDay[key];
+      } else {
+        filled.push({
+          ...prev,
+          dateLabel: cursor.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+          timestamp: cursor.getTime(),
+          lastMovement: undefined,
+        });
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return filled;
   }, [timelineMovimientos, huchas, timelineRange]);
 
   if (loading) {
