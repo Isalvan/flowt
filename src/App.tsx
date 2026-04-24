@@ -775,40 +775,73 @@ const App: React.FC = () => {
       filtered = [anchor, ...filtered];
     }
 
-    // Aggregate by day: keep the last state per day
-    const byDay: Record<string, Point> = {};
+    // Granularity depends on range: day for week/month, week for 3months, month for year/all
+    const granularity = timelineRange === 'week' || timelineRange === 'month' ? 'day'
+                      : timelineRange === '3months' ? 'week'
+                      : 'month';
+
+    const getPeriodKey = (ts: number): string => {
+      const d = new Date(ts);
+      if (granularity === 'day') return d.toDateString();
+      if (granularity === 'week') {
+        const dow = d.getDay();
+        const monday = new Date(d);
+        monday.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+        monday.setHours(0, 0, 0, 0);
+        return monday.toDateString();
+      }
+      return `${d.getFullYear()}-${d.getMonth()}`;
+    };
+
+    const getPeriodLabel = (ts: number): string => {
+      const d = new Date(ts);
+      if (granularity === 'month') return d.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+      return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+    };
+
+    // Aggregate filtered points into periods (keep last state per period)
+    const byPeriod: Record<string, Point> = {};
     for (const p of filtered) {
-      const key = new Date(p.timestamp).toDateString();
-      if (!byDay[key] || p.timestamp > byDay[key].timestamp) byDay[key] = p;
+      const key = getPeriodKey(p.timestamp);
+      if (!byPeriod[key] || p.timestamp > byPeriod[key].timestamp) byPeriod[key] = p;
     }
 
-    const dayPoints = Object.values(byDay).sort((a, b) => a.timestamp - b.timestamp);
-    if (dayPoints.length === 0) return [];
+    const periodPoints = Object.values(byPeriod).sort((a, b) => a.timestamp - b.timestamp);
+    if (periodPoints.length === 0) return [];
 
-    // Fill every calendar day so the X axis is continuous (carry balance forward on days with no movements)
+    // Normalize cursor to the start of the first period
+    const cursor = new Date(periodPoints[0].timestamp);
+    if (granularity === 'week') {
+      const dow = cursor.getDay();
+      cursor.setDate(cursor.getDate() - (dow === 0 ? 6 : dow - 1));
+    } else if (granularity === 'month') {
+      cursor.setDate(1);
+    }
+    cursor.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(nowTs);
+    endDate.setHours(23, 59, 59, 999);
+
+    // Fill every period so the X axis is continuous (carry balance forward for empty periods)
     const filled: Point[] = [];
-    const startDay = new Date(dayPoints[0].timestamp);
-    startDay.setHours(0, 0, 0, 0);
-    const endDay = new Date(nowTs);
-    endDay.setHours(0, 0, 0, 0);
+    let prev = periodPoints[0];
 
-    const cursor = new Date(startDay);
-    let prev = dayPoints[0];
-
-    while (cursor <= endDay) {
-      const key = cursor.toDateString();
-      if (byDay[key]) {
-        filled.push(byDay[key]);
-        prev = byDay[key];
+    while (cursor <= endDate) {
+      const key = getPeriodKey(cursor.getTime());
+      if (byPeriod[key]) {
+        filled.push({ ...byPeriod[key], dateLabel: getPeriodLabel(byPeriod[key].timestamp) });
+        prev = byPeriod[key];
       } else {
         filled.push({
           ...prev,
-          dateLabel: cursor.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+          dateLabel: getPeriodLabel(cursor.getTime()),
           timestamp: cursor.getTime(),
           lastMovement: undefined,
         });
       }
-      cursor.setDate(cursor.getDate() + 1);
+      if (granularity === 'day') cursor.setDate(cursor.getDate() + 1);
+      else if (granularity === 'week') cursor.setDate(cursor.getDate() + 7);
+      else cursor.setMonth(cursor.getMonth() + 1);
     }
 
     return filled;
