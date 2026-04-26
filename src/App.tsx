@@ -55,6 +55,14 @@ import {
   Moon,
   Sun,
   BarChart2,
+  CreditCard,
+  Calendar,
+  RefreshCw,
+  LayoutDashboard,
+  ToggleLeft,
+  ToggleRight,
+  XCircle,
+  Undo2,
 } from 'lucide-react';
 import { auth, db } from './firebase';
 
@@ -76,7 +84,62 @@ interface Hucha {
   valor_aportacion?: number;
   orden: number;
   es_principal?: boolean;
+  es_suscripciones?: boolean;
 }
+
+interface Suscripcion {
+  id: string;
+  nombre: string;
+  importe: number;
+  frecuencia: 'mensual' | 'trimestral' | 'semestral' | 'anual';
+  dia_pago: number;
+  categoria: string;
+  color: string;
+  activa: boolean;
+  cancelando?: boolean;
+}
+
+const SUBSCRIPTION_COLORS = [
+  '#8b5cf6', '#ec4899', '#3b82f6', '#0ea5e9', '#14b8a6',
+  '#22c55e', '#f59e0b', '#f97316', '#ef4444', '#6366f1',
+];
+
+const FRECUENCIA_OPTIONS = [
+  { value: 'mensual', label: 'Mensual', divisor: 1 },
+  { value: 'trimestral', label: 'Trimestral', divisor: 3 },
+  { value: 'semestral', label: 'Semestral', divisor: 6 },
+  { value: 'anual', label: 'Anual', divisor: 12 },
+];
+
+const CATEGORIA_OPTIONS = [
+  { value: 'streaming', label: 'Streaming' },
+  { value: 'musica', label: 'Música' },
+  { value: 'software', label: 'Software' },
+  { value: 'gaming', label: 'Gaming' },
+  { value: 'fitness', label: 'Fitness' },
+  { value: 'noticias', label: 'Noticias' },
+  { value: 'otros', label: 'Otros' },
+];
+
+const calcMensual = (s: Suscripcion): number => {
+  const opt = FRECUENCIA_OPTIONS.find(o => o.value === s.frecuencia);
+  return s.importe / (opt?.divisor ?? 1);
+};
+
+const getNextPaymentDate = (diaPago: number): Date => {
+  const today = new Date();
+  const candidate = new Date(today.getFullYear(), today.getMonth(), diaPago);
+  if (candidate <= today) {
+    return new Date(today.getFullYear(), today.getMonth() + 1, diaPago);
+  }
+  return candidate;
+};
+
+const MOCK_SUSCRIPCIONES: Suscripcion[] = [
+  { id: '1', nombre: 'Netflix', importe: 17.99, frecuencia: 'mensual', dia_pago: 15, categoria: 'streaming', color: '#ef4444', activa: true },
+  { id: '2', nombre: 'Spotify', importe: 9.99, frecuencia: 'mensual', dia_pago: 20, categoria: 'musica', color: '#22c55e', activa: true },
+  { id: '3', nombre: 'iCloud+', importe: 2.99, frecuencia: 'mensual', dia_pago: 5, categoria: 'software', color: '#3b82f6', activa: false },
+];
 
 const MOCK_MOVIMIENTOS: Movimiento[] = [
   { id: '1', tipo: 'ingreso', concepto: 'Nomina', importe: 2500, fecha_operacion: { toDate: () => new Date() } },
@@ -127,10 +190,25 @@ const App: React.FC = () => {
     if (typeof window === 'undefined') return 'light';
     return window.localStorage.getItem('flowt-theme') === 'dark' ? 'dark' : 'light';
   });
+  const [activeView, setActiveView] = useState<'dashboard' | 'suscripciones'>('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [huchas, setHuchas] = useState<Hucha[]>([]);
+  const [suscripciones, setSuscripciones] = useState<Suscripcion[]>([]);
+
+  // Subscription Modal State
+  const [isSuscripcionModalOpen, setIsSuscripcionModalOpen] = useState(false);
+  const [editingSuscripcionId, setEditingSuscripcionId] = useState<string | null>(null);
+  const [newSuscripcion, setNewSuscripcion] = useState({
+    nombre: '',
+    importe: 0,
+    frecuencia: 'mensual' as Suscripcion['frecuencia'],
+    dia_pago: 1,
+    categoria: 'otros',
+    color: '#8b5cf6',
+    activa: true,
+  });
   const [isFirebaseConfigured, setIsFirebaseConfigured] = useState(true);
   
   // Modal State
@@ -263,6 +341,7 @@ const App: React.FC = () => {
   const [confirmModal, setConfirmModal] = useState<{
     title: string;
     message: string;
+    confirmLabel?: string;
     onConfirm: () => void;
   } | null>(null);
 
@@ -323,6 +402,7 @@ const App: React.FC = () => {
       setIsFirebaseConfigured(false);
       setMovimientos(MOCK_MOVIMIENTOS);
       setHuchas(MOCK_HUCHAS);
+      setSuscripciones(MOCK_SUSCRIPCIONES);
       setLoading(false);
       return;
     }
@@ -424,11 +504,23 @@ const App: React.FC = () => {
       }
     });
 
+    const qSuscripciones = query(
+      collection(db, 'suscripciones'),
+      where('id_propietario', '==', user.uid),
+      orderBy('created_at', 'asc'),
+    );
+
+    const unsubSuscripciones = onSnapshot(qSuscripciones, (snapshot) => {
+      const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Suscripcion));
+      setSuscripciones(docs);
+    });
+
     return () => {
       unsubMov();
       unsubChart();
       unsubHuchas();
       unsubStats();
+      unsubSuscripciones();
     };
   }, [user, isFirebaseConfigured]);
 
@@ -504,6 +596,10 @@ const App: React.FC = () => {
   };
 
   const handleDeleteHucha = async (hucha: Hucha) => {
+    if (hucha.es_suscripciones) {
+      showToast('Esta cartera es gestionada automáticamente por tus suscripciones.');
+      return;
+    }
     if (huchas.length === 1) {
       showToast('No puedes eliminar tu unica cartera. Crea otra primero.');
       return;
@@ -697,9 +793,220 @@ const App: React.FC = () => {
     }
   };
 
+  const closeSuscripcionModal = () => {
+    setIsSuscripcionModalOpen(false);
+    setEditingSuscripcionId(null);
+    setNewSuscripcion({ nombre: '', importe: 0, frecuencia: 'mensual', dia_pago: 1, categoria: 'otros', color: '#8b5cf6', activa: true });
+  };
+
+  const openEditSuscripcion = (s: Suscripcion) => {
+    setEditingSuscripcionId(s.id);
+    setNewSuscripcion({
+      nombre: s.nombre,
+      importe: s.importe,
+      frecuencia: s.frecuencia,
+      dia_pago: s.dia_pago,
+      categoria: s.categoria,
+      color: s.color,
+      activa: s.activa,
+    });
+    setIsSuscripcionModalOpen(true);
+  };
+
+  const syncSuscripcionesHucha = async (updatedList: Suscripcion[]) => {
+    if (!user) return;
+    const totalMensual = updatedList
+      .filter(s => s.activa)
+      .reduce((sum, s) => sum + calcMensual(s), 0);
+    const rounded = Math.round(totalMensual * 100) / 100;
+
+    const suscripcionesHucha = huchas.find(h => h.es_suscripciones);
+
+    if (suscripcionesHucha) {
+      await runTransaction(db, async (transaction) => {
+        transaction.update(doc(db, 'huchas', suscripcionesHucha.id), {
+          objetivo: rounded > 0 ? rounded : null,
+          valor_aportacion: rounded,
+          updated_at: serverTimestamp(),
+        });
+      });
+    } else if (rounded > 0) {
+      const newDocRef = doc(collection(db, 'huchas'));
+      await runTransaction(db, async (transaction) => {
+        transaction.set(newDocRef, {
+          id_propietario: user.uid,
+          nombre: 'Suscripciones',
+          tipo_aportacion: 'flat',
+          valor_aportacion: rounded,
+          objetivo: rounded,
+          saldo_acumulado: 0,
+          orden: huchas.length + 1,
+          es_principal: false,
+          es_suscripciones: true,
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp(),
+        });
+      });
+    }
+  };
+
+  const handleCreateOrUpdateSuscripcion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    const data = {
+      id_propietario: user.uid,
+      nombre: newSuscripcion.nombre.trim(),
+      importe: Number(newSuscripcion.importe),
+      frecuencia: newSuscripcion.frecuencia,
+      dia_pago: Number(newSuscripcion.dia_pago),
+      categoria: newSuscripcion.categoria,
+      color: newSuscripcion.color,
+      activa: newSuscripcion.activa,
+      updated_at: serverTimestamp(),
+    };
+
+    try {
+      let updatedList: Suscripcion[];
+      if (editingSuscripcionId) {
+        await runTransaction(db, async (transaction) => {
+          transaction.update(doc(db, 'suscripciones', editingSuscripcionId), data);
+        });
+        updatedList = suscripciones.map(s =>
+          s.id === editingSuscripcionId ? { ...s, ...data } : s
+        );
+      } else {
+        const newDocRef = doc(collection(db, 'suscripciones'));
+        await runTransaction(db, async (transaction) => {
+          transaction.set(newDocRef, { ...data, created_at: serverTimestamp() });
+        });
+        updatedList = [...suscripciones, { id: newDocRef.id, ...data } as unknown as Suscripcion];
+      }
+
+      await syncSuscripcionesHucha(updatedList);
+      closeSuscripcionModal();
+      showToast(editingSuscripcionId ? 'Suscripción actualizada' : 'Suscripción creada', 'success');
+    } catch (error) {
+      console.error('Error al guardar suscripción:', error);
+      showToast('Error al guardar la suscripción');
+    }
+  };
+
+  const handleDeleteSuscripcion = (s: Suscripcion) => {
+    setConfirmModal({
+      title: 'Eliminar Suscripción',
+      message: `¿Eliminar "${s.nombre}"? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'suscripciones', s.id));
+          const updatedList = suscripciones.filter(sub => sub.id !== s.id);
+          await syncSuscripcionesHucha(updatedList);
+          showToast('Suscripción eliminada', 'success');
+        } catch (error) {
+          console.error('Error al eliminar suscripción:', error);
+          showToast('Error al eliminar la suscripción');
+        }
+        setConfirmModal(null);
+      },
+    });
+  };
+
+  const handleToggleSuscripcion = async (s: Suscripcion) => {
+    if (!user) return;
+    try {
+      await runTransaction(db, async (transaction) => {
+        transaction.update(doc(db, 'suscripciones', s.id), {
+          activa: !s.activa,
+          updated_at: serverTimestamp(),
+        });
+      });
+      const updatedList = suscripciones.map(sub =>
+        sub.id === s.id ? { ...sub, activa: !sub.activa } : sub
+      );
+      await syncSuscripcionesHucha(updatedList);
+    } catch (error) {
+      console.error('Error al cambiar estado suscripción:', error);
+      showToast('Error al actualizar la suscripción');
+    }
+  };
+
+  const handleCancelSuscripcion = (s: Suscripcion) => {
+    const nextDate = getNextPaymentDate(s.dia_pago);
+    const label = nextDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+    setConfirmModal({
+      title: 'Cancelar Suscripción',
+      message: `"${s.nombre}" se eliminará automáticamente el ${label} (próximo cobro). Hasta entonces sigue activa.`,
+      confirmLabel: 'Cancelar',
+      onConfirm: async () => {
+        try {
+          await runTransaction(db, async (transaction) => {
+            transaction.update(doc(db, 'suscripciones', s.id), {
+              cancelando: true,
+              updated_at: serverTimestamp(),
+            });
+          });
+          showToast(`${s.nombre} se cancelará el ${label}`, 'success');
+        } catch (error) {
+          console.error('Error al cancelar suscripción:', error);
+          showToast('Error al cancelar la suscripción');
+        }
+        setConfirmModal(null);
+      },
+    });
+  };
+
+  const handleUndoCancelSuscripcion = async (s: Suscripcion) => {
+    try {
+      await runTransaction(db, async (transaction) => {
+        transaction.update(doc(db, 'suscripciones', s.id), {
+          cancelando: false,
+          updated_at: serverTimestamp(),
+        });
+      });
+      showToast(`${s.nombre} reactivada`, 'success');
+    } catch (error) {
+      console.error('Error al reactivar suscripción:', error);
+      showToast('Error al reactivar la suscripción');
+    }
+  };
+
+  // Auto-delete subscriptions whose cancellation date has passed
+  useEffect(() => {
+    if (!user || !isFirebaseConfigured || suscripciones.length === 0) return;
+    const expired = suscripciones.filter(s => {
+      if (!s.cancelando) return false;
+      const next = getNextPaymentDate(s.dia_pago);
+      // If next payment date is in the future, it hasn't arrived yet
+      // We consider "passed" if the next payment date rolls over (i.e., today >= dia_pago this month)
+      const today = new Date();
+      const thisMonthPayment = new Date(today.getFullYear(), today.getMonth(), s.dia_pago);
+      return today >= thisMonthPayment;
+    });
+    if (expired.length === 0) return;
+
+    const deleteExpired = async () => {
+      for (const s of expired) {
+        try {
+          await deleteDoc(doc(db, 'suscripciones', s.id));
+        } catch (e) {
+          console.error('Error auto-deleting subscription:', e);
+        }
+      }
+      const remaining = suscripciones.filter(s => !expired.find(e => e.id === s.id));
+      await syncSuscripcionesHucha(remaining);
+    };
+    deleteExpired();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suscripciones, user, isFirebaseConfigured]);
+
   const totalIngresos = userStats?.total_ingresos ?? 0;
   const totalGastos = userStats?.total_gastos ?? 0;
   const balance = totalIngresos - totalGastos;
+
+  const totalMensualSuscripciones = useMemo(
+    () => suscripciones.filter(s => s.activa).reduce((sum, s) => sum + calcMensual(s), 0),
+    [suscripciones]
+  );
 
   const principalHucha = useMemo(
     () => huchas.find(h => h.es_principal),
@@ -1023,16 +1330,242 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="relative mx-auto w-full max-w-6xl px-4 pt-10 sm:px-6">
+      {user && (
+        <nav className="sticky top-20 z-10 border-b border-white/70 bg-white/90 backdrop-blur-xl">
+          <div className="mx-auto flex w-full max-w-6xl items-center gap-1 px-4 sm:px-6">
+            <button
+              onClick={() => setActiveView('dashboard')}
+              className={`flex items-center gap-2.5 px-5 py-4 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${
+                activeView === 'dashboard'
+                  ? 'border-slate-900 text-slate-900'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <LayoutDashboard size={14} />
+              Dashboard
+            </button>
+            <button
+              onClick={() => setActiveView('suscripciones')}
+              className={`flex items-center gap-2.5 px-5 py-4 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${
+                activeView === 'suscripciones'
+                  ? 'border-slate-900 text-slate-900'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <CreditCard size={14} />
+              Suscripciones
+              {suscripciones.filter(s => s.activa).length > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-slate-900 text-white text-[9px] font-black px-1.5">
+                  {suscripciones.filter(s => s.activa).length}
+                </span>
+              )}
+            </button>
+          </div>
+        </nav>
+      )}
+
+      <main className="relative mx-auto w-full max-w-6xl px-4 pt-10 pb-12 sm:px-6">
         {!isFirebaseConfigured && (
           <div className="mb-8 flex items-center gap-4 rounded-3xl border border-amber-200 bg-amber-50/50 p-5 shadow-sm animate-appear-up">
             <AlertTriangle className="text-amber-500 shrink-0" size={24} />
             <p className="text-sm font-bold text-amber-900 leading-tight">
-              <span className="font-black uppercase tracking-widest text-[10px] block mb-0.5">Modo Demo</span> 
+              <span className="font-black uppercase tracking-widest text-[10px] block mb-0.5">Modo Demo</span>
               Firebase no está configurado. Los datos mostrados son de ejemplo.
             </p>
           </div>
         )}
+
+        {activeView === 'suscripciones' && (
+          <>
+            {/* Suscripciones — resumen */}
+            <section className="animate-appear-up rounded-[2.5rem] border border-white bg-white/80 p-6 shadow-2xl shadow-slate-900/5 backdrop-blur-xl sm:p-10">
+              <div className="flex flex-wrap items-start justify-between gap-6">
+                <div>
+                  <p className="inline-flex items-center gap-2 rounded-full border border-slate-100 bg-slate-50/50 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <CreditCard size={14} />
+                    Gastos Recurrentes
+                  </p>
+                  <h2 className="mt-6 font-title text-4xl font-black text-slate-900 sm:text-5xl tracking-tight leading-none">
+                    Mis Suscripciones
+                  </h2>
+                  <p className="mt-4 text-base font-bold text-slate-400">
+                    Pagos automáticos configurados.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsSuscripcionModalOpen(true)}
+                  className="h-12 px-6 inline-flex items-center gap-3 rounded-2xl bg-slate-900 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-slate-800 active:scale-95 shadow-2xl shadow-slate-900/30 shrink-0"
+                >
+                  <PlusCircle size={18} />
+                  Nueva
+                </button>
+              </div>
+
+              <div className="mt-10 grid gap-4 grid-cols-2 lg:grid-cols-3">
+                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] group">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">Coste Mensual</p>
+                  <p className="mt-2 text-lg sm:text-xl font-black text-slate-900 tabular-nums">{formatCurrency(totalMensualSuscripciones)}</p>
+                </article>
+                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] group">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">Coste Anual</p>
+                  <p className="mt-2 text-lg sm:text-xl font-black text-slate-900 tabular-nums">{formatCurrency(totalMensualSuscripciones * 12)}</p>
+                </article>
+                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] group col-span-2 lg:col-span-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">Activas</p>
+                  <p className="mt-2 text-lg sm:text-xl font-black text-slate-900 tabular-nums">
+                    {suscripciones.filter(s => s.activa).length}
+                    <span className="text-slate-300 font-black text-base"> / {suscripciones.length}</span>
+                  </p>
+                </article>
+              </div>
+            </section>
+
+            {/* Suscripciones — lista */}
+            <section className="mt-8 glass-panel rounded-[2.5rem] p-8 shadow-xl sm:p-10">
+              {suscripciones.length === 0 ? (
+                <div className="py-20 text-center">
+                  <CreditCard className="mx-auto mb-6 text-slate-200" size={64} />
+                  <p className="text-xl font-black text-slate-300 uppercase tracking-[0.2em]">Sin suscripciones</p>
+                  <p className="mt-3 text-sm font-bold text-slate-300">Añade Netflix, Spotify y todo lo que pagas cada mes</p>
+                  <button
+                    onClick={() => setIsSuscripcionModalOpen(true)}
+                    className="mt-8 inline-flex items-center gap-2 h-12 px-6 rounded-2xl bg-slate-900 text-[11px] font-black uppercase tracking-widest text-white hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-900/20"
+                  >
+                    <PlusCircle size={16} />
+                    Añadir primera suscripción
+                  </button>
+                </div>
+              ) : (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {suscripciones.map(s => {
+                    const frecOpt = FRECUENCIA_OPTIONS.find(o => o.value === s.frecuencia);
+                    const mensual = calcMensual(s);
+                    const nextDate = getNextPaymentDate(s.dia_pago);
+                    const daysUntil = Math.ceil((nextDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+                    return (
+                      <article
+                        key={s.id}
+                        className={`group relative rounded-[2.5rem] border-4 p-8 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${
+                          s.cancelando
+                            ? 'border-rose-100 bg-rose-50/30 shadow-sm'
+                            : s.activa
+                              ? 'border-white bg-white shadow-lg'
+                              : 'border-slate-100 bg-slate-50/50 shadow-sm opacity-60'
+                        }`}
+                      >
+                        {/* Cancelación pendiente — banner */}
+                        {s.cancelando && (
+                          <div className="mb-5 flex items-center gap-3 rounded-2xl bg-rose-100/70 px-4 py-3">
+                            <XCircle size={14} className="text-rose-500 shrink-0" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-rose-700">
+                              Se cancela el día {s.dia_pago}
+                            </p>
+                            <button
+                              onClick={() => handleUndoCancelSuscripcion(s)}
+                              className="ml-auto flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 transition-colors"
+                              title="Deshacer cancelación"
+                            >
+                              <Undo2 size={12} />
+                              Deshacer
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="mb-6 flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`h-14 w-14 rounded-2xl flex items-center justify-center shadow-lg shrink-0 ${s.cancelando ? 'opacity-50' : ''}`}
+                              style={{ backgroundColor: s.color + '20', color: s.color }}
+                            >
+                              <CreditCard size={24} />
+                            </div>
+                            <div>
+                              <h4 className={`font-black text-xl leading-tight tracking-tight ${s.cancelando ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                                {s.nombre}
+                              </h4>
+                              <span className="mt-1 inline-block rounded-xl px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm" style={{ backgroundColor: s.cancelando ? '#94a3b8' : s.color }}>
+                                {CATEGORIA_OPTIONS.find(c => c.value === s.categoria)?.label ?? s.categoria}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-2 sm:group-hover:translate-y-0 shrink-0">
+                            {!s.cancelando && (
+                              <button
+                                onClick={() => openEditSuscripcion(s)}
+                                className="flex h-9 w-9 items-center justify-center bg-slate-100 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-all active:scale-90"
+                                title="Editar"
+                              >
+                                <Edit size={16} />
+                              </button>
+                            )}
+                            {!s.cancelando ? (
+                              <button
+                                onClick={() => handleCancelSuscripcion(s)}
+                                className="flex h-9 w-9 items-center justify-center bg-slate-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all active:scale-90"
+                                title="Cancelar suscripción"
+                              >
+                                <XCircle size={16} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleDeleteSuscripcion(s)}
+                                className="flex h-9 w-9 items-center justify-center bg-rose-50 text-rose-400 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all active:scale-90"
+                                title="Eliminar ahora"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className={`text-4xl font-black tabular-nums tracking-tighter leading-none ${s.cancelando ? 'text-slate-400' : 'text-slate-900'}`}>
+                          {formatCurrency(s.importe)}
+                        </p>
+                        <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          {frecOpt?.label ?? s.frecuencia}
+                          {s.frecuencia !== 'mensual' && (
+                            <span className="text-slate-300"> · {formatCurrency(mensual)}/mes</span>
+                          )}
+                        </p>
+
+                        <div className="mt-6 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-2 text-slate-400">
+                            <Calendar size={14} />
+                            <span className="text-[10px] font-black uppercase tracking-widest">
+                              Día {s.dia_pago}
+                              {!s.cancelando && s.activa && daysUntil <= 7 && (
+                                <span className="ml-2 inline-flex items-center gap-1 text-amber-600">
+                                  · {daysUntil === 0 ? 'Hoy' : daysUntil === 1 ? 'Mañana' : `en ${daysUntil} días`}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          {!s.cancelando && (
+                            <button
+                              onClick={() => handleToggleSuscripcion(s)}
+                              className="transition-all active:scale-90"
+                              title={s.activa ? 'Pausar' : 'Activar'}
+                            >
+                              {s.activa
+                                ? <ToggleRight size={28} style={{ color: s.color }} />
+                                : <ToggleLeft size={28} className="text-slate-300" />
+                              }
+                            </button>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+
+        {activeView === 'dashboard' && (
+          <>
 
         <section className="animate-appear-up rounded-[2.5rem] border border-white bg-white/80 p-6 shadow-2xl shadow-slate-900/5 backdrop-blur-xl sm:p-10 transition-all hover:shadow-slate-900/10">
           <div className="grid gap-8 lg:grid-cols-[1fr_400px] lg:items-center">
@@ -1299,7 +1832,15 @@ const App: React.FC = () => {
                   >
                     <div className="mb-6 flex items-start justify-between gap-4">
                       <div>
-                        <h4 className="font-black text-slate-900 text-xl leading-tight tracking-tight uppercase">{h.nombre}</h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-black text-slate-900 text-xl leading-tight tracking-tight uppercase">{h.nombre}</h4>
+                          {h.es_suscripciones && (
+                            <span className="inline-flex items-center gap-1 rounded-xl bg-violet-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-violet-700">
+                              <CreditCard size={10} />
+                              Auto
+                            </span>
+                          )}
+                        </div>
                         <span className="mt-2 inline-block rounded-xl bg-slate-900 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-slate-900/20">
                           {allocationLabel}
                         </span>
@@ -1350,6 +1891,8 @@ const App: React.FC = () => {
             )}
           </div>
         </section>
+        </>
+        )}
       </main>
 
       {/* Modal Nueva Hucha */}
@@ -1980,6 +2523,177 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Modal Nueva / Editar Suscripción */}
+      {isSuscripcionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-lg overflow-hidden border border-white animate-in fade-in zoom-in duration-300 max-h-[95vh] flex flex-col">
+            <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center shadow-sm">
+                  <CreditCard size={24} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                  {editingSuscripcionId ? 'Editar' : 'Nueva Suscripción'}
+                </h3>
+              </div>
+              <button
+                onClick={closeSuscripcionModal}
+                className="flex h-12 w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10"
+                aria-label="Cerrar modal"
+              >
+                <X size={28} className="text-slate-400 hover:text-slate-900 transition-colors" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateOrUpdateSuscripcion} className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
+              {/* Nombre */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="sus-nombre">Nombre del Servicio</label>
+                <input
+                  id="sus-nombre"
+                  required
+                  type="text"
+                  placeholder="Ej: Netflix, Spotify..."
+                  className="w-full px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-300"
+                  value={newSuscripcion.nombre}
+                  onChange={e => setNewSuscripcion({ ...newSuscripcion, nombre: e.target.value })}
+                />
+              </div>
+
+              {/* Importe + Frecuencia */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="sus-importe">Importe (€)</label>
+                  <input
+                    id="sus-importe"
+                    required
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="0.00"
+                    className="w-full px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-black tabular-nums text-xl"
+                    value={newSuscripcion.importe || ''}
+                    onChange={e => setNewSuscripcion({ ...newSuscripcion, importe: Number(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="sus-frecuencia">Frecuencia</label>
+                  <select
+                    id="sus-frecuencia"
+                    className="w-full px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-bold cursor-pointer appearance-none"
+                    value={newSuscripcion.frecuencia}
+                    onChange={e => setNewSuscripcion({ ...newSuscripcion, frecuencia: e.target.value as Suscripcion['frecuencia'] })}
+                  >
+                    {FRECUENCIA_OPTIONS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Día de cobro + Categoría */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="sus-dia">
+                    <Calendar size={10} className="inline mr-1" />
+                    Día de cobro
+                  </label>
+                  <input
+                    id="sus-dia"
+                    required
+                    type="number"
+                    min="1"
+                    max="28"
+                    className="w-full px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-bold tabular-nums"
+                    value={newSuscripcion.dia_pago}
+                    onChange={e => setNewSuscripcion({ ...newSuscripcion, dia_pago: Number(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="sus-categoria">Categoría</label>
+                  <select
+                    id="sus-categoria"
+                    className="w-full px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-bold cursor-pointer appearance-none"
+                    value={newSuscripcion.categoria}
+                    onChange={e => setNewSuscripcion({ ...newSuscripcion, categoria: e.target.value })}
+                  >
+                    {CATEGORIA_OPTIONS.map(c => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Color */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Color</label>
+                <div className="flex flex-wrap gap-3">
+                  {SUBSCRIPTION_COLORS.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setNewSuscripcion({ ...newSuscripcion, color: c })}
+                      className={`h-10 w-10 rounded-2xl transition-all active:scale-90 ${newSuscripcion.color === c ? 'ring-4 ring-offset-2 scale-110' : 'hover:scale-105'}`}
+                      style={{ backgroundColor: c, ringColor: c }}
+                      aria-label={`Color ${c}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Preview mensual */}
+              {newSuscripcion.importe > 0 && newSuscripcion.frecuencia !== 'mensual' && (
+                <div className="rounded-[1.5rem] bg-slate-50 border-2 border-slate-100 p-5 flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-slate-500">
+                    <RefreshCw size={16} />
+                    <span className="text-[11px] font-black uppercase tracking-widest">Equivale a</span>
+                  </div>
+                  <span className="text-lg font-black text-slate-900 tabular-nums">
+                    {formatCurrency(newSuscripcion.importe / (FRECUENCIA_OPTIONS.find(o => o.value === newSuscripcion.frecuencia)?.divisor ?? 1))}/mes
+                  </span>
+                </div>
+              )}
+
+              {/* Activa toggle */}
+              <div className="flex items-center gap-5 p-5 rounded-[1.5rem] bg-slate-50 border-2 border-slate-100 transition-colors hover:bg-white hover:border-sky-100 group cursor-pointer"
+                onClick={() => setNewSuscripcion({ ...newSuscripcion, activa: !newSuscripcion.activa })}
+              >
+                <div>
+                  {newSuscripcion.activa
+                    ? <ToggleRight size={32} style={{ color: newSuscripcion.color }} />
+                    : <ToggleLeft size={32} className="text-slate-300" />
+                  }
+                </div>
+                <div>
+                  <p className="text-sm font-black text-slate-900">
+                    {newSuscripcion.activa ? 'Activa' : 'Pausada'}
+                  </p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
+                    {newSuscripcion.activa ? 'Se incluye en el total mensual' : 'No afecta al total mensual'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-6">
+                <button
+                  type="button"
+                  onClick={closeSuscripcionModal}
+                  className="flex-1 px-8 py-5 rounded-[1.5rem] border-2 border-slate-100 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 hover:bg-slate-50 active:scale-95 transition-all focus:outline-none"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-8 py-5 rounded-[1.5rem] bg-slate-900 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-800 active:scale-95 transition-all shadow-[0_20px_50px_-15px_rgba(15,23,42,0.4)]"
+                >
+                  {editingSuscripcionId ? 'Guardar Cambios' : 'Crear'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-appear-up">
@@ -2018,7 +2732,7 @@ const App: React.FC = () => {
                 onClick={confirmModal.onConfirm}
                 className="flex-1 px-6 py-5 rounded-[1.5rem] bg-slate-900 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-900/30"
               >
-                Borrar
+                {confirmModal.confirmLabel ?? 'Borrar'}
               </button>
             </div>
           </div>
