@@ -61,6 +61,8 @@ import {
   LayoutDashboard,
   ToggleLeft,
   ToggleRight,
+  XCircle,
+  Undo2,
 } from 'lucide-react';
 import { auth, db } from './firebase';
 
@@ -94,6 +96,7 @@ interface Suscripcion {
   categoria: string;
   color: string;
   activa: boolean;
+  cancelando?: boolean;
 }
 
 const SUBSCRIPTION_COLORS = [
@@ -338,6 +341,7 @@ const App: React.FC = () => {
   const [confirmModal, setConfirmModal] = useState<{
     title: string;
     message: string;
+    confirmLabel?: string;
     onConfirm: () => void;
   } | null>(null);
 
@@ -926,6 +930,75 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCancelSuscripcion = (s: Suscripcion) => {
+    const nextDate = getNextPaymentDate(s.dia_pago);
+    const label = nextDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+    setConfirmModal({
+      title: 'Cancelar Suscripción',
+      message: `"${s.nombre}" se eliminará automáticamente el ${label} (próximo cobro). Hasta entonces sigue activa.`,
+      confirmLabel: 'Cancelar',
+      onConfirm: async () => {
+        try {
+          await runTransaction(db, async (transaction) => {
+            transaction.update(doc(db, 'suscripciones', s.id), {
+              cancelando: true,
+              updated_at: serverTimestamp(),
+            });
+          });
+          showToast(`${s.nombre} se cancelará el ${label}`, 'success');
+        } catch (error) {
+          console.error('Error al cancelar suscripción:', error);
+          showToast('Error al cancelar la suscripción');
+        }
+        setConfirmModal(null);
+      },
+    });
+  };
+
+  const handleUndoCancelSuscripcion = async (s: Suscripcion) => {
+    try {
+      await runTransaction(db, async (transaction) => {
+        transaction.update(doc(db, 'suscripciones', s.id), {
+          cancelando: false,
+          updated_at: serverTimestamp(),
+        });
+      });
+      showToast(`${s.nombre} reactivada`, 'success');
+    } catch (error) {
+      console.error('Error al reactivar suscripción:', error);
+      showToast('Error al reactivar la suscripción');
+    }
+  };
+
+  // Auto-delete subscriptions whose cancellation date has passed
+  useEffect(() => {
+    if (!user || !isFirebaseConfigured || suscripciones.length === 0) return;
+    const expired = suscripciones.filter(s => {
+      if (!s.cancelando) return false;
+      const next = getNextPaymentDate(s.dia_pago);
+      // If next payment date is in the future, it hasn't arrived yet
+      // We consider "passed" if the next payment date rolls over (i.e., today >= dia_pago this month)
+      const today = new Date();
+      const thisMonthPayment = new Date(today.getFullYear(), today.getMonth(), s.dia_pago);
+      return today >= thisMonthPayment;
+    });
+    if (expired.length === 0) return;
+
+    const deleteExpired = async () => {
+      for (const s of expired) {
+        try {
+          await deleteDoc(doc(db, 'suscripciones', s.id));
+        } catch (e) {
+          console.error('Error auto-deleting subscription:', e);
+        }
+      }
+      const remaining = suscripciones.filter(s => !expired.find(e => e.id === s.id));
+      await syncSuscripcionesHucha(remaining);
+    };
+    deleteExpired();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suscripciones, user, isFirebaseConfigured]);
+
   const totalIngresos = userStats?.total_ingresos ?? 0;
   const totalGastos = userStats?.total_gastos ?? 0;
   const balance = totalIngresos - totalGastos;
@@ -1374,44 +1447,80 @@ const App: React.FC = () => {
                       <article
                         key={s.id}
                         className={`group relative rounded-[2.5rem] border-4 p-8 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${
-                          s.activa ? 'border-white bg-white shadow-lg' : 'border-slate-100 bg-slate-50/50 shadow-sm opacity-60'
+                          s.cancelando
+                            ? 'border-rose-100 bg-rose-50/30 shadow-sm'
+                            : s.activa
+                              ? 'border-white bg-white shadow-lg'
+                              : 'border-slate-100 bg-slate-50/50 shadow-sm opacity-60'
                         }`}
                       >
+                        {/* Cancelación pendiente — banner */}
+                        {s.cancelando && (
+                          <div className="mb-5 flex items-center gap-3 rounded-2xl bg-rose-100/70 px-4 py-3">
+                            <XCircle size={14} className="text-rose-500 shrink-0" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-rose-700">
+                              Se cancela el día {s.dia_pago}
+                            </p>
+                            <button
+                              onClick={() => handleUndoCancelSuscripcion(s)}
+                              className="ml-auto flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 transition-colors"
+                              title="Deshacer cancelación"
+                            >
+                              <Undo2 size={12} />
+                              Deshacer
+                            </button>
+                          </div>
+                        )}
+
                         <div className="mb-6 flex items-start justify-between gap-4">
                           <div className="flex items-center gap-4">
                             <div
-                              className="h-14 w-14 rounded-2xl flex items-center justify-center shadow-lg shrink-0"
+                              className={`h-14 w-14 rounded-2xl flex items-center justify-center shadow-lg shrink-0 ${s.cancelando ? 'opacity-50' : ''}`}
                               style={{ backgroundColor: s.color + '20', color: s.color }}
                             >
                               <CreditCard size={24} />
                             </div>
                             <div>
-                              <h4 className="font-black text-slate-900 text-xl leading-tight tracking-tight">{s.nombre}</h4>
-                              <span className="mt-1 inline-block rounded-xl px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm" style={{ backgroundColor: s.color }}>
+                              <h4 className={`font-black text-xl leading-tight tracking-tight ${s.cancelando ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                                {s.nombre}
+                              </h4>
+                              <span className="mt-1 inline-block rounded-xl px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm" style={{ backgroundColor: s.cancelando ? '#94a3b8' : s.color }}>
                                 {CATEGORIA_OPTIONS.find(c => c.value === s.categoria)?.label ?? s.categoria}
                               </span>
                             </div>
                           </div>
 
                           <div className="flex gap-2 transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-2 sm:group-hover:translate-y-0 shrink-0">
-                            <button
-                              onClick={() => openEditSuscripcion(s)}
-                              className="flex h-9 w-9 items-center justify-center bg-slate-100 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-all active:scale-90"
-                              title="Editar"
-                            >
-                              <Edit size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteSuscripcion(s)}
-                              className="flex h-9 w-9 items-center justify-center bg-slate-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all active:scale-90"
-                              title="Eliminar"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            {!s.cancelando && (
+                              <button
+                                onClick={() => openEditSuscripcion(s)}
+                                className="flex h-9 w-9 items-center justify-center bg-slate-100 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-all active:scale-90"
+                                title="Editar"
+                              >
+                                <Edit size={16} />
+                              </button>
+                            )}
+                            {!s.cancelando ? (
+                              <button
+                                onClick={() => handleCancelSuscripcion(s)}
+                                className="flex h-9 w-9 items-center justify-center bg-slate-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all active:scale-90"
+                                title="Cancelar suscripción"
+                              >
+                                <XCircle size={16} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleDeleteSuscripcion(s)}
+                                className="flex h-9 w-9 items-center justify-center bg-rose-50 text-rose-400 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all active:scale-90"
+                                title="Eliminar ahora"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
                           </div>
                         </div>
 
-                        <p className="text-4xl font-black text-slate-900 tabular-nums tracking-tighter leading-none">
+                        <p className={`text-4xl font-black tabular-nums tracking-tighter leading-none ${s.cancelando ? 'text-slate-400' : 'text-slate-900'}`}>
                           {formatCurrency(s.importe)}
                         </p>
                         <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -1426,23 +1535,25 @@ const App: React.FC = () => {
                             <Calendar size={14} />
                             <span className="text-[10px] font-black uppercase tracking-widest">
                               Día {s.dia_pago}
-                              {s.activa && daysUntil <= 7 && (
+                              {!s.cancelando && s.activa && daysUntil <= 7 && (
                                 <span className="ml-2 inline-flex items-center gap-1 text-amber-600">
                                   · {daysUntil === 0 ? 'Hoy' : daysUntil === 1 ? 'Mañana' : `en ${daysUntil} días`}
                                 </span>
                               )}
                             </span>
                           </div>
-                          <button
-                            onClick={() => handleToggleSuscripcion(s)}
-                            className="transition-all active:scale-90"
-                            title={s.activa ? 'Desactivar' : 'Activar'}
-                          >
-                            {s.activa
-                              ? <ToggleRight size={28} style={{ color: s.color }} />
-                              : <ToggleLeft size={28} className="text-slate-300" />
-                            }
-                          </button>
+                          {!s.cancelando && (
+                            <button
+                              onClick={() => handleToggleSuscripcion(s)}
+                              className="transition-all active:scale-90"
+                              title={s.activa ? 'Pausar' : 'Activar'}
+                            >
+                              {s.activa
+                                ? <ToggleRight size={28} style={{ color: s.color }} />
+                                : <ToggleLeft size={28} className="text-slate-300" />
+                              }
+                            </button>
+                          )}
                         </div>
                       </article>
                     );
@@ -2621,7 +2732,7 @@ const App: React.FC = () => {
                 onClick={confirmModal.onConfirm}
                 className="flex-1 px-6 py-5 rounded-[1.5rem] bg-slate-900 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-900/30"
               >
-                Borrar
+                {confirmModal.confirmLabel ?? 'Borrar'}
               </button>
             </div>
           </div>
