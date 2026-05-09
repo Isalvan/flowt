@@ -20,6 +20,8 @@ import {
   startAfter,
   getDocs,
   setDoc,
+  deleteField,
+  type DocumentSnapshot,
 } from 'firebase/firestore';
 import {
   BarChart,
@@ -63,6 +65,8 @@ import {
   ToggleRight,
   XCircle,
   Undo2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { auth, db } from './firebase';
 
@@ -97,6 +101,8 @@ interface Suscripcion {
   color: string;
   activa: boolean;
   cancelando?: boolean;
+  hucha_id?: string | null;
+  created_at?: any; // Firestore Timestamp or null for old records
 }
 
 const SUBSCRIPTION_COLORS = [
@@ -190,7 +196,7 @@ const App: React.FC = () => {
     if (typeof window === 'undefined') return 'light';
     return window.localStorage.getItem('flowt-theme') === 'dark' ? 'dark' : 'light';
   });
-  const [activeView, setActiveView] = useState<'dashboard' | 'suscripciones'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'suscripciones' | 'calendario'>('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
@@ -208,6 +214,7 @@ const App: React.FC = () => {
     categoria: 'otros',
     color: '#8b5cf6',
     activa: true,
+    hucha_id: '',
   });
   const [isFirebaseConfigured, setIsFirebaseConfigured] = useState(true);
   
@@ -247,6 +254,7 @@ const App: React.FC = () => {
   // History State
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [history, setHistory] = useState<Movimiento[]>([]);
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [chartMovements, setChartMovements] = useState<Movimiento[]>([]);
   const [lastDoc, setLastDoc] = useState<any>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -793,10 +801,207 @@ const App: React.FC = () => {
     }
   };
 
+  // ---------- Convert tipo (gasto <-> ingreso) ----------
+  type ConvertRow = {
+    huchaId: string;
+    tipoAportacion: 'flat' | 'porcentaje' | 'resto';
+    valor: number;
+  };
+  const [convertingMov, setConvertingMov] = useState<Movimiento | null>(null);
+  const [convertRows, setConvertRows] = useState<ConvertRow[]>([]);
+  const [convertTargetHuchaId, setConvertTargetHuchaId] = useState<string>('');
+
+  const openConvertModal = (mov: Movimiento) => {
+    setConvertingMov(mov);
+    if (mov.tipo === 'gasto') {
+      // Default: distribute everything to principal/resto hucha
+      const principal = huchas.find(h => h.es_principal)
+        ?? huchas.find(h => h.tipo_aportacion === 'resto')
+        ?? huchas[0];
+      setConvertRows(principal ? [{ huchaId: principal.id, tipoAportacion: 'resto', valor: 0 }] : []);
+      setConvertTargetHuchaId('');
+    } else {
+      // ingreso -> gasto: pick a single hucha for the expense
+      const principal = huchas.find(h => h.es_principal) ?? huchas[0];
+      setConvertTargetHuchaId(principal?.id ?? '');
+      setConvertRows([]);
+    }
+  };
+
+  const closeConvertModal = () => {
+    setConvertingMov(null);
+    setConvertRows([]);
+    setConvertTargetHuchaId('');
+  };
+
+  const addConvertRow = () => {
+    const used = new Set(convertRows.map(r => r.huchaId));
+    const next = huchas.find(h => !used.has(h.id));
+    if (!next) return;
+    setConvertRows(prev => [...prev, { huchaId: next.id, tipoAportacion: 'flat', valor: 0 }]);
+  };
+
+  const updateConvertRow = (idx: number, patch: Partial<ConvertRow>) => {
+    setConvertRows(prev => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  };
+
+  const removeConvertRow = (idx: number) => {
+    setConvertRows(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Computes the € that each row contributes given the movement amount.
+  // Returns null if the distribution is invalid (with reason in `error`).
+  const computeConvertShares = (
+    rows: ConvertRow[],
+    amount: number,
+  ): { shares: Record<string, number>; error: string | null } => {
+    if (rows.length === 0) return { shares: {}, error: 'Añade al menos una hucha' };
+
+    const ids = new Set<string>();
+    for (const r of rows) {
+      if (!r.huchaId) return { shares: {}, error: 'Selecciona una hucha en cada fila' };
+      if (ids.has(r.huchaId)) return { shares: {}, error: 'No repitas huchas' };
+      ids.add(r.huchaId);
+    }
+
+    const restoCount = rows.filter(r => r.tipoAportacion === 'resto').length;
+    if (restoCount > 1) return { shares: {}, error: 'Sólo una fila puede ser «resto»' };
+
+    let flatSum = 0;
+    let pctSum = 0;
+    for (const r of rows) {
+      if (r.tipoAportacion === 'flat') {
+        if (r.valor < 0) return { shares: {}, error: 'Valores negativos no permitidos' };
+        flatSum += r.valor;
+      } else if (r.tipoAportacion === 'porcentaje') {
+        if (r.valor < 0) return { shares: {}, error: 'Valores negativos no permitidos' };
+        pctSum += r.valor;
+      }
+    }
+
+    if (pctSum > 100 + 0.001) return { shares: {}, error: 'Los porcentajes superan el 100%' };
+    const pctEuros = amount * (pctSum / 100);
+    if (flatSum + pctEuros > amount + 0.01) {
+      return { shares: {}, error: 'Las cantidades fijas + porcentajes superan el importe' };
+    }
+
+    const restoEuros = amount - flatSum - pctEuros;
+    if (restoCount === 0 && Math.abs(restoEuros) > 0.01) {
+      return { shares: {}, error: `Faltan ${restoEuros.toFixed(2)} € sin asignar (añade «resto» o sube valores)` };
+    }
+
+    const shares: Record<string, number> = {};
+    for (const r of rows) {
+      let val = 0;
+      if (r.tipoAportacion === 'flat') val = r.valor;
+      else if (r.tipoAportacion === 'porcentaje') val = amount * (r.valor / 100);
+      else val = restoEuros;
+      shares[r.huchaId] = (shares[r.huchaId] ?? 0) + val;
+    }
+    return { shares, error: null };
+  };
+
+  const handleConvertMovimiento = async () => {
+    if (!convertingMov || !user) return;
+    const mov = convertingMov;
+    const amount = mov.importe;
+
+    try {
+      if (mov.tipo === 'gasto') {
+        // gasto -> ingreso
+        const { shares, error } = computeConvertShares(convertRows, amount);
+        if (error) {
+          showToast(error);
+          return;
+        }
+        const oldHuchaId = mov.hucha_id;
+
+        // Net delta per hucha: revert -amount on old hucha (+amount), plus add shares.
+        const deltas: Record<string, number> = {};
+        if (oldHuchaId) deltas[oldHuchaId] = (deltas[oldHuchaId] || 0) + amount;
+        for (const [hid, share] of Object.entries(shares)) {
+          deltas[hid] = (deltas[hid] || 0) + share;
+        }
+
+        await runTransaction(db, async (transaction) => {
+          // ----- READS FIRST -----
+          const movRef = doc(db, 'movimientos', mov.id);
+          const statsRef = doc(db, 'stats', user.uid);
+
+          const huchaRefs: Record<string, ReturnType<typeof doc>> = {};
+          for (const hid of Object.keys(deltas)) huchaRefs[hid] = doc(db, 'huchas', hid);
+
+          const huchaSnaps: Record<string, DocumentSnapshot> = {};
+          for (const hid of Object.keys(huchaRefs)) {
+            huchaSnaps[hid] = await transaction.get(huchaRefs[hid]);
+          }
+          const statsSnap = await transaction.get(statsRef);
+
+          // ----- WRITES -----
+          for (const hid of Object.keys(huchaRefs)) {
+            const snap = huchaSnaps[hid];
+            if (!snap?.exists()) continue;
+            const cur = snap.data().saldo_acumulado || 0;
+            transaction.update(huchaRefs[hid], {
+              saldo_acumulado: cur + deltas[hid],
+              updated_at: serverTimestamp(),
+            });
+          }
+          transaction.update(movRef, { tipo: 'ingreso', hucha_id: deleteField() });
+          const curStats = statsSnap.data() || {};
+          transaction.set(statsRef, {
+            total_ingresos: (curStats.total_ingresos || 0) + amount,
+            total_gastos: Math.max(0, (curStats.total_gastos || 0) - amount),
+            updated_at: serverTimestamp(),
+          }, { merge: true });
+        });
+
+        showToast('Movimiento convertido a ingreso', 'success');
+      } else {
+        // ingreso -> gasto
+        if (!convertTargetHuchaId) {
+          showToast('Elige una hucha para el gasto');
+          return;
+        }
+        const targetId = convertTargetHuchaId;
+
+        await runTransaction(db, async (transaction) => {
+          const movRef = doc(db, 'movimientos', mov.id);
+          const statsRef = doc(db, 'stats', user.uid);
+          const targetRef = doc(db, 'huchas', targetId);
+
+          const targetSnap = await transaction.get(targetRef);
+          const statsSnap = await transaction.get(statsRef);
+
+          if (targetSnap.exists()) {
+            const cur = targetSnap.data().saldo_acumulado || 0;
+            transaction.update(targetRef, {
+              saldo_acumulado: cur - amount,
+              updated_at: serverTimestamp(),
+            });
+          }
+          transaction.update(movRef, { tipo: 'gasto', hucha_id: targetId });
+          const cur = statsSnap.data() || {};
+          transaction.set(statsRef, {
+            total_ingresos: Math.max(0, (cur.total_ingresos || 0) - amount),
+            total_gastos: (cur.total_gastos || 0) + amount,
+            updated_at: serverTimestamp(),
+          }, { merge: true });
+        });
+
+        showToast('Movimiento convertido a gasto', 'success');
+      }
+      closeConvertModal();
+    } catch (error) {
+      console.error('Error convirtiendo movimiento:', error);
+      showToast('Error al convertir el movimiento');
+    }
+  };
+
   const closeSuscripcionModal = () => {
     setIsSuscripcionModalOpen(false);
     setEditingSuscripcionId(null);
-    setNewSuscripcion({ nombre: '', importe: 0, frecuencia: 'mensual', dia_pago: 1, categoria: 'otros', color: '#8b5cf6', activa: true });
+    setNewSuscripcion({ nombre: '', importe: 0, frecuencia: 'mensual', dia_pago: 1, categoria: 'otros', color: '#8b5cf6', activa: true, hucha_id: '' });
   };
 
   const openEditSuscripcion = (s: Suscripcion) => {
@@ -809,6 +1014,7 @@ const App: React.FC = () => {
       categoria: s.categoria,
       color: s.color,
       activa: s.activa,
+      hucha_id: s.hucha_id || '',
     });
     setIsSuscripcionModalOpen(true);
   };
@@ -863,6 +1069,7 @@ const App: React.FC = () => {
       categoria: newSuscripcion.categoria,
       color: newSuscripcion.color,
       activa: newSuscripcion.activa,
+      hucha_id: newSuscripcion.hucha_id || null,
       updated_at: serverTimestamp(),
     };
 
@@ -973,14 +1180,15 @@ const App: React.FC = () => {
   // Auto-delete subscriptions whose cancellation date has passed
   useEffect(() => {
     if (!user || !isFirebaseConfigured || suscripciones.length === 0) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const expired = suscripciones.filter(s => {
       if (!s.cancelando) return false;
+      // Calculate the NEXT payment date (always in the future or today)
       const next = getNextPaymentDate(s.dia_pago);
-      // If next payment date is in the future, it hasn't arrived yet
-      // We consider "passed" if the next payment date rolls over (i.e., today >= dia_pago this month)
-      const today = new Date();
-      const thisMonthPayment = new Date(today.getFullYear(), today.getMonth(), s.dia_pago);
-      return today >= thisMonthPayment;
+      // Delete only when today has reached or passed the next payment date
+      return today >= next;
     });
     if (expired.length === 0) return;
 
@@ -1360,6 +1568,17 @@ const App: React.FC = () => {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveView('calendario')}
+              className={`flex items-center gap-2.5 px-5 py-4 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${
+                activeView === 'calendario'
+                  ? 'border-slate-900 text-slate-900'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <Calendar size={14} />
+              Calendario
+            </button>
           </div>
         </nav>
       )}
@@ -1500,23 +1719,24 @@ const App: React.FC = () => {
                                 <Edit size={16} />
                               </button>
                             )}
-                            {!s.cancelando ? (
+                            
+                            {!s.cancelando && (
                               <button
                                 onClick={() => handleCancelSuscripcion(s)}
                                 className="flex h-9 w-9 items-center justify-center bg-slate-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all active:scale-90"
-                                title="Cancelar suscripción"
+                                title="Cancelar suscripción (al final del periodo)"
                               >
                                 <XCircle size={16} />
                               </button>
-                            ) : (
-                              <button
-                                onClick={() => handleDeleteSuscripcion(s)}
-                                className="flex h-9 w-9 items-center justify-center bg-rose-50 text-rose-400 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all active:scale-90"
-                                title="Eliminar ahora"
-                              >
-                                <Trash2 size={16} />
-                              </button>
                             )}
+
+                            <button
+                              onClick={() => handleDeleteSuscripcion(s)}
+                              className="flex h-9 w-9 items-center justify-center bg-rose-50 text-rose-400 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all active:scale-90"
+                              title="Eliminar ahora (borrado total)"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           </div>
                         </div>
 
@@ -1562,6 +1782,173 @@ const App: React.FC = () => {
               )}
             </section>
           </>
+        )}
+
+        {activeView === 'calendario' && (
+          <section className="animate-appear-up space-y-10">
+            <header className="rounded-[3rem] border-4 border-white bg-white/70 p-10 shadow-2xl shadow-slate-900/5 backdrop-blur-2xl transition-all hover:shadow-slate-900/10">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                <div className="space-y-4">
+                  <p className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-sky-50/50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-sky-500">
+                    <Sparkles size={14} className="animate-pulse" />
+                    Agenda Financiera
+                  </p>
+                  <h2 className="font-title text-5xl font-black text-slate-900 tracking-tighter leading-none">
+                    Calendario de <span className="text-sky-500">Pagos</span>
+                  </h2>
+                  <p className="text-base font-bold text-slate-400">
+                    Visualiza tus próximos cargos recurrentes de un vistazo.
+                  </p>
+                </div>
+                
+                <div className="flex flex-col items-center gap-6">
+                  <div className="flex items-center gap-3 bg-slate-900/5 p-2 rounded-[2rem] border-2 border-white shadow-inner backdrop-blur-sm">
+                    <button 
+                      onClick={() => {
+                        const d = new Date(currentCalendarDate);
+                        d.setMonth(d.getMonth() - 1);
+                        setCurrentCalendarDate(d);
+                      }}
+                      className="h-14 w-14 flex items-center justify-center rounded-2xl bg-white text-slate-600 hover:text-sky-600 shadow-xl shadow-slate-900/5 active:scale-90 transition-all group"
+                      aria-label="Mes anterior"
+                    >
+                      <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
+                    </button>
+                    <span className="min-w-[180px] text-center text-lg font-black uppercase tracking-[0.15em] text-slate-900">
+                      {currentCalendarDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                    </span>
+                    <button 
+                      onClick={() => {
+                        const d = new Date(currentCalendarDate);
+                        d.setMonth(d.getMonth() + 1);
+                        setCurrentCalendarDate(d);
+                      }}
+                      className="h-14 w-14 flex items-center justify-center rounded-2xl bg-white text-slate-600 hover:text-sky-600 shadow-xl shadow-slate-900/5 active:scale-90 transition-all group"
+                      aria-label="Mes siguiente"
+                    >
+                      <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+
+                  {(() => {
+                    const totalMonth = suscripciones
+                      .filter(s => s.activa || s.cancelando)
+                      .reduce((sum, s) => sum + calcMensual(s), 0);
+                    return (
+                      <div className="flex items-center gap-4 px-6 py-3 rounded-2xl bg-slate-900 text-white shadow-2xl shadow-slate-900/20">
+                        <Wallet size={16} className="text-sky-400" />
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Total Mes:</span>
+                        <span className="text-xl font-black tabular-nums">{formatCurrency(totalMonth)}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </header>
+
+            <div className="rounded-[3rem] border-4 border-white bg-white/60 p-2 sm:p-6 shadow-2xl shadow-slate-900/5 backdrop-blur-xl">
+              <div className="grid grid-cols-7 mb-4 px-4 border-b border-slate-100/50">
+                {['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'].map(day => (
+                  <div key={day} className="text-center text-[11px] font-black text-slate-500 tracking-[0.2em] py-8">
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 gap-3 sm:gap-5 p-2">
+                {(() => {
+                  const daysInMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 0).getDate();
+                  const firstDayOfMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1).getDay();
+                  const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+                  
+                  const days = [];
+                  for (let i = 0; i < startOffset; i++) {
+                    days.push(<div key={`empty-${i}`} className="h-32 sm:h-40 opacity-10 pointer-events-none" />);
+                  }
+
+                  for (let d = 1; d <= daysInMonth; d++) {
+                    const isToday = new Date().toDateString() === new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), d).toDateString();
+                    const cellDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), d);
+                    cellDate.setHours(0, 0, 0, 0);
+                    const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+
+                    const daySubs = suscripciones.filter(s => {
+                      if (!s.activa && !s.cancelando) return false;
+                      if (s.dia_pago !== d) return false;
+
+                      // Don't show subscription in months before it was created
+                      if (s.created_at) {
+                        const createdDate: Date = s.created_at?.toDate ? s.created_at.toDate() : new Date(s.created_at);
+                        const createdMonth = new Date(createdDate.getFullYear(), createdDate.getMonth(), 1);
+                        const cellMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1);
+                        if (cellMonth < createdMonth) return false;
+                      }
+
+                      // Cancelled subs only appear on FUTURE days (their next charge date)
+                      if (s.cancelando) {
+                        const next = getNextPaymentDate(s.dia_pago);
+                        const nextDay = new Date(next.getFullYear(), next.getMonth(), next.getDate());
+                        const cellDay = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), d);
+                        return nextDay.getTime() === cellDay.getTime();
+                      }
+                      return true;
+                    });
+
+                    days.push(
+                      <div 
+                        key={d} 
+                        className={`group relative h-32 sm:h-40 rounded-[2.2rem] border-2 p-5 transition-all duration-500 ${
+                          isToday 
+                            ? 'border-sky-500 bg-white shadow-2xl shadow-sky-500/20 z-10' 
+                            : 'border-slate-100 bg-white/80 hover:bg-white hover:border-sky-200 hover:shadow-2xl hover:shadow-slate-900/10 hover:-translate-y-1'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <span className={`text-xl font-black tabular-nums tracking-tighter ${isToday ? 'text-sky-600' : 'text-slate-700 group-hover:text-slate-900 transition-colors'}`}>
+                            {d}
+                          </span>
+                          {isToday && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-black text-sky-500 uppercase tracking-widest">Hoy</span>
+                              <div className="h-2.5 w-2.5 rounded-full bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.5)] animate-pulse" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-2 overflow-y-auto max-h-[80px] sm:max-h-[100px] custom-scrollbar pr-1">
+                          {daySubs.map(s => (
+                            <div 
+                              key={s.id} 
+                              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-bold leading-none transition-all cursor-default ${
+                                s.cancelando ? 'opacity-50 line-through' : 'hover:scale-[1.02]'
+                              }`}
+                              style={{ 
+                                backgroundColor: 'white',
+                                color: s.color,
+                                border: `2px solid ${s.color}`,
+                              }}
+                              title={`${s.nombre}: ${formatCurrency(s.importe)}`}
+                            >
+                              <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                              <span className="truncate flex-1 font-black">{s.nombre}</span>
+                              <span className="tabular-nums shrink-0 opacity-70 text-[10px]">{formatCurrency(s.importe)}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {!isToday && daySubs.length === 0 && (
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none">
+                            <PlusCircle size={32} className="text-slate-900" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return days;
+                })()}
+              </div>
+            </div>
+          </section>
         )}
 
         {activeView === 'dashboard' && (
@@ -1761,8 +2148,8 @@ const App: React.FC = () => {
                       <p className={`text-base font-black tabular-nums ${m.tipo === 'ingreso' ? 'text-sky-700' : 'text-orange-700'}`}>
                         {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
                       </p>
-                      {m.tipo === 'gasto' && huchas.length > 0 && (
-                        <div className="transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:translate-x-2 sm:group-hover:translate-x-0">
+                      <div className="flex items-center gap-2 transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:translate-x-2 sm:group-hover:translate-x-0">
+                        {m.tipo === 'gasto' && huchas.length > 0 && (
                           <select
                             className="text-[9px] font-black uppercase tracking-widest bg-slate-100 border-none text-slate-500 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:bg-white focus:text-sky-600 cursor-pointer transition-all hover:bg-slate-200"
                             value={m.hucha_id || ''}
@@ -1774,8 +2161,19 @@ const App: React.FC = () => {
                               <option key={h.id} value={h.id}>{h.nombre}</option>
                             ))}
                           </select>
-                        </div>
-                      )}
+                        )}
+                        {huchas.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => openConvertModal(m)}
+                            className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 rounded-xl px-3 py-1.5 hover:bg-sky-50 hover:text-sky-600 transition-all"
+                            title={m.tipo === 'gasto' ? 'Convertir este gasto en ingreso' : 'Convertir este ingreso en gasto'}
+                          >
+                            <ArrowRightLeft size={11} className="inline -mt-0.5 mr-1" />
+                            {m.tipo === 'gasto' ? 'A ingreso' : 'A gasto'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
@@ -2323,6 +2721,16 @@ const App: React.FC = () => {
                         </select>
                       </div>
                     )}
+                    {huchas.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => openConvertModal(m)}
+                        className="text-[9px] font-black uppercase tracking-widest bg-white border-2 border-slate-100 text-slate-500 rounded-xl px-3 py-1.5 hover:bg-sky-50 hover:text-sky-600 hover:border-sky-100 transition-all"
+                      >
+                        <ArrowRightLeft size={11} className="inline -mt-0.5 mr-1" />
+                        {m.tipo === 'gasto' ? 'Convertir a ingreso' : 'Convertir a gasto'}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -2523,6 +2931,164 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Modal Convertir movimiento (gasto <-> ingreso) */}
+      {convertingMov && (() => {
+        const mov = convertingMov;
+        const isGastoToIngreso = mov.tipo === 'gasto';
+        const amount = mov.importe;
+        const { shares, error } = isGastoToIngreso
+          ? computeConvertShares(convertRows, amount)
+          : { shares: {} as Record<string, number>, error: null as string | null };
+        const used = new Set(convertRows.map(r => r.huchaId));
+        const canAddRow = isGastoToIngreso && huchas.some(h => !used.has(h.id));
+        const totalAssigned = Object.values(shares).reduce((a, b) => a + b, 0);
+        const canConfirm = isGastoToIngreso ? !error : !!convertTargetHuchaId;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
+            <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl overflow-hidden border border-white animate-in fade-in zoom-in duration-300 max-h-[95vh] flex flex-col">
+              <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-sm ${isGastoToIngreso ? 'bg-sky-50 text-sky-600' : 'bg-orange-50 text-orange-600'}`}>
+                    <ArrowRightLeft size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                      {isGastoToIngreso ? 'Convertir a ingreso' : 'Convertir a gasto'}
+                    </h3>
+                    <p className="text-xs font-bold text-slate-400 mt-1">
+                      {mov.concepto} · <span className="tabular-nums">{formatCurrency(amount)}</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={closeConvertModal}
+                  className="flex h-12 w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10"
+                  aria-label="Cerrar modal"
+                >
+                  <X size={28} className="text-slate-400 hover:text-slate-900 transition-colors" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
+                {isGastoToIngreso ? (
+                  <>
+                    <p className="text-xs font-bold text-slate-500 leading-relaxed">
+                      Reparte los <span className="tabular-nums font-black text-slate-900">{formatCurrency(amount)}</span> entre las huchas que quieras. Puedes mezclar cantidades fijas (€), porcentajes (%) y dejar una hucha como «resto» para que reciba lo que sobre.
+                    </p>
+
+                    <div className="space-y-3">
+                      {convertRows.map((row, idx) => (
+                        <div key={idx} className="flex items-center gap-2 p-3 rounded-2xl border-2 border-slate-100 bg-slate-50">
+                          <select
+                            className="flex-1 px-3 py-2 rounded-xl border-2 border-slate-100 bg-white text-sm font-bold focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500"
+                            value={row.huchaId}
+                            onChange={e => updateConvertRow(idx, { huchaId: e.target.value })}
+                          >
+                            {huchas.map(h => (
+                              <option key={h.id} value={h.id}>{h.nombre}</option>
+                            ))}
+                          </select>
+                          <select
+                            className="px-3 py-2 rounded-xl border-2 border-slate-100 bg-white text-xs font-black uppercase tracking-wider focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500"
+                            value={row.tipoAportacion}
+                            onChange={e => updateConvertRow(idx, { tipoAportacion: e.target.value as ConvertRow['tipoAportacion'] })}
+                          >
+                            <option value="flat">€</option>
+                            <option value="porcentaje">%</option>
+                            <option value="resto">Resto</option>
+                          </select>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            disabled={row.tipoAportacion === 'resto'}
+                            className="w-24 px-3 py-2 rounded-xl border-2 border-slate-100 bg-white text-sm font-black tabular-nums text-right focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 disabled:bg-slate-100 disabled:text-slate-300"
+                            value={row.tipoAportacion === 'resto' ? '' : row.valor}
+                            onChange={e => updateConvertRow(idx, { valor: Number(e.target.value) })}
+                            placeholder={row.tipoAportacion === 'resto' ? 'auto' : '0'}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeConvertRow(idx)}
+                            className="h-9 w-9 flex items-center justify-center rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all"
+                            aria-label="Quitar fila"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={!canAddRow}
+                      onClick={addConvertRow}
+                      className="w-full py-3 rounded-2xl border-2 border-dashed border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 hover:text-sky-600 hover:border-sky-200 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <PlusCircle size={14} className="inline -mt-0.5 mr-2" />
+                      Añadir hucha
+                    </button>
+
+                    <div className="rounded-2xl bg-slate-50 p-4 space-y-2">
+                      <div className="flex justify-between text-xs font-black uppercase tracking-widest text-slate-400">
+                        <span>Asignado</span>
+                        <span className="tabular-nums text-slate-900">{formatCurrency(totalAssigned)} / {formatCurrency(amount)}</span>
+                      </div>
+                      {error ? (
+                        <p className="text-xs font-bold text-red-500 flex items-center gap-2">
+                          <AlertTriangle size={14} /> {error}
+                        </p>
+                      ) : (
+                        <p className="text-xs font-bold text-emerald-600 flex items-center gap-2">
+                          <CheckCircle2 size={14} /> Reparto válido
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs font-bold text-slate-500 leading-relaxed">
+                      Elige la hucha que asume el gasto. <span className="text-amber-600">Aviso:</span> el ingreso original puede haberse repartido entre varias huchas. Esta operación sólo descuenta el gasto de la hucha elegida y actualiza el total; revisa los saldos manualmente si hace falta.
+                    </p>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Hucha del gasto</label>
+                      <select
+                        className="w-full px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all text-slate-900 font-bold"
+                        value={convertTargetHuchaId}
+                        onChange={e => setConvertTargetHuchaId(e.target.value)}
+                      >
+                        <option value="" disabled>Selecciona una hucha…</option>
+                        {huchas.map(h => (
+                          <option key={h.id} value={h.id}>{h.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="p-6 border-t border-slate-50 flex justify-end gap-3 bg-slate-50/30 shrink-0">
+                <button
+                  type="button"
+                  onClick={closeConvertModal}
+                  className="px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-white transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={!canConfirm}
+                  onClick={handleConvertMovimiento}
+                  className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed ${isGastoToIngreso ? 'bg-sky-600 hover:bg-sky-700' : 'bg-orange-600 hover:bg-orange-700'}`}
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Modal Nueva / Editar Suscripción */}
       {isSuscripcionModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
@@ -2634,7 +3200,7 @@ const App: React.FC = () => {
                       type="button"
                       onClick={() => setNewSuscripcion({ ...newSuscripcion, color: c })}
                       className={`h-10 w-10 rounded-2xl transition-all active:scale-90 ${newSuscripcion.color === c ? 'ring-4 ring-offset-2 scale-110' : 'hover:scale-105'}`}
-                      style={{ backgroundColor: c, ringColor: c }}
+                      style={{ backgroundColor: c, boxShadow: newSuscripcion.color === c ? `0 0 0 4px ${c}40` : 'none' }}
                       aria-label={`Color ${c}`}
                     />
                   ))}
@@ -2653,6 +3219,25 @@ const App: React.FC = () => {
                   </span>
                 </div>
               )}
+
+              {/* Cartera de origen */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="sus-hucha">Cartera de origen (Descontar de...)</label>
+                <select
+                  id="sus-hucha"
+                  className="w-full px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-bold cursor-pointer appearance-none"
+                  value={newSuscripcion.hucha_id || ''}
+                  onChange={e => setNewSuscripcion({ ...newSuscripcion, hucha_id: e.target.value })}
+                >
+                  <option value="">Ninguna (Añadir al total)</option>
+                  {huchas.filter(h => !h.es_suscripciones).map(h => (
+                    <option key={h.id} value={h.id}>{h.nombre}</option>
+                  ))}
+                </select>
+                <p className="mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2">
+                  Si eliges una cartera, el coste de la suscripción se restará de lo que le corresponde a esa cartera en cada ingreso.
+                </p>
+              </div>
 
               {/* Activa toggle */}
               <div className="flex items-center gap-5 p-5 rounded-[1.5rem] bg-slate-50 border-2 border-slate-100 transition-colors hover:bg-white hover:border-sky-100 group cursor-pointer"

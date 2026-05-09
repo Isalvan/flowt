@@ -4,12 +4,6 @@ from typing import Optional, List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-# Fallback logic for when AI fails
-def fallback_extract_movement(body: str, email_date: str) -> Optional[List[Dict[str, Any]]]:
-    """
-    Attempts to extract transaction data using robust regex patterns 
-    when the AI fails or times out.
-    """
 try:
     from bs4 import BeautifulSoup
 except ImportError:
@@ -53,7 +47,17 @@ def fallback_extract_movement(body: str, email_date: str) -> Optional[List[Dict[
 
         # 3. Extract Type
         tipo = "gasto" # Default to gasto as bank notifications are usually charges
-        if any(word in clean_text.lower() for word in ["abono", "ingreso", "nmina", "transferencia recibida"]):
+        income_keywords = [
+            "abono",
+            "ingreso",
+            "nómina",
+            "nomina",  # defensive: emails sometimes strip accents
+            "transferencia recibida",
+            "devolución",
+            "devolucion",
+            "reembolso",
+        ]
+        if any(word in clean_text.lower() for word in income_keywords):
             tipo = "ingreso"
 
         # 4. Extract Description
