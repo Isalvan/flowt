@@ -1018,17 +1018,41 @@ const App: React.FC = () => {
   const [linkingMov, setLinkingMov] = useState<Movimiento | null>(null);
   const [linkSelectedIds, setLinkSelectedIds] = useState<Set<string>>(new Set());
   const [linkSearch, setLinkSearch] = useState('');
+  // Pool ampliado de candidatos cargado bajo demanda al abrir el modal.
+  // El listener "movimientos" del dashboard solo trae los 5 más recientes,
+  // así que para vincular cargamos hasta 500 del usuario.
+  const [linkCandidatesPool, setLinkCandidatesPool] = useState<Movimiento[]>([]);
+  const [linkLoadingPool, setLinkLoadingPool] = useState(false);
 
-  const openLinkModal = (mov: Movimiento) => {
+  const openLinkModal = async (mov: Movimiento) => {
     setLinkingMov(mov);
     setLinkSelectedIds(new Set());
     setLinkSearch('');
+    if (!user) return;
+    setLinkLoadingPool(true);
+    try {
+      const qPool = query(
+        collection(db, 'movimientos'),
+        where('id_propietario', '==', user.uid),
+        orderBy('fecha_operacion', 'desc'),
+        limit(500),
+      );
+      const snap = await getDocs(qPool);
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Movimiento));
+      setLinkCandidatesPool(docs);
+    } catch (err) {
+      console.error('Error cargando candidatos:', err);
+      showToast('Error cargando movimientos');
+    } finally {
+      setLinkLoadingPool(false);
+    }
   };
 
   const closeLinkModal = () => {
     setLinkingMov(null);
     setLinkSelectedIds(new Set());
     setLinkSearch('');
+    setLinkCandidatesPool([]);
   };
 
   const toggleLinkCandidate = (id: string) => {
@@ -1049,24 +1073,26 @@ const App: React.FC = () => {
   // Cuando estamos sobre un ingreso: candidatos = gastos del usuario.
   const linkCandidates = useMemo(() => {
     if (!linkingMov) return [] as Movimiento[];
+    const pool = linkCandidatesPool;
     const search = linkSearch.trim().toLowerCase();
     let list: Movimiento[];
     if (linkingMov.tipo === 'gasto') {
       const yaVinculados = new Set(linkingMov.compensado_por ?? []);
-      list = movimientos.filter(m =>
+      list = pool.filter(m =>
         m.tipo === 'ingreso'
+        && m.id !== linkingMov.id
         && !m.compensa_movimiento_id
         && !yaVinculados.has(m.id)
       );
     } else {
       // ingreso → buscar gastos. Excluir los que ya están totalmente compensados.
-      list = movimientos.filter(m => {
+      list = pool.filter(m => {
         if (m.tipo !== 'gasto') return false;
+        if (m.id === linkingMov.id) return false;
         const compensadoActual = (m.compensado_por ?? []).reduce((s, id) => {
-          const inc = movimientos.find(x => x.id === id);
+          const inc = pool.find(x => x.id === id);
           return inc ? s + inc.importe : s;
         }, 0);
-        // Si vincularas linkingMov a m, ¿cabe?
         return compensadoActual + linkingMov.importe <= m.importe + 0.01;
       });
     }
@@ -1074,17 +1100,18 @@ const App: React.FC = () => {
       list = list.filter(m => m.concepto?.toLowerCase().includes(search));
     }
     return list.slice(0, 50);
-  }, [linkingMov, movimientos, linkSearch]);
+  }, [linkingMov, linkCandidatesPool, linkSearch]);
 
   const linkSummary = useMemo(() => {
     if (!linkingMov) return null;
+    const pool = linkCandidatesPool;
     if (linkingMov.tipo === 'gasto') {
       const compensadoActual = (linkingMov.compensado_por ?? []).reduce((s, id) => {
-        const inc = movimientos.find(x => x.id === id);
+        const inc = pool.find(x => x.id === id);
         return inc ? s + inc.importe : s;
       }, 0);
       const nuevosSum = Array.from(linkSelectedIds).reduce((s, id) => {
-        const inc = movimientos.find(x => x.id === id);
+        const inc = pool.find(x => x.id === id);
         return inc ? s + inc.importe : s;
       }, 0);
       const totalCompensado = compensadoActual + nuevosSum;
@@ -1093,10 +1120,10 @@ const App: React.FC = () => {
       return { gasto: linkingMov.importe, totalCompensado, neto, exceso };
     } else {
       const targetId = Array.from(linkSelectedIds)[0];
-      const target = targetId ? movimientos.find(m => m.id === targetId) : null;
+      const target = targetId ? pool.find(m => m.id === targetId) : null;
       if (!target) return { gasto: 0, totalCompensado: 0, neto: 0, exceso: 0 };
       const compensadoActual = (target.compensado_por ?? []).reduce((s, id) => {
-        const inc = movimientos.find(x => x.id === id);
+        const inc = pool.find(x => x.id === id);
         return inc ? s + inc.importe : s;
       }, 0);
       const totalCompensado = compensadoActual + linkingMov.importe;
@@ -1104,7 +1131,7 @@ const App: React.FC = () => {
       const exceso = totalCompensado - target.importe;
       return { gasto: target.importe, totalCompensado, neto, exceso };
     }
-  }, [linkingMov, linkSelectedIds, movimientos]);
+  }, [linkingMov, linkSelectedIds, linkCandidatesPool]);
 
   const handleLinkMovimiento = async () => {
     if (!linkingMov || !user) return;
@@ -1117,17 +1144,19 @@ const App: React.FC = () => {
       return;
     }
 
-    // Determinar gasto y lista de ingresos a vincular
+    // Determinar gasto y lista de ingresos a vincular (buscar en pool, no en
+    // la lista limitada del dashboard).
+    const lookupPool = [...linkCandidatesPool, ...movimientos];
     let gasto: Movimiento;
     let ingresos: Movimiento[];
     if (linkingMov.tipo === 'gasto') {
       gasto = linkingMov;
       ingresos = Array.from(linkSelectedIds)
-        .map(id => movimientos.find(m => m.id === id))
+        .map(id => lookupPool.find(m => m.id === id))
         .filter((m): m is Movimiento => !!m);
     } else {
       const targetId = Array.from(linkSelectedIds)[0];
-      const target = movimientos.find(m => m.id === targetId);
+      const target = lookupPool.find(m => m.id === targetId);
       if (!target) {
         showToast('No se encontró el gasto seleccionado');
         return;
@@ -1169,7 +1198,7 @@ const App: React.FC = () => {
 
         // Calcular total compensado tras la operación (suma importes ya vinculados + nuevos)
         const compensadoActual = (gastoData.compensado_por ?? []).reduce((s, id) => {
-          const m = movimientos.find(x => x.id === id);
+          const m = lookupPool.find(x => x.id === id);
           return m ? s + m.importe : s;
         }, 0);
         const nuevoTotalCompensado = compensadoActual + totalIngresos;
@@ -1220,18 +1249,27 @@ const App: React.FC = () => {
         const ingresoRef = doc(db, 'movimientos', ingreso.id);
         const statsRef = doc(db, 'stats', user.uid);
 
+        // ----- READS -----
         const gastoSnap = await transaction.get(gastoRef);
-        const statsSnap = await transaction.get(statsRef);
-
+        // Para recalcular el importe_neto correctamente necesitamos los
+        // importes de los demás ingresos compensadores (no solo el que
+        // estamos quitando). Los leemos en la misma transacción.
         const restantes = gastoSnap.exists()
           ? ((gastoSnap.data() as Movimiento).compensado_por ?? []).filter(id => id !== ingreso.id)
           : [];
+        const restantesSnaps: DocumentSnapshot[] = [];
+        for (const rid of restantes) {
+          restantesSnaps.push(await transaction.get(doc(db, 'movimientos', rid)));
+        }
+        const statsSnap = await transaction.get(statsRef);
 
+        // ----- WRITES -----
         if (gastoSnap.exists()) {
           const gastoData = gastoSnap.data() as Movimiento;
-          const sumRestantes = restantes.reduce((s, id) => {
-            const m = movimientos.find(x => x.id === id);
-            return m ? s + m.importe : s;
+          const sumRestantes = restantesSnaps.reduce((s, snap) => {
+            if (!snap.exists()) return s;
+            const data = snap.data() as Movimiento;
+            return s + (data.importe || 0);
           }, 0);
           transaction.update(gastoRef, {
             compensado_por: restantes.length > 0 ? restantes : deleteField(),
@@ -3488,7 +3526,11 @@ const App: React.FC = () => {
                 />
 
                 <div className="space-y-2 max-h-72 overflow-y-auto custom-scrollbar pr-1">
-                  {linkCandidates.length === 0 ? (
+                  {linkLoadingPool ? (
+                    <p className="text-xs font-bold text-slate-400 text-center py-8">
+                      Cargando movimientos…
+                    </p>
+                  ) : linkCandidates.length === 0 ? (
                     <p className="text-xs font-bold text-slate-400 text-center py-8">
                       No hay {isGasto ? 'ingresos' : 'gastos'} compatibles.
                     </p>
