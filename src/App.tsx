@@ -77,6 +77,10 @@ interface Movimiento {
   importe: number;
   fecha_operacion: any;
   hucha_id?: string;
+  // Compensación entre movimientos
+  compensa_movimiento_id?: string | null; // solo en ingresos: gasto que compensa
+  compensado_por?: string[] | null;       // solo en gastos: ingresos que lo compensan
+  importe_neto?: number | null;           // solo en gastos compensados: importe efectivo restante
 }
 
 interface Hucha {
@@ -102,6 +106,10 @@ interface Suscripcion {
   activa: boolean;
   cancelando?: boolean;
   hucha_id?: string | null;
+  // Si la suscripción es compartida con otras personas, "mi_parte" es la cuota
+  // real del usuario en € (el resto lo reembolsan los demás vía bizum, etc.).
+  // Si null/undefined, la suscripción es íntegra del usuario.
+  mi_parte?: number | null;
   created_at?: any; // Firestore Timestamp or null for old records
 }
 
@@ -129,7 +137,8 @@ const CATEGORIA_OPTIONS = [
 
 const calcMensual = (s: Suscripcion): number => {
   const opt = FRECUENCIA_OPTIONS.find(o => o.value === s.frecuencia);
-  return s.importe / (opt?.divisor ?? 1);
+  const importeEfectivo = s.mi_parte != null ? s.mi_parte : s.importe;
+  return importeEfectivo / (opt?.divisor ?? 1);
 };
 
 const getNextPaymentDate = (diaPago: number): Date => {
@@ -215,6 +224,8 @@ const App: React.FC = () => {
     color: '#8b5cf6',
     activa: true,
     hucha_id: '',
+    compartida: false,
+    mi_parte: 0,
   });
   const [isFirebaseConfigured, setIsFirebaseConfigured] = useState(true);
   
@@ -998,10 +1009,263 @@ const App: React.FC = () => {
     }
   };
 
+  // ---------- Link / Compensar movimientos ----------
+  // Permite marcar que un ingreso compensa parcialmente a un gasto (p. ej.
+  // pagas Spotify Family 7€ y un amigo te bizumea 3.5€ por su parte). El
+  // efecto en huchas YA es correcto al estar gasto e ingreso aplicados por
+  // separado (la hucha refleja el neto). Solo necesitamos ajustar las
+  // stats globales y guardar el vínculo en los dos movimientos.
+  const [linkingMov, setLinkingMov] = useState<Movimiento | null>(null);
+  const [linkSelectedIds, setLinkSelectedIds] = useState<Set<string>>(new Set());
+  const [linkSearch, setLinkSearch] = useState('');
+
+  const openLinkModal = (mov: Movimiento) => {
+    setLinkingMov(mov);
+    setLinkSelectedIds(new Set());
+    setLinkSearch('');
+  };
+
+  const closeLinkModal = () => {
+    setLinkingMov(null);
+    setLinkSelectedIds(new Set());
+    setLinkSearch('');
+  };
+
+  const toggleLinkCandidate = (id: string) => {
+    setLinkSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else {
+        // Si el movimiento abierto es un ingreso, solo se puede vincular a 1 gasto
+        if (linkingMov?.tipo === 'ingreso') next.clear();
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Cuando estamos sobre un gasto: candidatos = ingresos sin vincular (excluyendo
+  // los ya vinculados a otro gasto y los que ya están vinculados a este).
+  // Cuando estamos sobre un ingreso: candidatos = gastos del usuario.
+  const linkCandidates = useMemo(() => {
+    if (!linkingMov) return [] as Movimiento[];
+    const search = linkSearch.trim().toLowerCase();
+    let list: Movimiento[];
+    if (linkingMov.tipo === 'gasto') {
+      const yaVinculados = new Set(linkingMov.compensado_por ?? []);
+      list = movimientos.filter(m =>
+        m.tipo === 'ingreso'
+        && !m.compensa_movimiento_id
+        && !yaVinculados.has(m.id)
+      );
+    } else {
+      // ingreso → buscar gastos. Excluir los que ya están totalmente compensados.
+      list = movimientos.filter(m => {
+        if (m.tipo !== 'gasto') return false;
+        const compensadoActual = (m.compensado_por ?? []).reduce((s, id) => {
+          const inc = movimientos.find(x => x.id === id);
+          return inc ? s + inc.importe : s;
+        }, 0);
+        // Si vincularas linkingMov a m, ¿cabe?
+        return compensadoActual + linkingMov.importe <= m.importe + 0.01;
+      });
+    }
+    if (search) {
+      list = list.filter(m => m.concepto?.toLowerCase().includes(search));
+    }
+    return list.slice(0, 50);
+  }, [linkingMov, movimientos, linkSearch]);
+
+  const linkSummary = useMemo(() => {
+    if (!linkingMov) return null;
+    if (linkingMov.tipo === 'gasto') {
+      const compensadoActual = (linkingMov.compensado_por ?? []).reduce((s, id) => {
+        const inc = movimientos.find(x => x.id === id);
+        return inc ? s + inc.importe : s;
+      }, 0);
+      const nuevosSum = Array.from(linkSelectedIds).reduce((s, id) => {
+        const inc = movimientos.find(x => x.id === id);
+        return inc ? s + inc.importe : s;
+      }, 0);
+      const totalCompensado = compensadoActual + nuevosSum;
+      const neto = Math.max(0, linkingMov.importe - totalCompensado);
+      const exceso = totalCompensado - linkingMov.importe;
+      return { gasto: linkingMov.importe, totalCompensado, neto, exceso };
+    } else {
+      const targetId = Array.from(linkSelectedIds)[0];
+      const target = targetId ? movimientos.find(m => m.id === targetId) : null;
+      if (!target) return { gasto: 0, totalCompensado: 0, neto: 0, exceso: 0 };
+      const compensadoActual = (target.compensado_por ?? []).reduce((s, id) => {
+        const inc = movimientos.find(x => x.id === id);
+        return inc ? s + inc.importe : s;
+      }, 0);
+      const totalCompensado = compensadoActual + linkingMov.importe;
+      const neto = Math.max(0, target.importe - totalCompensado);
+      const exceso = totalCompensado - target.importe;
+      return { gasto: target.importe, totalCompensado, neto, exceso };
+    }
+  }, [linkingMov, linkSelectedIds, movimientos]);
+
+  const handleLinkMovimiento = async () => {
+    if (!linkingMov || !user) return;
+    if (linkSelectedIds.size === 0) {
+      showToast('Selecciona al menos un movimiento');
+      return;
+    }
+    if (linkSummary && linkSummary.exceso > 0.01) {
+      showToast(`El total compensado supera al gasto en ${formatCurrency(linkSummary.exceso)}`);
+      return;
+    }
+
+    // Determinar gasto y lista de ingresos a vincular
+    let gasto: Movimiento;
+    let ingresos: Movimiento[];
+    if (linkingMov.tipo === 'gasto') {
+      gasto = linkingMov;
+      ingresos = Array.from(linkSelectedIds)
+        .map(id => movimientos.find(m => m.id === id))
+        .filter((m): m is Movimiento => !!m);
+    } else {
+      const targetId = Array.from(linkSelectedIds)[0];
+      const target = movimientos.find(m => m.id === targetId);
+      if (!target) {
+        showToast('No se encontró el gasto seleccionado');
+        return;
+      }
+      gasto = target;
+      ingresos = [linkingMov];
+    }
+
+    const totalIngresos = ingresos.reduce((s, m) => s + m.importe, 0);
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        // ----- READS -----
+        const gastoRef = doc(db, 'movimientos', gasto.id);
+        const ingresoRefs = ingresos.map(i => doc(db, 'movimientos', i.id));
+        const statsRef = doc(db, 'stats', user.uid);
+
+        const gastoSnap = await transaction.get(gastoRef);
+        const ingresoSnaps = [] as DocumentSnapshot[];
+        for (const ref of ingresoRefs) {
+          ingresoSnaps.push(await transaction.get(ref));
+        }
+        const statsSnap = await transaction.get(statsRef);
+
+        if (!gastoSnap.exists()) throw new Error('Gasto no existe');
+        const gastoData = gastoSnap.data() as Movimiento;
+        if (gastoData.tipo !== 'gasto') throw new Error('El destino debe ser un gasto');
+
+        // Validar ingresos y que no estén ya vinculados
+        const yaVinculados = new Set(gastoData.compensado_por ?? []);
+        for (let i = 0; i < ingresos.length; i++) {
+          const snap = ingresoSnaps[i];
+          if (!snap.exists()) throw new Error('Ingreso no existe');
+          const data = snap.data() as Movimiento;
+          if (data.tipo !== 'ingreso') throw new Error('Solo se pueden vincular ingresos a gastos');
+          if (data.compensa_movimiento_id) throw new Error('Algún ingreso ya está vinculado a otro gasto');
+          if (yaVinculados.has(snap.id)) throw new Error('Ese ingreso ya estaba vinculado a este gasto');
+        }
+
+        // Calcular total compensado tras la operación (suma importes ya vinculados + nuevos)
+        const compensadoActual = (gastoData.compensado_por ?? []).reduce((s, id) => {
+          const m = movimientos.find(x => x.id === id);
+          return m ? s + m.importe : s;
+        }, 0);
+        const nuevoTotalCompensado = compensadoActual + totalIngresos;
+        if (nuevoTotalCompensado > gastoData.importe + 0.01) {
+          throw new Error('El total compensado supera al importe del gasto');
+        }
+
+        // ----- WRITES -----
+        const nuevoCompensadoPor = [...(gastoData.compensado_por ?? []), ...ingresos.map(i => i.id)];
+        const nuevoNeto = Math.max(0, gastoData.importe - nuevoTotalCompensado);
+        transaction.update(gastoRef, {
+          compensado_por: nuevoCompensadoPor,
+          importe_neto: nuevoNeto,
+          updated_at: serverTimestamp(),
+        });
+
+        for (let i = 0; i < ingresoRefs.length; i++) {
+          transaction.update(ingresoRefs[i], {
+            compensa_movimiento_id: gasto.id,
+            updated_at: serverTimestamp(),
+          });
+        }
+
+        const cur = statsSnap.data() || {};
+        transaction.set(statsRef, {
+          total_ingresos: Math.max(0, (cur.total_ingresos || 0) - totalIngresos),
+          total_gastos: Math.max(0, (cur.total_gastos || 0) - totalIngresos),
+          updated_at: serverTimestamp(),
+        }, { merge: true });
+      });
+
+      showToast('Movimientos vinculados', 'success');
+      closeLinkModal();
+    } catch (error: any) {
+      console.error('Error vinculando:', error);
+      showToast(error?.message || 'Error al vincular movimientos');
+    }
+  };
+
+  const handleUnlinkMovimiento = async (ingreso: Movimiento) => {
+    if (!user || !ingreso.compensa_movimiento_id) return;
+    const gastoId = ingreso.compensa_movimiento_id;
+    const iAmt = ingreso.importe;
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const gastoRef = doc(db, 'movimientos', gastoId);
+        const ingresoRef = doc(db, 'movimientos', ingreso.id);
+        const statsRef = doc(db, 'stats', user.uid);
+
+        const gastoSnap = await transaction.get(gastoRef);
+        const statsSnap = await transaction.get(statsRef);
+
+        const restantes = gastoSnap.exists()
+          ? ((gastoSnap.data() as Movimiento).compensado_por ?? []).filter(id => id !== ingreso.id)
+          : [];
+
+        if (gastoSnap.exists()) {
+          const gastoData = gastoSnap.data() as Movimiento;
+          const sumRestantes = restantes.reduce((s, id) => {
+            const m = movimientos.find(x => x.id === id);
+            return m ? s + m.importe : s;
+          }, 0);
+          transaction.update(gastoRef, {
+            compensado_por: restantes.length > 0 ? restantes : deleteField(),
+            importe_neto: restantes.length > 0
+              ? Math.max(0, gastoData.importe - sumRestantes)
+              : deleteField(),
+            updated_at: serverTimestamp(),
+          });
+        }
+
+        transaction.update(ingresoRef, {
+          compensa_movimiento_id: deleteField(),
+          updated_at: serverTimestamp(),
+        });
+
+        const cur = statsSnap.data() || {};
+        transaction.set(statsRef, {
+          total_ingresos: (cur.total_ingresos || 0) + iAmt,
+          total_gastos: (cur.total_gastos || 0) + iAmt,
+          updated_at: serverTimestamp(),
+        }, { merge: true });
+      });
+
+      showToast('Vínculo deshecho', 'success');
+    } catch (error: any) {
+      console.error('Error desvinculando:', error);
+      showToast(error?.message || 'Error al desvincular');
+    }
+  };
+
   const closeSuscripcionModal = () => {
     setIsSuscripcionModalOpen(false);
     setEditingSuscripcionId(null);
-    setNewSuscripcion({ nombre: '', importe: 0, frecuencia: 'mensual', dia_pago: 1, categoria: 'otros', color: '#8b5cf6', activa: true, hucha_id: '' });
+    setNewSuscripcion({ nombre: '', importe: 0, frecuencia: 'mensual', dia_pago: 1, categoria: 'otros', color: '#8b5cf6', activa: true, hucha_id: '', compartida: false, mi_parte: 0 });
   };
 
   const openEditSuscripcion = (s: Suscripcion) => {
@@ -1015,6 +1279,8 @@ const App: React.FC = () => {
       color: s.color,
       activa: s.activa,
       hucha_id: s.hucha_id || '',
+      compartida: s.mi_parte != null,
+      mi_parte: s.mi_parte ?? 0,
     });
     setIsSuscripcionModalOpen(true);
   };
@@ -1060,16 +1326,29 @@ const App: React.FC = () => {
     e.preventDefault();
     if (!user) return;
 
+    // mi_parte solo se guarda si la suscripción está marcada como compartida
+    // y la cantidad es válida (>0 y < importe). Si no, se guarda null para
+    // indicar que la suscripción es íntegramente del usuario.
+    const importeNum = Number(newSuscripcion.importe);
+    const miParteNum = Number(newSuscripcion.mi_parte);
+    const miParteValido =
+      newSuscripcion.compartida && miParteNum > 0 && miParteNum < importeNum;
+    if (newSuscripcion.compartida && !miParteValido) {
+      showToast('Mi parte debe ser mayor que 0 y menor que el importe total');
+      return;
+    }
+
     const data = {
       id_propietario: user.uid,
       nombre: newSuscripcion.nombre.trim(),
-      importe: Number(newSuscripcion.importe),
+      importe: importeNum,
       frecuencia: newSuscripcion.frecuencia,
       dia_pago: Number(newSuscripcion.dia_pago),
       categoria: newSuscripcion.categoria,
       color: newSuscripcion.color,
       activa: newSuscripcion.activa,
       hucha_id: newSuscripcion.hucha_id || null,
+      mi_parte: miParteValido ? miParteNum : null,
       updated_at: serverTimestamp(),
     };
 
@@ -1741,7 +2020,7 @@ const App: React.FC = () => {
                         </div>
 
                         <p className={`text-4xl font-black tabular-nums tracking-tighter leading-none ${s.cancelando ? 'text-slate-400' : 'text-slate-900'}`}>
-                          {formatCurrency(s.importe)}
+                          {formatCurrency(s.mi_parte != null ? s.mi_parte : s.importe)}
                         </p>
                         <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
                           {frecOpt?.label ?? s.frecuencia}
@@ -1749,6 +2028,12 @@ const App: React.FC = () => {
                             <span className="text-slate-300"> · {formatCurrency(mensual)}/mes</span>
                           )}
                         </p>
+                        {s.mi_parte != null && (
+                          <p className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-600">
+                            <Undo2 size={10} />
+                            Compartida · total {formatCurrency(s.importe)}
+                          </p>
+                        )}
 
                         <div className="mt-6 flex items-center justify-between gap-4">
                           <div className="flex items-center gap-2 text-slate-400">
@@ -2145,9 +2430,21 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="flex flex-col items-end gap-2">
-                      <p className={`text-base font-black tabular-nums ${m.tipo === 'ingreso' ? 'text-sky-700' : 'text-orange-700'}`}>
-                        {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
-                      </p>
+                      <div className="text-right">
+                        <p className={`text-base font-black tabular-nums ${m.tipo === 'ingreso' ? 'text-sky-700' : 'text-orange-700'} ${m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0 ? 'line-through opacity-60' : ''}`}>
+                          {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
+                        </p>
+                        {m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0 && (
+                          <p className="text-xs font-black tabular-nums text-emerald-600 -mt-0.5">
+                            neto −{formatCurrency(m.importe_neto ?? m.importe)}
+                          </p>
+                        )}
+                        {m.tipo === 'ingreso' && m.compensa_movimiento_id && (
+                          <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600 mt-0.5 flex items-center gap-1 justify-end">
+                            <Undo2 size={10} /> compensación
+                          </p>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:translate-x-2 sm:group-hover:translate-x-0">
                         {m.tipo === 'gasto' && huchas.length > 0 && (
                           <select
@@ -2161,6 +2458,27 @@ const App: React.FC = () => {
                               <option key={h.id} value={h.id}>{h.nombre}</option>
                             ))}
                           </select>
+                        )}
+                        {m.tipo === 'ingreso' && m.compensa_movimiento_id ? (
+                          <button
+                            type="button"
+                            onClick={() => handleUnlinkMovimiento(m)}
+                            className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 rounded-xl px-3 py-1.5 hover:bg-emerald-100 transition-all"
+                            title="Deshacer vínculo con el gasto"
+                          >
+                            <X size={11} className="inline -mt-0.5 mr-1" />
+                            Desvincular
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => openLinkModal(m)}
+                            className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 rounded-xl px-3 py-1.5 hover:bg-emerald-50 hover:text-emerald-600 transition-all"
+                            title={m.tipo === 'gasto' ? 'Compensar con uno o varios ingresos' : 'Marcar como compensación de un gasto'}
+                          >
+                            <Undo2 size={11} className="inline -mt-0.5 mr-1" />
+                            Vincular
+                          </button>
                         )}
                         {huchas.length > 0 && (
                           <button
@@ -2703,9 +3021,21 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
-                    <p className={`text-lg font-black tabular-nums ${m.tipo === 'ingreso' ? 'text-sky-700' : 'text-orange-700'}`}>
-                      {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
-                    </p>
+                    <div className="text-right">
+                      <p className={`text-lg font-black tabular-nums ${m.tipo === 'ingreso' ? 'text-sky-700' : 'text-orange-700'} ${m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0 ? 'line-through opacity-60' : ''}`}>
+                        {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
+                      </p>
+                      {m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0 && (
+                        <p className="text-sm font-black tabular-nums text-emerald-600 -mt-0.5">
+                          neto −{formatCurrency(m.importe_neto ?? m.importe)}
+                        </p>
+                      )}
+                      {m.tipo === 'ingreso' && m.compensa_movimiento_id && (
+                        <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600 mt-0.5 flex items-center gap-1 justify-end">
+                          <Undo2 size={10} /> compensación
+                        </p>
+                      )}
+                    </div>
                     {m.tipo === 'gasto' && huchas.length > 0 && (
                       <div className="flex items-center gap-2">
                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">Hucha:</span>
@@ -2721,16 +3051,37 @@ const App: React.FC = () => {
                         </select>
                       </div>
                     )}
-                    {huchas.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => openConvertModal(m)}
-                        className="text-[9px] font-black uppercase tracking-widest bg-white border-2 border-slate-100 text-slate-500 rounded-xl px-3 py-1.5 hover:bg-sky-50 hover:text-sky-600 hover:border-sky-100 transition-all"
-                      >
-                        <ArrowRightLeft size={11} className="inline -mt-0.5 mr-1" />
-                        {m.tipo === 'gasto' ? 'Convertir a ingreso' : 'Convertir a gasto'}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {m.tipo === 'ingreso' && m.compensa_movimiento_id ? (
+                        <button
+                          type="button"
+                          onClick={() => handleUnlinkMovimiento(m)}
+                          className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 border-2 border-emerald-100 text-emerald-600 rounded-xl px-3 py-1.5 hover:bg-emerald-100 transition-all"
+                        >
+                          <X size={11} className="inline -mt-0.5 mr-1" />
+                          Desvincular
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openLinkModal(m)}
+                          className="text-[9px] font-black uppercase tracking-widest bg-white border-2 border-slate-100 text-slate-500 rounded-xl px-3 py-1.5 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-100 transition-all"
+                        >
+                          <Undo2 size={11} className="inline -mt-0.5 mr-1" />
+                          Vincular
+                        </button>
+                      )}
+                      {huchas.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => openConvertModal(m)}
+                          className="text-[9px] font-black uppercase tracking-widest bg-white border-2 border-slate-100 text-slate-500 rounded-xl px-3 py-1.5 hover:bg-sky-50 hover:text-sky-600 hover:border-sky-100 transition-all"
+                        >
+                          <ArrowRightLeft size={11} className="inline -mt-0.5 mr-1" />
+                          {m.tipo === 'gasto' ? 'Convertir a ingreso' : 'Convertir a gasto'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -3089,6 +3440,137 @@ const App: React.FC = () => {
         );
       })()}
 
+      {/* Modal Vincular movimientos (compensación) */}
+      {linkingMov && (() => {
+        const mov = linkingMov;
+        const isGasto = mov.tipo === 'gasto';
+        const summary = linkSummary;
+        const canConfirm = linkSelectedIds.size > 0 && !(summary && summary.exceso > 0.01);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
+            <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl overflow-hidden border border-white animate-in fade-in zoom-in duration-300 max-h-[95vh] flex flex-col">
+              <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-2xl flex items-center justify-center shadow-sm bg-emerald-50 text-emerald-600">
+                    <Undo2 size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                      {isGasto ? 'Compensar gasto' : 'Compensar gasto con este ingreso'}
+                    </h3>
+                    <p className="text-xs font-bold text-slate-400 mt-1">
+                      {mov.concepto} · <span className="tabular-nums">{formatCurrency(mov.importe)}</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={closeLinkModal}
+                  className="flex h-12 w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10"
+                  aria-label="Cerrar modal"
+                >
+                  <X size={28} className="text-slate-400 hover:text-slate-900 transition-colors" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-5 overflow-y-auto custom-scrollbar">
+                <p className="text-xs font-bold text-slate-500 leading-relaxed">
+                  {isGasto
+                    ? 'Selecciona los ingresos (bizums, devoluciones…) que reembolsen parte de este gasto. El total compensado se descontará del coste real y de tus estadísticas.'
+                    : 'Selecciona el gasto que este ingreso compensa. Solo se muestran gastos con importe disponible suficiente.'}
+                </p>
+
+                <input
+                  type="text"
+                  placeholder="Buscar por concepto…"
+                  className="w-full px-5 py-3 rounded-2xl border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all text-sm font-bold"
+                  value={linkSearch}
+                  onChange={e => setLinkSearch(e.target.value)}
+                />
+
+                <div className="space-y-2 max-h-72 overflow-y-auto custom-scrollbar pr-1">
+                  {linkCandidates.length === 0 ? (
+                    <p className="text-xs font-bold text-slate-400 text-center py-8">
+                      No hay {isGasto ? 'ingresos' : 'gastos'} compatibles.
+                    </p>
+                  ) : (
+                    linkCandidates.map(c => {
+                      const selected = linkSelectedIds.has(c.id);
+                      const fecha = parseMovimientoDate(c.fecha_operacion);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => toggleLinkCandidate(c.id)}
+                          className={`w-full flex items-center justify-between gap-3 p-3 rounded-2xl border-2 transition-all text-left ${selected ? 'border-emerald-500 bg-emerald-50' : 'border-slate-100 bg-white hover:border-slate-300'}`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${c.tipo === 'ingreso' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                              {c.tipo === 'ingreso' ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-black text-slate-900 text-sm truncate">{c.concepto}</div>
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                {fecha ? fecha.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) : '—'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="font-black tabular-nums text-sm shrink-0">
+                            {formatCurrency(c.importe)}
+                          </div>
+                          <div className={`h-6 w-6 rounded-full shrink-0 flex items-center justify-center ${selected ? 'bg-emerald-500 text-white' : 'border-2 border-slate-200'}`}>
+                            {selected && <CheckCircle2 size={14} />}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                {summary && linkSelectedIds.size > 0 && (
+                  <div className="rounded-2xl bg-slate-50 p-4 space-y-2 text-xs font-bold">
+                    <div className="flex justify-between text-slate-500">
+                      <span>Gasto</span>
+                      <span className="tabular-nums text-slate-900 font-black">{formatCurrency(summary.gasto)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-500">
+                      <span>Compensado</span>
+                      <span className="tabular-nums text-emerald-600 font-black">−{formatCurrency(summary.totalCompensado)}</span>
+                    </div>
+                    <div className="border-t border-slate-200 pt-2 flex justify-between">
+                      <span className="text-slate-700 uppercase tracking-widest">Coste real</span>
+                      <span className="tabular-nums text-slate-900 font-black text-base">{formatCurrency(summary.neto)}</span>
+                    </div>
+                    {summary.exceso > 0.01 && (
+                      <p className="text-red-500 flex items-center gap-2 pt-2">
+                        <AlertTriangle size={14} /> Excede el gasto en {formatCurrency(summary.exceso)}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 border-t border-slate-50 flex justify-end gap-3 bg-slate-50/30 shrink-0">
+                <button
+                  type="button"
+                  onClick={closeLinkModal}
+                  className="px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-white transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={!canConfirm}
+                  onClick={handleLinkMovimiento}
+                  className="px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-white bg-emerald-600 hover:bg-emerald-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Vincular
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Modal Nueva / Editar Suscripción */}
       {isSuscripcionModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
@@ -3157,6 +3639,51 @@ const App: React.FC = () => {
                 </div>
               </div>
 
+              {/* Compartida con otros */}
+              <div className="rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 p-5 space-y-4">
+                <button
+                  type="button"
+                  onClick={() => setNewSuscripcion({ ...newSuscripcion, compartida: !newSuscripcion.compartida })}
+                  className="w-full flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3">
+                    {newSuscripcion.compartida
+                      ? <ToggleRight size={28} style={{ color: newSuscripcion.color }} />
+                      : <ToggleLeft size={28} className="text-slate-400" />}
+                    <div className="text-left">
+                      <div className="font-black text-slate-900">Compartida con otros</div>
+                      <div className="text-xs text-slate-500">
+                        {newSuscripcion.compartida
+                          ? 'Defines tu parte; el resto lo reembolsan otros'
+                          : 'Pagas tú la suscripción completa'}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                {newSuscripcion.compartida && (
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="sus-mi-parte">Mi parte (€)</label>
+                    <input
+                      id="sus-mi-parte"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      max={newSuscripcion.importe || undefined}
+                      placeholder="0.00"
+                      className="w-full px-6 py-4 rounded-[1.25rem] border-2 border-slate-100 bg-white focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 transition-all font-black tabular-nums text-lg"
+                      value={newSuscripcion.mi_parte || ''}
+                      onChange={e => setNewSuscripcion({ ...newSuscripcion, mi_parte: Number(e.target.value) })}
+                    />
+                    {newSuscripcion.importe > 0 && newSuscripcion.mi_parte > 0 && newSuscripcion.mi_parte < newSuscripcion.importe && (
+                      <div className="mt-3 text-xs text-slate-500 font-semibold">
+                        Reembolsable por otros: <span className="text-slate-700 font-black tabular-nums">{formatCurrency(newSuscripcion.importe - newSuscripcion.mi_parte)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Día de cobro + Categoría */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -3212,10 +3739,15 @@ const App: React.FC = () => {
                 <div className="rounded-[1.5rem] bg-slate-50 border-2 border-slate-100 p-5 flex items-center justify-between">
                   <div className="flex items-center gap-3 text-slate-500">
                     <RefreshCw size={16} />
-                    <span className="text-[11px] font-black uppercase tracking-widest">Equivale a</span>
+                    <span className="text-[11px] font-black uppercase tracking-widest">
+                      {newSuscripcion.compartida && newSuscripcion.mi_parte > 0 ? 'Tu parte equivale a' : 'Equivale a'}
+                    </span>
                   </div>
                   <span className="text-lg font-black text-slate-900 tabular-nums">
-                    {formatCurrency(newSuscripcion.importe / (FRECUENCIA_OPTIONS.find(o => o.value === newSuscripcion.frecuencia)?.divisor ?? 1))}/mes
+                    {formatCurrency(
+                      (newSuscripcion.compartida && newSuscripcion.mi_parte > 0 ? newSuscripcion.mi_parte : newSuscripcion.importe)
+                      / (FRECUENCIA_OPTIONS.find(o => o.value === newSuscripcion.frecuencia)?.divisor ?? 1)
+                    )}/mes
                   </span>
                 </div>
               )}

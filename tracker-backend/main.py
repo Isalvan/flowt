@@ -140,6 +140,35 @@ def process_movement_transaction(transaction, mov_ref, movimiento: Dict[str, Any
     
     # Get all huchas for the owner - ALL READS MUST HAPPEN FIRST
     huchas_docs = list(query.stream(transaction=transaction))
+    
+    # Fetch active subscriptions to handle linked provisions
+    subs_ref = db.collection("suscripciones")
+    subs_query = subs_ref.where("id_propietario", "==", owner_id).where("activa", "==", True)
+    subs_docs = list(subs_query.stream(transaction=transaction))
+    
+    # Group active subscriptions by linked hucha
+    freq_divisors = {"mensual": 1, "trimestral": 3, "semestral": 6, "anual": 12}
+    linked_provisions = {} # hucha_id -> total_mensual
+    subs_hucha_id = None
+    
+    for h_doc in huchas_docs:
+        if h_doc.to_dict().get("es_suscripciones"):
+            subs_hucha_id = h_doc.id
+            break
+
+    for s_doc in subs_docs:
+        s_data = s_doc.to_dict()
+        divisor = freq_divisors.get(s_data.get("frecuencia", "mensual"), 1)
+        # If "mi_parte" is set, the subscription is shared and only that amount
+        # is the user's actual cost. The rest is reimbursed by other people via
+        # linked income movements (compensaciones).
+        mi_parte = s_data.get("mi_parte")
+        importe_efectivo = float(mi_parte) if mi_parte is not None else float(s_data.get("importe", 0))
+        mensual = importe_efectivo / divisor
+        h_id = s_data.get("hucha_id")
+        if h_id:
+            linked_provisions[h_id] = linked_provisions.get(h_id, 0) + mensual
+
     amount = float(movimiento["importe"])
     distributions = {} # doc_id -> amount_change (positive or negative)
     
@@ -180,21 +209,48 @@ def process_movement_transaction(transaction, mov_ref, movimiento: Dict[str, Any
                 remaining_amount = amount
                 # 1. Flat amounts
                 for doc in huchas_docs:
+                    hucha_id = doc.id
                     data = doc.to_dict()
                     if data.get("tipo_aportacion") == "flat":
-                        flat_val = float(data.get("valor_aportacion", 0))
-                        to_add = min(flat_val, remaining_amount)
-                        distributions[doc.id] = to_add
+                        target_val = float(data.get("valor_aportacion", 0))
+                        
+                        if hucha_id == subs_hucha_id:
+                            # Effective target for Subs hucha is its flat val MINUS what others are providing
+                            provision_from_others = sum(linked_provisions.values())
+                            effective_target = max(0, target_val - provision_from_others)
+                        else:
+                            provision_for_subs = linked_provisions.get(hucha_id, 0)
+                            effective_target = max(0, target_val - provision_for_subs)
+                            
+                            # Add provision to Subs hucha instead of this hucha
+                            if provision_for_subs > 0 and subs_hucha_id:
+                                to_subs = min(provision_for_subs, remaining_amount)
+                                distributions[subs_hucha_id] = distributions.get(subs_hucha_id, 0) + to_subs
+                                remaining_amount -= to_subs
+                        
+                        to_add = min(effective_target, remaining_amount)
+                        distributions[hucha_id] = distributions.get(hucha_id, 0) + to_add
                         remaining_amount -= to_add
 
                 # 2. Percentages
                 for doc in huchas_docs:
+                    hucha_id = doc.id
                     data = doc.to_dict()
                     if data.get("tipo_aportacion") == "porcentaje":
                         perc_val = float(data.get("valor_aportacion", 0))
-                        to_add = amount * (perc_val / 100.0)
-                        to_add = min(to_add, remaining_amount)
-                        distributions[doc.id] = distributions.get(doc.id, 0) + to_add
+                        planned_total = amount * (perc_val / 100.0)
+                        
+                        provision_for_subs = linked_provisions.get(hucha_id, 0)
+                        effective_target = max(0, planned_total - provision_for_subs)
+                        
+                        # Add provision to Subs hucha
+                        if provision_for_subs > 0 and subs_hucha_id:
+                            to_subs = min(provision_for_subs, remaining_amount)
+                            distributions[subs_hucha_id] = distributions.get(subs_hucha_id, 0) + to_subs
+                            remaining_amount -= to_subs
+
+                        to_add = min(effective_target, remaining_amount)
+                        distributions[hucha_id] = distributions.get(hucha_id, 0) + to_add
                         remaining_amount -= to_add
 
                 # 3. Resto (Income Overflow)
