@@ -1800,21 +1800,22 @@ const App: React.FC = () => {
       <div className="bg-orb-right" aria-hidden="true" />
 
       <header className="sticky top-0 z-20 border-b border-white/70 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-900/20">
-              <Wallet size={24} />
+        <div className="mx-auto flex h-16 sm:h-20 w-full max-w-6xl items-center justify-between px-3 sm:px-6">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-900/20 shrink-0">
+              <Wallet size={20} className="sm:hidden" />
+              <Wallet size={24} className="hidden sm:block" />
             </div>
-            <div>
-              <p className="font-title text-2xl font-black text-slate-900 leading-none tracking-tight">Flowt</p>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Control Financiero</p>
+            <div className="min-w-0">
+              <p className="font-title text-xl sm:text-2xl font-black text-slate-900 leading-none tracking-tight">Flowt</p>
+              <p className="hidden sm:block text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Control Financiero</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={() => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-100 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 active:scale-95"
+              className="inline-flex h-9 sm:h-10 items-center gap-2 rounded-xl border border-slate-100 bg-white px-2.5 sm:px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 active:scale-95"
               aria-label={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
               title={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
             >
@@ -1830,13 +1831,13 @@ const App: React.FC = () => {
                 Descargar App
               </button>
             )}
-            
+
             {user && (
-              <div className="flex items-center gap-2 rounded-full border border-slate-100 bg-white p-1.5 shadow-sm transition-shadow hover:shadow-md sm:gap-3 sm:pr-5">
+              <div className="flex items-center gap-1.5 rounded-full border border-slate-100 bg-white p-1 sm:p-1.5 shadow-sm transition-shadow hover:shadow-md sm:gap-3 sm:pr-5">
               <img
                 src={user.photoURL || ''}
                 alt=""
-                className="h-10 w-10 rounded-full border-2 border-slate-50 object-cover"
+                className="h-9 w-9 sm:h-10 sm:w-10 rounded-full border-2 border-slate-50 object-cover"
               />
               <div className="hidden sm:block">
                 <p className="text-sm font-black text-slate-800 leading-tight tracking-tight">{user.displayName || 'Usuario'}</p>
@@ -1844,10 +1845,11 @@ const App: React.FC = () => {
               </div>
               <button
                 onClick={handleLogout}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/40"
+                className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/40"
                 aria-label="Cerrar sesión"
               >
-                <LogOut size={20} />
+                <LogOut size={18} className="sm:hidden" />
+                <LogOut size={20} className="hidden sm:block" />
               </button>
             </div>
           )}
@@ -1856,11 +1858,11 @@ const App: React.FC = () => {
       </header>
 
       {user && (
-        <nav className="sticky top-20 z-10 border-b border-white/70 bg-white/90 backdrop-blur-xl">
-          <div className="mx-auto flex w-full max-w-6xl items-center gap-1 px-4 sm:px-6">
+        <nav className="sticky top-16 sm:top-20 z-10 border-b border-white/70 bg-white/90 backdrop-blur-xl">
+          <div className="mx-auto flex w-full max-w-6xl items-center gap-0.5 sm:gap-1 px-3 sm:px-6 overflow-x-auto no-scrollbar">
             <button
               onClick={() => setActiveView('dashboard')}
-              className={`flex items-center gap-2.5 px-5 py-4 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${
+              className={`flex items-center gap-2 sm:gap-2.5 px-3 sm:px-5 py-3 sm:py-4 text-[10px] sm:text-[11px] font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap shrink-0 ${
                 activeView === 'dashboard'
                   ? 'border-slate-900 text-slate-900'
                   : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -1871,14 +1873,15 @@ const App: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveView('suscripciones')}
-              className={`flex items-center gap-2.5 px-5 py-4 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${
+              className={`flex items-center gap-2 sm:gap-2.5 px-3 sm:px-5 py-3 sm:py-4 text-[10px] sm:text-[11px] font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap shrink-0 ${
                 activeView === 'suscripciones'
                   ? 'border-slate-900 text-slate-900'
                   : 'border-transparent text-slate-400 hover:text-slate-600'
               }`}
             >
               <CreditCard size={14} />
-              Suscripciones
+              <span className="hidden sm:inline">Suscripciones</span>
+              <span className="sm:hidden">Subs</span>
               {suscripciones.filter(s => s.activa).length > 0 && (
                 <span className="ml-1 inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-slate-900 text-white text-[9px] font-black px-1.5">
                   {suscripciones.filter(s => s.activa).length}
@@ -1887,7 +1890,7 @@ const App: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveView('calendario')}
-              className={`flex items-center gap-2.5 px-5 py-4 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${
+              className={`flex items-center gap-2 sm:gap-2.5 px-3 sm:px-5 py-3 sm:py-4 text-[10px] sm:text-[11px] font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap shrink-0 ${
                 activeView === 'calendario'
                   ? 'border-slate-900 text-slate-900'
                   : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -1900,7 +1903,7 @@ const App: React.FC = () => {
         </nav>
       )}
 
-      <main className="relative mx-auto w-full max-w-6xl px-4 pt-10 pb-12 sm:px-6">
+      <main className="relative mx-auto w-full max-w-6xl px-3 pt-6 pb-12 sm:px-6 sm:pt-10">
         {!isFirebaseConfigured && (
           <div className="mb-8 flex items-center gap-4 rounded-3xl border border-amber-200 bg-amber-50/50 p-5 shadow-sm animate-appear-up">
             <AlertTriangle className="text-amber-500 shrink-0" size={24} />
@@ -1914,41 +1917,41 @@ const App: React.FC = () => {
         {activeView === 'suscripciones' && (
           <>
             {/* Suscripciones — resumen */}
-            <section className="animate-appear-up rounded-[2.5rem] border border-white bg-white/80 p-6 shadow-2xl shadow-slate-900/5 backdrop-blur-xl sm:p-10">
-              <div className="flex flex-wrap items-start justify-between gap-6">
-                <div>
+            <section className="animate-appear-up rounded-[2rem] sm:rounded-[2.5rem] border border-white bg-white/80 p-5 shadow-2xl shadow-slate-900/5 backdrop-blur-xl sm:p-10">
+              <div className="flex flex-wrap items-start justify-between gap-4 sm:gap-6">
+                <div className="min-w-0 flex-1">
                   <p className="inline-flex items-center gap-2 rounded-full border border-slate-100 bg-slate-50/50 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
                     <CreditCard size={14} />
                     Gastos Recurrentes
                   </p>
-                  <h2 className="mt-6 font-title text-4xl font-black text-slate-900 sm:text-5xl tracking-tight leading-none">
+                  <h2 className="mt-4 sm:mt-6 font-title text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-none">
                     Mis Suscripciones
                   </h2>
-                  <p className="mt-4 text-base font-bold text-slate-400">
+                  <p className="mt-3 sm:mt-4 text-sm sm:text-base font-bold text-slate-400">
                     Pagos automáticos configurados.
                   </p>
                 </div>
                 <button
                   onClick={() => setIsSuscripcionModalOpen(true)}
-                  className="h-12 px-6 inline-flex items-center gap-3 rounded-2xl bg-slate-900 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-slate-800 active:scale-95 shadow-2xl shadow-slate-900/30 shrink-0"
+                  className="h-11 sm:h-12 px-4 sm:px-6 inline-flex items-center gap-2 sm:gap-3 rounded-2xl bg-slate-900 text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-slate-800 active:scale-95 shadow-2xl shadow-slate-900/30 shrink-0"
                 >
-                  <PlusCircle size={18} />
+                  <PlusCircle size={16} />
                   Nueva
                 </button>
               </div>
 
-              <div className="mt-10 grid gap-4 grid-cols-2 lg:grid-cols-3">
-                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] group">
+              <div className="mt-6 sm:mt-10 grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-3">
+                <article className="rounded-2xl sm:rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] group">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">Coste Mensual</p>
-                  <p className="mt-2 text-lg sm:text-xl font-black text-slate-900 tabular-nums">{formatCurrency(totalMensualSuscripciones)}</p>
+                  <p className="mt-2 text-base sm:text-xl font-black text-slate-900 tabular-nums">{formatCurrency(totalMensualSuscripciones)}</p>
                 </article>
-                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] group">
+                <article className="rounded-2xl sm:rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] group">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">Coste Anual</p>
-                  <p className="mt-2 text-lg sm:text-xl font-black text-slate-900 tabular-nums">{formatCurrency(totalMensualSuscripciones * 12)}</p>
+                  <p className="mt-2 text-base sm:text-xl font-black text-slate-900 tabular-nums">{formatCurrency(totalMensualSuscripciones * 12)}</p>
                 </article>
-                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] group col-span-2 lg:col-span-1">
+                <article className="rounded-2xl sm:rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] group col-span-2 lg:col-span-1">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">Activas</p>
-                  <p className="mt-2 text-lg sm:text-xl font-black text-slate-900 tabular-nums">
+                  <p className="mt-2 text-base sm:text-xl font-black text-slate-900 tabular-nums">
                     {suscripciones.filter(s => s.activa).length}
                     <span className="text-slate-300 font-black text-base"> / {suscripciones.length}</span>
                   </p>
@@ -1957,7 +1960,7 @@ const App: React.FC = () => {
             </section>
 
             {/* Suscripciones — lista */}
-            <section className="mt-8 glass-panel rounded-[2.5rem] p-8 shadow-xl sm:p-10">
+            <section className="mt-6 sm:mt-8 glass-panel rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-10 shadow-xl">
               {suscripciones.length === 0 ? (
                 <div className="py-20 text-center">
                   <CreditCard className="mx-auto mb-6 text-slate-200" size={64} />
@@ -1972,7 +1975,7 @@ const App: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
                   {suscripciones.map(s => {
                     const frecOpt = FRECUENCIA_OPTIONS.find(o => o.value === s.frecuencia);
                     const mensual = calcMensual(s);
@@ -1982,7 +1985,7 @@ const App: React.FC = () => {
                     return (
                       <article
                         key={s.id}
-                        className={`group relative rounded-[2.5rem] border-4 p-8 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${
+                        className={`group relative rounded-[1.75rem] sm:rounded-[2.5rem] border-4 p-5 sm:p-8 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${
                           s.cancelando
                             ? 'border-rose-100 bg-rose-50/30 shadow-sm'
                             : s.activa
@@ -2008,16 +2011,16 @@ const App: React.FC = () => {
                           </div>
                         )}
 
-                        <div className="mb-6 flex items-start justify-between gap-4">
-                          <div className="flex items-center gap-4">
+                        <div className="mb-5 sm:mb-6 flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                             <div
-                              className={`h-14 w-14 rounded-2xl flex items-center justify-center shadow-lg shrink-0 ${s.cancelando ? 'opacity-50' : ''}`}
+                              className={`h-12 w-12 sm:h-14 sm:w-14 rounded-2xl flex items-center justify-center shadow-lg shrink-0 ${s.cancelando ? 'opacity-50' : ''}`}
                               style={{ backgroundColor: s.color + '20', color: s.color }}
                             >
-                              <CreditCard size={24} />
+                              <CreditCard size={22} />
                             </div>
-                            <div>
-                              <h4 className={`font-black text-xl leading-tight tracking-tight ${s.cancelando ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                            <div className="min-w-0">
+                              <h4 className={`font-black text-lg sm:text-xl leading-tight tracking-tight truncate ${s.cancelando ? 'line-through text-slate-400' : 'text-slate-900'}`}>
                                 {s.nombre}
                               </h4>
                               <span className="mt-1 inline-block rounded-xl px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm" style={{ backgroundColor: s.cancelando ? '#94a3b8' : s.color }}>
@@ -2026,7 +2029,7 @@ const App: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="flex gap-2 transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-2 sm:group-hover:translate-y-0 shrink-0">
+                          <div className="flex gap-1.5 sm:gap-2 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-2 sm:group-hover:translate-y-0 shrink-0">
                             {!s.cancelando && (
                               <button
                                 onClick={() => openEditSuscripcion(s)}
@@ -2036,7 +2039,7 @@ const App: React.FC = () => {
                                 <Edit size={16} />
                               </button>
                             )}
-                            
+
                             {!s.cancelando && (
                               <button
                                 onClick={() => handleCancelSuscripcion(s)}
@@ -2057,7 +2060,7 @@ const App: React.FC = () => {
                           </div>
                         </div>
 
-                        <p className={`text-4xl font-black tabular-nums tracking-tighter leading-none ${s.cancelando ? 'text-slate-400' : 'text-slate-900'}`}>
+                        <p className={`text-3xl sm:text-4xl font-black tabular-nums tracking-tighter leading-none break-words ${s.cancelando ? 'text-slate-400' : 'text-slate-900'}`}>
                           {formatCurrency(s.mi_parte != null ? s.mi_parte : s.importe)}
                         </p>
                         <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -2107,49 +2110,77 @@ const App: React.FC = () => {
           </>
         )}
 
-        {activeView === 'calendario' && (
-          <section className="animate-appear-up space-y-10">
-            <header className="rounded-[3rem] border-4 border-white bg-white/70 p-10 shadow-2xl shadow-slate-900/5 backdrop-blur-2xl transition-all hover:shadow-slate-900/10">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-                <div className="space-y-4">
+        {activeView === 'calendario' && (() => {
+          const daysInMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 0).getDate();
+          const firstDayOfMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1).getDay();
+          const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+
+          const subsForDay = (d: number) => suscripciones.filter(s => {
+            if (!s.activa && !s.cancelando) return false;
+            if (s.dia_pago !== d) return false;
+            if (s.created_at) {
+              const createdDate: Date = s.created_at?.toDate ? s.created_at.toDate() : new Date(s.created_at);
+              const createdMonth = new Date(createdDate.getFullYear(), createdDate.getMonth(), 1);
+              const cellMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1);
+              if (cellMonth < createdMonth) return false;
+            }
+            if (s.cancelando) {
+              const next = getNextPaymentDate(s.dia_pago);
+              const nextDay = new Date(next.getFullYear(), next.getMonth(), next.getDate());
+              const cellDay = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), d);
+              return nextDay.getTime() === cellDay.getTime();
+            }
+            return true;
+          });
+
+          const todayN = new Date();
+          const isCurrentMonth = todayN.getFullYear() === currentCalendarDate.getFullYear() && todayN.getMonth() === currentCalendarDate.getMonth();
+
+          return (
+          <section className="animate-appear-up space-y-6 sm:space-y-10">
+            <header className="rounded-[2rem] sm:rounded-[3rem] border-4 border-white bg-white/70 p-5 sm:p-10 shadow-2xl shadow-slate-900/5 backdrop-blur-2xl transition-all hover:shadow-slate-900/10">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-8">
+                <div className="space-y-3 sm:space-y-4">
                   <p className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-sky-50/50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-sky-500">
                     <Sparkles size={14} className="animate-pulse" />
                     Agenda Financiera
                   </p>
-                  <h2 className="font-title text-5xl font-black text-slate-900 tracking-tighter leading-none">
+                  <h2 className="font-title text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter leading-none">
                     Calendario de <span className="text-sky-500">Pagos</span>
                   </h2>
-                  <p className="text-base font-bold text-slate-400">
+                  <p className="text-sm sm:text-base font-bold text-slate-400">
                     Visualiza tus próximos cargos recurrentes de un vistazo.
                   </p>
                 </div>
-                
-                <div className="flex flex-col items-center gap-6">
-                  <div className="flex items-center gap-3 bg-slate-900/5 p-2 rounded-[2rem] border-2 border-white shadow-inner backdrop-blur-sm">
-                    <button 
+
+                <div className="flex flex-col items-stretch md:items-center gap-4 sm:gap-6">
+                  <div className="flex items-center gap-2 sm:gap-3 bg-slate-900/5 p-1.5 sm:p-2 rounded-[1.5rem] sm:rounded-[2rem] border-2 border-white shadow-inner backdrop-blur-sm">
+                    <button
                       onClick={() => {
                         const d = new Date(currentCalendarDate);
                         d.setMonth(d.getMonth() - 1);
                         setCurrentCalendarDate(d);
                       }}
-                      className="h-14 w-14 flex items-center justify-center rounded-2xl bg-white text-slate-600 hover:text-sky-600 shadow-xl shadow-slate-900/5 active:scale-90 transition-all group"
+                      className="h-11 w-11 sm:h-14 sm:w-14 shrink-0 flex items-center justify-center rounded-xl sm:rounded-2xl bg-white text-slate-600 hover:text-sky-600 shadow-xl shadow-slate-900/5 active:scale-90 transition-all group"
                       aria-label="Mes anterior"
                     >
-                      <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
+                      <ChevronLeft size={20} className="sm:hidden" />
+                      <ChevronLeft size={24} className="hidden sm:block group-hover:-translate-x-1 transition-transform" />
                     </button>
-                    <span className="min-w-[180px] text-center text-lg font-black uppercase tracking-[0.15em] text-slate-900">
+                    <span className="flex-1 sm:min-w-[180px] text-center text-sm sm:text-lg font-black uppercase tracking-[0.15em] text-slate-900">
                       {currentCalendarDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
                     </span>
-                    <button 
+                    <button
                       onClick={() => {
                         const d = new Date(currentCalendarDate);
                         d.setMonth(d.getMonth() + 1);
                         setCurrentCalendarDate(d);
                       }}
-                      className="h-14 w-14 flex items-center justify-center rounded-2xl bg-white text-slate-600 hover:text-sky-600 shadow-xl shadow-slate-900/5 active:scale-90 transition-all group"
+                      className="h-11 w-11 sm:h-14 sm:w-14 shrink-0 flex items-center justify-center rounded-xl sm:rounded-2xl bg-white text-slate-600 hover:text-sky-600 shadow-xl shadow-slate-900/5 active:scale-90 transition-all group"
                       aria-label="Mes siguiente"
                     >
-                      <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
+                      <ChevronRight size={20} className="sm:hidden" />
+                      <ChevronRight size={24} className="hidden sm:block group-hover:translate-x-1 transition-transform" />
                     </button>
                   </div>
 
@@ -2158,10 +2189,10 @@ const App: React.FC = () => {
                       .filter(s => s.activa || s.cancelando)
                       .reduce((sum, s) => sum + calcMensual(s), 0);
                     return (
-                      <div className="flex items-center gap-4 px-6 py-3 rounded-2xl bg-slate-900 text-white shadow-2xl shadow-slate-900/20">
-                        <Wallet size={16} className="text-sky-400" />
+                      <div className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 rounded-2xl bg-slate-900 text-white shadow-2xl shadow-slate-900/20">
+                        <Wallet size={16} className="text-sky-400 shrink-0" />
                         <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Total Mes:</span>
-                        <span className="text-xl font-black tabular-nums">{formatCurrency(totalMonth)}</span>
+                        <span className="text-base sm:text-xl font-black tabular-nums ml-auto">{formatCurrency(totalMonth)}</span>
                       </div>
                     );
                   })()}
@@ -2169,7 +2200,65 @@ const App: React.FC = () => {
               </div>
             </header>
 
-            <div className="rounded-[3rem] border-4 border-white bg-white/60 p-2 sm:p-6 shadow-2xl shadow-slate-900/5 backdrop-blur-xl">
+            {/* Vista lista — móvil */}
+            <div className="sm:hidden rounded-[2rem] border-4 border-white bg-white/60 p-4 shadow-2xl shadow-slate-900/5 backdrop-blur-xl">
+              {(() => {
+                const items: { day: number; isToday: boolean; subs: Suscripcion[] }[] = [];
+                for (let d = 1; d <= daysInMonth; d++) {
+                  const subs = subsForDay(d);
+                  if (subs.length === 0) continue;
+                  const isToday = isCurrentMonth && todayN.getDate() === d;
+                  items.push({ day: d, isToday, subs });
+                }
+                if (items.length === 0) {
+                  return (
+                    <div className="py-12 text-center">
+                      <Calendar className="mx-auto mb-4 text-slate-200" size={48} />
+                      <p className="text-sm font-black text-slate-300 uppercase tracking-widest">Sin pagos este mes</p>
+                    </div>
+                  );
+                }
+                const dateForDay = (d: number) => new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), d);
+                const weekday = (d: number) => dateForDay(d).toLocaleDateString('es-ES', { weekday: 'short' });
+                return (
+                  <ul className="space-y-3">
+                    {items.map(({ day, isToday, subs }) => (
+                      <li
+                        key={day}
+                        className={`rounded-2xl border-2 p-4 ${isToday ? 'border-sky-500 bg-white shadow-lg shadow-sky-500/10' : 'border-slate-100 bg-white/80'}`}
+                      >
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className={`h-12 w-12 rounded-2xl flex flex-col items-center justify-center shrink-0 ${isToday ? 'bg-sky-500 text-white' : 'bg-slate-50 text-slate-700'}`}>
+                            <span className="text-lg font-black tabular-nums leading-none">{day}</span>
+                            <span className="text-[8px] font-black uppercase tracking-widest leading-none mt-0.5 opacity-80">{weekday(day)}</span>
+                          </div>
+                          {isToday && (
+                            <span className="text-[10px] font-black text-sky-500 uppercase tracking-widest">Hoy</span>
+                          )}
+                          <span className="ml-auto text-[10px] font-black text-slate-400 uppercase tracking-widest tabular-nums">{subs.length} pago{subs.length === 1 ? '' : 's'}</span>
+                        </div>
+                        <div className="space-y-2">
+                          {subs.map(s => (
+                            <div
+                              key={s.id}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold leading-none ${s.cancelando ? 'opacity-50 line-through' : ''}`}
+                              style={{ backgroundColor: 'white', color: s.color, border: `2px solid ${s.color}` }}
+                            >
+                              <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                              <span className="truncate flex-1 font-black">{s.nombre}</span>
+                              <span className="tabular-nums shrink-0 opacity-70 text-[11px]">{formatCurrency(s.importe)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
+            </div>
+
+            {/* Vista grid — desktop */}
+            <div className="hidden sm:block rounded-[3rem] border-4 border-white bg-white/60 p-6 shadow-2xl shadow-slate-900/5 backdrop-blur-xl">
               <div className="grid grid-cols-7 mb-4 px-4 border-b border-slate-100/50">
                 {['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'].map(day => (
                   <div key={day} className="text-center text-[11px] font-black text-slate-500 tracking-[0.2em] py-8">
@@ -2178,51 +2267,23 @@ const App: React.FC = () => {
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-3 sm:gap-5 p-2">
+              <div className="grid grid-cols-7 gap-5 p-2">
                 {(() => {
-                  const daysInMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 0).getDate();
-                  const firstDayOfMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1).getDay();
-                  const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
-                  
                   const days = [];
                   for (let i = 0; i < startOffset; i++) {
-                    days.push(<div key={`empty-${i}`} className="h-32 sm:h-40 opacity-10 pointer-events-none" />);
+                    days.push(<div key={`empty-${i}`} className="h-40 opacity-10 pointer-events-none" />);
                   }
 
                   for (let d = 1; d <= daysInMonth; d++) {
-                    const isToday = new Date().toDateString() === new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), d).toDateString();
-                    const cellDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), d);
-                    cellDate.setHours(0, 0, 0, 0);
-                    const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
-
-                    const daySubs = suscripciones.filter(s => {
-                      if (!s.activa && !s.cancelando) return false;
-                      if (s.dia_pago !== d) return false;
-
-                      // Don't show subscription in months before it was created
-                      if (s.created_at) {
-                        const createdDate: Date = s.created_at?.toDate ? s.created_at.toDate() : new Date(s.created_at);
-                        const createdMonth = new Date(createdDate.getFullYear(), createdDate.getMonth(), 1);
-                        const cellMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1);
-                        if (cellMonth < createdMonth) return false;
-                      }
-
-                      // Cancelled subs only appear on FUTURE days (their next charge date)
-                      if (s.cancelando) {
-                        const next = getNextPaymentDate(s.dia_pago);
-                        const nextDay = new Date(next.getFullYear(), next.getMonth(), next.getDate());
-                        const cellDay = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), d);
-                        return nextDay.getTime() === cellDay.getTime();
-                      }
-                      return true;
-                    });
+                    const isToday = isCurrentMonth && todayN.getDate() === d;
+                    const daySubs = subsForDay(d);
 
                     days.push(
-                      <div 
-                        key={d} 
-                        className={`group relative h-32 sm:h-40 rounded-[2.2rem] border-2 p-5 transition-all duration-500 ${
-                          isToday 
-                            ? 'border-sky-500 bg-white shadow-2xl shadow-sky-500/20 z-10' 
+                      <div
+                        key={d}
+                        className={`group relative h-40 rounded-[2.2rem] border-2 p-5 transition-all duration-500 ${
+                          isToday
+                            ? 'border-sky-500 bg-white shadow-2xl shadow-sky-500/20 z-10'
                             : 'border-slate-100 bg-white/80 hover:bg-white hover:border-sky-200 hover:shadow-2xl hover:shadow-slate-900/10 hover:-translate-y-1'
                         }`}
                       >
@@ -2237,15 +2298,15 @@ const App: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        
-                        <div className="space-y-2 overflow-y-auto max-h-[80px] sm:max-h-[100px] custom-scrollbar pr-1">
+
+                        <div className="space-y-2 overflow-y-auto max-h-[100px] custom-scrollbar pr-1">
                           {daySubs.map(s => (
-                            <div 
-                              key={s.id} 
+                            <div
+                              key={s.id}
                               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-bold leading-none transition-all cursor-default ${
                                 s.cancelando ? 'opacity-50 line-through' : 'hover:scale-[1.02]'
                               }`}
-                              style={{ 
+                              style={{
                                 backgroundColor: 'white',
                                 color: s.color,
                                 border: `2px solid ${s.color}`,
@@ -2272,22 +2333,23 @@ const App: React.FC = () => {
               </div>
             </div>
           </section>
-        )}
+          );
+        })()}
 
         {activeView === 'dashboard' && (
           <>
 
-        <section className="animate-appear-up rounded-[2.5rem] border border-white bg-white/80 p-6 shadow-2xl shadow-slate-900/5 backdrop-blur-xl sm:p-10 transition-all hover:shadow-slate-900/10">
-          <div className="grid gap-8 lg:grid-cols-[1fr_400px] lg:items-center">
+        <section className="animate-appear-up rounded-[2rem] sm:rounded-[2.5rem] border border-white bg-white/80 p-5 shadow-2xl shadow-slate-900/5 backdrop-blur-xl sm:p-10 transition-all hover:shadow-slate-900/10">
+          <div className="grid gap-6 sm:gap-8 lg:grid-cols-[1fr_400px] lg:items-center">
             <div>
               <p className="inline-flex items-center gap-2 rounded-full border border-slate-100 bg-slate-50/50 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
                 <ReceiptText size={14} />
                 Vista General
               </p>
-              <h2 className="mt-6 font-title text-4xl font-black text-slate-900 sm:text-5xl tracking-tight leading-none">
+              <h2 className="mt-4 sm:mt-6 font-title text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-none">
                 Resumen de cuenta
               </h2>
-              <p className="mt-4 text-base font-bold text-slate-400 sm:text-lg">
+              <p className="mt-3 sm:mt-4 text-sm sm:text-lg font-bold text-slate-400">
                 Ingresos y gastos en tiempo real.
               </p>
 
@@ -2301,54 +2363,54 @@ const App: React.FC = () => {
                 </button>
               )}
 
-              <div className="mt-10 grid gap-4 grid-cols-2 lg:grid-cols-4">
-                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group">
+              <div className="mt-6 sm:mt-10 grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+                <article className="rounded-2xl sm:rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">Cartera Principal</p>
-                  <p className="mt-2 text-lg sm:text-xl font-black text-slate-900 tabular-nums">
+                  <p className="mt-2 text-base sm:text-xl font-black text-slate-900 tabular-nums">
                     {formatCurrency(principalHucha?.saldo_acumulado || 0)}
                   </p>
                 </article>
-                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group">
+                <article className="rounded-2xl sm:rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">Saldo Carteras</p>
-                  <p className="mt-2 text-lg sm:text-xl font-black text-slate-900 tabular-nums">
+                  <p className="mt-2 text-base sm:text-xl font-black text-slate-900 tabular-nums">
                     {formatCurrency(balance - (principalHucha?.saldo_acumulado || 0))}
                   </p>
                 </article>
-                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group border-b-sky-200">
+                <article className="rounded-2xl sm:rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group border-b-sky-200">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-sky-600 transition-colors">Ingresos</p>
-                  <p className="mt-2 text-lg sm:text-xl font-black text-sky-600 tabular-nums">+{formatCurrency(totalIngresos)}</p>
+                  <p className="mt-2 text-base sm:text-xl font-black text-sky-600 tabular-nums">+{formatCurrency(totalIngresos)}</p>
                 </article>
-                <article className="rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group border-b-orange-200">
+                <article className="rounded-2xl sm:rounded-3xl border border-white bg-white/50 p-4 sm:p-6 shadow-sm transition-all hover:shadow-xl hover:scale-[1.03] active:scale-95 group border-b-orange-200">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-orange-600 transition-colors">Gastos</p>
-                  <p className="mt-2 text-lg sm:text-xl font-black text-orange-600 tabular-nums">-{formatCurrency(totalGastos)}</p>
+                  <p className="mt-2 text-base sm:text-xl font-black text-orange-600 tabular-nums">-{formatCurrency(totalGastos)}</p>
                 </article>
               </div>
             </div>
 
-            <div className="rounded-[2rem] border-4 border-white bg-slate-900 p-8 text-white shadow-[0_25px_60px_-15px_rgba(15,23,42,0.4)] transition-transform hover:scale-[1.02]">
-              <div className="mb-6 pb-6 border-b border-white/10">
+            <div className="rounded-[1.5rem] sm:rounded-[2rem] border-4 border-white bg-slate-900 p-6 sm:p-8 text-white shadow-[0_25px_60px_-15px_rgba(15,23,42,0.4)] transition-transform hover:scale-[1.02]">
+              <div className="mb-4 sm:mb-6 pb-4 sm:pb-6 border-b border-white/10">
                 <p className="text-[10px] font-black uppercase tracking-widest text-sky-400 mb-1">Saldo Disponible (Cartera Principal)</p>
-                <p className="font-title text-5xl font-black tabular-nums tracking-tighter leading-none text-white">
+                <p className="font-title text-[2rem] sm:text-5xl font-black tabular-nums tracking-tighter leading-none text-white break-words">
                   {formatCurrency(principalHucha?.saldo_acumulado || 0)}
                 </p>
               </div>
 
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Saldo Consolidado (Total Huchas)</p>
-              <p className="mt-2 font-title text-3xl font-black tabular-nums tracking-tighter leading-none text-slate-300 opacity-80">{formatCurrency(balance)}</p>
+              <p className="mt-2 font-title text-2xl sm:text-3xl font-black tabular-nums tracking-tighter leading-none text-slate-300 opacity-80 break-words">{formatCurrency(balance)}</p>
 
-              <div className="mt-10 grid grid-cols-2 gap-4 text-sm font-bold">
-                <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 transition-all hover:bg-white/10">
+              <div className="mt-6 sm:mt-10 grid grid-cols-2 gap-3 sm:gap-4 text-sm font-bold">
+                <div className="rounded-2xl bg-white/5 p-3 sm:p-4 ring-1 ring-white/10 transition-all hover:bg-white/10">
                   <p className="text-slate-500 text-[10px] uppercase tracking-widest mb-1">Entradas</p>
-                  <p className="flex items-center gap-2 text-sky-300 tabular-nums text-lg">
+                  <p className="flex items-center gap-2 text-sky-300 tabular-nums text-base sm:text-lg">
                     <TrendingUp size={18} />
-                    {formatCurrency(totalIngresos)}
+                    <span className="truncate">{formatCurrency(totalIngresos)}</span>
                   </p>
                 </div>
-                <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 transition-all hover:bg-white/10">
+                <div className="rounded-2xl bg-white/5 p-3 sm:p-4 ring-1 ring-white/10 transition-all hover:bg-white/10">
                   <p className="text-slate-500 text-[10px] uppercase tracking-widest mb-1">Salidas</p>
-                  <p className="flex items-center gap-2 text-orange-300 tabular-nums text-lg">
+                  <p className="flex items-center gap-2 text-orange-300 tabular-nums text-base sm:text-lg">
                     <TrendingDown size={18} />
-                    {formatCurrency(totalGastos)}
+                    <span className="truncate">{formatCurrency(totalGastos)}</span>
                   </p>
                 </div>
               </div>
@@ -2356,23 +2418,23 @@ const App: React.FC = () => {
           </div>
         </section>
 
-        <section className="mt-8 grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-          <article className="glass-panel rounded-[2.5rem] p-8 shadow-xl transition-all hover:shadow-2xl">
-            <div className="flex items-center justify-between mb-8">
+        <section className="mt-6 sm:mt-8 grid gap-6 sm:gap-8 xl:grid-cols-[0.95fr_1.05fr]">
+          <article className="glass-panel rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 shadow-xl transition-all hover:shadow-2xl">
+            <div className="flex items-center justify-between mb-6 sm:mb-8">
               <h3 className="section-title text-slate-900 font-black uppercase tracking-widest text-[11px]">Evolución Semestral</h3>
               <button
                 onClick={openTimeline}
-                className="inline-flex items-center gap-2 h-10 px-5 rounded-2xl bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-sky-50 hover:text-sky-600 active:scale-95"
+                className="inline-flex items-center gap-2 h-9 sm:h-10 px-3 sm:px-5 rounded-2xl bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-sky-50 hover:text-sky-600 active:scale-95"
               >
                 <BarChart2 size={14} />
                 Timeline
               </button>
             </div>
-            <div className="h-[280px] w-full min-h-[280px]">
+            <div className="h-[220px] sm:h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                <BarChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                <BarChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }} barCategoryGap="20%">
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontWeight: 800, fontSize: 10 }} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontWeight: 800, fontSize: 10 }} tickMargin={4} interval="preserveStartEnd" />
                   <YAxis hide />
                   <Tooltip
                     cursor={{ fill: '#f8fafc', radius: 12 }}
@@ -2380,53 +2442,54 @@ const App: React.FC = () => {
                       borderRadius: '20px',
                       border: 'none',
                       boxShadow: '0 25px 50px -12px rgba(2, 6, 23, 0.25)',
-                      padding: '16px',
+                      padding: '12px 16px',
                       fontWeight: 'bold',
+                      fontSize: '12px',
                     }}
                     formatter={(value) => [formatCurrency(Number(value)), '']}
                   />
-                  <Bar dataKey="ingresos" fill="#0ea5e9" radius={[8, 8, 0, 0]} barSize={28} />
-                  <Bar dataKey="gastos" fill="#f97316" radius={[8, 8, 0, 0]} barSize={28} />
+                  <Bar dataKey="ingresos" fill="#0ea5e9" radius={[8, 8, 0, 0]} maxBarSize={28} />
+                  <Bar dataKey="gastos" fill="#f97316" radius={[8, 8, 0, 0]} maxBarSize={28} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </article>
 
-          <article className="glass-panel rounded-[2.5rem] p-8 shadow-xl transition-all hover:shadow-2xl">
-            <div className="mb-8 flex items-center justify-between gap-4">
+          <article className="glass-panel rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 shadow-xl transition-all hover:shadow-2xl">
+            <div className="mb-6 sm:mb-8 flex items-center justify-between gap-4">
               <h3 className="section-title text-slate-900 font-black uppercase tracking-widest text-[11px]">Actividad Reciente</h3>
-              <button 
+              <button
                 onClick={openHistoryModal}
-                className="h-10 px-5 rounded-2xl bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-200 hover:text-slate-900 active:scale-95 focus:outline-none focus:ring-4 focus:ring-slate-100"
+                className="h-9 sm:h-10 px-3 sm:px-5 rounded-2xl bg-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-200 hover:text-slate-900 active:scale-95 focus:outline-none focus:ring-4 focus:ring-slate-100"
               >
                 Historial
               </button>
             </div>
 
-            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-3 sm:space-y-4 max-h-[300px] overflow-y-auto pr-1 sm:pr-2 custom-scrollbar">
               {movimientos.length > 0 ? (
                 movimientos.map((m) => (
                   <div
                     key={m.id}
-                    className="group flex items-center justify-between rounded-3xl border border-slate-50 bg-white/50 p-4 transition-all hover:border-sky-100 hover:bg-white hover:shadow-xl hover:translate-x-2"
+                    className="group flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl sm:rounded-3xl border border-slate-50 bg-white/50 p-3 sm:p-4 transition-all hover:border-sky-100 hover:bg-white hover:shadow-xl sm:hover:translate-x-2"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
                       <div
-                        className={`flex h-12 w-12 items-center justify-center rounded-2xl shadow-sm transition-transform group-hover:scale-110 ${
+                        className={`flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl shadow-sm transition-transform group-hover:scale-110 ${
                           m.tipo === 'ingreso'
                             ? 'bg-sky-50 text-sky-600 ring-1 ring-sky-100'
                             : 'bg-orange-50 text-orange-600 ring-1 ring-orange-100'
                         }`}
                       >
-                        {m.tipo === 'ingreso' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                        {m.tipo === 'ingreso' ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         {editingMovimientoId === m.id ? (
                           <div className="flex items-center gap-2">
                             <input
                               autoFocus
                               type="text"
-                              className="text-sm font-black text-slate-900 tracking-tight bg-slate-50 border-2 border-sky-100 rounded-xl px-2 py-1 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:bg-white"
+                              className="min-w-0 flex-1 text-sm font-black text-slate-900 tracking-tight bg-slate-50 border-2 border-sky-100 rounded-xl px-2 py-1 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:bg-white"
                               value={tempConcepto}
                               onChange={(e) => setTempConcepto(e.target.value)}
                               onBlur={() => handleUpdateMovimientoConcepto(m.id)}
@@ -2437,15 +2500,15 @@ const App: React.FC = () => {
                             />
                             <button
                               onClick={() => handleUpdateMovimientoConcepto(m.id)}
-                              className="text-emerald-500 hover:text-emerald-600 transition-colors"
+                              className="text-emerald-500 hover:text-emerald-600 transition-colors shrink-0"
                             >
                               <CheckCircle2 size={16} />
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 group/concept">
-                            <p 
-                              className="text-sm font-black text-slate-900 tracking-tight cursor-pointer hover:text-sky-600 transition-colors"
+                          <div className="flex items-center gap-2 group/concept min-w-0">
+                            <p
+                              className="text-sm font-black text-slate-900 tracking-tight cursor-pointer hover:text-sky-600 transition-colors truncate"
                               onClick={() => {
                                 setEditingMovimientoId(m.id);
                                 setTempConcepto(m.concepto);
@@ -2453,9 +2516,9 @@ const App: React.FC = () => {
                             >
                               {m.concepto}
                             </p>
-                            <Edit 
-                              size={12} 
-                              className="text-slate-300 opacity-0 group-hover/concept:opacity-100 transition-opacity cursor-pointer hover:text-sky-500" 
+                            <Edit
+                              size={12}
+                              className="text-slate-300 opacity-0 group-hover/concept:opacity-100 transition-opacity cursor-pointer hover:text-sky-500 shrink-0"
                               onClick={() => {
                                 setEditingMovimientoId(m.id);
                                 setTempConcepto(m.concepto);
@@ -2465,10 +2528,25 @@ const App: React.FC = () => {
                         )}
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{formatDate(m.fecha_operacion)}</p>
                       </div>
+                      <div className="text-right shrink-0 sm:hidden">
+                        <p className={`text-base font-black tabular-nums ${m.tipo === 'ingreso' ? 'text-sky-700' : 'text-orange-700'} ${m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0 ? 'line-through opacity-60' : ''}`}>
+                          {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
+                        </p>
+                        {m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0 && (
+                          <p className="text-[10px] font-black tabular-nums text-emerald-600 -mt-0.5">
+                            neto −{formatCurrency(m.importe_neto ?? m.importe)}
+                          </p>
+                        )}
+                        {m.tipo === 'ingreso' && m.compensa_movimiento_id && (
+                          <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600 mt-0.5 flex items-center gap-1 justify-end">
+                            <Undo2 size={10} /> comp.
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="text-right">
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 w-full sm:w-auto">
+                      <div className="text-right hidden sm:block">
                         <p className={`text-base font-black tabular-nums ${m.tipo === 'ingreso' ? 'text-sky-700' : 'text-orange-700'} ${m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0 ? 'line-through opacity-60' : ''}`}>
                           {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
                         </p>
@@ -2483,10 +2561,10 @@ const App: React.FC = () => {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:translate-x-2 sm:group-hover:translate-x-0">
+                      <div className="flex flex-wrap items-center gap-2 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-x-2 sm:group-hover:translate-x-0 w-full sm:w-auto justify-end">
                         {m.tipo === 'gasto' && huchas.length > 0 && (
                           <select
-                            className="text-[9px] font-black uppercase tracking-widest bg-slate-100 border-none text-slate-500 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:bg-white focus:text-sky-600 cursor-pointer transition-all hover:bg-slate-200"
+                            className="text-[10px] sm:text-[9px] font-black uppercase tracking-widest bg-slate-100 border-none text-slate-500 rounded-xl px-3 py-2 sm:py-1.5 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:bg-white focus:text-sky-600 cursor-pointer transition-all hover:bg-slate-200 max-w-[120px] truncate"
                             value={m.hucha_id || ''}
                             onChange={(e) => handleChangeMovimientoHucha(m, e.target.value)}
                             aria-label="Asignar a hucha"
@@ -2501,7 +2579,7 @@ const App: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleUnlinkMovimiento(m)}
-                            className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 rounded-xl px-3 py-1.5 hover:bg-emerald-100 transition-all"
+                            className="text-[10px] sm:text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 rounded-xl px-3 py-2 sm:py-1.5 hover:bg-emerald-100 transition-all"
                             title="Deshacer vínculo con el gasto"
                           >
                             <X size={11} className="inline -mt-0.5 mr-1" />
@@ -2511,7 +2589,7 @@ const App: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => openLinkModal(m)}
-                            className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 rounded-xl px-3 py-1.5 hover:bg-emerald-50 hover:text-emerald-600 transition-all"
+                            className="text-[10px] sm:text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 rounded-xl px-3 py-2 sm:py-1.5 hover:bg-emerald-50 hover:text-emerald-600 transition-all"
                             title={m.tipo === 'gasto' ? 'Compensar con uno o varios ingresos' : 'Marcar como compensación de un gasto'}
                           >
                             <Undo2 size={11} className="inline -mt-0.5 mr-1" />
@@ -2522,7 +2600,7 @@ const App: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => openConvertModal(m)}
-                            className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 rounded-xl px-3 py-1.5 hover:bg-sky-50 hover:text-sky-600 transition-all"
+                            className="text-[10px] sm:text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 rounded-xl px-3 py-2 sm:py-1.5 hover:bg-sky-50 hover:text-sky-600 transition-all"
                             title={m.tipo === 'gasto' ? 'Convertir este gasto en ingreso' : 'Convertir este ingreso en gasto'}
                           >
                             <ArrowRightLeft size={11} className="inline -mt-0.5 mr-1" />
@@ -2542,34 +2620,35 @@ const App: React.FC = () => {
           </article>
         </section>
 
-        <section className="mt-8 glass-panel rounded-[2.5rem] p-8 shadow-xl sm:p-10 transition-all hover:shadow-2xl">
-          <div className="mb-10 flex flex-wrap items-center justify-between gap-6 border-b border-slate-100 pb-8">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-600 shadow-sm shadow-sky-500/10">
-                <PiggyBank size={24} />
+        <section className="mt-6 sm:mt-8 glass-panel rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-10 shadow-xl transition-all hover:shadow-2xl">
+          <div className="mb-6 sm:mb-10 flex flex-wrap items-center justify-between gap-3 sm:gap-6 border-b border-slate-100 pb-5 sm:pb-8">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-600 shadow-sm shadow-sky-500/10">
+                <PiggyBank size={20} className="sm:hidden" />
+                <PiggyBank size={24} className="hidden sm:block" />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Mis Carteras</h3>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Mis Carteras</h3>
             </div>
-            <div className="flex items-center gap-4">
-              <button 
+            <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
+              <button
                 onClick={() => setIsTransferModalOpen(true)}
                 disabled={huchas.length < 2}
-                className="h-12 px-6 inline-flex items-center gap-3 rounded-2xl bg-white border-2 border-slate-100 text-[11px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 hover:border-slate-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                className="flex-1 sm:flex-none h-11 sm:h-12 px-3 sm:px-6 inline-flex items-center justify-center gap-2 sm:gap-3 rounded-2xl bg-white border-2 border-slate-100 text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 hover:border-slate-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
               >
-                <ArrowRightLeft size={18} />
+                <ArrowRightLeft size={16} />
                 Transferir
               </button>
-              <button 
+              <button
                 onClick={() => setIsModalOpen(true)}
-                className="h-12 px-6 inline-flex items-center gap-3 rounded-2xl bg-slate-900 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-slate-800 active:scale-95 shadow-2xl shadow-slate-900/30"
+                className="flex-1 sm:flex-none h-11 sm:h-12 px-3 sm:px-6 inline-flex items-center justify-center gap-2 sm:gap-3 rounded-2xl bg-slate-900 text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-slate-800 active:scale-95 shadow-2xl shadow-slate-900/30"
               >
-                <PlusCircle size={18} />
+                <PlusCircle size={16} />
                 Nueva Hucha
               </button>
             </div>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
             {huchas.length > 0 ? (
               huchas.map((h) => {
                 const progress = h.objetivo ? Math.min((h.saldo_acumulado / h.objetivo) * 100, 100) : 0;
@@ -2578,16 +2657,16 @@ const App: React.FC = () => {
                 return (
                   <article
                     key={h.id}
-                    className={`group relative rounded-[2.5rem] border-4 p-8 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl ${
-                      h.es_principal 
-                        ? 'border-sky-100 bg-sky-50/30 shadow-sky-500/10' 
+                    className={`group relative rounded-[1.75rem] sm:rounded-[2.5rem] border-4 p-5 sm:p-8 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl ${
+                      h.es_principal
+                        ? 'border-sky-100 bg-sky-50/30 shadow-sky-500/10'
                         : 'border-white bg-white shadow-lg'
                     }`}
                   >
-                    <div className="mb-6 flex items-start justify-between gap-4">
-                      <div>
+                    <div className="mb-5 sm:mb-6 flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-black text-slate-900 text-xl leading-tight tracking-tight uppercase">{h.nombre}</h4>
+                          <h4 className="font-black text-slate-900 text-lg sm:text-xl leading-tight tracking-tight uppercase truncate">{h.nombre}</h4>
                           {h.es_suscripciones && (
                             <span className="inline-flex items-center gap-1 rounded-xl bg-violet-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-violet-700">
                               <CreditCard size={10} />
@@ -2599,33 +2678,33 @@ const App: React.FC = () => {
                           {allocationLabel}
                         </span>
                       </div>
-                      
-                      <div className="flex gap-2 transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-2 sm:group-hover:translate-y-0">
-                        <button 
+
+                      <div className="flex gap-2 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-2 sm:group-hover:translate-y-0 shrink-0">
+                        <button
                           onClick={() => openEditModal(h)}
-                          className="flex h-11 w-11 items-center justify-center bg-slate-100 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-2xl transition-all active:scale-90 focus:outline-none focus:ring-4 focus:ring-sky-500/10"
+                          className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center bg-slate-100 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-2xl transition-all active:scale-90 focus:outline-none focus:ring-4 focus:ring-sky-500/10"
                           title="Editar hucha"
                           aria-label={`Editar hucha ${h.nombre}`}
                         >
-                          <Edit size={20} />
+                          <Edit size={18} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDeleteHucha(h)}
-                          className="flex h-11 w-11 items-center justify-center bg-slate-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all active:scale-90 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+                          className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center bg-slate-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all active:scale-90 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
                           title="Eliminar hucha"
                           aria-label={`Eliminar hucha ${h.nombre}`}
                         >
-                          <Trash2 size={20} />
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     </div>
 
-                    <p className="text-4xl font-black text-slate-900 tabular-nums tracking-tighter leading-none">{formatCurrency(h.saldo_acumulado)}</p>
+                    <p className="text-3xl sm:text-4xl font-black text-slate-900 tabular-nums tracking-tighter leading-none break-words">{formatCurrency(h.saldo_acumulado)}</p>
                     {h.objetivo && <p className="mt-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Objetivo: {formatCurrency(h.objetivo)}</p>}
 
                     {h.objetivo && (
-                      <div className="mt-8">
-                        <div className="h-4 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner">
+                      <div className="mt-6 sm:mt-8">
+                        <div className="h-3 sm:h-4 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner">
                           <div
                             className="h-full rounded-full bg-gradient-to-r from-sky-500 to-emerald-400 transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(14,165,233,0.5)]"
                             style={{ width: `${progress}%` }}
@@ -2638,7 +2717,7 @@ const App: React.FC = () => {
                 );
               })
             ) : (
-              <div className="rounded-[3rem] border-4 border-dashed border-slate-100 bg-white/50 p-16 text-center md:col-span-2 xl:col-span-3 transition-all hover:bg-white hover:border-sky-100 group">
+              <div className="rounded-[2rem] sm:rounded-[3rem] border-4 border-dashed border-slate-100 bg-white/50 p-10 sm:p-16 text-center md:col-span-2 xl:col-span-3 transition-all hover:bg-white hover:border-sky-100 group">
                 <PiggyBank className="mx-auto mb-6 text-slate-200 group-hover:text-sky-200 transition-colors" size={64} />
                 <p className="text-xl font-black text-slate-300 uppercase tracking-[0.2em] group-hover:text-sky-300 transition-colors">Vacio</p>
               </div>
@@ -2651,22 +2730,22 @@ const App: React.FC = () => {
 
       {/* Modal Nueva Hucha */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-md overflow-hidden border border-white animate-in fade-in zoom-in duration-300">
-            <div className="p-10 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
-              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl w-full sm:max-w-md overflow-hidden border border-white animate-in fade-in zoom-in duration-300 max-h-[92vh] sm:max-h-[88vh] flex flex-col">
+            <div className="p-6 sm:p-10 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
                 {editingId ? 'Actualizar' : 'Nueva Hucha'}
               </h3>
-              <button 
+              <button
                 onClick={closeModal}
-                className="flex h-12 w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10"
+                className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10 shrink-0"
                 aria-label="Cerrar modal"
               >
-                <X size={28} className="text-slate-400 hover:text-slate-900 transition-colors" />
+                <X size={24} className="text-slate-400 hover:text-slate-900 transition-colors" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateOrUpdateHucha} className="p-10 space-y-8">
+            <form onSubmit={handleCreateOrUpdateHucha} className="p-6 sm:p-10 space-y-6 sm:space-y-8 overflow-y-auto custom-scrollbar">
               <div className="space-y-6">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="hucha-nombre">Nombre de Identificación</label>
@@ -2681,12 +2760,12 @@ const App: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="hucha-tipo">Distribución</label>
                     <select
                       id="hucha-tipo"
-                      className="w-full px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-bold cursor-pointer appearance-none"
+                      className="w-full px-5 py-4 sm:px-6 sm:py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-bold cursor-pointer appearance-none"
                       value={newHucha.tipo_aportacion}
                       onChange={(e) => setNewHucha({...newHucha, tipo_aportacion: e.target.value as any})}
                     >
@@ -2745,17 +2824,17 @@ const App: React.FC = () => {
                 </label>
               </div>
 
-              <div className="pt-6 flex gap-6">
+              <div className="pt-2 flex flex-col-reverse sm:flex-row gap-3 sm:gap-6">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 px-8 py-5 rounded-[1.5rem] border-2 border-slate-100 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 hover:bg-slate-50 active:scale-95 transition-all focus:outline-none"
+                  className="flex-1 px-6 py-4 sm:px-8 sm:py-5 rounded-[1.5rem] border-2 border-slate-100 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 hover:bg-slate-50 active:scale-95 transition-all focus:outline-none"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-8 py-5 rounded-[1.5rem] bg-slate-900 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-800 active:scale-95 transition-all shadow-[0_20px_50px_-15px_rgba(15,23,42,0.4)]"
+                  className="flex-1 px-6 py-4 sm:px-8 sm:py-5 rounded-[1.5rem] bg-slate-900 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-800 active:scale-95 transition-all shadow-[0_20px_50px_-15px_rgba(15,23,42,0.4)]"
                 >
                   {editingId ? 'Confirmar' : 'Crear'}
                 </button>
@@ -2767,23 +2846,23 @@ const App: React.FC = () => {
 
       {/* Modal Transferir */}
       {isTransferModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-md overflow-hidden border border-white animate-in fade-in zoom-in duration-300">
-            <div className="p-10 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
-              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Mover Fondos</h3>
-              <button 
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl w-full sm:max-w-md overflow-hidden border border-white animate-in fade-in zoom-in duration-300 max-h-[92vh] sm:max-h-[88vh] flex flex-col">
+            <div className="p-6 sm:p-10 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tight">Mover Fondos</h3>
+              <button
                 onClick={() => {
                   setIsTransferModalOpen(false);
                   setTransferData({ fromHuchaId: '', toHuchaId: '', amount: 0 });
                 }}
-                className="flex h-12 w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10"
+                className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10 shrink-0"
                 aria-label="Cerrar modal"
               >
-                <X size={28} className="text-slate-500" />
+                <X size={24} className="text-slate-500" />
               </button>
             </div>
 
-            <form onSubmit={handleTransfer} className="p-10 space-y-8">
+            <form onSubmit={handleTransfer} className="p-6 sm:p-10 space-y-6 sm:space-y-8 overflow-y-auto custom-scrollbar">
               <div className="space-y-6">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="transfer-from">Origen de fondos</label>
@@ -2837,27 +2916,27 @@ const App: React.FC = () => {
                   min="0.01"
                   step="0.01"
                   placeholder="0.00"
-                  className="w-full px-6 py-6 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-black text-4xl tabular-nums tracking-tighter"
+                  className="w-full px-5 py-5 sm:px-6 sm:py-6 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-black text-3xl sm:text-4xl tabular-nums tracking-tighter"
                   value={transferData.amount || ''}
                   onChange={(e) => setTransferData({...transferData, amount: Number(e.target.value)})}
                 />
               </div>
 
-              <div className="pt-6 flex gap-6">
+              <div className="pt-2 flex flex-col-reverse sm:flex-row gap-3 sm:gap-6">
                 <button
                   type="button"
                   onClick={() => {
                     setIsTransferModalOpen(false);
                     setTransferData({ fromHuchaId: '', toHuchaId: '', amount: 0 });
                   }}
-                  className="flex-1 px-8 py-5 rounded-[1.5rem] border-2 border-slate-100 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 hover:bg-slate-50 active:scale-95 transition-all"
+                  className="flex-1 px-6 py-4 sm:px-8 sm:py-5 rounded-[1.5rem] border-2 border-slate-100 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 hover:bg-slate-50 active:scale-95 transition-all"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={!transferData.fromHuchaId || !transferData.toHuchaId || transferData.amount <= 0}
-                  className="flex-1 px-8 py-5 rounded-[1.5rem] bg-sky-600 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-sky-500 active:scale-95 transition-all shadow-[0_20px_50px_-15px_rgba(14,165,233,0.4)] disabled:opacity-40"
+                  className="flex-1 px-6 py-4 sm:px-8 sm:py-5 rounded-[1.5rem] bg-sky-600 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-sky-500 active:scale-95 transition-all shadow-[0_20px_50px_-15px_rgba(14,165,233,0.4)] disabled:opacity-40"
                 >
                   Ejecutar
                 </button>
@@ -2869,20 +2948,20 @@ const App: React.FC = () => {
 
       {/* Modal Eliminar Hucha con Fondos */}
       {deleteHuchaData.hucha && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-md overflow-hidden border border-white animate-in fade-in zoom-in duration-300">
-            <div className="p-10 border-b border-rose-50 flex items-center justify-between bg-rose-50/30">
-              <h3 className="text-2xl font-black text-rose-900 uppercase tracking-tight leading-none">Borrar Cartera</h3>
-              <button 
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl w-full sm:max-w-md overflow-hidden border border-white animate-in fade-in zoom-in duration-300 max-h-[92vh] sm:max-h-[88vh] flex flex-col">
+            <div className="p-6 sm:p-10 border-b border-rose-50 flex items-center justify-between bg-rose-50/30 shrink-0">
+              <h3 className="text-xl sm:text-2xl font-black text-rose-900 uppercase tracking-tight leading-none">Borrar Cartera</h3>
+              <button
                 onClick={() => setDeleteHuchaData({ hucha: null, mode: 'auto', manualDistributions: {} })}
-                className="flex h-12 w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none"
+                className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none shrink-0"
                 aria-label="Cerrar modal"
               >
-                <X size={28} className="text-rose-400" />
+                <X size={24} className="text-rose-400" />
               </button>
             </div>
 
-            <form onSubmit={confirmDeleteHuchaWithFunds} className="p-10 space-y-8">
+            <form onSubmit={confirmDeleteHuchaWithFunds} className="p-6 sm:p-10 space-y-6 sm:space-y-8 overflow-y-auto custom-scrollbar">
               <div className="rounded-[2rem] border-4 border-amber-100 bg-amber-50/50 p-6 flex flex-col items-center text-center gap-4 shadow-inner">
                 <div className="h-16 w-16 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 shadow-sm animate-pulse-slow">
                   <AlertTriangle size={32} />
@@ -2952,18 +3031,18 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              <div className="pt-6 flex gap-6">
+              <div className="pt-2 flex flex-col-reverse sm:flex-row gap-3 sm:gap-6">
                 <button
                   type="button"
                   onClick={() => setDeleteHuchaData({ hucha: null, mode: 'auto', manualDistributions: {} })}
-                  className="flex-1 px-8 py-5 rounded-[1.5rem] border-2 border-slate-100 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 hover:bg-slate-50 active:scale-95 transition-all"
+                  className="flex-1 px-6 py-4 sm:px-8 sm:py-5 rounded-[1.5rem] border-2 border-slate-100 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 hover:bg-slate-50 active:scale-95 transition-all"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={deleteHuchaData.mode === 'manual' && Math.abs(Object.values(deleteHuchaData.manualDistributions).reduce((a,b)=>a+b, 0) - deleteHuchaData.hucha.saldo_acumulado) > 0.01}
-                  className="flex-1 px-8 py-5 rounded-[1.5rem] bg-rose-600 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-rose-500 active:scale-95 transition-all shadow-[0_20px_50px_-15px_rgba(225,29,72,0.4)] disabled:opacity-40"
+                  className="flex-1 px-6 py-4 sm:px-8 sm:py-5 rounded-[1.5rem] bg-rose-600 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-rose-500 active:scale-95 transition-all shadow-[0_20px_50px_-15px_rgba(225,29,72,0.4)] disabled:opacity-40"
                 >
                   Borrar Todo
                 </button>
@@ -2975,27 +3054,27 @@ const App: React.FC = () => {
 
       {/* Modal Historial Completo */}
       {isHistoryModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-xl animate-fade-in" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl h-[85vh] flex flex-col overflow-hidden border-4 border-white animate-in fade-in zoom-in duration-300">
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-xl shadow-slate-900/20">
-                  <ReceiptText size={24} />
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/90 backdrop-blur-xl animate-fade-in" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl w-full sm:max-w-2xl h-[92vh] sm:h-[85vh] flex flex-col overflow-hidden border-4 border-white animate-in fade-in zoom-in duration-300">
+            <div className="p-5 sm:p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-xl shadow-slate-900/20 shrink-0">
+                  <ReceiptText size={22} />
                 </div>
-                <div>
-                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">Historial Completo</h3>
+                <div className="min-w-0">
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Historial Completo</h3>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Todos tus movimientos</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setIsHistoryModalOpen(false)}
-                className="h-12 w-12 flex items-center justify-center rounded-2xl bg-white border-2 border-slate-100 text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all active:scale-90 shadow-sm"
+                className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center rounded-2xl bg-white border-2 border-slate-100 text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all active:scale-90 shadow-sm shrink-0"
               >
-                <X size={24} />
+                <X size={22} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 space-y-4 custom-scrollbar bg-white">
+            <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-3 sm:space-y-4 custom-scrollbar bg-white">
               {history.map((m) => (
                 <div
                   key={m.id}
@@ -3333,32 +3412,32 @@ const App: React.FC = () => {
         const totalAssigned = Object.values(shares).reduce((a, b) => a + b, 0);
         const canConfirm = isGastoToIngreso ? !error : !!convertTargetHuchaId;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
-            <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl overflow-hidden border border-white animate-in fade-in zoom-in duration-300 max-h-[95vh] flex flex-col">
-              <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
-                <div className="flex items-center gap-4">
-                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-sm ${isGastoToIngreso ? 'bg-sky-50 text-sky-600' : 'bg-orange-50 text-orange-600'}`}>
-                    <ArrowRightLeft size={24} />
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
+            <div className="bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl w-full sm:max-w-2xl overflow-hidden border border-white animate-in fade-in zoom-in duration-300 max-h-[92vh] sm:max-h-[95vh] flex flex-col">
+              <div className="p-5 sm:p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shadow-sm shrink-0 ${isGastoToIngreso ? 'bg-sky-50 text-sky-600' : 'bg-orange-50 text-orange-600'}`}>
+                    <ArrowRightLeft size={22} />
                   </div>
-                  <div>
-                    <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                  <div className="min-w-0">
+                    <h3 className="text-lg sm:text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
                       {isGastoToIngreso ? 'Convertir a ingreso' : 'Convertir a gasto'}
                     </h3>
-                    <p className="text-xs font-bold text-slate-400 mt-1">
+                    <p className="text-xs font-bold text-slate-400 mt-1 truncate">
                       {mov.concepto} · <span className="tabular-nums">{formatCurrency(amount)}</span>
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={closeConvertModal}
-                  className="flex h-12 w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10"
+                  className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10 shrink-0"
                   aria-label="Cerrar modal"
                 >
-                  <X size={28} className="text-slate-400 hover:text-slate-900 transition-colors" />
+                  <X size={24} className="text-slate-400 hover:text-slate-900 transition-colors" />
                 </button>
               </div>
 
-              <div className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
+              <div className="p-5 sm:p-8 space-y-5 sm:space-y-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                 {isGastoToIngreso ? (
                   <>
                     <p className="text-xs font-bold text-slate-500 leading-relaxed">
@@ -3367,9 +3446,9 @@ const App: React.FC = () => {
 
                     <div className="space-y-3">
                       {convertRows.map((row, idx) => (
-                        <div key={idx} className="flex items-center gap-2 p-3 rounded-2xl border-2 border-slate-100 bg-slate-50">
+                        <div key={idx} className="grid grid-cols-[1fr_auto_auto] sm:flex sm:items-center gap-2 p-3 rounded-2xl border-2 border-slate-100 bg-slate-50">
                           <select
-                            className="flex-1 px-3 py-2 rounded-xl border-2 border-slate-100 bg-white text-sm font-bold focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500"
+                            className="col-span-3 sm:col-span-1 sm:flex-1 min-w-0 px-3 py-2 rounded-xl border-2 border-slate-100 bg-white text-sm font-bold focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500"
                             value={row.huchaId}
                             onChange={e => updateConvertRow(idx, { huchaId: e.target.value })}
                           >
@@ -3391,7 +3470,7 @@ const App: React.FC = () => {
                             min="0"
                             step="0.01"
                             disabled={row.tipoAportacion === 'resto'}
-                            className="w-24 px-3 py-2 rounded-xl border-2 border-slate-100 bg-white text-sm font-black tabular-nums text-right focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 disabled:bg-slate-100 disabled:text-slate-300"
+                            className="w-20 sm:w-24 px-3 py-2 rounded-xl border-2 border-slate-100 bg-white text-sm font-black tabular-nums text-right focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 disabled:bg-slate-100 disabled:text-slate-300"
                             value={row.tipoAportacion === 'resto' ? '' : row.valor}
                             onChange={e => updateConvertRow(idx, { valor: Number(e.target.value) })}
                             placeholder={row.tipoAportacion === 'resto' ? 'auto' : '0'}
@@ -3399,7 +3478,7 @@ const App: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => removeConvertRow(idx)}
-                            className="h-9 w-9 flex items-center justify-center rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all"
+                            className="col-span-3 sm:col-span-1 h-9 w-full sm:w-9 flex items-center justify-center rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all border border-slate-100 sm:border-none bg-white sm:bg-transparent"
                             aria-label="Quitar fila"
                           >
                             <Trash2 size={16} />
@@ -3456,11 +3535,11 @@ const App: React.FC = () => {
                 )}
               </div>
 
-              <div className="p-6 border-t border-slate-50 flex justify-end gap-3 bg-slate-50/30 shrink-0">
+              <div className="p-4 sm:p-6 border-t border-slate-50 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 bg-slate-50/30 shrink-0">
                 <button
                   type="button"
                   onClick={closeConvertModal}
-                  className="px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-white transition-all"
+                  className="w-full sm:w-auto px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-white transition-all border-2 border-slate-100 sm:border-transparent"
                 >
                   Cancelar
                 </button>
@@ -3468,7 +3547,7 @@ const App: React.FC = () => {
                   type="button"
                   disabled={!canConfirm}
                   onClick={handleConvertMovimiento}
-                  className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed ${isGastoToIngreso ? 'bg-sky-600 hover:bg-sky-700' : 'bg-orange-600 hover:bg-orange-700'}`}
+                  className={`w-full sm:w-auto px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed ${isGastoToIngreso ? 'bg-sky-600 hover:bg-sky-700' : 'bg-orange-600 hover:bg-orange-700'}`}
                 >
                   Confirmar
                 </button>
@@ -3485,32 +3564,32 @@ const App: React.FC = () => {
         const summary = linkSummary;
         const canConfirm = linkSelectedIds.size > 0 && !(summary && summary.exceso > 0.01);
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
-            <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl overflow-hidden border border-white animate-in fade-in zoom-in duration-300 max-h-[95vh] flex flex-col">
-              <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-2xl flex items-center justify-center shadow-sm bg-emerald-50 text-emerald-600">
-                    <Undo2 size={24} />
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
+            <div className="bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl w-full sm:max-w-2xl overflow-hidden border border-white animate-in fade-in zoom-in duration-300 max-h-[92vh] sm:max-h-[95vh] flex flex-col">
+              <div className="p-5 sm:p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shadow-sm bg-emerald-50 text-emerald-600 shrink-0">
+                    <Undo2 size={22} />
                   </div>
-                  <div>
-                    <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
-                      {isGasto ? 'Compensar gasto' : 'Compensar gasto con este ingreso'}
+                  <div className="min-w-0">
+                    <h3 className="text-lg sm:text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                      {isGasto ? 'Compensar gasto' : 'Compensar gasto'}
                     </h3>
-                    <p className="text-xs font-bold text-slate-400 mt-1">
+                    <p className="text-xs font-bold text-slate-400 mt-1 truncate">
                       {mov.concepto} · <span className="tabular-nums">{formatCurrency(mov.importe)}</span>
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={closeLinkModal}
-                  className="flex h-12 w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10"
+                  className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10 shrink-0"
                   aria-label="Cerrar modal"
                 >
-                  <X size={28} className="text-slate-400 hover:text-slate-900 transition-colors" />
+                  <X size={24} className="text-slate-400 hover:text-slate-900 transition-colors" />
                 </button>
               </div>
 
-              <div className="p-8 space-y-5 overflow-y-auto custom-scrollbar">
+              <div className="p-5 sm:p-8 space-y-5 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                 <p className="text-xs font-bold text-slate-500 leading-relaxed">
                   {isGasto
                     ? 'Selecciona los ingresos (bizums, devoluciones…) que reembolsen parte de este gasto. El total compensado se descontará del coste real y de tus estadísticas.'
@@ -3525,7 +3604,7 @@ const App: React.FC = () => {
                   onChange={e => setLinkSearch(e.target.value)}
                 />
 
-                <div className="space-y-2 max-h-72 overflow-y-auto custom-scrollbar pr-1">
+                <div className="space-y-2 custom-scrollbar pr-1">
                   {linkLoadingPool ? (
                     <p className="text-xs font-bold text-slate-400 text-center py-8">
                       Cargando movimientos…
@@ -3591,11 +3670,11 @@ const App: React.FC = () => {
                 )}
               </div>
 
-              <div className="p-6 border-t border-slate-50 flex justify-end gap-3 bg-slate-50/30 shrink-0">
+              <div className="p-4 sm:p-6 border-t border-slate-50 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 bg-slate-50/30 shrink-0">
                 <button
                   type="button"
                   onClick={closeLinkModal}
-                  className="px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-white transition-all"
+                  className="w-full sm:w-auto px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-white transition-all border-2 border-slate-100 sm:border-transparent"
                 >
                   Cancelar
                 </button>
@@ -3603,7 +3682,7 @@ const App: React.FC = () => {
                   type="button"
                   disabled={!canConfirm}
                   onClick={handleLinkMovimiento}
-                  className="px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-white bg-emerald-600 hover:bg-emerald-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-white bg-emerald-600 hover:bg-emerald-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Vincular
                 </button>
@@ -3615,27 +3694,27 @@ const App: React.FC = () => {
 
       {/* Modal Nueva / Editar Suscripción */}
       {isSuscripcionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-lg overflow-hidden border border-white animate-in fade-in zoom-in duration-300 max-h-[95vh] flex flex-col">
-            <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center shadow-sm">
-                  <CreditCard size={24} />
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/80 backdrop-blur-md animate-appear-up" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl w-full sm:max-w-lg overflow-hidden border border-white animate-in fade-in zoom-in duration-300 max-h-[92vh] sm:max-h-[95vh] flex flex-col">
+            <div className="p-5 sm:p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center shadow-sm shrink-0">
+                  <CreditCard size={22} />
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                <h3 className="text-lg sm:text-2xl font-black text-slate-900 uppercase tracking-tight leading-none truncate">
                   {editingSuscripcionId ? 'Editar' : 'Nueva Suscripción'}
                 </h3>
               </div>
               <button
                 onClick={closeSuscripcionModal}
-                className="flex h-12 w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10"
+                className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center hover:bg-white hover:shadow-md rounded-2xl transition-all focus:outline-none focus:ring-4 focus:ring-sky-500/10 shrink-0"
                 aria-label="Cerrar modal"
               >
-                <X size={28} className="text-slate-400 hover:text-slate-900 transition-colors" />
+                <X size={24} className="text-slate-400 hover:text-slate-900 transition-colors" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateOrUpdateSuscripcion} className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
+            <form onSubmit={handleCreateOrUpdateSuscripcion} className="p-5 sm:p-8 space-y-5 sm:space-y-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
               {/* Nombre */}
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="sus-nombre">Nombre del Servicio</label>
@@ -3651,7 +3730,7 @@ const App: React.FC = () => {
               </div>
 
               {/* Importe + Frecuencia */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="sus-importe">Importe (€)</label>
                   <input
@@ -3661,7 +3740,7 @@ const App: React.FC = () => {
                     min="0.01"
                     step="0.01"
                     placeholder="0.00"
-                    className="w-full px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-black tabular-nums text-xl"
+                    className="w-full px-5 py-4 sm:px-6 sm:py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-black tabular-nums text-xl"
                     value={newSuscripcion.importe || ''}
                     onChange={e => setNewSuscripcion({ ...newSuscripcion, importe: Number(e.target.value) })}
                   />
@@ -3670,7 +3749,7 @@ const App: React.FC = () => {
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="sus-frecuencia">Frecuencia</label>
                   <select
                     id="sus-frecuencia"
-                    className="w-full px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-bold cursor-pointer appearance-none"
+                    className="w-full px-5 py-4 sm:px-6 sm:py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-bold cursor-pointer appearance-none"
                     value={newSuscripcion.frecuencia}
                     onChange={e => setNewSuscripcion({ ...newSuscripcion, frecuencia: e.target.value as Suscripcion['frecuencia'] })}
                   >
@@ -3727,7 +3806,7 @@ const App: React.FC = () => {
               </div>
 
               {/* Día de cobro + Categoría */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="sus-dia">
                     <Calendar size={10} className="inline mr-1" />
@@ -3739,7 +3818,7 @@ const App: React.FC = () => {
                     type="number"
                     min="1"
                     max="28"
-                    className="w-full px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-bold tabular-nums"
+                    className="w-full px-5 py-4 sm:px-6 sm:py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-bold tabular-nums"
                     value={newSuscripcion.dia_pago}
                     onChange={e => setNewSuscripcion({ ...newSuscripcion, dia_pago: Number(e.target.value) })}
                   />
@@ -3748,7 +3827,7 @@ const App: React.FC = () => {
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3" htmlFor="sus-categoria">Categoría</label>
                   <select
                     id="sus-categoria"
-                    className="w-full px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-bold cursor-pointer appearance-none"
+                    className="w-full px-5 py-4 sm:px-6 sm:py-5 rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 focus:outline-none focus:ring-8 focus:ring-sky-500/5 focus:border-sky-500 focus:bg-white transition-all font-bold cursor-pointer appearance-none"
                     value={newSuscripcion.categoria}
                     onChange={e => setNewSuscripcion({ ...newSuscripcion, categoria: e.target.value })}
                   >
@@ -3833,17 +3912,17 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-2 flex gap-6">
+              <div className="pt-2 flex flex-col-reverse sm:flex-row gap-3 sm:gap-6">
                 <button
                   type="button"
                   onClick={closeSuscripcionModal}
-                  className="flex-1 px-8 py-5 rounded-[1.5rem] border-2 border-slate-100 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 hover:bg-slate-50 active:scale-95 transition-all focus:outline-none"
+                  className="flex-1 px-6 py-4 sm:px-8 sm:py-5 rounded-[1.5rem] border-2 border-slate-100 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 hover:bg-slate-50 active:scale-95 transition-all focus:outline-none"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-8 py-5 rounded-[1.5rem] bg-slate-900 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-800 active:scale-95 transition-all shadow-[0_20px_50px_-15px_rgba(15,23,42,0.4)]"
+                  className="flex-1 px-6 py-4 sm:px-8 sm:py-5 rounded-[1.5rem] bg-slate-900 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-800 active:scale-95 transition-all shadow-[0_20px_50px_-15px_rgba(15,23,42,0.4)]"
                 >
                   {editingSuscripcionId ? 'Guardar Cambios' : 'Crear'}
                 </button>
@@ -3855,41 +3934,42 @@ const App: React.FC = () => {
 
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-appear-up">
-          <div className={`flex items-center gap-5 px-8 py-5 rounded-[2.5rem] shadow-[0_30px_80px_-15px_rgba(0,0,0,0.4)] border-4 border-white/10 backdrop-blur-xl ${
-            toast.type === 'success' 
-              ? 'bg-emerald-950/95 text-emerald-50' 
+        <div className="fixed bottom-4 sm:bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-appear-up w-[calc(100%-2rem)] sm:w-auto max-w-md">
+          <div className={`flex items-center gap-3 sm:gap-5 px-5 sm:px-8 py-4 sm:py-5 rounded-2xl sm:rounded-[2.5rem] shadow-[0_30px_80px_-15px_rgba(0,0,0,0.4)] border-4 border-white/10 backdrop-blur-xl ${
+            toast.type === 'success'
+              ? 'bg-emerald-950/95 text-emerald-50'
               : 'bg-rose-950/95 text-rose-50'
           }`}>
-            <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shadow-inner ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-              {toast.type === 'success' ? <CheckCircle2 size={24} /> : <AlertTriangle size={24} />}
+            <div className={`h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-2xl flex items-center justify-center shadow-inner ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+              {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
             </div>
-            <p className="text-xs font-black uppercase tracking-[0.2em]">{toast.message}</p>
+            <p className="text-xs font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] flex-1">{toast.message}</p>
           </div>
         </div>
       )}
 
       {/* Confirmation Modal */}
       {confirmModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/85 backdrop-blur-lg animate-fade-in" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-[3.5rem] shadow-2xl w-full max-w-sm overflow-hidden border-4 border-white animate-in fade-in zoom-in duration-300">
-            <div className="p-10 text-center">
-              <div className="mx-auto w-20 h-20 rounded-[2rem] bg-amber-50 flex items-center justify-center mb-8 text-amber-600 shadow-inner">
-                <AlertTriangle size={40} />
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/85 backdrop-blur-lg animate-fade-in" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-t-[2.5rem] sm:rounded-[3.5rem] shadow-2xl w-full sm:max-w-sm overflow-hidden border-4 border-white animate-in fade-in zoom-in duration-300">
+            <div className="p-6 sm:p-10 text-center">
+              <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 rounded-[1.5rem] sm:rounded-[2rem] bg-amber-50 flex items-center justify-center mb-5 sm:mb-8 text-amber-600 shadow-inner">
+                <AlertTriangle size={32} className="sm:hidden" />
+                <AlertTriangle size={40} className="hidden sm:block" />
               </div>
-              <h3 className="text-3xl font-black text-slate-900 mb-4 uppercase tracking-tight leading-none">{confirmModal.title}</h3>
-              <p className="text-sm font-bold text-slate-400 leading-relaxed px-4">{confirmModal.message}</p>
+              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3 sm:mb-4 uppercase tracking-tight leading-none">{confirmModal.title}</h3>
+              <p className="text-sm font-bold text-slate-400 leading-relaxed px-2 sm:px-4">{confirmModal.message}</p>
             </div>
-            <div className="p-8 bg-slate-50/50 flex gap-4">
+            <div className="p-5 sm:p-8 bg-slate-50/50 flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
               <button
                 onClick={() => setConfirmModal(null)}
-                className="flex-1 px-6 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-white font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 hover:bg-white hover:border-slate-300 active:scale-95 transition-all shadow-sm"
+                className="flex-1 px-6 py-4 sm:px-6 sm:py-5 rounded-[1.5rem] border-2 border-slate-100 bg-white font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 hover:bg-white hover:border-slate-300 active:scale-95 transition-all shadow-sm"
               >
                 Volver
               </button>
               <button
                 onClick={confirmModal.onConfirm}
-                className="flex-1 px-6 py-5 rounded-[1.5rem] bg-slate-900 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-900/30"
+                className="flex-1 px-6 py-4 sm:px-6 sm:py-5 rounded-[1.5rem] bg-slate-900 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-900/30"
               >
                 {confirmModal.confirmLabel ?? 'Borrar'}
               </button>
