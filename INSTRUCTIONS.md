@@ -133,6 +133,7 @@ Configuración de cada hucha. Gestionada desde el front.
 | `valor_aportacion` | Number | Importe fijo o % (nulo si `tipo` es `"resto"`) |
 | `saldo_acumulado` | Number | Saldo actual acumulado |
 | `objetivo` | Number \| null | Objetivo opcional. `null` si no tiene |
+| `tope_objetivo` | Boolean \| undefined | Si `true` y existe `objetivo`, los aportes se cortan al alcanzar la meta y el excedente se redirige a `resto`/`principal`. Default = visual (sin corte) |
 | `es_principal` | Boolean | `true` en la hucha principal (recibe el sobrante) |
 | `orden` | Number | Orden de ejecución (las de `"resto"` siempre las últimas) |
 
@@ -149,6 +150,7 @@ Se ejecuta automáticamente tras registrar un ingreso. El flujo es:
     * **`porcentaje`:** calcular `ingreso_total * (valor / 100)`.
     * **`resto`:** asignar todo el remanente (solo puede haber una; siempre se ejecuta al final).
     * Si no existe hucha de tipo `"resto"`, el remanente va a la hucha marcada con `es_principal: true`.
+    * **Tope por objetivo (opt-in):** Si una hucha tiene `tope_objetivo: true` y `saldo_acumulado + aporte > objetivo`, el aporte se recorta a `max(0, objetivo - saldo_acumulado)` y el sobrante se reasigna al destino por defecto (`resto` → `principal` → primera disponible). Si todas están llenas con tope, el remanente queda sin asignar y se avisa al usuario. Huchas sin `tope_objetivo` o con `tope_objetivo: false` se comportan como antes (modo solo visual). `tope_objetivo` solo tiene efecto cuando `objetivo > 0`.
 4. **🔴 CRÍTICO (Concurrencia):** La actualización de los saldos **DEBE** realizarse dentro de una **Transacción de Firestore (`db.transaction()`)**. No usar `firestore.Increment` directamente fuera de ella.
     * La transacción lee el `saldo_acumulado` actual de cada hucha, suma la cantidad calculada en el paso 3 y guarda el nuevo total de forma atómica.
     * Si dos ingresos se procesan simultáneamente (ej. dos Bizums a la vez), Firestore detecta el conflicto, reintenta la transacción automáticamente y garantiza que las matemáticas cuadren al céntimo sin condiciones de carrera.
@@ -156,6 +158,7 @@ Se ejecuta automáticamente tras registrar un ingreso. El flujo es:
 **Restricciones de integridad:**
 * Solo puede existir **una** hucha con `tipo_aportacion: "resto"` por propietario.
 * Solo puede existir **una** hucha con `es_principal: true` por propietario.
+* `tope_objetivo` solo tiene efecto cuando `objetivo > 0`. Si se borra el objetivo, el campo se resetea a `false` automáticamente.
 * La hucha principal se crea obligatoriamente en el setup inicial del front.
 * La suma de porcentajes se valida tanto en el backend como en las reglas del front antes de guardar.
 

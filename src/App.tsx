@@ -67,6 +67,7 @@ import {
   Undo2,
   ChevronLeft,
   ChevronRight,
+  Lock,
 } from 'lucide-react';
 import { auth, db } from './firebase';
 
@@ -93,6 +94,7 @@ interface Hucha {
   orden: number;
   es_principal?: boolean;
   es_suscripciones?: boolean;
+  tope_objetivo?: boolean;
 }
 
 interface Suscripcion {
@@ -237,7 +239,8 @@ const App: React.FC = () => {
     tipo_aportacion: 'porcentaje' as 'flat' | 'porcentaje' | 'resto',
     valor_aportacion: 0,
     objetivo: 0,
-    es_principal: false
+    es_principal: false,
+    tope_objetivo: false
   });
   
   // Transfer State
@@ -565,6 +568,7 @@ const App: React.FC = () => {
       valor_aportacion: Number(newHucha.valor_aportacion),
       objetivo: newHucha.objetivo > 0 ? Number(newHucha.objetivo) : null,
       es_principal: newHucha.es_principal,
+      tope_objetivo: newHucha.objetivo > 0 ? !!newHucha.tope_objetivo : false,
       updated_at: serverTimestamp()
     };
 
@@ -724,13 +728,27 @@ const App: React.FC = () => {
       return;
     }
 
+    const { adjusted: transferDeltas, overflow: transferOverflow, restoId: transferRestoId } =
+      redirectOverflowToResto(
+        { [transferData.toHuchaId]: transferData.amount },
+        huchas,
+      );
+    if (transferRestoId && transferRestoId === transferData.fromHuchaId) {
+      showToast('La hucha destino está llena y el rebote sería al origen.');
+      return;
+    }
+
     try {
       await runTransaction(db, async (transaction) => {
         const fromRef = doc(db, 'huchas', transferData.fromHuchaId);
         const toRef = doc(db, 'huchas', transferData.toHuchaId);
+        const restoRef = transferRestoId && transferRestoId !== transferData.toHuchaId
+          ? doc(db, 'huchas', transferRestoId)
+          : null;
 
         const fromDoc = await transaction.get(fromRef);
         const toDoc = await transaction.get(toRef);
+        const restoDoc = restoRef ? await transaction.get(restoRef) : null;
 
         if (!fromDoc.exists() || !toDoc.exists()) throw new Error("Una de las huchas no existe");
 
@@ -744,11 +762,27 @@ const App: React.FC = () => {
           updated_at: serverTimestamp()
         });
 
-        transaction.update(toRef, {
-          saldo_acumulado: (toDoc.data().saldo_acumulado || 0) + transferData.amount,
-          updated_at: serverTimestamp()
-        });
+        const toDelta = transferDeltas[transferData.toHuchaId] ?? 0;
+        if (toDelta > 0) {
+          transaction.update(toRef, {
+            saldo_acumulado: (toDoc.data().saldo_acumulado || 0) + toDelta,
+            updated_at: serverTimestamp()
+          });
+        }
+
+        if (restoRef && restoDoc?.exists()) {
+          const restoDelta = transferDeltas[transferRestoId!] ?? 0;
+          if (restoDelta > 0) {
+            transaction.update(restoRef, {
+              saldo_acumulado: (restoDoc.data().saldo_acumulado || 0) + restoDelta,
+              updated_at: serverTimestamp()
+            });
+          }
+        }
       });
+      if (transferOverflow > 0.01) {
+        showToast(`${transferOverflow.toFixed(2)} € sin asignar: todas las huchas están llenas`);
+      }
 
       setIsTransferModalOpen(false);
       setTransferData({ fromHuchaId: '', toHuchaId: '', amount: 0 });
@@ -766,7 +800,8 @@ const App: React.FC = () => {
       tipo_aportacion: hucha.tipo_aportacion,
       valor_aportacion: hucha.valor_aportacion || 0,
       objetivo: hucha.objetivo || 0,
-      es_principal: !!hucha.es_principal
+      es_principal: !!hucha.es_principal,
+      tope_objetivo: !!hucha.tope_objetivo
     });
     setIsModalOpen(true);
   };
@@ -774,37 +809,63 @@ const App: React.FC = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
-    setNewHucha({ nombre: '', tipo_aportacion: 'porcentaje', valor_aportacion: 0, objetivo: 0, es_principal: false });
+    setNewHucha({ nombre: '', tipo_aportacion: 'porcentaje', valor_aportacion: 0, objetivo: 0, es_principal: false, tope_objetivo: false });
   };
 
   const handleChangeMovimientoHucha = async (mov: Movimiento, newHuchaId: string) => {
     if (!newHuchaId || mov.hucha_id === newHuchaId) return;
     const oldHuchaId = mov.hucha_id;
 
+    // La hucha antigua recibe +importe (revertir el gasto). Pasar por el tope.
+    const rawDeltas: Record<string, number> = oldHuchaId
+      ? { [oldHuchaId]: mov.importe }
+      : {};
+    const { adjusted: changeDeltas, overflow: changeOverflow, restoId: changeRestoId } =
+      redirectOverflowToResto(rawDeltas, huchas);
+
     try {
       await runTransaction(db, async (transaction) => {
         const movRef = doc(db, 'movimientos', mov.id);
         const newHuchaRef = doc(db, 'huchas', newHuchaId);
         const oldHuchaRef = oldHuchaId ? doc(db, 'huchas', oldHuchaId) : null;
+        const restoRef = changeRestoId && changeRestoId !== oldHuchaId && changeRestoId !== newHuchaId
+          ? doc(db, 'huchas', changeRestoId)
+          : null;
 
         const newHuchaDoc = await transaction.get(newHuchaRef);
-        let oldHuchaDoc = null;
-        if (oldHuchaRef) oldHuchaDoc = await transaction.get(oldHuchaRef);
+        const oldHuchaDoc = oldHuchaRef ? await transaction.get(oldHuchaRef) : null;
+        const restoDoc = restoRef ? await transaction.get(restoRef) : null;
 
         if (oldHuchaRef && oldHuchaDoc && oldHuchaDoc.exists()) {
-          transaction.update(oldHuchaRef, {
-            saldo_acumulado: (oldHuchaDoc.data().saldo_acumulado || 0) + mov.importe
-          });
+          const oldDelta = oldHuchaId ? (changeDeltas[oldHuchaId] ?? 0) : 0;
+          if (oldDelta !== 0) {
+            transaction.update(oldHuchaRef, {
+              saldo_acumulado: (oldHuchaDoc.data().saldo_acumulado || 0) + oldDelta
+            });
+          }
         }
-        
+
         if (newHuchaDoc.exists()) {
           transaction.update(newHuchaRef, {
             saldo_acumulado: (newHuchaDoc.data().saldo_acumulado || 0) - mov.importe
           });
         }
 
+        if (restoRef && restoDoc?.exists() && changeRestoId) {
+          const restoDelta = changeDeltas[changeRestoId] ?? 0;
+          if (restoDelta > 0) {
+            transaction.update(restoRef, {
+              saldo_acumulado: (restoDoc.data().saldo_acumulado || 0) + restoDelta,
+              updated_at: serverTimestamp(),
+            });
+          }
+        }
+
         transaction.update(movRef, { hucha_id: newHuchaId });
       });
+      if (changeOverflow > 0.01) {
+        showToast(`${changeOverflow.toFixed(2)} € sin asignar: todas las huchas están llenas`);
+      }
       showToast("Gasto reasignado", "success");
     } catch (error) {
       console.error("Error cambiando hucha del movimiento:", error);
@@ -858,6 +919,52 @@ const App: React.FC = () => {
 
   const removeConvertRow = (idx: number) => {
     setConvertRows(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const isHuchaFull = (h: Hucha) =>
+    h.objetivo != null && h.objetivo > 0 && h.saldo_acumulado >= h.objetivo;
+  const isHuchaCapped = (h: Hucha) => isHuchaFull(h) && !!h.tope_objetivo;
+
+  // Recorta cada delta positivo según el tope de su hucha (saldo + delta <= objetivo)
+  // y redirige el exceso a la hucha "resto" → principal → primera disponible.
+  // Solo actúa sobre huchas con `tope_objetivo: true` y `objetivo > 0`.
+  const redirectOverflowToResto = (
+    deltas: Record<string, number>,
+    huchasState: Hucha[],
+  ): { adjusted: Record<string, number>; overflow: number; restoId: string | null } => {
+    const adjusted: Record<string, number> = { ...deltas };
+    let leftover = 0;
+
+    for (const [hid, delta] of Object.entries(deltas)) {
+      if (delta <= 0) continue;
+      const h = huchasState.find(x => x.id === hid);
+      if (!h) continue;
+      if (!h.tope_objetivo || !h.objetivo || h.objetivo <= 0) continue;
+      const room = Math.max(0, h.objetivo - h.saldo_acumulado);
+      if (delta > room) {
+        adjusted[hid] = room;
+        leftover += delta - room;
+      }
+    }
+
+    if (leftover <= 0) return { adjusted, overflow: 0, restoId: null };
+
+    const restoCandidate =
+      huchasState.find(h => h.tipo_aportacion === 'resto') ??
+      huchasState.find(h => h.es_principal) ??
+      huchasState[0];
+
+    if (!restoCandidate) return { adjusted, overflow: leftover, restoId: null };
+
+    // El destino también puede tener tope; recortar lo que quepa.
+    const destRoom = restoCandidate.tope_objetivo && restoCandidate.objetivo
+      ? Math.max(0, restoCandidate.objetivo - restoCandidate.saldo_acumulado - (adjusted[restoCandidate.id] ?? 0))
+      : Infinity;
+    const accepted = Math.min(leftover, destRoom);
+    if (accepted > 0) {
+      adjusted[restoCandidate.id] = (adjusted[restoCandidate.id] ?? 0) + accepted;
+    }
+    return { adjusted, overflow: leftover - accepted, restoId: restoCandidate.id };
   };
 
   // Computes the € that each row contributes given the movement amount.
@@ -928,10 +1035,15 @@ const App: React.FC = () => {
         const oldHuchaId = mov.hucha_id;
 
         // Net delta per hucha: revert -amount on old hucha (+amount), plus add shares.
-        const deltas: Record<string, number> = {};
-        if (oldHuchaId) deltas[oldHuchaId] = (deltas[oldHuchaId] || 0) + amount;
+        const rawDeltas: Record<string, number> = {};
+        if (oldHuchaId) rawDeltas[oldHuchaId] = (rawDeltas[oldHuchaId] || 0) + amount;
         for (const [hid, share] of Object.entries(shares)) {
-          deltas[hid] = (deltas[hid] || 0) + share;
+          rawDeltas[hid] = (rawDeltas[hid] || 0) + share;
+        }
+
+        const { adjusted: deltas, overflow } = redirectOverflowToResto(rawDeltas, huchas);
+        if (overflow > 0.01) {
+          showToast(`${overflow.toFixed(2)} € sin asignar: todas las huchas están llenas`);
         }
 
         await runTransaction(db, async (transaction) => {
@@ -952,6 +1064,7 @@ const App: React.FC = () => {
           for (const hid of Object.keys(huchaRefs)) {
             const snap = huchaSnaps[hid];
             if (!snap?.exists()) continue;
+            if (!deltas[hid]) continue;
             const cur = snap.data().saldo_acumulado || 0;
             transaction.update(huchaRefs[hid], {
               saldo_acumulado: cur + deltas[hid],
@@ -2673,6 +2786,18 @@ const App: React.FC = () => {
                               Auto
                             </span>
                           )}
+                          {isHuchaFull(h) && (
+                            <span className="inline-flex items-center gap-1 rounded-xl bg-emerald-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-700">
+                              <CheckCircle2 size={10} />
+                              Completa
+                            </span>
+                          )}
+                          {isHuchaCapped(h) && (
+                            <span className="inline-flex items-center gap-1 rounded-xl bg-amber-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-amber-700" title="Tope activo: nuevos aportes se redirigen a la hucha resto">
+                              <Lock size={10} />
+                              Tope
+                            </span>
+                          )}
                         </div>
                         <span className="mt-2 inline-block rounded-xl bg-slate-900 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-slate-900/20">
                           {allocationLabel}
@@ -2808,6 +2933,24 @@ const App: React.FC = () => {
                 </div>
               </div>
 
+              {newHucha.objetivo > 0 && (
+                <div className="flex items-center gap-5 p-6 rounded-[1.5rem] bg-slate-50 border-2 border-slate-100 transition-colors hover:bg-white hover:border-amber-100 group">
+                  <div className="relative flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="tope_objetivo"
+                      className="peer w-8 h-8 rounded-xl border-2 border-slate-200 bg-white text-amber-500 focus:ring-amber-500/20 cursor-pointer transition-all appearance-none checked:bg-amber-500 checked:border-amber-500"
+                      checked={newHucha.tope_objetivo}
+                      onChange={(e) => setNewHucha({...newHucha, tope_objetivo: e.target.checked})}
+                    />
+                    <Lock className="absolute pointer-events-none hidden peer-checked:block left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white" size={16} />
+                  </div>
+                  <label htmlFor="tope_objetivo" className="text-sm font-black text-slate-500 group-hover:text-slate-900 cursor-pointer select-none leading-tight transition-colors">
+                    Detener aportes al alcanzar el objetivo <span className="block text-[9px] uppercase tracking-widest text-slate-400 mt-1 font-bold">El excedente se redirige a la cartera resto/principal</span>
+                  </label>
+                </div>
+              )}
+
               <div className="flex items-center gap-5 p-6 rounded-[1.5rem] bg-slate-50 border-2 border-slate-100 transition-colors hover:bg-white hover:border-sky-100 group">
                 <div className="relative flex items-center cursor-pointer">
                   <input
@@ -2900,7 +3043,7 @@ const App: React.FC = () => {
                     <option value="" disabled>Selecciona destino...</option>
                     {huchas.map(h => (
                       <option key={h.id} value={h.id} disabled={h.id === transferData.fromHuchaId}>
-                        {h.nombre}
+                        {h.nombre}{isHuchaCapped(h) ? ' (tope)' : ''}
                       </option>
                     ))}
                   </select>
@@ -3453,7 +3596,7 @@ const App: React.FC = () => {
                             onChange={e => updateConvertRow(idx, { huchaId: e.target.value })}
                           >
                             {huchas.map(h => (
-                              <option key={h.id} value={h.id}>{h.nombre}</option>
+                              <option key={h.id} value={h.id}>{h.nombre}{isHuchaCapped(h) ? ' (tope)' : ''}</option>
                             ))}
                           </select>
                           <select
