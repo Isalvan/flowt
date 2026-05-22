@@ -1,0 +1,343 @@
+import React, { useState } from 'react';
+import { Card } from '../common/Card';
+import { type Movimiento, type Hucha } from '../../types';
+import { 
+  ArrowUpRight, 
+  ArrowDownRight, 
+  Edit2, 
+  Check, 
+  X, 
+  Download, 
+  Link, 
+  Link2Off, 
+  RefreshCw, 
+  Undo2, 
+  Info,
+  Calendar,
+  PiggyBank
+} from 'lucide-react';
+import { parseMovimientoDate } from '../../hooks/useFinanceData';
+
+interface ActivityListProps {
+  movimientos: Movimiento[];
+  allMovimientos: Movimiento[];
+  huchas: Hucha[];
+  onUpdateConcepto: (movId: string, newConcepto: string) => void;
+  onConvert: (mov: Movimiento) => void;
+  onLink: (mov: Movimiento) => void;
+  onUnlink: (ingreso: Movimiento) => void;
+  onChangeHucha: (mov: Movimiento, newHuchaId: string) => void;
+}
+
+export const ActivityList: React.FC<ActivityListProps> = ({
+  movimientos,
+  allMovimientos,
+  huchas,
+  onUpdateConcepto,
+  onConvert,
+  onLink,
+  onUnlink,
+  onChangeHucha,
+}) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [tempConcepto, setTempConcepto] = useState('');
+  const [hoveredMovId, setHoveredMovId] = useState<string | null>(null);
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
+  };
+
+  const formatDate = (dateValue: any) => {
+    const d = parseMovimientoDate(dateValue);
+    if (!d) return 'Sin fecha';
+    return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  const handleStartEdit = (m: Movimiento) => {
+    setEditingId(m.id);
+    setTempConcepto(m.concepto);
+  };
+
+  const handleSaveConcepto = (m: Movimiento) => {
+    if (tempConcepto.trim() && tempConcepto.trim() !== m.concepto) {
+      onUpdateConcepto(m.id, tempConcepto.trim());
+    }
+    setEditingId(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+  };
+
+  // CSV Exporter
+  const exportToCSV = () => {
+    const headers = ['ID', 'Fecha', 'Tipo', 'Concepto', 'Importe', 'Importe Neto', 'Hucha Receptora'];
+    const rows = movimientos.map(m => {
+      const huchaName = m.hucha_id ? (huchas.find(h => h.id === m.hucha_id)?.nombre || '') : '';
+      const dateStr = formatDate(m.fecha_operacion);
+      return [
+        m.id,
+        dateStr,
+        m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto',
+        m.concepto.replace(/"/g, '""'),
+        m.importe,
+        m.tipo === 'gasto' && m.compensado_por ? (m.importe_neto ?? m.importe) : m.importe,
+        huchaName
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(e => e.map(val => `"${val}"`).join(','))
+    ].join('\n');
+
+    // Create file and download
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `flowt_actividad_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Find linked movements for tooltips
+  const getLinkedMovements = (mov: Movimiento) => {
+    if (mov.tipo === 'gasto' && mov.compensado_por && mov.compensado_por.length > 0) {
+      return allMovimientos.filter(m => mov.compensado_por?.includes(m.id));
+    }
+    if (mov.tipo === 'ingreso' && mov.compensa_movimiento_id) {
+      const exp = allMovimientos.find(m => m.id === mov.compensa_movimiento_id);
+      return exp ? [exp] : [];
+    }
+    return [];
+  };
+
+  return (
+    <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-xl">
+      <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+        <div>
+          <h3 className="font-extrabold text-lg text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+            Actividad Reciente
+          </h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500">Últimos movimientos registrados</p>
+        </div>
+
+        <button
+          onClick={exportToCSV}
+          className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs px-3.5 py-2 rounded-xl transition-all duration-200 active:scale-95 border border-white/5 hover:border-slate-300 dark:hover:border-slate-600 shadow-sm"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Exportar CSV
+        </button>
+      </div>
+
+      <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
+        {movimientos.length > 0 ? (
+          movimientos.map((m) => {
+            const hasCompensaciones = (m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0) || 
+                                     (m.tipo === 'ingreso' && !!m.compensa_movimiento_id);
+            const linkedMovs = hasCompensaciones ? getLinkedMovements(m) : [];
+            const isEditing = editingId === m.id;
+
+            return (
+              <div
+                key={m.id}
+                onMouseEnter={() => setHoveredMovId(m.id)}
+                onMouseLeave={() => setHoveredMovId(null)}
+                className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white/40 dark:bg-slate-900/20 border border-white/5 hover:border-indigo-500/10 hover:bg-white/80 dark:hover:bg-slate-950/20 transition-all duration-300 shadow-sm hover:shadow"
+              >
+                {/* Visual Connector Popover */}
+                {hoveredMovId === m.id && hasCompensaciones && linkedMovs.length > 0 && (
+                  <div className="absolute left-4 top-[-10px] sm:top-auto sm:bottom-full sm:left-1/2 sm:-translate-x-1/2 z-50 mb-3 w-80 animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none">
+                    <div className="glass-panel rounded-2xl p-4 border border-emerald-500/20 shadow-2xl bg-slate-950/95 text-left text-slate-100">
+                      <div className="flex items-center gap-1.5 text-emerald-400 font-extrabold text-xs uppercase tracking-wider mb-2.5">
+                        <Info className="w-3.5 h-3.5" />
+                        {m.tipo === 'gasto' ? 'Gasto Compensado por:' : 'Ingreso Vinculado a Gasto:'}
+                      </div>
+                      <div className="space-y-2">
+                        {linkedMovs.map((link) => (
+                          <div key={link.id} className="flex justify-between items-center bg-white/5 border border-white/5 p-2 rounded-xl text-[11px]">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-slate-200 truncate">{link.concepto}</p>
+                              <p className="text-[9px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                <Calendar className="w-2.5 h-2.5" /> {formatDate(link.fecha_operacion)}
+                              </p>
+                            </div>
+                            <span className={`font-bold shrink-0 ml-3 ${
+                              link.tipo === 'ingreso' ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              {link.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(link.importe)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {m.tipo === 'gasto' && (
+                        <div className="mt-3 pt-2 border-t border-white/10 flex justify-between items-center text-xs">
+                          <span className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">Importe Original:</span>
+                          <span className="font-extrabold text-slate-300 tabular-nums">{formatCurrency(m.importe)}</span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Small arrow */}
+                    <div className="w-3 h-3 bg-slate-950/95 border-b border-r border-emerald-500/20 rotate-45 absolute bottom-[-6px] left-[20px] sm:left-1/2 sm:-translate-x-1/2 -z-10" />
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                  {/* Icon depending on type */}
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-2xl shrink-0 ${
+                    m.tipo === 'ingreso'
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10'
+                      : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/10'
+                  }`}>
+                    {m.tipo === 'ingreso' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                  </div>
+
+                  {/* Concept and Info */}
+                  <div className="min-w-0 flex-1">
+                    {isEditing ? (
+                      <div className="flex items-center gap-2 max-w-md">
+                        <input
+                          type="text"
+                          value={tempConcepto}
+                          onChange={(e) => setTempConcepto(e.target.value)}
+                          className="bg-slate-100/50 dark:bg-slate-800/50 border border-white/10 rounded-xl px-2.5 py-1 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveConcepto(m);
+                            if (e.key === 'Escape') handleCancelEdit();
+                          }}
+                        />
+                        <button
+                          onClick={() => handleSaveConcepto(m)}
+                          className="flex items-center justify-center w-7 h-7 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg active:scale-90 transition-transform shrink-0"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="flex items-center justify-center w-7 h-7 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg active:scale-90 transition-transform shrink-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 group/concept">
+                        <p
+                          onDoubleClick={() => handleStartEdit(m)}
+                          className="font-extrabold text-sm text-slate-800 dark:text-slate-100 uppercase tracking-tight truncate cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                          title="Doble click para editar"
+                        >
+                          {m.concepto}
+                        </p>
+                        <button
+                          onClick={() => handleStartEdit(m)}
+                          className="text-slate-400 opacity-0 group-hover/concept:opacity-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-opacity p-0.5"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">
+                        {formatDate(m.fecha_operacion)}
+                      </span>
+                      {m.hucha_id && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">
+                          • {huchas.find(h => h.id === m.hucha_id)?.nombre || 'Cartera'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Amounts and action indicators */}
+                <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2.5 w-full sm:w-auto mt-2 sm:mt-0 shrink-0">
+                  <div className="text-left sm:text-right shrink-0">
+                    <p className={`text-base font-extrabold tabular-nums tracking-tight ${
+                      m.tipo === 'ingreso' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                    } ${m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0 ? 'line-through opacity-50' : ''}`}>
+                      {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
+                    </p>
+                    
+                    {m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0 && (
+                      <p className="text-xs font-black tabular-nums text-emerald-600 dark:text-emerald-400 -mt-0.5 flex items-center gap-1 justify-end">
+                        neto −{formatCurrency(m.importe_neto ?? m.importe)}
+                      </p>
+                    )}
+
+                    {m.tipo === 'ingreso' && m.compensa_movimiento_id && (
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center gap-0.5 justify-end">
+                        <Undo2 className="w-2.5 h-2.5" /> compensación
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Actions (Link, Convert, Reassign Hucha) */}
+                  <div className="flex flex-wrap items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 w-full sm:w-auto justify-end">
+                    
+                    {/* Hucha reassign select (expenses only) */}
+                    {m.tipo === 'gasto' && huchas.filter(h => !h.es_suscripciones).length > 0 && (
+                      <select
+                        value={m.hucha_id || ''}
+                        onChange={(e) => onChangeHucha(m, e.target.value)}
+                        className="text-[9px] font-bold uppercase tracking-wider bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border border-white/5 rounded-xl px-2.5 py-1.5 focus:outline-none cursor-pointer max-w-[110px] truncate"
+                        title="Reasignar hucha"
+                      >
+                        <option value="" disabled>Reasignar...</option>
+                        {huchas
+                          .filter(h => !h.es_suscripciones)
+                          .map(h => (
+                            <option key={h.id} value={h.id}>{h.nombre}</option>
+                          ))}
+                      </select>
+                    )}
+
+                    {/* Convert Type (Ingreso <-> Gasto) */}
+                    <button
+                      onClick={() => onConvert(m)}
+                      className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-slate-100 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-600 dark:bg-slate-800 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400 border border-white/5 transition-colors"
+                      title="Convertir tipo de movimiento"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Link Bizum button */}
+                    {m.tipo === 'gasto' ? (
+                      <button
+                        onClick={() => onLink(m)}
+                        className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-slate-100 hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-600 dark:bg-slate-800 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 border border-white/5 transition-colors"
+                        title="Vincular/Compensar con Bizum"
+                      >
+                        <Link className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      m.compensa_movimiento_id && (
+                        <button
+                          onClick={() => onUnlink(m)}
+                          className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 border border-rose-500/10 transition-colors"
+                          title="Deshacer vínculo de compensación"
+                        >
+                          <Link2Off className="w-3.5 h-3.5" />
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="flex flex-col items-center justify-center p-12 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10">
+            <PiggyBank className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-3" />
+            <p className="font-extrabold text-sm text-slate-400 dark:text-slate-600 uppercase tracking-wider">Sin Movimientos</p>
+            <p className="text-xs text-slate-400 mt-1">Registra nuevos cargos o nóminas para ver la actividad</p>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+};
