@@ -141,10 +141,11 @@ export const PinModal: React.FC = () => {
         } ${isSuccess ? 'scale-95 duration-500 border-emerald-500/20' : ''}`}
       >
         {/* Close button if PIN already exists */}
+        {/* Close button if PIN already exists */}
         {hasPin && pinModalMode === 'enter' && (
           <button 
             onClick={closePinModal}
-            className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 p-1.5 rounded-xl hover:bg-white/5 transition-all active:scale-90"
+            className="absolute top-4 right-4 text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-white/5 transition-all active:scale-90"
           >
             <X className="w-5 h-5" />
           </button>
@@ -165,7 +166,7 @@ export const PinModal: React.FC = () => {
           <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-tight mt-1">
             {getHeading()}
           </h3>
-          <p className="text-[11px] leading-relaxed text-slate-400 dark:text-slate-500 max-w-[260px] mx-auto">
+          <p className="text-[12px] leading-relaxed text-slate-600 dark:text-slate-400 max-w-[260px] mx-auto font-medium">
             {getSubtitle()}
           </p>
         </div>
@@ -217,7 +218,7 @@ export const PinModal: React.FC = () => {
           <button
             type="button"
             onClick={handleClear}
-            className="w-14 h-14 rounded-full text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-slate-200 active:scale-90 transition-all cursor-pointer flex items-center justify-center select-none"
+            className="w-14 h-14 rounded-full text-[11px] font-black uppercase tracking-wider text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 active:scale-90 transition-all cursor-pointer flex items-center justify-center select-none"
           >
             Limpiar
           </button>
@@ -233,7 +234,7 @@ export const PinModal: React.FC = () => {
           <button
             type="button"
             onClick={handleBackspace}
-            className="w-14 h-14 rounded-full text-slate-400 hover:text-slate-200 active:scale-90 transition-all cursor-pointer flex items-center justify-center select-none"
+            className="w-14 h-14 rounded-full text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 active:scale-90 transition-all cursor-pointer flex items-center justify-center select-none"
           >
             <Delete className="w-5 h-5" />
           </button>
