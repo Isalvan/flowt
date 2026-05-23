@@ -24,7 +24,7 @@ const PrivacyContext = createContext<PrivacyContextType | undefined>(undefined);
 
 export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [hasPin, setHasPin] = useState<boolean>(false);
-  const [isLocked, setIsLocked] = useState<boolean>(false);
+  const [isLocked, setIsLocked] = useState<boolean>(true);
   const [isPinModalOpen, setIsPinModalOpen] = useState<boolean>(false);
   const [pinModalMode, setPinModalMode] = useState<'enter' | 'create' | 'confirm'>('enter');
   const [tempNewPin, setTempNewPin] = useState<string>('');
@@ -35,17 +35,11 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const storedPin = localStorage.getItem('flowt-security-pin');
     const pinExists = !!storedPin;
     setHasPin(pinExists);
-    if (pinExists) {
-      setIsLocked(true); // Locked by default on app start if a PIN exists
-    } else {
-      setIsLocked(false);
-    }
+    setIsLocked(true); // Always start locked on app load for maximum privacy and hiding of numbers from the start
   }, []);
 
   const lock = useCallback(() => {
-    if (localStorage.getItem('flowt-security-pin')) {
-      setIsLocked(true);
-    }
+    setIsLocked(true);
   }, []);
 
   const openUnlockModal = useCallback((callback?: (success: boolean) => void) => {
