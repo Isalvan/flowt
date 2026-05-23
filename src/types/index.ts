@@ -49,3 +49,14 @@ export interface Suscripcion {
   created_at?: any; // Firestore Timestamp or null for old records
   updated_at?: any;
 }
+
+export interface PendingEmail {
+  id: string;
+  email_id: string;
+  cuerpo: string;
+  fecha_envio: string;
+  motivo: string;
+  procesado: boolean;
+  id_propietario?: string;
+  created_at?: any;
+}

@@ -17,7 +17,7 @@ import {
   type DocumentSnapshot,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { type Movimiento, type Hucha, type Suscripcion } from '../types';
+import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail } from '../types';
 
 // Standard fallback configurations and options
 export const SUBSCRIPTION_COLORS = [
@@ -97,6 +97,27 @@ const MOCK_MOVIMIENTOS: Movimiento[] = [
   { id: 'm-6', tipo: 'ingreso', concepto: 'Venta Wallapop', importe: 120.00, fecha_operacion: new Date(2026, 4, 18) },
 ];
 
+const MOCK_PENDING_EMAILS: PendingEmail[] = [
+  {
+    id: 'pend-1',
+    email_id: 'gmail-101',
+    cuerpo: `Asunto: Notificación de cargo\nEstimado cliente,\nLe informamos de un cargo de 24,99 EUR en su tarjeta con fecha 22/05/2026 en el comercio DISCORD*NITRO.\nGracias por su confianza.`,
+    fecha_envio: 'Sat, 22 May 2026 14:32:00 +0200',
+    motivo: 'Fallo total en extracción automática',
+    procesado: false,
+    created_at: new Date()
+  },
+  {
+    id: 'pend-2',
+    email_id: 'gmail-102',
+    cuerpo: `Asunto: Abono recibido\nHola! Te enviaron un Bizum de 12,00 EUR el 23/05/2026. Concepto: Cena de ayer.\nQue tengas un buen día!`,
+    fecha_envio: 'Sun, 23 May 2026 09:15:00 +0200',
+    motivo: 'Fallo total en extracción automática',
+    procesado: false,
+    created_at: new Date()
+  }
+];
+
 export const useFinanceData = (forceDemo = false) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,6 +128,7 @@ export const useFinanceData = (forceDemo = false) => {
   const [chartMovements, setChartMovements] = useState<Movimiento[]>([]);
   const [huchas, setHuchas] = useState<Hucha[]>([]);
   const [suscripciones, setSuscripciones] = useState<Suscripcion[]>([]);
+  const [pendingEmails, setPendingEmails] = useState<PendingEmail[]>([]);
   const [userStats, setUserStats] = useState<{ total_ingresos: number; total_gastos: number } | null>(null);
 
   // Global toasts & confirms
@@ -130,24 +152,28 @@ export const useFinanceData = (forceDemo = false) => {
     const localHuchas = localStorage.getItem('flowt-demo-huchas');
     const localSubs = localStorage.getItem('flowt-demo-suscripciones');
     const localStats = localStorage.getItem('flowt-demo-stats');
+    const localPending = localStorage.getItem('flowt-demo-pending');
 
-    if (localMovs && localHuchas && localSubs && localStats) {
+    if (localMovs && localHuchas && localSubs && localStats && localPending) {
       setMovimientos(JSON.parse(localMovs));
       setChartMovements(JSON.parse(localMovs));
       setHuchas(JSON.parse(localHuchas));
       setSuscripciones(JSON.parse(localSubs));
       setUserStats(JSON.parse(localStats));
+      setPendingEmails(JSON.parse(localPending));
     } else {
       setMovimientos(MOCK_MOVIMIENTOS);
       setChartMovements(MOCK_MOVIMIENTOS);
       setHuchas(MOCK_HUCHAS);
       setSuscripciones(MOCK_SUSCRIPCIONES);
+      setPendingEmails(MOCK_PENDING_EMAILS);
       const initialStats = { total_ingresos: 2592.50, total_gastos: 147.49 };
       setUserStats(initialStats);
       localStorage.setItem('flowt-demo-movimientos', JSON.stringify(MOCK_MOVIMIENTOS));
       localStorage.setItem('flowt-demo-huchas', JSON.stringify(MOCK_HUCHAS));
       localStorage.setItem('flowt-demo-suscripciones', JSON.stringify(MOCK_SUSCRIPCIONES));
       localStorage.setItem('flowt-demo-stats', JSON.stringify(initialStats));
+      localStorage.setItem('flowt-demo-pending', JSON.stringify(MOCK_PENDING_EMAILS));
     }
     setLoading(false);
   };
@@ -262,22 +288,45 @@ export const useFinanceData = (forceDemo = false) => {
       setSuscripciones(docs);
     });
 
+    // Load pending review emails
+    const qPending = query(
+      collection(db, 'correos_pendientes'),
+      where('id_propietario', '==', user.uid),
+      where('procesado', '==', false)
+    );
+
+    const unsubPending = onSnapshot(qPending, (snapshot) => {
+      const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as unknown as PendingEmail));
+      setPendingEmails(docs);
+    });
+
     return () => {
       unsubMov();
       unsubChart();
       unsubHuchas();
       unsubStats();
       unsubSuscripciones();
+      unsubPending();
     };
   }, [user, isFirebaseConfigured]);
 
   // Save Demo helper
-  const saveDemoState = (newMovs: Movimiento[], newHuchas: Hucha[], newSubs: Suscripcion[], newStats: { total_ingresos: number, total_gastos: number }) => {
+  const saveDemoState = (
+    newMovs: Movimiento[], 
+    newHuchas: Hucha[], 
+    newSubs: Suscripcion[], 
+    newStats: { total_ingresos: number, total_gastos: number },
+    newPending?: PendingEmail[]
+  ) => {
     setMovimientos(newMovs);
     setChartMovements(newMovs);
     setHuchas(newHuchas);
     setSuscripciones(newSubs);
     setUserStats(newStats);
+    
+    const currentPending = newPending !== undefined ? newPending : pendingEmails;
+    setPendingEmails(currentPending);
+    localStorage.setItem('flowt-demo-pending', JSON.stringify(currentPending));
     
     localStorage.setItem('flowt-demo-movimientos', JSON.stringify(newMovs));
     localStorage.setItem('flowt-demo-huchas', JSON.stringify(newHuchas));
@@ -1294,6 +1343,217 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
+  const handleApprovePendingEmail = async (
+    emailId: string, 
+    movData: { tipo: 'ingreso' | 'gasto', concepto: string, importe: number, fecha_operacion: string, hucha_id?: string }
+  ) => {
+    const amt = Number(movData.importe);
+    const isIngreso = movData.tipo === 'ingreso';
+
+    if (!isFirebaseConfigured) {
+      // Demo Mode Approval
+      const id = 'm-' + Math.random().toString(36).substr(2, 9);
+      const newMov: Movimiento = {
+        id,
+        tipo: movData.tipo,
+        concepto: movData.concepto,
+        importe: amt,
+        fecha_operacion: new Date(movData.fecha_operacion),
+        hucha_id: movData.hucha_id
+      };
+
+      let nextHuchas = [...huchas];
+      if (!isIngreso) {
+        const hid = movData.hucha_id || huchas.find(h => h.es_principal)?.id || huchas[0]?.id;
+        nextHuchas = huchas.map(h => h.id === hid ? { ...h, saldo_acumulado: Number((h.saldo_acumulado - amt).toFixed(2)) } : h);
+      } else {
+        const hid = movData.hucha_id;
+        if (hid) {
+          nextHuchas = huchas.map(h => h.id === hid ? { ...h, saldo_acumulado: Number((h.saldo_acumulado + amt).toFixed(2)) } : h);
+        } else {
+          // Distribute
+          const deltas: Record<string, number> = {};
+          let remaining = amt;
+          // 1. Flat
+          huchas.forEach(h => {
+            if (h.tipo_aportacion === 'flat' && remaining > 0) {
+              const val = h.valor_aportacion || 0;
+              const toAdd = Math.min(val, remaining);
+              deltas[h.id] = toAdd;
+              remaining -= toAdd;
+            }
+          });
+          // 2. Percentage
+          huchas.forEach(h => {
+            if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
+              const perc = h.valor_aportacion || 0;
+              const share = amt * (perc / 100);
+              const toAdd = Math.min(share, remaining);
+              deltas[h.id] = (deltas[h.id] || 0) + toAdd;
+              remaining -= toAdd;
+            }
+          });
+          // 3. Rest
+          const resto = huchas.find(h => h.tipo_aportacion === 'resto') || huchas.find(h => h.es_principal) || huchas[0];
+          if (resto && remaining > 0) {
+            deltas[resto.id] = (deltas[resto.id] || 0) + remaining;
+          }
+          // Add deltas
+          nextHuchas = huchas.map(h => {
+            const delta = deltas[h.id] || 0;
+            return { ...h, saldo_acumulado: Number((h.saldo_acumulado + delta).toFixed(2)) };
+          });
+        }
+      }
+
+      const nextMovs = [newMov, ...movimientos];
+      const nextStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
+      if (isIngreso) nextStats.total_ingresos += amt;
+      else nextStats.total_gastos += amt;
+
+      const nextPending = pendingEmails.filter(p => p.id !== emailId);
+
+      saveDemoState(nextMovs, nextHuchas, suscripciones, nextStats, nextPending);
+      showToast('Movimiento aprobado y registrado', 'success');
+      return;
+    }
+
+    // Firebase Mode Approval
+    try {
+      await runTransaction(db, async (transaction) => {
+        const emailRef = doc(db, 'correos_pendientes', emailId);
+        const movRef = doc(collection(db, 'movimientos'));
+        const statsRef = doc(db, 'stats', user!.uid);
+
+        // Get stats
+        const statsSnap = await transaction.get(statsRef);
+        const currentStats = statsSnap.data() || { total_ingresos: 0, total_gastos: 0 };
+
+        // Get selected hucha (or principal)
+        let targetHuchaId = movData.hucha_id;
+        if (!isIngreso && !targetHuchaId) {
+          targetHuchaId = huchas.find(h => h.es_principal)?.id || huchas[0]?.id;
+        }
+
+        let distributions: Record<string, number> = {};
+
+        if (!isIngreso) {
+          // Expense
+          if (targetHuchaId) {
+            const huchaRef = doc(db, 'huchas', targetHuchaId);
+            const huchaSnap = await transaction.get(huchaRef);
+            if (huchaSnap.exists()) {
+              const bal = huchaSnap.data().saldo_acumulado || 0;
+              transaction.update(huchaRef, { saldo_acumulado: bal - amt, updated_at: serverTimestamp() });
+            }
+          }
+        } else {
+          // Income distribution
+          if (targetHuchaId) {
+            const huchaRef = doc(db, 'huchas', targetHuchaId);
+            const huchaSnap = await transaction.get(huchaRef);
+            if (huchaSnap.exists()) {
+              const bal = huchaSnap.data().saldo_acumulado || 0;
+              transaction.update(huchaRef, { saldo_acumulado: bal + amt, updated_at: serverTimestamp() });
+            }
+          } else {
+            // Standard auto-reparto
+            let remaining = amt;
+            // Fetch current huchas in transaction
+            const huchasRefs = huchas.map(h => doc(db, 'huchas', h.id));
+            const huchasSnaps = [];
+            for (const ref of huchasRefs) {
+              huchasSnaps.push(await transaction.get(ref));
+            }
+
+            // 1. Flat
+            huchasSnaps.forEach((snap) => {
+              const data = snap.data();
+              if (data.tipo_aportacion === 'flat' && remaining > 0) {
+                const val = data.valor_aportacion || 0;
+                const toAdd = Math.min(val, remaining);
+                distributions[snap.id] = toAdd;
+                remaining -= toAdd;
+              }
+            });
+            // 2. Percentage
+            huchasSnaps.forEach((snap) => {
+              const data = snap.data();
+              if (data.tipo_aportacion === 'porcentaje' && remaining > 0) {
+                const perc = data.valor_aportacion || 0;
+                const share = amt * (perc / 100);
+                const toAdd = Math.min(share, remaining);
+                distributions[snap.id] = (distributions[snap.id] || 0) + toAdd;
+                remaining -= toAdd;
+              }
+            });
+            // 3. Rest
+            const restoSnap = huchasSnaps.find(s => s.data().tipo_aportacion === 'resto')
+                           || huchasSnaps.find(s => s.data().es_principal)
+                           || huchasSnaps[0];
+            if (restoSnap && remaining > 0) {
+              distributions[restoSnap.id] = (distributions[restoSnap.id] || 0) + remaining;
+            }
+
+            // Apply balances updates
+            huchasSnaps.forEach(snap => {
+              const change = distributions[snap.id] || 0;
+              if (change > 0) {
+                const bal = snap.data().saldo_acumulado || 0;
+                transaction.update(doc(db, 'huchas', snap.id), { saldo_acumulado: bal + change, updated_at: serverTimestamp() });
+              }
+            });
+          }
+        }
+
+        // Create movement document
+        transaction.set(movRef, {
+          id_propietario: user!.uid,
+          tipo: movData.tipo,
+          concepto: movData.concepto.trim(),
+          importe: amt,
+          fecha_operacion: new Date(movData.fecha_operacion),
+          hucha_id: targetHuchaId || null,
+          created_at: serverTimestamp()
+        });
+
+        // Update stats
+        const nextStats = { ...currentStats };
+        if (isIngreso) {
+          nextStats.total_ingresos = (nextStats.total_ingresos || 0) + amt;
+        } else {
+          nextStats.total_gastos = (nextStats.total_gastos || 0) + amt;
+        }
+        transaction.set(statsRef, nextStats, { merge: true });
+
+        // Delete pending email from manual queue
+        transaction.delete(emailRef);
+      });
+
+      showToast('Movimiento aprobado y registrado', 'success');
+    } catch (error) {
+      console.error('Error approving pending email:', error);
+      showToast('Error al registrar el movimiento.');
+    }
+  };
+
+  const handleDiscardPendingEmail = async (emailId: string) => {
+    if (!isFirebaseConfigured) {
+      const nextPending = pendingEmails.filter(p => p.id !== emailId);
+      saveDemoState(movimientos, huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 }, nextPending);
+      showToast('Correo descartado', 'success');
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'correos_pendientes', emailId));
+      showToast('Correo descartado', 'success');
+    } catch (error) {
+      console.error('Error discarding email:', error);
+      showToast('Error al descartar el correo.');
+    }
+  };
+
   // Auto-delete cancel-pending expired subscriptions
   useEffect(() => {
     if (suscripciones.length === 0) return;
@@ -1401,6 +1661,7 @@ export const useFinanceData = (forceDemo = false) => {
     chartMovements,
     huchas,
     suscripciones,
+    pendingEmails,
     userStats,
     totalIngresos,
     totalGastos,
@@ -1426,6 +1687,8 @@ export const useFinanceData = (forceDemo = false) => {
     handleCancelSuscripcion,
     handleUndoCancelSuscripcion,
     handleChangeMovimientoHucha,
+    handleApprovePendingEmail,
+    handleDiscardPendingEmail,
     injectDemoMovement,
   };
 };

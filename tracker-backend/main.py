@@ -336,8 +336,32 @@ def get_confidence_score(level: str) -> int:
 # They will be retried when the script restarts
 FAILED_IDS_IN_SESSION = set()
 
-# Se usa la función importada de fallback_logic.py
-
+def save_to_pending_review(email: Dict[str, Any], motivo: str) -> bool:
+    """
+    Saves a raw email that failed parsing or had low confidence to Firestore for manual review.
+    """
+    try:
+        doc_id = email["id"]
+        pending_ref = db.collection("correos_pendientes").document(doc_id)
+        
+        # Check if already exists to avoid duplicate entries
+        if pending_ref.get().exists:
+            return False
+            
+        pending_ref.set({
+            "id_propietario": UID_PROPIETARIO,
+            "email_id": email["id"],
+            "cuerpo": email["body"],
+            "fecha_envio": email["date_sent"],
+            "motivo": motivo,
+            "procesado": False,
+            "created_at": firestore.SERVER_TIMESTAMP
+        })
+        logger.info(f"Email {email['id']} saved to manual review queue. Reason: {motivo}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to save email {email['id']} to pending review: {e}")
+        return False
 
 def process_emails():
     """
@@ -363,21 +387,31 @@ def process_emails():
             logger.warning(f"Fallo en Gemini para {email_id}. Intentando Fallback Regex...")
             raw_movements = fallback_extract_movement(email["body"], email_date)
         if not raw_movements:
-            # Movimiento ignorado (ej: era una recarga)
+            # Movimiento ignorado o fallido
+            save_to_pending_review(email, "Fallo total en extracción automática")
+            if mark_email_as_read(email_id):
+                logger.info(f"Email {email_id} marked as read.")
+            else:
+                logger.error(f"Failed to mark email {email_id} as read.")
             continue
 
         # Ensure we have a list of movements
         movements_list = raw_movements if isinstance(raw_movements, list) else [raw_movements]
         
+        has_recorded_any = False
+        has_low_confidence = False
+        
         for index, parsed_data in enumerate(movements_list):
             if not validate_parsed_data(parsed_data):
                 logger.warning(f"Movement {index} from email {email_id} discarded: Invalid data.")
+                has_low_confidence = True
                 continue
 
             # Confidence Threshold Check
             ai_confidence = parsed_data.get("confianza", "baja").lower()
             if get_confidence_score(ai_confidence) < get_confidence_score(MIN_CONFIDENCE_THRESHOLD):
                 logger.warning(f"Movement {index} from email {email_id} discarded: Confidence '{ai_confidence}' below threshold.")
+                has_low_confidence = True
                 continue
                 
             # Generate secure ID based on Gmail ID and movement index
@@ -443,11 +477,16 @@ def process_emails():
                 
                 if was_recorded:
                     logger.info(f"Movement {doc_id} (index {index}) recorded successfully.")
+                    has_recorded_any = True
                 else:
                     logger.info(f"Movement {doc_id} (index {index}) already exists. Skipping.")
                     
             except Exception as e:
                 logger.error(f"Error saving movement {index} for email {email_id}: {e}")
+                has_low_confidence = True
+
+        if has_low_confidence and not has_recorded_any:
+            save_to_pending_review(email, "Movimiento descartado por baja confianza o datos inválidos")
 
         # Mark email as read only after processing all its movements
         if mark_email_as_read(email_id):

@@ -1,6 +1,3 @@
-import React, { useState } from 'react';
-import { Card } from '../common/Card';
-import { type Movimiento, type Hucha } from '../../types';
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
@@ -14,7 +11,10 @@ import {
   Undo2, 
   Info,
   Calendar,
-  PiggyBank
+  PiggyBank,
+  Search,
+  SlidersHorizontal,
+  Trash2
 } from 'lucide-react';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
 
@@ -43,6 +43,17 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   const [tempConcepto, setTempConcepto] = useState('');
   const [hoveredMovId, setHoveredMovId] = useState<string | null>(null);
 
+  // Filter States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedHucha, setSelectedHucha] = useState('all');
+  const [selectedTipo, setSelectedTipo] = useState('all');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
+  const [dateRange, setDateRange] = useState('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
   };
@@ -69,10 +80,106 @@ export const ActivityList: React.FC<ActivityListProps> = ({
     setEditingId(null);
   };
 
-  // CSV Exporter
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setSelectedHucha('all');
+    setSelectedTipo('all');
+    setMinAmount('');
+    setMaxAmount('');
+    setDateRange('all');
+    setCustomStartDate('');
+    setCustomEndDate('');
+  };
+
+  // Filter Algorithm
+  const filteredMovimientos = React.useMemo(() => {
+    const isFilterActive = 
+      searchTerm !== '' || 
+      selectedHucha !== 'all' || 
+      selectedTipo !== 'all' || 
+      minAmount !== '' || 
+      maxAmount !== '' || 
+      dateRange !== 'all';
+
+    // Search across ALL movements if a filter is active; otherwise show default recent list
+    const baseList = isFilterActive ? allMovimientos : movimientos;
+
+    return baseList.filter(m => {
+      // 1. Text Search
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase().trim();
+        if (!m.concepto.toLowerCase().includes(term)) {
+          return false;
+        }
+      }
+
+      // 2. Hucha Destination Filter
+      if (selectedHucha !== 'all') {
+        if (m.hucha_id !== selectedHucha) {
+          return false;
+        }
+      }
+
+      // 3. Operation Type Filter
+      if (selectedTipo !== 'all') {
+        if (m.tipo !== selectedTipo) {
+          return false;
+        }
+      }
+
+      // 4. Amount Range Filter
+      const amt = m.importe;
+      if (minAmount && amt < parseFloat(minAmount)) {
+        return false;
+      }
+      if (maxAmount && amt > parseFloat(maxAmount)) {
+        return false;
+      }
+
+      // 5. Date Range Filter
+      const mDate = parseMovimientoDate(m.fecha_operacion);
+      if (mDate) {
+        const today = new Date();
+        const checkDate = new Date(mDate);
+        checkDate.setHours(0,0,0,0);
+
+        if (dateRange === 'week') {
+          const limitDate = new Date(today);
+          limitDate.setDate(today.getDate() - 7);
+          limitDate.setHours(0,0,0,0);
+          if (checkDate < limitDate) return false;
+        } else if (dateRange === 'month') {
+          if (mDate.getMonth() !== today.getMonth() || mDate.getFullYear() !== today.getFullYear()) {
+            return false;
+          }
+        } else if (dateRange === 'three_months') {
+          const limitDate = new Date(today);
+          limitDate.setDate(today.getDate() - 90);
+          limitDate.setHours(0,0,0,0);
+          if (checkDate < limitDate) return false;
+        } else if (dateRange === 'custom') {
+          if (customStartDate) {
+            const start = new Date(customStartDate);
+            start.setHours(0, 0, 0, 0);
+            if (checkDate < start) return false;
+          }
+          if (customEndDate) {
+            const end = new Date(customEndDate);
+            end.setHours(23, 59, 59, 999);
+            if (checkDate > end) return false;
+          }
+        }
+      }
+
+      return true;
+    });
+  }, [movimientos, allMovimientos, searchTerm, selectedHucha, selectedTipo, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
+
+  // CSV Exporter using currently filtered items
   const exportToCSV = () => {
     const headers = ['ID', 'Fecha', 'Tipo', 'Concepto', 'Importe', 'Importe Neto', 'Hucha Receptora'];
-    const rows = movimientos.map(m => {
+    const rows = filteredMovimientos.map(m => {
       const huchaName = m.hucha_id ? (huchas.find(h => h.id === m.hucha_id)?.nombre || '') : '';
       const dateStr = formatDate(m.fecha_operacion);
       return [
@@ -126,16 +233,164 @@ export const ActivityList: React.FC<ActivityListProps> = ({
 
         <button
           onClick={exportToCSV}
-          className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs px-3.5 py-2 rounded-xl transition-all duration-200 active:scale-95 border border-white/5 hover:border-slate-300 dark:hover:border-slate-600 shadow-sm"
+          className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs px-3.5 py-2 rounded-xl transition-all duration-200 active:scale-95 border border-white/5 hover:border-slate-300 dark:hover:border-slate-600 shadow-sm cursor-pointer"
         >
           <Download className="w-3.5 h-3.5" />
           Exportar CSV
         </button>
       </div>
 
+      {/* Advanced Filter Bar Controls */}
+      <div className="space-y-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Concept Search Input */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+            <input
+              type="text"
+              placeholder="Buscar por concepto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white/40 dark:bg-slate-950/20 border border-slate-200/50 dark:border-white/5 text-xs text-slate-755 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-semibold"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')} 
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            {/* Filter Toggle Button */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-1.5 font-bold text-xs px-4 py-2.5 rounded-2xl border transition-all duration-200 cursor-pointer active:scale-95 ${
+                showFilters 
+                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' 
+                  : 'bg-white/40 dark:bg-slate-950/20 text-slate-600 dark:text-slate-400 border-slate-200/50 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              Filtros
+            </button>
+
+            {/* Clear Filters Button (conditional) */}
+            {(searchTerm || selectedHucha !== 'all' || selectedTipo !== 'all' || minAmount || maxAmount || dateRange !== 'all') && (
+              <button
+                onClick={clearAllFilters}
+                className="flex items-center gap-1 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/10 font-bold text-xs px-3.5 py-2.5 rounded-2xl transition-all duration-200 active:scale-95 cursor-pointer"
+                title="Limpiar todos los filtros"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Collapsible Advanced Filters Grid */}
+        {showFilters && (
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 p-4 rounded-2xl bg-slate-50/50 dark:bg-slate-950/10 border border-slate-200/30 dark:border-white/5 animate-in fade-in slide-in-from-top-2 duration-300">
+            
+            {/* Hucha Filter */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cartera</label>
+              <select
+                value={selectedHucha}
+                onChange={(e) => setSelectedHucha(e.target.value)}
+                className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none cursor-pointer"
+              >
+                <option value="all">Todas</option>
+                {huchas.map(h => (
+                  <option key={h.id} value={h.id}>{h.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Type Filter */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo</label>
+              <select
+                value={selectedTipo}
+                onChange={(e) => setSelectedTipo(e.target.value)}
+                className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none cursor-pointer"
+              >
+                <option value="all">Todos</option>
+                <option value="ingreso">Ingresos</option>
+                <option value="gasto">Gastos</option>
+              </select>
+            </div>
+
+            {/* Amount range */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Importe (€)</label>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={minAmount}
+                  onChange={(e) => setMinAmount(e.target.value)}
+                  className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none placeholder-slate-450"
+                />
+                <span className="text-slate-400 text-xs font-bold">-</span>
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={maxAmount}
+                  onChange={(e) => setMaxAmount(e.target.value)}
+                  className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none placeholder-slate-450"
+                />
+              </div>
+            </div>
+
+            {/* Date range */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Fecha</label>
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none cursor-pointer"
+              >
+                <option value="all">Cualquier fecha</option>
+                <option value="week">Últimos 7 días</option>
+                <option value="month">Este mes</option>
+                <option value="three_months">Últimos 3 meses</option>
+                <option value="custom">Personalizado...</option>
+              </select>
+            </div>
+
+            {/* Custom Dates (conditional) */}
+            {dateRange === 'custom' && (
+              <div className="sm:col-span-2 md:col-span-4 grid gap-4 sm:grid-cols-2 p-3 bg-indigo-500/5 border border-indigo-500/10 rounded-xl mt-1 animate-in slide-in-from-top-1 duration-200">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Fecha Inicio</span>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-indigo-500/15 rounded-xl px-2.5 py-2 focus:outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Fecha Fin</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-indigo-500/15 rounded-xl px-2.5 py-2 focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
-        {movimientos.length > 0 ? (
-          movimientos.map((m) => {
+        {filteredMovimientos.length > 0 ? (
+          filteredMovimientos.map((m) => {
             const hasCompensaciones = (m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0) || 
                                      (m.tipo === 'ingreso' && !!m.compensa_movimiento_id);
             const linkedMovs = hasCompensaciones ? getLinkedMovements(m) : [];

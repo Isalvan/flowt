@@ -10,6 +10,7 @@ import { type Hucha, type Suscripcion, type Movimiento } from './types';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { SuscripcionesView } from './components/suscripciones/SuscripcionesView';
 import { CalendarioView } from './components/calendario/CalendarioView';
+import { ManualReviewView } from './components/manual/ManualReviewView';
 
 // Modals
 import { HuchaModal } from './components/modals/HuchaModal';
@@ -37,7 +38,8 @@ import {
   Key, 
   RefreshCw, 
   Sparkles,
-  ShieldAlert
+  ShieldAlert,
+  Mail
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -54,6 +56,7 @@ const App: React.FC = () => {
     chartMovements,
     huchas,
     suscripciones,
+    pendingEmails,
     totalIngresos,
     totalGastos,
     balance,
@@ -77,11 +80,13 @@ const App: React.FC = () => {
     handleCancelSuscripcion,
     handleUndoCancelSuscripcion,
     handleChangeMovimientoHucha,
+    handleApprovePendingEmail,
+    handleDiscardPendingEmail,
     injectDemoMovement,
   } = useFinanceData(forceDemo);
 
   // Tab switching state
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'suscripciones' | 'calendario'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'suscripciones' | 'calendario' | 'manual'>('dashboard');
 
   // Form modals state overlays
   const [isHuchaModalOpen, setIsHuchaModalOpen] = useState(false);
@@ -379,6 +384,22 @@ const App: React.FC = () => {
               <CalendarDays size={14} />
               Calendario
             </button>
+            <button
+              onClick={() => setActiveTab('manual')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 ${
+                activeTab === 'manual'
+                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+              }`}
+            >
+              <Mail size={14} />
+              Revisión
+              {pendingEmails.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[8px] font-black animate-pulse">
+                  {pendingEmails.length}
+                </span>
+              )}
+            </button>
           </nav>
 
           {/* Quick utility controls */}
@@ -476,6 +497,15 @@ const App: React.FC = () => {
         {activeTab === 'calendario' && (
           <CalendarioView suscripciones={suscripciones} />
         )}
+
+        {activeTab === 'manual' && (
+          <ManualReviewView
+            pendingEmails={pendingEmails}
+            huchas={huchas}
+            onApprove={handleApprovePendingEmail}
+            onDiscard={handleDiscardPendingEmail}
+          />
+        )}
       </main>
 
       {/* 3. Mobile Bottom navigation tabs bar */}
@@ -508,6 +538,21 @@ const App: React.FC = () => {
         >
           <CalendarDays size={20} />
           <span className="text-[9px] font-black uppercase tracking-wider">Calendario</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('manual')}
+          className={`relative flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+            activeTab === 'manual' ? 'text-sky-500 dark:text-sky-400' : 'text-slate-400 hover:text-slate-500'
+          }`}
+        >
+          <Mail size={20} />
+          <span className="text-[9px] font-black uppercase tracking-wider">Revisión</span>
+          {pendingEmails.length > 0 && (
+            <span className="absolute -top-1 right-2 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[7px] font-black animate-pulse">
+              {pendingEmails.length}
+            </span>
+          )}
         </button>
       </div>
 

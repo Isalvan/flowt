@@ -218,7 +218,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* 4. Analytics trend & breakdown */}
-      <AnalyticsSection chartData={chartData} huchas={huchas} />
+      <AnalyticsSection 
+        chartData={chartData} 
+        huchas={huchas} 
+        suscripciones={suscripciones}
+        allMovimientos={chartMovements}
+      />
 
       {/* 5. Main Content split (Activity List & Upcoming Recurring Bills) */}
       <div className="grid gap-6 lg:grid-cols-3">
