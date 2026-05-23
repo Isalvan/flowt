@@ -121,13 +121,13 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
             </div>
 
             {/* Selector buttons */}
-            <div className="flex items-center bg-slate-100/70 dark:bg-slate-850 p-1 rounded-2xl border border-white/5 shadow-inner">
+            <div className="flex items-center bg-slate-100/70 dark:bg-slate-900 p-1 rounded-2xl border border-slate-200/40 dark:border-white/5 shadow-inner">
               <button
                 onClick={() => setChartType('area')}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 ${
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
                   chartType === 'area'
                     ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow'
-                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5" />
@@ -135,10 +135,10 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
               </button>
               <button
                 onClick={() => setChartType('bar')}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 ${
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
                   chartType === 'bar'
                     ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow'
-                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                 }`}
               >
                 <BarChart3 className="w-3.5 h-3.5" />
@@ -246,8 +246,8 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
                       data={pieData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={65}
-                      outerRadius={85}
+                      innerRadius={72}
+                      outerRadius={92}
                       paddingAngle={4}
                       dataKey="value"
                       onMouseEnter={(_, index) => setActivePieIndex(index)}
@@ -269,9 +269,9 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
                 </ResponsiveContainer>
 
                 {/* Total savings inside the center of the donut */}
-                <div className="absolute flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Total Ahorrado</span>
-                  <span className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 mt-1 tabular-nums">
+                <div className="absolute flex flex-col items-center justify-center pointer-events-none text-center px-3 w-full">
+                  <span className="text-[8.5px] font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500 block leading-none">Total Ahorrado</span>
+                  <span className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-100 mt-1.5 tabular-nums block truncate max-w-[130px]">
                     {formatCurrency(totalSavings)}
                   </span>
                 </div>

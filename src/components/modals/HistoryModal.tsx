@@ -146,7 +146,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
               return (
                 <div
                   key={m.id}
-                  className="flex items-center justify-between gap-4 p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white/20 dark:bg-slate-950/10 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors"
+                  className="group flex items-center justify-between gap-4 p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white/20 dark:bg-slate-950/10 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     {/* Direction Icon Badge */}

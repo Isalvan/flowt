@@ -18,7 +18,7 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete })
   const progressPercent = Math.min(Math.round(rawProgress), 100);
 
   // SVG Circular Progress config
-  const radius = 24;
+  const radius = 21;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (Math.min(progressPercent, 100) / 100) * circumference;
 
@@ -37,7 +37,7 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete })
       hoverable
       glow={hucha.es_principal}
       glowColor="rgba(59, 130, 246, 0.12)"
-      className={`relative border border-white/10 dark:border-white/5 transition-all duration-300 ${
+      className={`group relative border border-white/10 dark:border-white/5 transition-all duration-300 ${
         hucha.es_principal 
           ? 'bg-gradient-to-br from-blue-50/50 via-white/40 to-indigo-50/30 dark:from-blue-950/20 dark:via-slate-900/40 dark:to-indigo-950/15'
           : 'bg-white/60 dark:bg-slate-900/30'

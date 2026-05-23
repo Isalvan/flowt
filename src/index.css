@@ -2,6 +2,8 @@
 
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --font-body: 'Manrope', 'Segoe UI', sans-serif;
   --font-title: 'Space Grotesk', 'Segoe UI', sans-serif;

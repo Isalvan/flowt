@@ -16,10 +16,11 @@ export const Card: React.FC<CardProps> = ({
   glowColor = 'rgba(56, 189, 248, 0.08)',
   ...props
 }) => {
+  const isGradient = className.includes('bg-gradient-');
   return (
     <div
       className={`
-        glass-panel 
+        ${isGradient ? '' : 'glass-panel'}
         rounded-2xl 
         p-6 
         shadow-sm 
