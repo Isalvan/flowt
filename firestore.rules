@@ -44,5 +44,13 @@ service cloud.firestore {
       allow delete: if isAuthenticated() &&
                        resource.data.id_propietario == request.auth.uid;
     }
+
+    match /correos_pendientes/{correo} {
+      allow create: if isAuthenticated() && 
+                      request.resource.data.id_propietario == request.auth.uid;
+      
+      allow read, update, delete: if isAuthenticated() && 
+                                     resource.data.id_propietario == request.auth.uid;
+    }
   }
 }
