@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail } from '../types';
+import { usePrivacy } from '../context/PrivacyContext';
 
 // Standard fallback configurations and options
 export const SUBSCRIPTION_COLORS = [
@@ -119,6 +120,7 @@ const MOCK_PENDING_EMAILS: PendingEmail[] = [
 ];
 
 export const useFinanceData = (forceDemo = false) => {
+  const { isLocked } = usePrivacy();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isFirebaseConfigured, setIsFirebaseConfigured] = useState(true);
@@ -181,7 +183,17 @@ export const useFinanceData = (forceDemo = false) => {
   // Check if Firebase is available (or forceDemo overrides it)
   useEffect(() => {
     if (forceDemo || !import.meta.env.VITE_FIREBASE_API_KEY) {
-      loadDemoData();
+      if (isLocked) {
+        setMovimientos([]);
+        setChartMovements([]);
+        setHuchas([]);
+        setSuscripciones([]);
+        setPendingEmails([]);
+        setUserStats(null);
+        setLoading(false);
+      } else {
+        loadDemoData();
+      }
       return;
     }
 
@@ -191,11 +203,22 @@ export const useFinanceData = (forceDemo = false) => {
     });
 
     return () => unsubscribe();
-  }, [forceDemo]);
+  }, [forceDemo, isLocked]);
 
   // Firebase Real-time subscriptions
   useEffect(() => {
     if (!user || !isFirebaseConfigured) return;
+
+    if (isLocked) {
+      // Clear data states when locked to prevent network & memory exposure
+      setMovimientos([]);
+      setChartMovements([]);
+      setHuchas([]);
+      setSuscripciones([]);
+      setPendingEmails([]);
+      setUserStats(null);
+      return;
+    }
 
     // Load recent movements (last 10 for dashboard)
     const qMov = query(
@@ -308,7 +331,7 @@ export const useFinanceData = (forceDemo = false) => {
       unsubSuscripciones();
       unsubPending();
     };
-  }, [user, isFirebaseConfigured]);
+  }, [user, isFirebaseConfigured, isLocked]);
 
   // Save Demo helper
   const saveDemoState = (
