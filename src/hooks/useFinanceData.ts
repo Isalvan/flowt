@@ -1469,7 +1469,7 @@ export const useFinanceData = (forceDemo = false) => {
             // 1. Flat
             huchasSnaps.forEach((snap) => {
               const data = snap.data();
-              if (data.tipo_aportacion === 'flat' && remaining > 0) {
+              if (data && data.tipo_aportacion === 'flat' && remaining > 0) {
                 const val = data.valor_aportacion || 0;
                 const toAdd = Math.min(val, remaining);
                 distributions[snap.id] = toAdd;
@@ -1479,7 +1479,7 @@ export const useFinanceData = (forceDemo = false) => {
             // 2. Percentage
             huchasSnaps.forEach((snap) => {
               const data = snap.data();
-              if (data.tipo_aportacion === 'porcentaje' && remaining > 0) {
+              if (data && data.tipo_aportacion === 'porcentaje' && remaining > 0) {
                 const perc = data.valor_aportacion || 0;
                 const share = amt * (perc / 100);
                 const toAdd = Math.min(share, remaining);
@@ -1488,8 +1488,8 @@ export const useFinanceData = (forceDemo = false) => {
               }
             });
             // 3. Rest
-            const restoSnap = huchasSnaps.find(s => s.data().tipo_aportacion === 'resto')
-                           || huchasSnaps.find(s => s.data().es_principal)
+            const restoSnap = huchasSnaps.find(s => s.exists() && s.data()?.tipo_aportacion === 'resto')
+                           || huchasSnaps.find(s => s.exists() && s.data()?.es_principal)
                            || huchasSnaps[0];
             if (restoSnap && remaining > 0) {
               distributions[restoSnap.id] = (distributions[restoSnap.id] || 0) + remaining;
@@ -1498,8 +1498,9 @@ export const useFinanceData = (forceDemo = false) => {
             // Apply balances updates
             huchasSnaps.forEach(snap => {
               const change = distributions[snap.id] || 0;
-              if (change > 0) {
-                const bal = snap.data().saldo_acumulado || 0;
+              const data = snap.data();
+              if (change > 0 && data) {
+                const bal = data.saldo_acumulado || 0;
                 transaction.update(doc(db, 'huchas', snap.id), { saldo_acumulado: bal + change, updated_at: serverTimestamp() });
               }
             });

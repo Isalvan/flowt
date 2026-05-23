@@ -9,6 +9,7 @@ import {
   Info,
   AlertCircle
 } from 'lucide-react';
+import { usePrivacy } from '../../context/PrivacyContext';
 
 interface CalendarioViewProps {
   suscripciones: Suscripcion[];
@@ -18,9 +19,7 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(new Date().getDate());
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
-  };
+  const { formatCurrency } = usePrivacy();
 
   const activeSubs = suscripciones.filter(s => s.activa);
 

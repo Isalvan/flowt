@@ -10,8 +10,9 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
-import { TrendingUp, AlertTriangle, Calendar, Info, Sparkles, TrendingDown } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Info, Sparkles, Lock } from 'lucide-react';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
+import { usePrivacy } from '../../context/PrivacyContext';
 
 interface PredictiveChartProps {
   huchas: Hucha[];
@@ -24,9 +25,7 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
   suscripciones,
   allMovimientos,
 }) => {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
-  };
+  const { isLocked, openUnlockModal, formatCurrency } = usePrivacy();
 
   const totalSavings = useMemo(() => huchas.reduce((sum, h) => sum + h.saldo_acumulado, 0), [huchas]);
 
@@ -212,7 +211,26 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
         </div>
 
         {/* Area Chart visualization */}
-        <div className="w-full h-52 sm:h-60 mt-2">
+        <div className="w-full h-52 sm:h-60 mt-2 relative">
+          {isLocked && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-100/10 dark:bg-slate-950/20 backdrop-blur-md rounded-2xl p-6 text-center select-none animate-in fade-in duration-300">
+              <div className="p-3.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 dark:text-indigo-400 mb-3.5 shadow-inner">
+                <Lock className="w-5 h-5 animate-pulse" />
+              </div>
+              <h4 className="font-extrabold text-xs text-slate-700 dark:text-slate-200 uppercase tracking-widest">
+                Proyección Protegida
+              </h4>
+              <p className="text-[10px] text-slate-455 dark:text-slate-500 max-w-[200px] mt-1.5 leading-relaxed font-semibold">
+                Desbloquea la aplicación con tu PIN para visualizar las proyecciones de liquidez.
+              </p>
+              <button
+                onClick={() => openUnlockModal()}
+                className="mt-4 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow active:scale-95"
+              >
+                Desbloquear
+              </button>
+            </div>
+          )}
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={projectionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>

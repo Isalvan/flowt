@@ -6,7 +6,6 @@ import {
   Trash2, 
   CheckCircle, 
   Mail, 
-  Calendar, 
   ArrowUpRight, 
   ArrowDownRight, 
   FileText, 
@@ -38,9 +37,7 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
   const [selectedHuchaId, setSelectedHuchaId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
-  };
+
 
   // Helper to extract a clean date string yyyy-mm-dd from raw email date
   const parseDateToISO = (dateStr: string) => {

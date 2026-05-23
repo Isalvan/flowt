@@ -10,6 +10,7 @@ import {
   Filter
 } from 'lucide-react';
 import { CATEGORIA_OPTIONS, calcMensual } from '../../hooks/useFinanceData';
+import { usePrivacy } from '../../context/PrivacyContext';
 
 interface SuscripcionesViewProps {
   suscripciones: Suscripcion[];
@@ -32,9 +33,7 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
-  };
+  const { formatCurrency } = usePrivacy();
 
   // Math summary
   const myActualPrice = suscripciones

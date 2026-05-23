@@ -15,8 +15,9 @@ import {
   Pie, 
   Cell 
 } from 'recharts';
-import { BarChart3, TrendingUp, DollarSign, PieChart as PieIcon } from 'lucide-react';
+import { BarChart3, TrendingUp, DollarSign, PieChart as PieIcon, Lock } from 'lucide-react';
 import { PredictiveChart } from './PredictiveChart';
+import { usePrivacy } from '../../context/PrivacyContext';
 
 interface AnalyticsSectionProps {
   chartData: Array<{ name: string; ingresos: number; gastos: number }>;
@@ -39,9 +40,7 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
   const [chartType, setChartType] = useState<'area' | 'bar'>('area');
   const [activePieIndex, setActivePieIndex] = useState<number | null>(null);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
-  };
+  const { isLocked, openUnlockModal, formatCurrency } = usePrivacy();
 
   // Process pie data
   const pieData = huchas
@@ -151,7 +150,26 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
               </div>
             </div>
 
-            <div className="w-full h-72 sm:h-80">
+            <div className="w-full h-72 sm:h-80 relative">
+              {isLocked && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-100/10 dark:bg-slate-950/20 backdrop-blur-md rounded-2xl p-6 text-center select-none animate-in fade-in duration-300">
+                  <div className="p-3.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 dark:text-indigo-400 mb-3.5 shadow-inner">
+                    <Lock className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <h4 className="font-extrabold text-xs text-slate-700 dark:text-slate-200 uppercase tracking-widest">
+                    Evolución Protegida
+                  </h4>
+                  <p className="text-[10px] text-slate-450 dark:text-slate-500 max-w-[200px] mt-1.5 leading-relaxed font-semibold">
+                    Desbloquea la aplicación con tu PIN para visualizar las gráficas de evolución financiera.
+                  </p>
+                  <button
+                    onClick={() => openUnlockModal()}
+                    className="mt-4 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow active:scale-95"
+                  >
+                    Desbloquear
+                  </button>
+                </div>
+              )}
               <ResponsiveContainer width="100%" height="100%">
                 {chartType === 'area' ? (
                   <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -241,6 +259,22 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
             </div>
 
             <div className="relative flex items-center justify-center w-full h-52">
+              {isLocked && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-100/10 dark:bg-slate-950/20 backdrop-blur-md rounded-2xl p-4 text-center select-none animate-in fade-in duration-300">
+                  <div className="p-3 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 dark:text-indigo-400 mb-2.5 shadow-inner">
+                    <Lock className="w-4.5 h-4.5 animate-pulse" />
+                  </div>
+                  <h4 className="font-extrabold text-[11px] text-slate-700 dark:text-slate-200 uppercase tracking-widest">
+                    Reparto Protegido
+                  </h4>
+                  <button
+                    onClick={() => openUnlockModal()}
+                    className="mt-3 px-3.5 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-[8px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow active:scale-95"
+                  >
+                    Desbloquear
+                  </button>
+                </div>
+              )}
               {pieData.length > 0 ? (
                 <>
                   <ResponsiveContainer width="100%" height="100%">

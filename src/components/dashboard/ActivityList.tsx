@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
@@ -17,6 +18,9 @@ import {
   Trash2
 } from 'lucide-react';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
+import { Card } from '../common/Card';
+import { type Movimiento, type Hucha } from '../../types';
+import { usePrivacy } from '../../context/PrivacyContext';
 
 interface ActivityListProps {
   movimientos: Movimiento[];
@@ -54,9 +58,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   const [customEndDate, setCustomEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
-  };
+  const { formatCurrency } = usePrivacy();
 
   const formatDate = (dateValue: any) => {
     const d = parseMovimientoDate(dateValue);

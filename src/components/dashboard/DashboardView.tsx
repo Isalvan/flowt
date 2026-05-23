@@ -17,6 +17,7 @@ import {
   Info
 } from 'lucide-react';
 import { getNextPaymentDate } from '../../hooks/useFinanceData';
+import { usePrivacy } from '../../context/PrivacyContext';
 
 interface DashboardViewProps {
   // Data states
@@ -64,9 +65,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenTransferModal,
   onOpenHistoryModal,
 }) => {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
-  };
+  const { formatCurrency } = usePrivacy();
 
   // Resolve upcoming recurrences (top 3 next active)
   const getUpcomingBills = (): Array<{ sub: Suscripcion; date: Date; daysLeft: number }> => {

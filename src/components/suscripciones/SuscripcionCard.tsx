@@ -12,6 +12,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { getNextPaymentDate } from '../../hooks/useFinanceData';
+import { usePrivacy } from '../../context/PrivacyContext';
 
 interface SuscripcionCardProps {
   suscripcion: Suscripcion;
@@ -30,9 +31,7 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
   onCancel,
   onUndoCancel,
 }) => {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
-  };
+  const { formatCurrency } = usePrivacy();
 
   const nextPayment = getNextPaymentDate(suscripcion.dia_pago);
   const nextPaymentStr = nextPayment.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });

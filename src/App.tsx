@@ -39,11 +39,16 @@ import {
   RefreshCw, 
   Sparkles,
   ShieldAlert,
-  Mail
+  Mail,
+  Eye,
+  EyeOff
 } from 'lucide-react';
+import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
+import { PinModal } from './components/common/PinModal';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
+  const { isLocked, lock, openUnlockModal, hasPin, openCreateModal } = usePrivacy();
 
   // Demo mode can be forced from the login screen even when Firebase is configured
   const [forceDemo, setForceDemo] = useState(false);
@@ -221,37 +226,71 @@ const App: React.FC = () => {
       console.error('Logout failed:', error);
     }
   };
-
-  // Form wrappers
-  const handleOpenHuchaModal = (hucha: Hucha | null) => {
-    setEditingHucha(hucha);
-    setIsHuchaModalOpen(true);
-  };
-
-  const handleOpenDeleteHuchaModal = (hucha: Hucha) => {
-    if (hucha.saldo_acumulado <= 0) {
-      handleDeleteHucha(hucha);
+  const secureAction = (action: () => void) => {
+    if (isLocked) {
+      if (hasPin) {
+        openUnlockModal((success) => {
+          if (success) action();
+        });
+      } else {
+        openCreateModal();
+      }
     } else {
-      setHuchaToDelete(hucha);
-      setIsDeleteHuchaModalOpen(true);
+      action();
     }
   };
 
+  const handlePrivacyToggle = () => {
+    if (isLocked) {
+      if (hasPin) {
+        openUnlockModal();
+      } else {
+        openCreateModal();
+      }
+    } else {
+      lock();
+    }
+  };
+
+  // Form wrappers
+  const handleOpenHuchaModal = (hucha: Hucha | null) => {
+    secureAction(() => {
+      setEditingHucha(hucha);
+      setIsHuchaModalOpen(true);
+    });
+  };
+
+  const handleOpenDeleteHuchaModal = (hucha: Hucha) => {
+    secureAction(() => {
+      if (hucha.saldo_acumulado <= 0) {
+        handleDeleteHucha(hucha);
+      } else {
+        setHuchaToDelete(hucha);
+        setIsDeleteHuchaModalOpen(true);
+      }
+    });
+  };
+
   const handleOpenConvertModal = (mov: Movimiento) => {
-    setMovimientoToConvert(mov);
-    setIsConvertModalOpen(true);
+    secureAction(() => {
+      setMovimientoToConvert(mov);
+      setIsConvertModalOpen(true);
+    });
   };
 
   const handleOpenLinkModal = (mov: Movimiento) => {
-    setMovimientoToLink(mov);
-    setIsLinkModalOpen(true);
+    secureAction(() => {
+      setMovimientoToLink(mov);
+      setIsLinkModalOpen(true);
+    });
   };
 
   const handleOpenSuscripcionModal = (sub: Suscripcion | null) => {
-    setEditingSuscripcion(sub);
-    setIsSuscripcionModalOpen(true);
+    secureAction(() => {
+      setEditingSuscripcion(sub);
+      setIsSuscripcionModalOpen(true);
+    });
   };
-
   // Safe wrapper for conversion
   const onSafeConvert = async (mov: Movimiento, rows?: any[], targetHuchaId?: string) => {
     await handleConvertMovimiento(mov, rows, targetHuchaId);
@@ -385,7 +424,7 @@ const App: React.FC = () => {
               Calendario
             </button>
             <button
-              onClick={() => setActiveTab('manual')}
+              onClick={() => secureAction(() => setActiveTab('manual'))}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 ${
                 activeTab === 'manual'
                   ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
@@ -405,6 +444,19 @@ const App: React.FC = () => {
           {/* Quick utility controls */}
           <div className="flex items-center gap-3">
             
+            {/* Privacy switch */}
+            <button
+              onClick={handlePrivacyToggle}
+              className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer hover:scale-95 active:scale-90 ${
+                isLocked
+                  ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/20 animate-pulse'
+                  : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
+              }`}
+              title={isLocked ? (hasPin ? 'Desbloquear datos con PIN' : 'Crear PIN de privacidad') : 'Bloquear datos (Ocultar saldos)'}
+            >
+              {isLocked ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+
             {/* Theme switch */}
             <button
               onClick={toggleTheme}
@@ -477,8 +529,8 @@ const App: React.FC = () => {
             onChangeHucha={handleChangeMovimientoHucha}
             onOpenHuchaModal={handleOpenHuchaModal}
             onDeleteHucha={handleOpenDeleteHuchaModal}
-            onOpenTransferModal={() => setIsTransferModalOpen(true)}
-            onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
+            onOpenTransferModal={() => secureAction(() => setIsTransferModalOpen(true))}
+            onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
           />
         )}
 
@@ -541,7 +593,7 @@ const App: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('manual')}
+          onClick={() => secureAction(() => setActiveTab('manual'))}
           className={`relative flex flex-col items-center gap-1 cursor-pointer transition-colors ${
             activeTab === 'manual' ? 'text-sky-500 dark:text-sky-400' : 'text-slate-400 hover:text-slate-500'
           }`}
@@ -638,6 +690,9 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* PIN Security lockscreen modal */}
+      <PinModal />
+
       {/* 6. Global Feedback overlay components */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       {confirmModal && (
@@ -651,6 +706,14 @@ const App: React.FC = () => {
         />
       )}
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <PrivacyProvider>
+      <AppContent />
+    </PrivacyProvider>
   );
 };
 

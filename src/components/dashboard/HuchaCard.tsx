@@ -2,6 +2,7 @@ import React from 'react';
 import { Card } from '../common/Card';
 import { type Hucha } from '../../types';
 import { Edit3, Trash2, CreditCard, Lock, CheckCircle, PiggyBank } from 'lucide-react';
+import { usePrivacy } from '../../context/PrivacyContext';
 
 interface HuchaCardProps {
   hucha: Hucha;
@@ -22,13 +23,13 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete })
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (Math.min(progressPercent, 100) / 100) * circumference;
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
-  };
+  const { isLocked, formatCurrency } = usePrivacy();
 
   const getContributionLabel = () => {
     if (hucha.tipo_aportacion === 'porcentaje') return `${hucha.valor_aportacion}%`;
-    if (hucha.tipo_aportacion === 'flat') return `${hucha.valor_aportacion} €`;
+    if (hucha.tipo_aportacion === 'flat') {
+      return isLocked ? '•• €' : `${hucha.valor_aportacion} €`;
+    }
     return 'Resto';
   };
 
@@ -134,8 +135,8 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete })
                   strokeLinecap="round"
                 />
               </svg>
-              <span className="absolute text-[10px] font-extrabold text-slate-700 dark:text-slate-300 tabular-nums">
-                {progressPercent}%
+              <span className="absolute text-[10px] font-extrabold text-slate-700 dark:text-slate-300 tabular-nums flex items-center justify-center">
+                {isLocked ? <Lock className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" /> : `${progressPercent}%`}
               </span>
             </>
           ) : (
