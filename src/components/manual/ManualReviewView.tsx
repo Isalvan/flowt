@@ -28,6 +28,18 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
   onDiscard,
 }) => {
   const [selectedEmail, setSelectedEmail] = useState<PendingEmail | null>(null);
+  const [viewMode, setViewMode] = useState<'text' | 'html'>('text');
+
+  // Check if current body has HTML tags
+  const isHtml = selectedEmail ? /<[a-z][\s\S]*>/i.test(selectedEmail.cuerpo) : false;
+
+  // Automatically update viewMode based on HTML detection when selected email changes
+  useEffect(() => {
+    if (selectedEmail) {
+      const hasHtml = /<[a-z][\s\S]*>/i.test(selectedEmail.cuerpo);
+      setViewMode(hasHtml ? 'html' : 'text');
+    }
+  }, [selectedEmail]);
   
   // Form states
   const [concepto, setConcepto] = useState('');
@@ -227,13 +239,55 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
               {/* Left Workspace Panel: Raw Email Content */}
               <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-xl p-5 flex flex-col justify-between h-full">
                 <div className="h-full flex flex-col">
-                  <div className="flex items-center gap-1.5 font-extrabold text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 border-b border-white/5 pb-3 shrink-0">
-                    <FileText className="w-4 h-4 text-indigo-500" />
-                    Correo Bancario Original
+                  <div className="flex items-center justify-between gap-4 mb-4 border-b border-slate-150/40 dark:border-white/5 pb-3 shrink-0">
+                    <div className="flex items-center gap-1.5 font-extrabold text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      <FileText className="w-4 h-4 text-indigo-500" />
+                      Correo Bancario
+                    </div>
+                    
+                    {isHtml && (
+                      <div className="flex items-center bg-slate-100/70 dark:bg-slate-900/50 p-0.5 rounded-xl border border-slate-200/40 dark:border-white/5 shadow-inner">
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('html')}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                            viewMode === 'html'
+                              ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                              : 'text-slate-400 hover:text-slate-600 dark:text-slate-505 dark:hover:text-slate-300'
+                          }`}
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          Formateado
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('text')}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                            viewMode === 'text'
+                              ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                              : 'text-slate-400 hover:text-slate-600 dark:text-slate-505 dark:hover:text-slate-300'
+                          }`}
+                        >
+                          <FileText className="w-3 h-3" />
+                          Plano
+                        </button>
+                      </div>
+                    )}
                   </div>
                   
-                  <div className="flex-1 overflow-y-auto pr-1 max-h-[420px] bg-slate-100/40 dark:bg-slate-950/20 border border-slate-200/50 dark:border-white/5 p-4 rounded-2xl text-[11px] leading-relaxed font-mono whitespace-pre-wrap select-text text-slate-700 dark:text-slate-300">
-                    {selectedEmail.cuerpo}
+                  <div className="flex-1 min-h-[420px] max-h-[420px] flex">
+                    {viewMode === 'html' ? (
+                      <iframe
+                        srcDoc={selectedEmail.cuerpo}
+                        title="Formatted Email Preview"
+                        sandbox="allow-popups"
+                        className="w-full h-full bg-white rounded-2xl border border-slate-200/50 dark:border-slate-800 shadow-inner overflow-hidden select-text"
+                      />
+                    ) : (
+                      <div className="w-full h-full overflow-y-auto pr-1 bg-slate-100/40 dark:bg-slate-950/20 border border-slate-200/50 dark:border-white/5 p-4 rounded-2xl text-[11px] leading-relaxed font-mono whitespace-pre-wrap select-text text-slate-700 dark:text-slate-300">
+                        {selectedEmail.cuerpo}
+                      </div>
+                    )}
                   </div>
                 </div>
 
