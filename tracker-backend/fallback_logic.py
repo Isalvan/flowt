@@ -9,6 +9,54 @@ try:
 except ImportError:
     BeautifulSoup = None
 
+def parse_amount(amount_str: str) -> Optional[float]:
+    """
+    Parses a currency string into a float by robustly identifying decimal and
+    thousands separators in both Spanish (1.200,50) and English (1,200.50) notations.
+    """
+    try:
+        # Remove any whitespace
+        amount_str = amount_str.replace(" ", "")
+        
+        # 1. Both dot and comma are present
+        if "." in amount_str and "," in amount_str:
+            if amount_str.find(".") < amount_str.find(","):
+                # Spanish format: e.g. 1.234,56
+                return float(amount_str.replace(".", "").replace(",", "."))
+            else:
+                # English format: e.g. 1,234.56
+                return float(amount_str.replace(",", ""))
+        
+        # 2. Only comma is present
+        if "," in amount_str:
+            parts = amount_str.split(",")
+            # Single comma followed by exactly 2 digits is standard Spanish decimal
+            if len(parts) == 2 and len(parts[1]) == 2:
+                return float(amount_str.replace(",", "."))
+            # If multiple commas, it's English thousands format (e.g., 1,000,000)
+            if amount_str.count(",") > 1:
+                return float(amount_str.replace(",", ""))
+            # Default single comma fallback to decimal separator
+            return float(amount_str.replace(",", "."))
+            
+        # 3. Only dot is present
+        if "." in amount_str:
+            parts = amount_str.split(".")
+            # Multiple dots are always Spanish thousands separators
+            if amount_str.count(".") > 1:
+                return float(amount_str.replace(".", ""))
+            # Single dot followed by exactly 3 digits is standard Spanish thousands (e.g., 1.200 or 5.000)
+            if len(parts) == 2 and len(parts[1]) == 3:
+                return float(amount_str.replace(".", ""))
+            # Default single dot is standard float (e.g., 4.42 or 12.5)
+            return float(amount_str)
+            
+        # 4. Pure digits
+        return float(amount_str)
+    except Exception as e:
+        logger.error(f"Failed to parse amount string '{amount_str}': {e}")
+        return None
+
 # Fallback logic for when AI fails
 def fallback_extract_movement(body: str, email_date: str) -> Optional[List[Dict[str, Any]]]:
     """
@@ -39,11 +87,7 @@ def fallback_extract_movement(body: str, email_date: str) -> Optional[List[Dict[
             
         importe = None
         if amount_match:
-            try:
-                # Convert "1.200,42" to 1200.42
-                raw_val = amount_match.group(1).replace(".", "").replace(",", ".")
-                importe = float(raw_val)
-            except: pass
+            importe = parse_amount(amount_match.group(1))
 
         # 3. Extract Type
         tipo = "gasto" # Default to gasto as bank notifications are usually charges

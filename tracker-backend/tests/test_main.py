@@ -258,3 +258,15 @@ def test_validate_parsed_data():
     assert main.validate_parsed_data({"tipo": "invalid", "importe": 50.0, "fecha": "2024-10-25"}) == False
     assert main.validate_parsed_data({"tipo": "gasto", "importe": "not a number", "fecha": "2024-10-25"}) == False
     assert main.validate_parsed_data({}) == False
+
+def test_parse_amount():
+    from fallback_logic import parse_amount
+    assert parse_amount("4,42") == 4.42
+    assert parse_amount("4.42") == 4.42
+    assert parse_amount("12,50") == 12.50
+    assert parse_amount("12.50") == 12.50
+    assert parse_amount("1.200,50") == 1200.50
+    assert parse_amount("1,200.50") == 1200.50
+    assert parse_amount("1.200") == 1200.0
+    assert parse_amount("5.000") == 5000.0
+    assert parse_amount("120") == 120.0

@@ -86,6 +86,61 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const upcomingBills = getUpcomingBills();
 
+  // Premium Sparkline Renderer
+  const renderSparkline = (data: number[], color: string, isLight: boolean = false) => {
+    if (!data || data.length < 2) return null;
+    const width = 72;
+    const height = 26;
+    const padding = 1.5;
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = max - min === 0 ? 1 : max - min;
+    const points = data.map((val, index) => {
+      const x = padding + (index / (data.length - 1)) * (width - padding * 2);
+      const y = padding + (1 - (val - min) / range) * (height - padding * 2);
+      return `${x},${y}`;
+    });
+    const pointsStr = points.join(' ');
+    const fillPointsStr = `${padding},${height} ${pointsStr} ${width - padding},${height}`;
+
+    return (
+      <svg width={width} height={height} className="overflow-visible opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none shrink-0 mb-1 ml-2">
+        <defs>
+          <linearGradient id={`sparkGrad-${color}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={isLight ? 0.35 : 0.22} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <polygon points={fillPointsStr} fill={`url(#sparkGrad-${color})`} />
+        <polyline fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" points={pointsStr} />
+        {points.length > 0 && (
+          <circle
+            cx={points[points.length - 1].split(',')[0]}
+            cy={points[points.length - 1].split(',')[1]}
+            r="2"
+            fill={color}
+            className="animate-pulse"
+          />
+        )}
+      </svg>
+    );
+  };
+
+  // Sparkline data mapping
+  const lastSixData = chartData && chartData.length > 0 ? chartData.slice(-6) : [
+    { ingresos: 100, gastos: 60 },
+    { ingresos: 120, gastos: 80 },
+    { ingresos: 110, gastos: 90 },
+    { ingresos: 140, gastos: 70 },
+    { ingresos: 130, gastos: 95 },
+    { ingresos: 160, gastos: 90 }
+  ];
+
+  const balanceTrend = lastSixData.map(d => d.ingresos - d.gastos);
+  const ingresosTrend = lastSixData.map(d => d.ingresos);
+  const gastosTrend = lastSixData.map(d => d.gastos);
+  const subsTrend = lastSixData.map(d => Math.max(12, d.gastos * 0.08 + 15));
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       
@@ -123,6 +178,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <History className="w-4 h-4" />
             Historial Completo
           </button>
+
+          {/* Help keyboard shortcuts button */}
+          <button
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))}
+            className="hidden sm:flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 w-10 h-10 rounded-xl transition-all border border-white/5 active:scale-95 shadow-sm cursor-pointer"
+            title="Atajos de teclado (?)"
+          >
+            <span className="text-xs font-black">?</span>
+          </button>
         </div>
       </div>
 
@@ -130,66 +194,78 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         
         {/* Total balance card */}
-        <Card className="bg-gradient-to-br from-indigo-500 to-blue-600 text-white p-5 shadow-xl border-none">
+        <Card className="bg-gradient-to-br from-indigo-500 to-blue-600 text-white p-5 shadow-xl border-none group glass-glare">
           <div className="flex items-center justify-between opacity-80">
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Saldo Total Acumulado</span>
             <DollarSign className="w-4 h-4" />
           </div>
-          <div className="mt-3.5">
-            <span className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums leading-none">
-              {formatCurrency(balance)}
-            </span>
-            <p className="text-[10px] opacity-75 font-semibold mt-1 flex items-center gap-1">
-              Refleja todos tus ahorros distribuidos
-            </p>
+          <div className="flex items-end justify-between mt-3.5">
+            <div>
+              <span className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums leading-none">
+                {formatCurrency(balance)}
+              </span>
+              <p className="text-[10px] opacity-75 font-semibold mt-1">
+                Ahorros distribuidos
+              </p>
+            </div>
+            {renderSparkline(balanceTrend, '#ffffff', true)}
           </div>
         </Card>
 
         {/* Total ingress card */}
-        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between">
+        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-emerald">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Ingresos Mensuales</span>
             <TrendingUp className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="mt-3.5">
-            <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
-              {formatCurrency(totalIngresos)}
-            </span>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-1">
-              Total de nóminas y bizums recibidos
-            </p>
+          <div className="flex items-end justify-between mt-3.5">
+            <div>
+              <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
+                {formatCurrency(totalIngresos)}
+              </span>
+              <p className="text-[10px] text-slate-450 dark:text-slate-550 font-semibold mt-1">
+                Nóminas y bizums recibidos
+              </p>
+            </div>
+            {renderSparkline(ingresosTrend, '#10b981')}
           </div>
         </Card>
 
         {/* Total expenses card */}
-        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between">
+        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-rose">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Gastos Mensuales</span>
             <TrendingDown className="w-4 h-4 text-rose-500" />
           </div>
-          <div className="mt-3.5">
-            <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
-              {formatCurrency(totalGastos)}
-            </span>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-1">
-              Total de compras y servicios abonados
-            </p>
+          <div className="flex items-end justify-between mt-3.5">
+            <div>
+              <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
+                {formatCurrency(totalGastos)}
+              </span>
+              <p className="text-[10px] text-slate-450 dark:text-slate-550 font-semibold mt-1">
+                Compras y servicios abonados
+              </p>
+            </div>
+            {renderSparkline(gastosTrend, '#ef4444')}
           </div>
         </Card>
 
         {/* Subscription budget card */}
-        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between">
+        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-indigo">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Fondo Recurrente</span>
             <CreditCard className="w-4 h-4 text-violet-500" />
           </div>
-          <div className="mt-3.5">
-            <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
-              {formatCurrency(totalMensualSuscripciones)}
-            </span>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-1">
-              Presupuesto mensual estimado
-            </p>
+          <div className="flex items-end justify-between mt-3.5">
+            <div>
+              <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
+                {formatCurrency(totalMensualSuscripciones)}
+              </span>
+              <p className="text-[10px] text-slate-450 dark:text-slate-550 font-semibold mt-1">
+                Presupuesto mensual estimado
+              </p>
+            </div>
+            {renderSparkline(subsTrend, '#8b5cf6')}
           </div>
         </Card>
       </div>

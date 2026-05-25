@@ -832,14 +832,50 @@ export const useFinanceData = (forceDemo = false) => {
         updatedStats.total_ingresos += amount;
         updatedStats.total_gastos = Math.max(0, updatedStats.total_gastos - amount);
       } else {
-        // Ingreso -> Gasto (reverts income distribution by subtracting from targeted pocket)
+        // Ingreso -> Gasto (symmetrically reverts the multi-pocket income distribution, and subtracts the new expense from the target pocket)
         if (!targetHuchaId) return;
-        updatedHuchas = updatedHuchas.map(h => {
-          if (h.id === targetHuchaId) {
-            return { ...h, saldo_acumulado: Number((h.saldo_acumulado - amount).toFixed(2)) };
+
+        // Recalculate original income splits using pocket rules to cleanly revert them
+        const incomeDeltas: Record<string, number> = {};
+        let remIncome = amount;
+        // 1. Flat
+        updatedHuchas.forEach(h => {
+          if (h.tipo_aportacion === 'flat' && remIncome > 0) {
+            const val = h.valor_aportacion || 0;
+            const toAdd = Math.min(val, remIncome);
+            incomeDeltas[h.id] = toAdd;
+            remIncome -= toAdd;
           }
-          return h;
         });
+        // 2. Percentage
+        updatedHuchas.forEach(h => {
+          if (h.tipo_aportacion === 'porcentaje' && remIncome > 0) {
+            const perc = h.valor_aportacion || 0;
+            const share = amount * (perc / 100);
+            const toAdd = Math.min(share, remIncome);
+            incomeDeltas[h.id] = (incomeDeltas[h.id] || 0) + toAdd;
+            remIncome -= toAdd;
+          }
+        });
+        // 3. Rest
+        const resto = updatedHuchas.find(h => h.tipo_aportacion === 'resto') || updatedHuchas.find(h => h.es_principal) || updatedHuchas[0];
+        if (resto && remIncome > 0) {
+          incomeDeltas[resto.id] = (incomeDeltas[resto.id] || 0) + remIncome;
+        }
+
+        // Apply reversion and new expense
+        updatedHuchas = updatedHuchas.map(h => {
+          let newBal = h.saldo_acumulado;
+          // Revert split income credit
+          const incomeDelta = incomeDeltas[h.id] || 0;
+          newBal -= incomeDelta;
+          // Subtract new expense debit if it's the target hucha
+          if (h.id === targetHuchaId) {
+            newBal -= amount;
+          }
+          return { ...h, saldo_acumulado: Number(newBal.toFixed(2)) };
+        });
+
         updatedStats.total_ingresos = Math.max(0, updatedStats.total_ingresos - amount);
         updatedStats.total_gastos += amount;
       }
@@ -919,20 +955,72 @@ export const useFinanceData = (forceDemo = false) => {
         await runTransaction(db, async (transaction) => {
           const movRef = doc(db, 'movimientos', mov.id);
           const statsRef = doc(db, 'stats', user!.uid);
-          const targetRef = doc(db, 'huchas', targetHuchaId);
 
-          const targetSnap = await transaction.get(targetRef);
+          // Fetch all huchas in transaction to read their rules and balances
+          const huchasRefs = huchas.map(h => doc(db, 'huchas', h.id));
+          const huchasSnaps = [];
+          for (const ref of huchasRefs) {
+            huchasSnaps.push(await transaction.get(ref));
+          }
           const statsSnap = await transaction.get(statsRef);
 
-          if (targetSnap.exists()) {
-            const cur = targetSnap.data().saldo_acumulado || 0;
-            transaction.update(targetRef, { saldo_acumulado: cur - amount, updated_at: serverTimestamp() });
+          // Calculate the original income distribution splits using the hucha rules to revert them
+          const incomeDeltas: Record<string, number> = {};
+          let remIncome = amount;
+          // 1. Flat
+          huchasSnaps.forEach((snap) => {
+            const data = snap.data();
+            if (data && data.tipo_aportacion === 'flat' && remIncome > 0) {
+              const val = data.valor_aportacion || 0;
+              const toAdd = Math.min(val, remIncome);
+              incomeDeltas[snap.id] = toAdd;
+              remIncome -= toAdd;
+            }
+          });
+          // 2. Percentage
+          huchasSnaps.forEach((snap) => {
+            const data = snap.data();
+            if (data && data.tipo_aportacion === 'porcentaje' && remIncome > 0) {
+              const perc = data.valor_aportacion || 0;
+              const share = amount * (perc / 100);
+              const toAdd = Math.min(share, remIncome);
+              incomeDeltas[snap.id] = (incomeDeltas[snap.id] || 0) + toAdd;
+              remIncome -= toAdd;
+            }
+          });
+          // 3. Rest
+          const restoSnap = huchasSnaps.find(s => s.exists() && s.data()?.tipo_aportacion === 'resto')
+                         || huchasSnaps.find(s => s.exists() && s.data()?.es_principal)
+                         || huchasSnaps[0];
+          if (restoSnap && remIncome > 0) {
+            incomeDeltas[restoSnap.id] = (incomeDeltas[restoSnap.id] || 0) + remIncome;
           }
+
+          // Apply updates to each hucha's accumulated balance
+          huchasSnaps.forEach((snap) => {
+            if (!snap.exists()) return;
+            const currentBal = snap.data().saldo_acumulado || 0;
+            const incomeDelta = incomeDeltas[snap.id] || 0;
+
+            let finalBal = currentBal - incomeDelta;
+            if (snap.id === targetHuchaId) {
+              finalBal -= amount;
+            }
+
+            transaction.update(doc(db, 'huchas', snap.id), {
+              saldo_acumulado: Number(finalBal.toFixed(2)),
+              updated_at: serverTimestamp()
+            });
+          });
+
+          // Update movement details
           transaction.update(movRef, { tipo: 'gasto', hucha_id: targetHuchaId });
-          const cur = statsSnap.data() || {};
+
+          // Update stats
+          const curStats = statsSnap.data() || {};
           transaction.set(statsRef, {
-            total_ingresos: Math.max(0, (cur.total_ingresos || 0) - amount),
-            total_gastos: (cur.total_gastos || 0) + amount,
+            total_ingresos: Math.max(0, (curStats.total_ingresos || 0) - amount),
+            total_gastos: (curStats.total_gastos || 0) + amount,
             updated_at: serverTimestamp(),
           }, { merge: true });
         });

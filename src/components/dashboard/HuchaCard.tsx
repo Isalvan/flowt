@@ -33,12 +33,20 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete })
     return 'Resto';
   };
 
+  const getGlowColor = () => {
+    if (isFull) return 'rgba(16, 185, 129, 0.12)';
+    if (isCapped) return 'rgba(245, 158, 11, 0.12)';
+    if (hucha.es_suscripciones) return 'rgba(139, 92, 246, 0.12)';
+    if (hucha.es_principal) return 'rgba(59, 130, 246, 0.12)';
+    return 'rgba(99, 102, 241, 0.08)';
+  };
+
   return (
     <Card
       hoverable
-      glow={hucha.es_principal}
-      glowColor="rgba(59, 130, 246, 0.12)"
-      className={`group relative border border-white/10 dark:border-white/5 transition-all duration-300 ${
+      glow={true}
+      glowColor={getGlowColor()}
+      className={`group relative border border-white/10 dark:border-white/5 transition-all duration-300 glass-glare ${
         hucha.es_principal 
           ? 'bg-gradient-to-br from-blue-50/50 via-white/40 to-indigo-50/30 dark:from-blue-950/20 dark:via-slate-900/40 dark:to-indigo-950/15'
           : 'bg-white/60 dark:bg-slate-900/30'
@@ -83,14 +91,14 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete })
         <div className="flex items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 shrink-0">
           <button
             onClick={() => onEdit(hucha)}
-            className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-600 dark:bg-slate-800 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400 transition-all duration-200 active:scale-90"
+            className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-600 dark:bg-slate-800 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400 transition-all duration-200 active:scale-90 cursor-pointer"
             title="Editar cartera"
           >
             <Edit3 className="w-4 h-4" />
           </button>
           <button
             onClick={() => onDelete(hucha)}
-            className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-500/10 text-slate-400 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-all duration-200 active:scale-90"
+            className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-500/10 text-slate-400 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-all duration-200 active:scale-90 cursor-pointer"
             title="Eliminar cartera"
           >
             <Trash2 className="w-4 h-4" />
@@ -128,7 +136,7 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete })
                   cx="24"
                   cy="24"
                   r={radius}
-                  className="stroke-indigo-500 dark:stroke-indigo-400 fill-none transition-all duration-700 ease-out"
+                  className="stroke-indigo-500 dark:stroke-indigo-400 fill-none transition-all duration-700 ease-out animate-circular-fill"
                   strokeWidth="3.5"
                   strokeDasharray={circumference}
                   strokeDashoffset={strokeDashoffset}

@@ -24,12 +24,27 @@ export const Toast: React.FC<ToastProps> = ({
   duration = 4000,
 }) => {
   useEffect(() => {
+    // Subtle mobile device haptic feedback triggers on show
+    if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
+      try {
+        if (type === 'success') {
+          window.navigator.vibrate(15);
+        } else if (type === 'error' || type === 'warning') {
+          window.navigator.vibrate([25, 40, 25]);
+        } else {
+          window.navigator.vibrate(10);
+        }
+      } catch (err) {
+        // Silently catch browser security blocks
+      }
+    }
+
     const timer = setTimeout(() => {
       onClose();
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [duration, onClose]);
+  }, [duration, onClose, type]);
 
   const typeConfig = {
     success: {

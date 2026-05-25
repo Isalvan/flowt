@@ -1,4 +1,4 @@
-# LootRadar - Project Context & Decisions
+# Flowt - Project Context & Decisions
 
 ## Recent Changes (2026-04-18)
 - **Completed Manual Migration**: Successfully processed 5 pending emails using the new `/manual` workflow.

@@ -300,3 +300,113 @@ html[data-theme='dark'] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
 .animate-shake {
   animation: shake 0.5s ease-in-out;
 }
+
+/* ==========================================================================
+   PREMIUM GLASS & TRANSITIONS DECORS
+   ========================================================================== */
+
+/* Brillo reflectivo de barrido metálico */
+.glass-glare {
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-glare::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.15) 30%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.15) 70%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-25deg);
+  transition: left 0.85s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.glass-glare:hover::after {
+  left: 150%;
+}
+
+/* En modo oscuro, el brillo es más azulado y sumamente elegante */
+html[data-theme='dark'] .glass-glare::after {
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(99, 102, 241, 0.08) 30%,
+    rgba(255, 255, 255, 0.18) 50%,
+    rgba(99, 102, 241, 0.08) 70%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+/* Shimmer de carga para esqueletos premium */
+@keyframes shimmer-pulse {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-placeholder {
+  background: linear-gradient(
+    90deg,
+    rgba(226, 232, 240, 0.6) 25%,
+    rgba(241, 245, 249, 0.9) 37%,
+    rgba(226, 232, 240, 0.6) 50%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-pulse 1.6s infinite linear;
+}
+
+html[data-theme='dark'] .shimmer-placeholder {
+  background: linear-gradient(
+    90deg,
+    rgba(30, 41, 59, 0.6) 25%,
+    rgba(51, 65, 85, 0.8) 37%,
+    rgba(30, 41, 59, 0.6) 50%
+  );
+  background-size: 200% 100%;
+}
+
+/* Tarjetas financieras interactivas con halos dinámicos */
+.glow-card-indigo {
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.04), 0 0 20px rgba(99, 102, 241, 0.05);
+}
+.glow-card-indigo:hover {
+  box-shadow: 0 20px 40px -15px rgba(99, 102, 241, 0.12), 0 0 30px rgba(99, 102, 241, 0.15);
+}
+
+.glow-card-emerald {
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.04), 0 0 20px rgba(16, 185, 129, 0.04);
+}
+.glow-card-emerald:hover {
+  box-shadow: 0 20px 40px -15px rgba(16, 185, 129, 0.1), 0 0 30px rgba(16, 185, 129, 0.12);
+}
+
+.glow-card-rose {
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.04), 0 0 20px rgba(244, 63, 94, 0.04);
+}
+.glow-card-rose:hover {
+  box-shadow: 0 20px 40px -15px rgba(244, 63, 94, 0.1), 0 0 30px rgba(244, 63, 94, 0.12);
+}
+
+/* Rueda circular de progreso con elasticidad en el montaje */
+@keyframes circular-fill {
+  from {
+    stroke-dashoffset: 131.95; /* Circumference of circle with r=21 */
+  }
+}
+
+.animate-circular-fill {
+  animation: circular-fill 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}

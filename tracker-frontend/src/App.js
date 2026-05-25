@@ -53,7 +53,7 @@ const App = () => {
   return (
     <div className="app-wrapper">
       <header className="header">
-        <h1>LootRadar</h1>
+        <h1>Flowt</h1>
         <p>Tu asistente financiero inteligente</p>
       </header>
 

@@ -20,11 +20,13 @@ import { ConvertModal } from './components/modals/ConvertModal';
 import { LinkModal } from './components/modals/LinkModal';
 import { SuscripcionModal } from './components/modals/SuscripcionModal';
 import { HistoryModal } from './components/modals/HistoryModal';
-
-// Demo and Feedback
+// Demo, Feedback, and Premium Visuals
 import { DemoSimulator } from './components/demo/DemoSimulator';
 import { Toast } from './components/common/Toast';
 import { ConfirmModal } from './components/common/ConfirmModal';
+import { DashboardSkeleton } from './components/dashboard/DashboardSkeleton';
+import { ShortcutsHelpModal } from './components/common/ShortcutsHelpModal';
+import { CelebrationConfetti } from './components/common/CelebrationConfetti';
 
 // Icons
 import { 
@@ -36,7 +38,6 @@ import {
   Layers, 
   CalendarDays, 
   Key, 
-  RefreshCw, 
   Sparkles,
   ShieldAlert,
   Mail,
@@ -112,6 +113,8 @@ const AppContent: React.FC = () => {
   const [editingSuscripcion, setEditingSuscripcion] = useState<Suscripcion | null>(null);
   
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
+  const [confettiTrigger, setConfettiTrigger] = useState(0);
 
   // Symmetrical paging driver state
   const [historyMovements, setHistoryMovements] = useState<Movimiento[]>([]);
@@ -252,6 +255,42 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // Keyboard Shortcuts Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      const key = e.key.toUpperCase();
+      
+      if (key === 'N') {
+        e.preventDefault();
+        handleOpenHuchaModal(null);
+      } else if (key === 'T') {
+        e.preventDefault();
+        secureAction(() => setIsTransferModalOpen(true));
+      } else if (key === 'H') {
+        e.preventDefault();
+        secureAction(() => setIsHistoryModalOpen(true));
+      } else if (key === 'P') {
+        e.preventDefault();
+        handlePrivacyToggle();
+      } else if (e.key === '?') {
+        e.preventDefault();
+        setIsShortcutsHelpOpen(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLocked, hasPin, isShortcutsHelpOpen]);
+
   // Form wrappers
   const handleOpenHuchaModal = (hucha: Hucha | null) => {
     secureAction(() => {
@@ -296,16 +335,46 @@ const AppContent: React.FC = () => {
     await handleConvertMovimiento(mov, rows, targetHuchaId);
   };
 
+  // Safe wrapper for hucha creation/updates with success celebration interceptor
+  const onSaveHucha = async (newHucha: Omit<Hucha, 'id' | 'saldo_acumulado' | 'orden'>, editingId: string | null) => {
+    await handleCreateOrUpdateHucha(newHucha, editingId);
+    if (newHucha.objetivo && newHucha.objetivo > 0) {
+      if (editingId) {
+        const existing = huchas.find(h => h.id === editingId);
+        // Celebrating 100% savings goal accomplishment!
+        if (existing && existing.saldo_acumulado >= newHucha.objetivo) {
+          setConfettiTrigger(prev => prev + 1);
+        }
+      }
+    }
+  };
+
+  // Safe wrapper for transfer with success celebration interceptor
+  const onSafeTransfer = async (fromId: string, toId: string, amount: number) => {
+    await handleTransfer(fromId, toId, amount);
+    const target = huchas.find(h => h.id === toId);
+    if (target && target.objetivo && target.objetivo > 0) {
+      const futureSaldo = target.saldo_acumulado + amount;
+      if (futureSaldo >= target.objetivo && target.saldo_acumulado < target.objetivo) {
+        setTimeout(() => {
+          setConfettiTrigger(prev => prev + 1);
+        }, 300);
+      }
+    }
+  };
+
+  // Safe wrapper for manual approval with success celebration interceptor
+  const onApproveEmail = async (
+    emailId: string, 
+    movData: { tipo: 'ingreso' | 'gasto', concepto: string, importe: number, fecha_operacion: string, hucha_id?: string }
+  ) => {
+    await handleApprovePendingEmail(emailId, movData);
+    setConfettiTrigger(prev => prev + 1);
+  };
+
   // Rendering loading state
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4 text-white">
-        <RefreshCw className="animate-spin text-sky-400 w-10 h-10" />
-        <span className="text-sm font-bold uppercase tracking-widest text-slate-450 animate-pulse">
-          Cargando LootRadar...
-        </span>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   // Rendering signed out view when firebase is active
@@ -323,10 +392,10 @@ const AppContent: React.FC = () => {
           </div>
 
           <h1 className="text-3xl font-black text-white tracking-tight uppercase">
-            LootRadar
+            Flowt
           </h1>
           <p className="text-[10px] font-black tracking-[0.2em] text-indigo-400 uppercase mt-1 mb-6">
-            Flowt Financial Tracker
+            Financial Tracker
           </p>
 
           <p className="text-slate-400 text-xs sm:text-sm leading-relaxed mb-8">
@@ -383,7 +452,7 @@ const AppContent: React.FC = () => {
                 Flowt
               </h1>
               <span className="text-[8px] font-black uppercase tracking-[0.2em] text-indigo-500 leading-none block mt-0.5">
-                LootRadar
+                Financial Tracker
               </span>
             </div>
           </div>
@@ -554,7 +623,7 @@ const AppContent: React.FC = () => {
           <ManualReviewView
             pendingEmails={pendingEmails}
             huchas={huchas}
-            onApprove={handleApprovePendingEmail}
+            onApprove={onApproveEmail}
             onDiscard={handleDiscardPendingEmail}
           />
         )}
@@ -615,7 +684,7 @@ const AppContent: React.FC = () => {
           setIsHuchaModalOpen(false);
           setEditingHucha(null);
         }}
-        onSave={handleCreateOrUpdateHucha}
+        onSave={onSaveHucha}
         editingHucha={editingHucha}
         allHuchas={huchas}
       />
@@ -623,7 +692,7 @@ const AppContent: React.FC = () => {
       <TransferModal
         isOpen={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
-        onTransfer={handleTransfer}
+        onTransfer={onSafeTransfer}
         huchas={huchas}
       />
 
@@ -694,7 +763,11 @@ const AppContent: React.FC = () => {
       <PinModal />
 
       {/* 6. Global Feedback overlay components */}
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full pointer-events-none">
+          <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+        </div>
+      )}
       {confirmModal && (
         <ConfirmModal
           isOpen={true}
@@ -705,6 +778,15 @@ const AppContent: React.FC = () => {
           onClose={() => setConfirmModal(null)}
         />
       )}
+
+      {/* Premium Canvas Confetti burst milestone celebrates */}
+      <CelebrationConfetti trigger={confettiTrigger} />
+
+      {/* Keyboard Shortcuts floating guide help panel */}
+      <ShortcutsHelpModal 
+        isOpen={isShortcutsHelpOpen} 
+        onClose={() => setIsShortcutsHelpOpen(false)} 
+      />
     </div>
   );
 };

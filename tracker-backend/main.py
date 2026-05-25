@@ -505,13 +505,31 @@ def gmail_webhook(request):
     if not BANK_SENDER or not UID_PROPIETARIO:
         return ("Faltan variables de entorno", 500)
 
+    # Check for authentication token
+    webhook_token = os.getenv("WEBHOOK_TOKEN")
+    if webhook_token:
+        auth_header = request.headers.get("Authorization")
+        auth_query = request.args.get("token")
+        
+        token_valid = False
+        if auth_header:
+            if auth_header == webhook_token or auth_header == f"Bearer {webhook_token}":
+                token_valid = True
+        elif auth_query:
+            if auth_query == webhook_token:
+                token_valid = True
+                
+        if not token_valid:
+            logger.warning("Intento de acceso no autorizado al Webhook.")
+            return ("No autorizado", 401)
+
     try:
         logger.info("Webhook recibido. Comprobando correos nuevos...")
         process_emails()
         return ("Correos procesados correctamente", 200)
     except Exception as e:
         logger.error(f"Error en el Webhook: {e}")
-        return (f"Error: {e}", 500)
+        return ("Ocurrió un error interno al procesar los correos", 500)
 
 if __name__ == "__main__":
     setup_config(parse_args())
