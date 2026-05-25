@@ -44,6 +44,7 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
   return (
     <Card
       hoverable
+      onClick={() => onEdit(suscripcion)}
       className={`relative border border-white/10 dark:border-white/5 transition-all duration-300 ${
         suscripcion.activa
           ? 'bg-white/60 dark:bg-slate-900/30'
@@ -80,7 +81,7 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
 
         {/* Active Toggle Switch */}
         <button
-          onClick={() => onToggle(suscripcion)}
+          onClick={(e) => { e.stopPropagation(); onToggle(suscripcion); }}
           className={`shrink-0 transition-colors focus:outline-none ${
             suscripcion.activa ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-350 dark:text-slate-700'
           }`}
@@ -136,7 +137,7 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
           ) : (
             suscripcion.activa && (
               <button
-                onClick={() => onCancel(suscripcion)}
+                onClick={(e) => { e.stopPropagation(); onCancel(suscripcion); }}
                 className="text-[9px] font-bold uppercase tracking-widest text-rose-500 hover:text-rose-600 py-1 px-1.5 rounded-lg hover:bg-rose-500/5 cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95"
               >
                 Solicitar Baja
@@ -148,7 +149,7 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
         <div className="flex items-center gap-1.5 shrink-0">
           {suscripcion.cancelando && (
             <button
-              onClick={() => onUndoCancel(suscripcion)}
+              onClick={(e) => { e.stopPropagation(); onUndoCancel(suscripcion); }}
               className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/10 hover:bg-indigo-500/20 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm cursor-pointer"
               title="Deshacer baja de suscripción"
             >
@@ -157,7 +158,7 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
           )}
 
           <button
-            onClick={() => onEdit(suscripcion)}
+            onClick={(e) => { e.stopPropagation(); onEdit(suscripcion); }}
             className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-600 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm cursor-pointer"
             title="Editar suscripción"
           >
@@ -165,7 +166,7 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
           </button>
           
           <button
-            onClick={() => onDelete(suscripcion)}
+            onClick={(e) => { e.stopPropagation(); onDelete(suscripcion); }}
             className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-500/10 text-slate-400 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm cursor-pointer"
             title="Eliminar suscripción"
           >

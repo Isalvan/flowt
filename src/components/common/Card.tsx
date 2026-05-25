@@ -41,7 +41,7 @@ export const Card: React.FC<CardProps> = ({
         relative 
         overflow-hidden
         group
-        ${hoverable ? 'hover:-translate-y-1 hover:shadow-lg hover:border-white/80 dark:hover:border-white/20' : ''}
+        ${hoverable ? 'hover:-translate-y-1 hover:shadow-lg hover:border-white/80 dark:hover:border-white/20 cursor-pointer' : ''}
         ${className}
       `}
       style={{
