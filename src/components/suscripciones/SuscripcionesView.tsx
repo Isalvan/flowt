@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { type Suscripcion, type Hucha } from '../../types';
 import { SuscripcionCard } from './SuscripcionCard';
 import { Card } from '../common/Card';
+import { EmptyIllustration } from '../common/EmptyIllustration';
 import { 
   Plus, 
   CreditCard, 
@@ -201,8 +202,9 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
             />
           ))
         ) : (
-          <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 col-span-full">
-            <span className="text-base font-extrabold text-slate-300 dark:text-slate-700 uppercase tracking-widest mb-1">Sin Suscripciones</span>
+          <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 col-span-full text-center animate-in fade-in duration-300">
+            <EmptyIllustration />
+            <span className="text-base font-extrabold text-slate-350 dark:text-slate-600 uppercase tracking-widest mb-1">Sin Suscripciones</span>
             <p className="text-xs text-slate-400">Registra Netflix, Spotify o tus cuotas del gimnasio para gestionarlas aquí</p>
           </div>
         )}

@@ -4,16 +4,16 @@ import { HuchaCard } from './HuchaCard';
 import { ActivityList } from './ActivityList';
 import { AnalyticsSection } from './AnalyticsSection';
 import { Card } from '../common/Card';
+import { EmptyIllustration } from '../common/EmptyIllustration';
 import { 
   Plus, 
   ArrowRightLeft, 
   History, 
-  Calendar,
+  Calendar, 
   DollarSign, 
   TrendingUp, 
   TrendingDown, 
-  CreditCard,
-  AlertCircle,
+  CreditCard, 
   Info
 } from 'lucide-react';
 import { getNextPaymentDate } from '../../hooks/useFinanceData';
@@ -284,9 +284,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               />
             ))
           ) : (
-            <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 md:col-span-2 lg:col-span-3">
-              <span className="text-xl font-bold text-slate-300 uppercase tracking-widest mb-1">Sin Carteras</span>
-              <p className="text-xs text-slate-400">Crea tu primera hucha de ahorro para activar la distribución de fondos</p>
+            <div className="flex flex-col items-center justify-center p-12 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 md:col-span-2 lg:col-span-3 text-center animate-in fade-in duration-300">
+              <EmptyIllustration />
+              <span className="text-base font-bold text-slate-350 dark:text-slate-600 uppercase tracking-widest mb-1">Sin Carteras</span>
+              <p className="text-xs text-slate-400 font-semibold mt-1">Crea tu primera hucha de ahorro para activar la distribución de fondos</p>
             </div>
           )}
         </div>
@@ -367,10 +368,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     );
                   })
                 ) : (
-                  <div className="flex flex-col items-center justify-center p-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 text-center">
-                    <AlertCircle className="w-8 h-8 text-slate-300 dark:text-slate-700 mb-2" />
-                    <p className="font-bold text-xs text-slate-400 dark:text-slate-600 uppercase tracking-widest">Sin Cargos Activos</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Todas tus suscripciones están al día o inactivas</p>
+                  <div className="flex flex-col items-center justify-center p-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 text-center animate-in fade-in duration-300">
+                    <EmptyIllustration />
+                    <p className="font-bold text-xs text-slate-450 dark:text-slate-600 uppercase tracking-widest">Sin Cargos Activos</p>
+                    <p className="text-[10px] text-slate-400 mt-1">Todas tus suscripciones están al día o inactivas</p>
                   </div>
                 )}
               </div>

@@ -12,7 +12,6 @@ import {
   Undo2, 
   Info,
   Calendar,
-  PiggyBank,
   Search,
   SlidersHorizontal,
   Trash2
@@ -21,6 +20,7 @@ import { parseMovimientoDate } from '../../hooks/useFinanceData';
 import { Card } from '../common/Card';
 import { type Movimiento, type Hucha } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
+import { EmptyIllustration } from '../common/EmptyIllustration';
 
 interface ActivityListProps {
   movimientos: Movimiento[];
@@ -588,8 +588,8 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             );
           })
         ) : (
-          <div className="flex flex-col items-center justify-center p-12 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10">
-            <PiggyBank className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-3" />
+          <div className="flex flex-col items-center justify-center p-12 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 text-center animate-in fade-in duration-300">
+            <EmptyIllustration />
             <p className="font-extrabold text-sm text-slate-400 dark:text-slate-600 uppercase tracking-wider">Sin Movimientos</p>
             <p className="text-xs text-slate-400 mt-1">Registra nuevos cargos o nóminas para ver la actividad</p>
           </div>

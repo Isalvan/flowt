@@ -30,7 +30,6 @@ import { CelebrationConfetti } from './components/common/CelebrationConfetti';
 
 // Icons
 import { 
-  Wallet, 
   LogOut, 
   Sun, 
   Moon, 
@@ -46,6 +45,26 @@ import {
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { PinModal } from './components/common/PinModal';
+
+const FlowtLogoSVG: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.8" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className="text-white overflow-visible pointer-events-none"
+  >
+    {/* Sequences of Cash-flow pulsing liquidity waves */}
+    <path d="M2 17c3.5-3.5 6.5-3.5 10 0 3.5 3.5 6.5 3.5 10 0" className="animate-pulse" style={{ animationDuration: '2s' }} />
+    <path d="M2 12c3.5-3.5 6.5-3.5 10 0 3.5 3.5 6.5 3.5 10 0" className="animate-pulse" style={{ animationDuration: '2.8s', animationDelay: '0.2s' }} />
+    <path d="M2 7c3.5-3.5 6.5-3.5 10 0 3.5 3.5 6.5 3.5 10 0" className="animate-pulse" style={{ animationDuration: '3.6s', animationDelay: '0.4s' }} />
+  </svg>
+);
+
 
 const AppContent: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
@@ -388,7 +407,7 @@ const AppContent: React.FC = () => {
         <div className="w-full max-w-md backdrop-blur-md bg-white/5 border border-white/10 rounded-[32px] p-8 sm:p-10 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-500">
           {/* Glowing Brand Icon */}
           <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-6 border border-white/10">
-            <Wallet className="w-8 h-8 text-white" />
+            <FlowtLogoSVG size={32} />
           </div>
 
           <h1 className="text-3xl font-black text-white tracking-tight uppercase">
@@ -445,7 +464,7 @@ const AppContent: React.FC = () => {
           {/* Logo brand */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow shadow-indigo-500/20 border border-white/10 shrink-0">
-              <Wallet className="w-5 h-5 text-white" />
+              <FlowtLogoSVG size={20} />
             </div>
             <div>
               <h1 className="text-lg font-black tracking-tight leading-none uppercase text-slate-800 dark:text-white">
