@@ -89,26 +89,6 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
     return null;
   };
 
-  const CustomPieTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      const percentage = totalSavings > 0 ? ((data.value / totalSavings) * 100).toFixed(1) : '0.0';
-      return (
-        <div className="glass-panel p-3 border border-slate-200/50 dark:border-white/10 shadow-2xl rounded-2xl bg-slate-950/90 text-left text-xs text-slate-800 dark:text-slate-100">
-          <div className="flex items-center gap-1.5 font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-tight mb-1">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: data.color }} />
-            {data.name}
-          </div>
-          <div className="flex justify-between items-center gap-4 text-slate-500 dark:text-slate-400 font-semibold mt-1">
-            <span>Saldo: <strong className="text-slate-800 dark:text-slate-200 tabular-nums">{formatCurrency(data.value)}</strong></span>
-            <span>({percentage}%)</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-3">
@@ -279,25 +259,26 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
                 <>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Tooltip content={<CustomPieTooltip />} />
                       <Pie
                         data={pieData}
                         cx="50%"
                         cy="50%"
                         innerRadius={72}
                         outerRadius={92}
-                        paddingAngle={4}
+                        paddingAngle={2}
                         dataKey="value"
                         onMouseEnter={(_, index) => setActivePieIndex(index)}
                         onMouseLeave={() => setActivePieIndex(null)}
+                        stroke="none"
                       >
                         {pieData.map((entry, index) => (
                           <Cell 
                             key={`cell-${index}`} 
                             fill={entry.color} 
+                            stroke="none"
                             className="transition-all duration-300 outline-none cursor-pointer"
                             style={{
-                              filter: activePieIndex === index ? 'drop-shadow(0px 0px 8px rgba(99,102,241,0.5))' : 'none',
+                              filter: activePieIndex === index ? `drop-shadow(0px 0px 8px ${entry.color}80)` : 'none',
                               opacity: activePieIndex === null || activePieIndex === index ? 1 : 0.65
                             }}
                           />
@@ -307,11 +288,30 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
                   </ResponsiveContainer>
 
                   {/* Total savings inside the center of the donut */}
-                  <div className="absolute flex flex-col items-center justify-center pointer-events-none text-center px-3 w-full">
-                    <span className="text-[8.5px] font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500 block leading-none">Total Ahorrado</span>
-                    <span className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-100 mt-1.5 tabular-nums block truncate max-w-[130px]">
-                      {formatCurrency(totalSavings)}
-                    </span>
+                  <div className="absolute flex flex-col items-center justify-center pointer-events-none text-center px-3 w-full transition-all duration-350">
+                    {activePieIndex !== null && pieData[activePieIndex] ? (
+                      <div className="animate-in fade-in zoom-in-95 duration-200 flex flex-col items-center justify-center w-full">
+                        <span 
+                          className="text-[9px] font-black uppercase tracking-[0.15em] block leading-none truncate max-w-[110px]"
+                          style={{ color: pieData[activePieIndex].color }}
+                        >
+                          {pieData[activePieIndex].name}
+                        </span>
+                        <span className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-100 mt-1.5 block truncate max-w-[130px] tabular-nums animate-in slide-in-from-bottom-1 duration-200">
+                          {formatCurrency(pieData[activePieIndex].value)}
+                        </span>
+                        <span className="text-[8.5px] font-black text-slate-400 dark:text-slate-500 mt-1 block leading-none tracking-widest">
+                          {totalSavings > 0 ? ((pieData[activePieIndex].value / totalSavings) * 100).toFixed(1) : '0.0'}%
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="animate-in fade-in zoom-in-95 duration-200 flex flex-col items-center justify-center w-full">
+                        <span className="text-[8.5px] font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500 block leading-none">Total Ahorrado</span>
+                        <span className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-100 mt-1.5 block truncate max-w-[130px] tabular-nums">
+                          {formatCurrency(totalSavings)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
