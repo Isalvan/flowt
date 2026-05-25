@@ -11,204 +11,234 @@ export const EmptyIllustration: React.FC = () => {
     >
       <style>{`
         @keyframes float-card {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-4px) rotate(1.5deg); }
+          0%, 100% { transform: translateY(0px) rotate(-6deg); }
+          50% { transform: translateY(-5px) rotate(-8deg); }
         }
-        @keyframes float-coin {
+        @keyframes float-coins {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-6px) rotate(-2.5deg); }
+          50% { transform: translateY(-6.5px) rotate(2deg); }
+        }
+        @keyframes float-star-1 {
+          0%, 100% { transform: translate(0px, 0px) scale(0.95) rotate(0deg); }
+          50% { transform: translate(-2px, -3px) scale(1.1) rotate(15deg); }
+        }
+        @keyframes float-star-2 {
+          0%, 100% { transform: translate(0px, 0px) scale(1.05) rotate(0deg); }
+          50% { transform: translate(2px, -4px) scale(0.95) rotate(-15deg); }
+        }
+        @keyframes float-star-3 {
+          0%, 100% { transform: translate(0px, 0px) scale(0.8); opacity: 0.4; }
+          50% { transform: translate(-1px, -2px) scale(1.15); opacity: 0.95; }
+        }
+        @keyframes drift-blob-1 {
+          0%, 100% { transform: translate(0px, 0px) scale(1); }
+          50% { transform: translate(-5px, 4px) scale(1.12); }
+        }
+        @keyframes drift-blob-2 {
+          0%, 100% { transform: translate(0px, 0px) scale(1); }
+          50% { transform: translate(5px, -4px) scale(1.08); }
         }
         @keyframes spin-subtle {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
-        @keyframes pulse-glow {
-          0%, 100% { opacity: 0.18; transform: scale(1); }
-          50% { opacity: 0.38; transform: scale(1.08); }
-        }
-        @keyframes blink-star {
-          0%, 100% { opacity: 0.3; transform: scale(0.8); }
-          50% { opacity: 1; transform: scale(1.2); }
-        }
+        
         .anim-float-card {
-          animation: float-card 6s ease-in-out infinite;
-          transform-origin: 60px 57px;
+          animation: float-card 6.2s ease-in-out infinite;
+          transform-origin: 56px 52px;
         }
-        .anim-float-coin {
-          animation: float-coin 5s ease-in-out infinite;
+        .anim-float-coins {
+          animation: float-coins 5s ease-in-out infinite;
           transform-origin: 78px 74px;
         }
+        .anim-star-1 {
+          animation: float-star-1 4.5s ease-in-out infinite;
+          transform-origin: 22px 34px;
+        }
+        .anim-star-2 {
+          animation: float-star-2 5.5s ease-in-out infinite;
+          transform-origin: 96px 44px;
+        }
+        .anim-star-3 {
+          animation: float-star-3 3.8s ease-in-out infinite;
+          transform-origin: 48px 27px;
+        }
+        .anim-blob-1 {
+          animation: drift-blob-1 8s ease-in-out infinite;
+          transform-origin: 35px 40px;
+        }
+        .anim-blob-2 {
+          animation: drift-blob-2 10s ease-in-out infinite;
+          transform-origin: 85px 80px;
+        }
         .anim-spin-dashed {
-          animation: spin-subtle 40s linear infinite;
+          animation: spin-subtle 50s linear infinite;
           transform-origin: 60px 60px;
-        }
-        .anim-pulse-glow {
-          animation: pulse-glow 8s ease-in-out infinite;
-          transform-origin: 60px 60px;
-        }
-        .anim-blink-1 {
-          animation: blink-star 3s ease-in-out infinite;
-          transform-origin: 25px 30px;
-        }
-        .anim-blink-2 {
-          animation: blink-star 4s ease-in-out infinite 1.5s;
-          transform-origin: 95px 40px;
         }
       `}</style>
       
       <defs>
-        {/* Glowing background */}
-        <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.8" />
-          <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
-        </radialGradient>
-        
+        {/* Glow Filters */}
+        <filter id="meshGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="11" result="blur" />
+        </filter>
+
         {/* Card linear gradient */}
-        <linearGradient id="cardGrad" x1="42" y1="44" x2="78" y2="70" gradientUnits="userSpaceOnUse">
+        <linearGradient id="cardGrad" x1="36" y1="38" x2="76" y2="66" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#6366f1" />
+          <stop offset="50%" stopColor="#4f46e5" />
           <stop offset="100%" stopColor="#0ea5e9" />
         </linearGradient>
 
-        {/* Gold coin gradient */}
-        <linearGradient id="goldGrad" x1="69" y1="65" x2="87" y2="83" gradientUnits="userSpaceOnUse">
+        {/* Card Gloss Reflection overlay */}
+        <linearGradient id="shineGrad" x1="36" y1="38" x2="76" y2="66" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="rgba(255, 255, 255, 0.45)" />
+          <stop offset="25%" stopColor="rgba(255, 255, 255, 0.15)" />
+          <stop offset="100%" stopColor="rgba(255, 255, 255, 0)" />
+        </linearGradient>
+
+        {/* Gold coin primary gradient */}
+        <linearGradient id="goldGrad" x1="68" y1="68" x2="88" y2="88" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#fbbf24" />
-          <stop offset="50%" stopColor="#f59e0b" />
+          <stop offset="60%" stopColor="#f59e0b" />
           <stop offset="100%" stopColor="#d97706" />
+        </linearGradient>
+
+        {/* Gold coin light reflection gradient */}
+        <linearGradient id="goldGradLight" x1="68" y1="68" x2="88" y2="88" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#fef08a" />
+          <stop offset="100%" stopColor="#f59e0b" />
         </linearGradient>
       </defs>
 
-      {/* 1. Pulsing Background Aura */}
-      <circle 
-        cx="60" 
-        cy="60" 
-        r="36" 
-        fill="url(#bgGlow)" 
-        className="anim-pulse-glow" 
-      />
+      {/* 1. Ambient Mesh Glow Blobs (Drifting slowly in background) */}
+      <circle cx="35" cy="42" r="18" fill="#6366f1" opacity="0.25" filter="url(#meshGlow)" className="anim-blob-1" />
+      <circle cx="85" cy="78" r="17" fill="#10b981" opacity="0.2" filter="url(#meshGlow)" className="anim-blob-2" />
+      <circle cx="75" cy="35" r="14" fill="#ec4899" opacity="0.16" filter="url(#meshGlow)" className="anim-blob-1" />
 
-      {/* 2. Slow spinning elegant dashed concentric rings */}
+      {/* 2. Slow spinning dotted orbit ring */}
       <circle 
         cx="60" 
         cy="60" 
-        r="46" 
+        r="44" 
         stroke="currentColor" 
         strokeWidth="1" 
-        strokeDasharray="4 6" 
-        className="text-slate-200 dark:text-slate-800 anim-spin-dashed" 
-        opacity="0.65"
+        strokeDasharray="1 5" 
+        className="text-slate-300 dark:text-slate-800 anim-spin-dashed" 
+        opacity="0.7"
       />
-      <circle 
-        cx="60" 
-        cy="60" 
-        r="32" 
-        stroke="currentColor" 
-        strokeWidth="0.8" 
-        strokeDasharray="1 4" 
-        className="text-slate-350 dark:text-slate-700" 
-        opacity="0.4"
-      />
-      
-      {/* 3. Subtle outer compass ticks */}
-      <line x1="60" y1="8" x2="60" y2="15" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="text-slate-300 dark:text-slate-750" opacity="0.6" />
-      <line x1="60" y1="105" x2="60" y2="112" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="text-slate-300 dark:text-slate-750" opacity="0.6" />
-      <line x1="8" y1="60" x2="15" y2="60" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="text-slate-300 dark:text-slate-750" opacity="0.6" />
-      <line x1="105" y1="60" x2="112" y2="60" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="text-slate-300 dark:text-slate-750" opacity="0.6" />
 
-      {/* 4. Gold Twinkling Stars */}
-      <g className="anim-blink-1">
+      {/* 3. Gold Twinkling Stars Floating Freely (Orbiting/Blinking) */}
+      <g className="anim-star-1">
         <path 
-          d="M25,26 Q25,30 21,30 Q25,30 25,34 Q25,30 29,30 Q25,30 25,26 Z" 
+          d="M22,30 Q22,34 18,34 Q22,34 22,38 Q22,34 26,34 Q22,34 22,30 Z" 
+          fill="url(#goldGradLight)" 
+          style={{ filter: 'drop-shadow(0px 2px 4px rgba(245,158,11,0.25))' }}
+        />
+      </g>
+      <g className="anim-star-2">
+        <path 
+          d="M96,40 Q96,44 92,44 Q96,44 96,48 Q96,44 100,44 Q96,44 96,40 Z" 
+          fill="#38bdf8" 
+          style={{ filter: 'drop-shadow(0px 2px 4px rgba(56,189,248,0.25))' }}
+        />
+      </g>
+      <g className="anim-star-3">
+        <path 
+          d="M48,23 Q48,26 45,26 Q48,26 48,29 Q48,26 51,26 Q48,26 48,23 Z" 
           fill="#fbbf24" 
-          opacity="0.95"
-        />
-      </g>
-      <g className="anim-blink-2">
-        <path 
-          d="M95,36 Q95,40 91,40 Q95,40 95,44 Q95,40 99,40 Q95,40 95,36 Z" 
-          fill="#fbbf24" 
-          opacity="0.9"
+          opacity="0.8"
         />
       </g>
 
-      {/* 5. Floating Coin (behind the card for layering depth) */}
-      <g className="anim-float-coin" style={{ filter: 'drop-shadow(0px 3px 5px rgba(217,119,6,0.25))' }}>
-        <circle 
-          cx="78" 
-          cy="74" 
-          r="9" 
-          fill="url(#goldGrad)" 
-          stroke="#f59e0b" 
-          strokeWidth="0.8" 
-        />
-        <circle 
-          cx="78" 
-          cy="74" 
-          r="6.5" 
-          fill="none" 
-          stroke="#fef08a" 
-          strokeWidth="0.6" 
-          strokeDasharray="1.2 0.8" 
-        />
-        {/* Coin center detail (glowing dollar sign) */}
-        <path 
-          d="M77,72.2 C77,71.7 77.5,71.3 78,71.3 C78.5,71.3 79,71.7 79,72.2 C79,72.7 78.5,73 78,73.4 C77.5,73.8 77,74.1 77,74.8 C77,75.3 77.5,75.7 78,75.7 C78.5,75.7 79,75.3 79,74.8" 
-          fill="none" 
-          stroke="#fef08a" 
-          strokeWidth="0.8" 
-          strokeLinecap="round" 
-        />
-        <line x1="78" y1="70.5" x2="78" y2="76.5" stroke="#fef08a" strokeWidth="0.8" strokeLinecap="round" />
+      {/* 4. Floating stacked Gold Coins (Adding volume and financial theme) */}
+      <g className="anim-float-coins" style={{ filter: 'drop-shadow(0px 4px 6px rgba(0,0,0,0.08))' }}>
+        {/* Flat coin 1 (Base stack) */}
+        <ellipse cx="78" cy="79" rx="10" ry="3.5" fill="url(#goldGrad)" stroke="#d97706" strokeWidth="0.6" />
+        <ellipse cx="78" cy="77.5" rx="10" ry="3.5" fill="url(#goldGradLight)" stroke="#f59e0b" strokeWidth="0.4" />
+
+        {/* Flat coin 2 (Stacked middle) */}
+        <ellipse cx="74" cy="74.5" rx="10" ry="3.5" fill="url(#goldGrad)" stroke="#d97706" strokeWidth="0.6" />
+        <ellipse cx="74" cy="73" rx="10" ry="3.5" fill="url(#goldGradLight)" stroke="#f59e0b" strokeWidth="0.4" />
+
+        {/* Standing coin 3 (Upright showing emblem details) */}
+        <g style={{ filter: 'drop-shadow(0px 2px 4px rgba(217,119,6,0.3))' }}>
+          <circle cx="86" cy="69" r="9" fill="url(#goldGrad)" stroke="#d97706" strokeWidth="0.7" />
+          <circle cx="86" cy="69" r="6.8" fill="none" stroke="#fef08a" strokeWidth="0.5" strokeDasharray="1.2 0.8" />
+          {/* Standing coin currency emblem */}
+          <path 
+            d="M85,67.2 C85,66.7 85.5,66.3 86,66.3 C86.5,66.3 87,66.7 87,67.2 C87,67.7 86.5,68 86,68.4 C85.5,68.8 85,69.1 85,69.8 C85,70.3 85.5,70.7 86,70.7 C86.5,70.7 87,70.3 87,69.8" 
+            fill="none" 
+            stroke="#fef08a" 
+            strokeWidth="0.8" 
+            strokeLinecap="round" 
+          />
+          <line x1="86" y1="65.5" x2="86" y2="71.5" stroke="#fef08a" strokeWidth="0.8" strokeLinecap="round" />
+        </g>
       </g>
 
-      {/* 6. Floating Glassmorphic Credit Card (floating together in a single animated group) */}
-      <g className="anim-float-card" style={{ filter: 'drop-shadow(0px 5px 10px rgba(0,0,0,0.12))' }}>
-        {/* Main card body with glassmorphic semi-transparency and smooth border */}
+      {/* 5. Floating Glassmorphic Credit Card (floating together in a single animated group) */}
+      <g className="anim-float-card" style={{ filter: 'drop-shadow(0px 7px 15px rgba(15,23,42,0.18))' }}>
+        {/* Main card body with glassmorphic linear gradient and smooth border */}
         <rect 
-          x="42" 
-          y="44" 
-          width="36" 
-          height="26" 
-          rx="5" 
+          x="36" 
+          y="38" 
+          width="40" 
+          height="28" 
+          rx="6" 
           fill="url(#cardGrad)" 
-          fillOpacity="0.9"
-          stroke="rgba(255,255,255,0.4)" 
+          fillOpacity="0.95"
+          stroke="rgba(255,255,255,0.45)" 
           strokeWidth="1.2" 
         />
         
-        {/* Chip element */}
+        {/* Gloss glass reflection overlay */}
         <rect 
-          x="47" 
-          y="49.5" 
-          width="6.5" 
-          height="4.5" 
-          rx="1" 
-          fill="#fef08a" 
-          opacity="0.9"
+          x="36" 
+          y="38" 
+          width="40" 
+          height="28" 
+          rx="6" 
+          fill="url(#shineGrad)" 
+          pointerEvents="none"
         />
+
+        {/* Detailed Premium gold chip (with micro lines) */}
+        <rect 
+          x="42" 
+          y="43.5" 
+          width="8" 
+          height="5.5" 
+          rx="1.2" 
+          fill="url(#goldGrad)" 
+          stroke="#f59e0b" 
+          strokeWidth="0.5" 
+        />
+        <line x1="46" y1="43.5" x2="46" y2="49" stroke="#d97706" strokeWidth="0.4" />
+        <line x1="42" y1="46.2" x2="50" y2="46.2" stroke="#d97706" strokeWidth="0.4" />
         
         {/* Magnetic stripe/decorative lines on card */}
         <line 
-          x1="47" 
-          y1="58" 
-          x2="63" 
-          y2="58" 
-          stroke="rgba(255,255,255,0.55)" 
+          x1="42" y1="53" 
+          x2="52" 
+          y2="53" 
+          stroke="rgba(255,255,255,0.65)" 
           strokeWidth="1.2" 
           strokeLinecap="round" 
         />
         <line 
-          x1="47" 
-          y1="62" 
-          x2="56" 
-          y2="62" 
-          stroke="rgba(255,255,255,0.4)" 
+          x1="42" y1="57" 
+          x2="60" 
+          y2="57" 
+          stroke="rgba(255,255,255,0.45)" 
           strokeWidth="1.2" 
           strokeLinecap="round" 
         />
         
-        {/* Sleek card logos in corner */}
-        <circle cx="69.5" cy="61" r="2" fill="rgba(255,255,255,0.85)" />
-        <circle cx="72.5" cy="61" r="2" fill="rgba(255,255,255,0.45)" />
+        {/* Iridescent laser hologram badge logo in lower corner */}
+        <circle cx="67.5" cy="57" r="3" fill="#10b981" fillOpacity="0.8" />
+        <circle cx="70.5" cy="57" r="3" fill="#6366f1" fillOpacity="0.6" />
+        <circle cx="69" cy="57" r="1.5" fill="#f43f5e" fillOpacity="0.5" />
       </g>
     </svg>
   );
