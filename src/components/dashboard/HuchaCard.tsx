@@ -91,14 +91,14 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete })
         <div className="flex items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 shrink-0">
           <button
             onClick={() => onEdit(hucha)}
-            className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-600 dark:bg-slate-800 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400 transition-all duration-200 active:scale-90 cursor-pointer"
+            className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-600 dark:bg-slate-800 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm cursor-pointer"
             title="Editar cartera"
           >
             <Edit3 className="w-4 h-4" />
           </button>
           <button
             onClick={() => onDelete(hucha)}
-            className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-500/10 text-slate-400 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-all duration-200 active:scale-90 cursor-pointer"
+            className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-500/10 text-slate-400 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm cursor-pointer"
             title="Eliminar cartera"
           >
             <Trash2 className="w-4 h-4" />

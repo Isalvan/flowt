@@ -17,8 +17,19 @@ export const Card: React.FC<CardProps> = ({
   ...props
 }) => {
   const isGradient = className.includes('bg-gradient-');
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!glow) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    e.currentTarget.style.setProperty('--x', `${x}px`);
+    e.currentTarget.style.setProperty('--y', `${y}px`);
+  };
+
   return (
     <div
+      onMouseMove={handleMouseMove}
       className={`
         ${isGradient ? '' : 'glass-panel'}
         rounded-2xl 
@@ -29,6 +40,7 @@ export const Card: React.FC<CardProps> = ({
         ease-out 
         relative 
         overflow-hidden
+        group
         ${hoverable ? 'hover:-translate-y-1 hover:shadow-lg hover:border-white/80 dark:hover:border-white/20' : ''}
         ${className}
       `}
@@ -43,7 +55,7 @@ export const Card: React.FC<CardProps> = ({
       {/* Background radial gradient element for subtle internal glows */}
       {glow && (
         <div 
-          className="absolute -inset-px -z-10 rounded-2xl opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+          className="absolute -inset-px -z-10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
           style={{
             background: `radial-gradient(400px circle at var(--x, 0px) var(--y, 0px), ${glowColor}, transparent 80%)`
           }}

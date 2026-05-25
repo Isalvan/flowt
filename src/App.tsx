@@ -553,10 +553,10 @@ const AppContent: React.FC = () => {
           <nav className="hidden md:flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200/40 dark:border-white/5 rounded-2xl">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
                 activeTab === 'dashboard'
                   ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
               }`}
             >
               <TrendingUp size={14} />
@@ -564,10 +564,10 @@ const AppContent: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('suscripciones')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
                 activeTab === 'suscripciones'
                   ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
               }`}
             >
               <Layers size={14} />
@@ -575,10 +575,10 @@ const AppContent: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('calendario')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
                 activeTab === 'calendario'
                   ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
               }`}
             >
               <CalendarDays size={14} />
@@ -586,10 +586,10 @@ const AppContent: React.FC = () => {
             </button>
             <button
               onClick={() => secureAction(() => setActiveTab('manual'))}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
                 activeTab === 'manual'
                   ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
               }`}
             >
               <Mail size={14} />
@@ -608,10 +608,10 @@ const AppContent: React.FC = () => {
             {/* Privacy switch */}
             <button
               onClick={handlePrivacyToggle}
-              className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer hover:scale-95 active:scale-90 ${
+              className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md ${
                 isLocked
-                  ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/20 animate-pulse'
-                  : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
+                  ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/20 animate-pulse hover:shadow-rose-500/10'
+                  : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 hover:shadow-indigo-500/10'
               }`}
               title={isLocked ? (hasPin ? 'Desbloquear datos con PIN' : 'Crear PIN de privacidad') : 'Bloquear datos (Ocultar saldos)'}
             >
@@ -621,7 +621,7 @@ const AppContent: React.FC = () => {
             {/* Theme switch */}
             <button
               onClick={toggleTheme}
-              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-450 border border-slate-200/30 dark:border-white/5 flex items-center justify-center transition-all cursor-pointer hover:scale-95 active:scale-90"
+              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-450 border border-slate-200/30 dark:border-white/5 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md hover:shadow-slate-500/5"
               title={theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
@@ -637,7 +637,7 @@ const AppContent: React.FC = () => {
                 {forceDemo && (
                   <button
                     onClick={() => setForceDemo(false)}
-                    className="w-8 h-8 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                    className="w-8 h-8 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md hover:shadow-rose-500/10"
                     title="Salir del modo Demo y volver al login"
                   >
                     <LogOut size={14} />
@@ -648,7 +648,7 @@ const AppContent: React.FC = () => {
               user && (
                 <div className="flex items-center gap-2.5 pl-2.5 pr-1.5 py-1 rounded-2xl bg-slate-150/40 dark:bg-slate-900 border border-slate-200/30 dark:border-white/5">
                   <div className="flex flex-col text-right shrink-0">
-                    <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 leading-tight">
+                     <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 leading-tight">
                       {user.displayName || 'Usuario'}
                     </span>
                     <span className="text-[8px] font-semibold text-slate-400 leading-none">
@@ -658,7 +658,7 @@ const AppContent: React.FC = () => {
                   
                   <button
                     onClick={handleLogout}
-                    className="w-8 h-8 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                    className="w-8 h-8 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md hover:shadow-rose-500/10"
                     title="Cerrar sesión"
                   >
                     <LogOut size={14} />
