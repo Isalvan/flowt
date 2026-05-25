@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { type Suscripcion } from '../../types';
 import { Card } from '../common/Card';
 import { 
@@ -7,7 +7,8 @@ import {
   ChevronRight, 
   Clock, 
   Info,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
 import { usePrivacy } from '../../context/PrivacyContext';
 
@@ -23,15 +24,23 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
 
   const activeSubs = suscripciones.filter(s => s.activa);
 
+  // Automatically select today's day when month changes if it exists in that month
+  useEffect(() => {
+    const today = new Date();
+    if (today.getMonth() === currentDate.getMonth() && today.getFullYear() === currentDate.getFullYear()) {
+      setSelectedDay(today.getDate());
+    } else {
+      setSelectedDay(null);
+    }
+  }, [currentDate]);
+
   // Month navigation helpers
   const prevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-    setSelectedDay(null);
   };
 
   const nextMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-    setSelectedDay(null);
   };
 
   // Month properties
@@ -43,7 +52,6 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   
   // Starting day index of the month (Monday-indexed: 0 = Mon, 6 = Sun)
-  // standard js: 0 = Sun, 1 = Mon...
   const rawStartDay = new Date(year, month, 1).getDay();
   const startDayOffset = rawStartDay === 0 ? 6 : rawStartDay - 1;
 
@@ -93,21 +101,21 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
         </div>
 
         {/* Month selector controls */}
-        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 p-1 border border-white/5 rounded-xl self-start sm:self-auto shadow-sm">
+        <div className="flex items-center gap-1 bg-white/40 dark:bg-slate-950/20 p-1 border border-slate-200/50 dark:border-white/5 rounded-2xl self-start sm:self-auto shadow-inner backdrop-blur-md">
           <button
             onClick={prevMonth}
-            className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+            className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm active:scale-95 transition-all cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           
-          <span className="font-extrabold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider px-4 py-1 text-center min-w-[140px] capitalize">
+          <span className="font-black text-xs text-slate-700 dark:text-slate-350 uppercase tracking-[0.15em] px-4 py-1.5 text-center min-w-[150px] capitalize font-title">
             {monthName}
           </span>
 
           <button
             onClick={nextMonth}
-            className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+            className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm active:scale-95 transition-all cursor-pointer"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -121,9 +129,9 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
         <Card className="lg:col-span-2 bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-xl p-5 sm:p-6">
           
           {/* Week Headers */}
-          <div className="grid grid-cols-7 gap-2.5 mb-4 text-center font-extrabold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+          <div className="grid grid-cols-7 gap-2.5 mb-4 text-center font-black text-[9px] text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] bg-slate-100/40 dark:bg-slate-950/10 py-2 rounded-xl border border-slate-150/20 dark:border-white/5 shadow-inner">
             {daysOfWeek.map(day => (
-              <span key={day} className="py-1">{day}</span>
+              <span key={day} className="py-0.5">{day}</span>
             ))}
           </div>
 
@@ -140,48 +148,55 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
                   key={idx}
                   onClick={() => handleSelectDay(dayNum)}
                   className={`
-                    min-h-[72px] 
-                    p-2 
+                    min-h-[78px] 
+                    p-2.5 
                     rounded-2xl 
                     border 
                     flex 
                     flex-col 
                     justify-between 
                     transition-all 
-                    duration-200 
+                    duration-300 
                     relative
-                    ${dayNum ? 'cursor-pointer hover:border-indigo-500/30' : 'bg-transparent border-transparent pointer-events-none'}
+                    ${dayNum ? 'cursor-pointer hover:border-indigo-500/40 hover:bg-white/90 dark:hover:bg-slate-950/30 hover:scale-[1.03] hover:shadow-md' : 'bg-transparent border-transparent pointer-events-none'}
                     ${isSelected 
-                      ? 'border-indigo-500 bg-indigo-500/10 shadow-sm' 
+                      ? 'border-indigo-500 bg-indigo-500/10 dark:bg-indigo-500/5 shadow-[0_4px_12px_rgba(99,102,241,0.15)] ring-2 ring-indigo-500/25 scale-[1.02]' 
                       : dayNum 
                         ? isToday 
-                          ? 'border-emerald-500 bg-emerald-500/5' 
-                          : 'border-white/5 bg-white/40 dark:bg-slate-900/15' 
+                          ? 'border-emerald-500/70 bg-emerald-500/5 shadow-[0_0_10px_rgba(16,185,129,0.08)] ring-1 ring-emerald-500/10' 
+                          : 'border-slate-150/70 dark:border-white/5 bg-white/45 dark:bg-slate-900/15' 
                         : 'border-transparent bg-transparent'
                     }
                   `}
                 >
                   {/* Day number */}
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs font-extrabold tabular-nums ${
-                      isToday ? 'text-emerald-600 dark:text-emerald-400 font-black bg-emerald-500/15 w-5 h-5 rounded-full flex items-center justify-center' : 'text-slate-600 dark:text-slate-400'
+                    <span className={`text-[11px] font-black tabular-nums transition-colors ${
+                      isToday 
+                        ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 w-5.5 h-5.5 rounded-full flex items-center justify-center border border-emerald-500/20' 
+                        : isSelected 
+                          ? 'text-indigo-600 dark:text-indigo-400 font-extrabold'
+                          : 'text-slate-650 dark:text-slate-350 font-bold'
                     }`}>
                       {dayNum}
                     </span>
 
                     {isToday && (
-                      <span className="text-[7px] font-black uppercase text-emerald-600 dark:text-emerald-450 tracking-wider">Hoy</span>
+                      <span className="text-[7.5px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20">Hoy</span>
                     )}
                   </div>
 
-                  {/* Bullet color indicators for day's subscriptions */}
+                  {/* Bullet color indicators with premium glow for day's subscriptions */}
                   {hasSubs && (
-                    <div className="flex flex-wrap gap-1 mt-2.5 justify-start max-w-full">
+                    <div className="flex flex-wrap gap-1.5 mt-2 justify-start max-w-full">
                       {daySubs.map(sub => (
                         <span 
                           key={sub.id} 
-                          className="w-2 h-2 rounded-full shrink-0" 
-                          style={{ backgroundColor: sub.color }}
+                          className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20 shadow-inner" 
+                          style={{ 
+                            backgroundColor: sub.color,
+                            boxShadow: `0 0 6px ${sub.color}aa`
+                          }}
                           title={`${sub.nombre}: ${formatCurrency(sub.importe)}`}
                         />
                       ))}
@@ -198,7 +213,7 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
           
           {/* Selected day details panel */}
           <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-lg p-5">
-            <h3 className="font-extrabold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-widest border-b border-white/10 pb-3 mb-4 flex items-center gap-1.5">
+            <h3 className="font-extrabold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-widest border-b border-slate-150/40 dark:border-white/5 pb-3 mb-4 flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-indigo-500" />
               Detalles: Día {selectedDay || today.getDate()}
             </h3>
@@ -206,15 +221,21 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
             {selectedDaySubs.length > 0 ? (
               <div className="space-y-3">
                 {selectedDaySubs.map(sub => (
-                  <div key={sub.id} className="p-3.5 rounded-2xl bg-white/40 dark:bg-slate-900/20 border border-white/5 flex items-center justify-between shadow-sm">
+                  <div key={sub.id} className="p-3.5 rounded-2xl bg-white/40 dark:bg-slate-900/20 border border-slate-150/40 dark:border-white/5 flex items-center justify-between shadow-sm hover:scale-[1.02] transition-transform duration-250">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: sub.color }} />
-                        <h4 className="font-extrabold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-tight truncate">
+                        <span 
+                          className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/10" 
+                          style={{ 
+                            backgroundColor: sub.color,
+                            boxShadow: `0 0 5px ${sub.color}80`
+                          }} 
+                        />
+                        <h4 className="font-extrabold text-xs text-slate-800 dark:text-slate-205 uppercase tracking-tight truncate">
                           {sub.nombre}
                         </h4>
                       </div>
-                      <span className="inline-block text-[8px] font-bold text-indigo-500 uppercase tracking-wider mt-1 bg-indigo-500/5 px-2 py-0.5 rounded-lg border border-indigo-500/10">
+                      <span className="inline-block text-[8px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mt-1 bg-indigo-500/5 px-2 py-0.5 rounded-lg border border-indigo-500/10">
                         {sub.categoria}
                       </span>
                     </div>
@@ -223,7 +244,7 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
                       <span className="text-xs font-black text-slate-800 dark:text-white tabular-nums">
                         {formatCurrency(sub.mi_parte != null ? sub.mi_parte : sub.importe)}
                       </span>
-                      <p className="text-[8px] text-slate-400 uppercase font-semibold leading-none mt-0.5">
+                      <p className="text-[8px] text-slate-400 dark:text-slate-500 uppercase font-bold leading-none mt-0.5">
                         {sub.frecuencia}
                       </p>
                     </div>
@@ -231,10 +252,10 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center p-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-900/10 text-center">
-                <Info className="w-6 h-6 text-slate-355 dark:text-slate-650 mb-2" />
-                <p className="font-bold text-[10px] text-slate-400 dark:text-slate-600 uppercase tracking-widest">Sin Cargos</p>
-                <p className="text-[9px] text-slate-400 mt-0.5">No hay cargos de suscripciones programados para este día</p>
+              <div className="flex flex-col items-center justify-center p-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-900/10 text-center">
+                <Info className="w-6 h-6 text-slate-350 dark:text-slate-650 mb-2" />
+                <p className="font-black text-[10px] text-slate-400 dark:text-slate-600 uppercase tracking-widest">Sin Cargos</p>
+                <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">No hay cargos programados para este día</p>
               </div>
             )}
           </Card>
@@ -242,7 +263,7 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
           {/* Full Month Agenda listing card */}
           <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-lg p-5 flex-1 flex flex-col justify-between">
             <div>
-              <h3 className="font-extrabold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-widest border-b border-white/10 pb-3 mb-4 flex items-center gap-1.5">
+              <h3 className="font-extrabold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-widest border-b border-slate-150/40 dark:border-white/5 pb-3 mb-4 flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-indigo-500" />
                 Agenda Mensual
               </h3>
@@ -253,18 +274,24 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
                     <div 
                       key={sub.id}
                       onClick={() => setSelectedDay(sub.dia_pago)}
-                      className={`flex items-center justify-between p-2.5 rounded-xl border transition-all duration-150 cursor-pointer ${
+                      className={`flex items-center justify-between p-2.5 rounded-2xl border transition-all duration-200 cursor-pointer ${
                         selectedDay === sub.dia_pago 
-                          ? 'border-indigo-500 bg-indigo-500/5' 
-                          : 'border-transparent hover:bg-white/30 dark:hover:bg-slate-900/15'
+                          ? 'border-indigo-500/40 bg-indigo-500/5' 
+                          : 'border-transparent hover:bg-white/50 dark:hover:bg-slate-950/20 hover:scale-[1.01]'
                       }`}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[11px] font-bold text-slate-450 dark:text-slate-500 tabular-nums shrink-0 w-5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-[11px] font-black text-indigo-500/80 dark:text-indigo-400/80 bg-indigo-500/5 px-2 py-0.5 rounded-lg border border-indigo-500/10 tabular-nums shrink-0">
                           D{sub.dia_pago}
                         </span>
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: sub.color }} />
-                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tight truncate">
+                        <span 
+                          className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/10" 
+                          style={{ 
+                            backgroundColor: sub.color,
+                            boxShadow: `0 0 5px ${sub.color}60`
+                          }} 
+                        />
+                        <span className="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight truncate">
                           {sub.nombre}
                         </span>
                       </div>
@@ -278,16 +305,16 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
                   <div className="flex flex-col items-center justify-center p-6 text-center">
                     <AlertCircle className="w-6 h-6 text-slate-300 dark:text-slate-700 mb-2" />
                     <p className="font-bold text-[10px] text-slate-400 dark:text-slate-650 uppercase tracking-widest">Agenda Vacía</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5">No hay suscripciones activas registradas en la agenda</p>
+                    <p className="text-[9px] text-slate-400 mt-0.5">No hay suscripciones activas registradas</p>
                   </div>
                 )}
               </div>
             </div>
 
             {sortedAgenda.length > 0 && (
-              <div className="mt-4 pt-3.5 border-t border-white/5 flex justify-between items-center text-xs font-semibold text-slate-450 dark:text-slate-550 uppercase tracking-wider">
-                <span>Total Agenda:</span>
-                <span className="font-extrabold text-slate-800 dark:text-slate-200 tabular-nums">
+              <div className="mt-4 pt-3.5 border-t border-slate-150/40 dark:border-white/5 flex justify-between items-center text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] shrink-0">
+                <span className="flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> Total Agenda:</span>
+                <span className="font-black text-slate-850 dark:text-slate-100 tabular-nums text-sm">
                   {formatCurrency(
                     sortedAgenda.reduce((s, sub) => s + (sub.mi_parte != null ? sub.mi_parte : sub.importe), 0)
                   )}
