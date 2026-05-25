@@ -79,7 +79,7 @@ export const EmptyIllustration: React.FC = () => {
       
       <defs>
         {/* Glow Filters */}
-        <filter id="meshGlow" x="-30%" y="-30%" width="160%" height="160%">
+        <filter id="meshGlow" filterUnits="userSpaceOnUse" x="-40" y="-40" width="200" height="200">
           <feGaussianBlur stdDeviation="11" result="blur" />
         </filter>
 
