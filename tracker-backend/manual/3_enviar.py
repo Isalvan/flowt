@@ -2,13 +2,49 @@ import os
 import json
 import hashlib
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 # Añadir el directorio padre al path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import main as backend_main
 from firebase_admin import firestore
+
+def parse_date_string(raw_fecha):
+    if not raw_fecha:
+        return datetime.now(timezone.utc)
+    
+    try:
+        # Si tiene formato de header de correo (contiene coma o similar)
+        if ',' in raw_fecha or ('+' in raw_fecha and len(raw_fecha) > 15):
+            try:
+                return parsedate_to_datetime(raw_fecha)
+            except Exception:
+                pass
+                
+        # Intentar formato ISO (por ejemplo, el de Gemini)
+        if 'T' in raw_fecha:
+            return datetime.fromisoformat(raw_fecha.replace('Z', '+00:00'))
+            
+        elif '-' in raw_fecha:
+            # Formato YYYY-MM-DD
+            parts = raw_fecha.split('-')
+            if len(parts) == 3:
+                return datetime(int(parts[0]), int(parts[1]), int(parts[2]), tzinfo=timezone.utc)
+                
+        elif '/' in raw_fecha:
+            # Formato DD/MM/YYYY
+            parts = raw_fecha.split('/')
+            if len(parts) == 3:
+                day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
+                if year < 100: year += 2000
+                return datetime(year, month, day, tzinfo=timezone.utc)
+                
+    except Exception as e:
+        print(f"Error parsing date {raw_fecha}: {e}")
+        
+    return datetime.now(timezone.utc)
 
 def main():
     # Inicializar configuración y Firebase
@@ -53,7 +89,7 @@ def main():
             "concepto": data.get("descripcion") or data.get("concepto") or "Movimiento Manual",
             "importe": float(data["importe"]),
             "moneda": data.get("moneda", "EUR"),
-            "fecha_operacion": data["fecha"],
+            "fecha_operacion": parse_date_string(data["fecha"]),
             "confianza": data.get("confianza", "manual"),
             "version_prompt": "manual_v1",
             "created_at": firestore.SERVER_TIMESTAMP,
