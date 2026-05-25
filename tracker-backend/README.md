@@ -111,7 +111,85 @@ python main.py
 
 ---
 
-## 📅 Sincronización Automática Diaria
-Para no tener que hacer doble clic en `start.bat` a mano, puedes programar la ejecución en tu sistema operativo:
-* **Windows**: Abre el *"Programador de Tareas"*, crea una tarea básica que apunte a ejecutar el archivo `start.bat` todos los días a la hora que prefieras (por ejemplo, a las 9:00 AM o al iniciar sesión en el ordenador).
+## 📅 Sincronización Automática
+
+Para no tener que ejecutar el script a mano, tienes dos opciones: ejecutarlo localmente en tu ordenador o desplegarlo de forma gratuita en la nube con **GitHub Actions**.
+
+### Opción A: Programación Local (Tu ordenador)
+* **Windows**: Abre el *"Programador de Tareas"*, crea una tarea básica que apunte a ejecutar el archivo `start.bat` todos los días a la hora que prefieras (por ejemplo, al iniciar sesión).
 * **Mac/Linux**: Configura un `cron job` de sistema que apunte a ejecutar el script `main.py` utilizando el Python de la carpeta `.venv/`.
+
+---
+
+### Opción B: Ejecución en la Nube con GitHub Actions (Servidor 24/7 Gratis) 🤖
+Puedes subir el backend a un repositorio **privado** de GitHub y programar un flujo automatizado para que se ejecute solo (por ejemplo, cada hora) sin consumir recursos de tu ordenador.
+
+> [!CAUTION]
+> **SEGURIDAD CRÍTICA**: El repositorio de GitHub **DEBE ser 100% privado**. Si compartes o publicas este repositorio con tus secretos, cualquiera podría acceder a tu base de datos de Firebase o a la lectura de tu correo Gmail.
+
+#### Paso 1: Generar el token inicial en local
+Debes iniciar el script en tu ordenador al menos una vez siguiendo la sección *"Cómo arrancar el Script por primera vez"*. Esto generará el archivo `token.json` en tu carpeta local. **Este archivo es obligatorio** para que el servidor de GitHub pueda saltarse el inicio de sesión del navegador.
+
+#### Paso 2: Crear los Secretos de GitHub
+Ve a tu repositorio privado en GitHub ➔ pestaña **Settings** ➔ menú izquierdo **Secrets and variables** ➔ **Actions** ➔ botón **New repository secret**.
+
+Crea los siguientes secretos introduciendo los valores correspondientes:
+
+1. `BANK_SENDER`: El correo remitente del banco (ej. `alertas@tu-banco.com`).
+2. `UID_PROPIETARIO`: Tu UID único de usuario de Firebase.
+3. `GEMINI_API_KEY`: Tu clave de Google Gemini API.
+4. `FIREBASE_KEY_JSON`: Abre tu archivo `serviceAccountKey.json` con el bloc de notas, copia todo su texto y pégalo aquí.
+5. `GMAIL_CREDENTIALS_JSON`: Abre tu archivo `credentials.json`, copia todo su texto y pégalo aquí.
+6. `GMAIL_TOKEN_JSON`: Abre tu archivo `token.json` recién generado en local, copia todo su texto y pégalo aquí.
+
+#### Paso 3: Crear el archivo Workflow
+En la raíz de tu repositorio de GitHub, crea la estructura de carpetas `.github/workflows/` y dentro crea un archivo llamado `flowt-sync.yml` con el siguiente contenido:
+
+```yaml
+name: Sincronizador Financiero Flowt
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Se ejecuta automáticamente cada hora
+  workflow_dispatch: # Permite pulsar un botón en GitHub para forzar la ejecución manual
+
+jobs:
+  run-tracker:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Descargar Código
+      uses: actions/checkout@v4
+
+    - name: Configurar Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Instalar Dependencias
+      run: |
+        pip install -r requirements.txt
+
+    - name: Reconstruir Archivos de Configuración y Claves
+      run: |
+        # Generar archivo .env temporal
+        echo "BANK_SENDER=${{ secrets.BANK_SENDER }}" >> .env
+        echo "UID_PROPIETARIO=${{ secrets.UID_PROPIETARIO }}" >> .env
+        echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+        echo "MAX_EMAILS_PER_RUN=15" >> .env
+        echo "MIN_CONFIDENCE=alta" >> .env
+        echo "AI_MODEL=gemini-3-flash-preview" >> .env
+        
+        # Reconstruir las llaves de seguridad JSON
+        echo '${{ secrets.FIREBASE_KEY_JSON }}' > serviceAccountKey.json
+        echo '${{ secrets.GMAIL_CREDENTIALS_JSON }}' > credentials.json
+        echo '${{ secrets.GMAIL_TOKEN_JSON }}' > token.json
+
+    - name: Ejecutar Extractor
+      run: |
+        python main.py
+```
+
+Una vez guardado y subido a la rama principal de GitHub, tu extractor financiero de Flowt estará funcionando de forma totalmente autónoma en la nube cada hora.
+
