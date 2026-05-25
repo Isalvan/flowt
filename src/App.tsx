@@ -66,13 +66,9 @@ const FlowtLogoSVG: React.FC<{ size?: number }> = ({ size = 20 }) => (
     `}</style>
     
     <defs>
-      <linearGradient id="piggyGlass" x1="6.5" y1="7.5" x2="20.5" y2="20.8" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="rgba(99, 102, 241, 0.8)" />
-        <stop offset="100%" stopColor="rgba(14, 165, 233, 0.85)" />
-      </linearGradient>
-      <linearGradient id="piggyStroke" x1="6.5" y1="7.5" x2="20.5" y2="20.8" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="rgba(255, 255, 255, 0.55)" />
-        <stop offset="100%" stopColor="rgba(56, 189, 248, 0.65)" />
+      <linearGradient id="piggyStroke" x1="5" y1="5" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#6366f1" />
+        <stop offset="100%" stopColor="#38bdf8" />
       </linearGradient>
       <linearGradient id="logoGold" x1="12" y1="2" x2="16" y2="6" gradientUnits="userSpaceOnUse">
         <stop offset="0%" stopColor="#fbbf24" />
@@ -81,33 +77,60 @@ const FlowtLogoSVG: React.FC<{ size?: number }> = ({ size = 20 }) => (
     </defs>
     
     {/* Tail */}
-    <path d="M20.5 13c1-.6 1.8-.4 1.8.3s-.8 1.2-1.8.3" fill="none" stroke="rgba(14, 165, 233, 0.6)" strokeWidth="1" />
+    <path 
+      d="M20.5 13c1-.6 1.8-.4 1.8.3s-.8 1.2-1.8.3" 
+      fill="none" 
+      stroke="url(#piggyStroke)" 
+      strokeWidth="1.5" 
+      strokeLinecap="round" 
+    />
     
     {/* Snout */}
-    <path d="M6.5 13H5.5a0.8 0 0 0-0.8 0.8v1.4a0.8 0 0 0 0.8 0.8h1" fill="none" stroke="rgba(99, 102, 241, 0.8)" strokeWidth="1.2" strokeLinecap="round" />
+    <path 
+      d="M6.5 13H5.5a0.8 0 0 0-0.8 0.8v1.4a0.8 0 0 0 0.8 0.8h1" 
+      fill="none" 
+      stroke="url(#piggyStroke)" 
+      strokeWidth="1.5" 
+      strokeLinecap="round" 
+    />
     
     {/* Ears */}
-    <path d="M10 7.5l-1.5-2.2A0.8 0 0 0 7.8 5c-.4 0-.8.4-.8.8v1.7" fill="none" stroke="rgba(99, 102, 241, 0.8)" strokeWidth="1.2" strokeLinecap="round" />
+    <path 
+      d="M10 7.5l-1.5-2.2A0.8 0 0 0 7.8 5c-.4 0-.8.4-.8.8v1.7" 
+      fill="none" 
+      stroke="url(#piggyStroke)" 
+      strokeWidth="1.5" 
+      strokeLinecap="round" 
+    />
     
     {/* Main Body */}
     <path 
       d="M20.5 14A6.5 6.5 0 0 0 14 7.5h-1A6.5 6.5 0 0 0 6.5 14c0 2 1 3.8 2.5 5v1.8a1 1 0 0 0 2 0v-.8h5v.8a1 1 0 0 0 2 0V19c1.5-1.2 2.5-3 2.5-5z" 
-      fill="url(#piggyGlass)" 
+      fill="none" 
       stroke="url(#piggyStroke)" 
-      strokeWidth="1.2" 
+      strokeWidth="1.5" 
+      strokeLinejoin="round"
     />
     
     {/* Slot */}
-    <line x1="12" y1="7.5" x2="16" y2="7.5" stroke="rgba(255,255,255,0.7)" strokeWidth="1.2" strokeLinecap="round" />
+    <line 
+      x1="12" 
+      y1="7.5" 
+      x2="16" 
+      y2="7.5" 
+      stroke="url(#piggyStroke)" 
+      strokeWidth="1.5" 
+      strokeLinecap="round" 
+    />
     
     {/* Eye */}
-    <circle cx="10" cy="11.5" r="0.6" fill="rgba(255,255,255,0.95)" />
+    <circle cx="10" cy="11.5" r="0.75" fill="#6366f1" />
 
     {/* Gold Coin sliding in with bounce */}
     <circle 
       cx="14" 
       cy="4" 
-      r="2" 
+      r="2.2" 
       fill="url(#logoGold)" 
       stroke="#d97706" 
       strokeWidth="0.5" 
