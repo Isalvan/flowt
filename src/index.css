@@ -7,10 +7,10 @@
 :root {
   --font-body: 'Manrope', 'Segoe UI', sans-serif;
   --font-title: 'Space Grotesk', 'Segoe UI', sans-serif;
-  --bg-a: #f8fbff;
-  --bg-b: #eef4ff;
+  --bg-a: #f4f6fb;
+  --bg-b: #e5ecf9;
   --text-main: #0f172a;
-  --grid-color: rgba(99, 102, 241, 0.04);
+  --grid-color: rgba(99, 102, 241, 0.05);
 }
 
 html {
@@ -100,9 +100,10 @@ body::before {
 }
 
 .glass-panel {
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.64);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
 }
 
 .section-title {
