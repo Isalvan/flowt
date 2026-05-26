@@ -18,6 +18,8 @@ service cloud.firestore {
       allow update: if isAuthenticated() && 
                        resource.data.id_propietario == request.auth.uid &&
                        request.resource.data.id_propietario == resource.data.id_propietario;
+      allow delete: if isAuthenticated() && 
+                       resource.data.id_propietario == request.auth.uid;
     }
 
     match /huchas/{hucha} {
