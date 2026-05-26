@@ -10,6 +10,7 @@
   --bg-a: #f8fbff;
   --bg-b: #eef4ff;
   --text-main: #0f172a;
+  --grid-color: rgba(99, 102, 241, 0.04);
 }
 
 html {
@@ -49,6 +50,20 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: 
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 56px 56px;
+  pointer-events: none;
+  z-index: -2;
+  opacity: 0.85;
 }
 
 .font-title {
@@ -239,6 +254,7 @@ html[data-theme='dark'] body {
   --bg-a: #060c18;
   --bg-b: #0a1426;
   --text-main: #dbe7ff;
+  --grid-color: rgba(99, 102, 241, 0.08);
   background:
     radial-gradient(circle at 8% 0%, rgba(56, 189, 248, 0.18), transparent 36%),
     radial-gradient(circle at 90% 95%, rgba(251, 146, 60, 0.14), transparent 40%),

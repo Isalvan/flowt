@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 
 export const useTheme = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window === 'undefined') return 'light';
+    if (typeof window === 'undefined') return 'dark';
     const saved = window.localStorage.getItem('flowt-theme');
     if (saved === 'dark' || saved === 'light') return saved;
-    // Fallback to system preference
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    // Default to premium dark theme
+    return 'dark';
   });
 
   useEffect(() => {
