@@ -8,6 +8,7 @@ interface ModalProps {
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   closeOnBackdrop?: boolean;
+  hideHeader?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -17,6 +18,7 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   size = 'md',
   closeOnBackdrop = true,
+  hideHeader = false,
 }) => {
   // Listen for escape key to close modal
   useEffect(() => {
@@ -82,22 +84,24 @@ export const Modal: React.FC<ModalProps> = ({
         `}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800/60 mb-4 shrink-0">
-          {title ? (
-            <h3 className="font-title text-xl font-bold text-slate-900 dark:text-white">
-              {title}
-            </h3>
-          ) : (
-            <div />
-          )}
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors duration-150"
-            aria-label="Cerrar modal"
-          >
-            <X size={18} />
-          </button>
-        </div>
+        {!hideHeader && (
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800/60 mb-4 shrink-0">
+            {title ? (
+              <h3 className="font-title text-xl font-bold text-slate-900 dark:text-white">
+                {title}
+              </h3>
+            ) : (
+              <div />
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors duration-150 cursor-pointer"
+              aria-label="Cerrar modal"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
 
         {/* Content */}
         <div className="overflow-y-auto custom-scrollbar flex-1 pr-1 -mr-2">

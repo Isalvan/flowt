@@ -100,7 +100,7 @@ export const DeleteHuchaModal: React.FC<DeleteHuchaModalProps> = ({
 
         {/* Mode Selector */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+          <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">
             Método de Reparto
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -113,15 +113,21 @@ export const DeleteHuchaModal: React.FC<DeleteHuchaModalProps> = ({
                 rounded-xl 
                 border 
                 text-xs 
-                font-bold 
+                font-black 
+                uppercase 
+                tracking-wider
                 flex 
                 items-center 
                 justify-center 
                 gap-2 
                 transition-all
+                duration-200
+                hover:scale-[1.02]
+                active:scale-95
+                cursor-pointer
                 ${mode === 'auto'
-                  ? 'border-sky-500 bg-sky-500/10 text-sky-600 dark:text-sky-400 shadow-sm'
-                  : 'border-slate-200 dark:border-slate-800 bg-white/20 dark:bg-slate-950/20 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/40'
+                  ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                  : 'border-slate-200 dark:border-slate-800/60 bg-white/20 dark:bg-slate-950/20 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/40'
                 }
               `}
             >
@@ -137,15 +143,21 @@ export const DeleteHuchaModal: React.FC<DeleteHuchaModalProps> = ({
                 rounded-xl 
                 border 
                 text-xs 
-                font-bold 
+                font-black 
+                uppercase 
+                tracking-wider
                 flex 
                 items-center 
                 justify-center 
                 gap-2 
                 transition-all
+                duration-200
+                hover:scale-[1.02]
+                active:scale-95
+                cursor-pointer
                 ${mode === 'manual'
-                  ? 'border-sky-500 bg-sky-500/10 text-sky-600 dark:text-sky-400 shadow-sm'
-                  : 'border-slate-200 dark:border-slate-800 bg-white/20 dark:bg-slate-950/20 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/40'
+                  ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                  : 'border-slate-200 dark:border-slate-800/60 bg-white/20 dark:bg-slate-950/20 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/40'
                 }
               `}
             >
@@ -226,14 +238,14 @@ export const DeleteHuchaModal: React.FC<DeleteHuchaModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold tracking-wide uppercase hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors"
+            className="flex-1 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-350 text-xs font-black uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-50 cursor-pointer border border-transparent shadow-sm hover:shadow"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isLoading || (mode === 'manual' && !isBalanced)}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white text-xs font-bold tracking-wide uppercase shadow-md hover:shadow-rose-500/10 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white text-xs font-black uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-rose-500/15 hover:shadow-rose-500/30"
           >
             {isLoading ? (
               <>
