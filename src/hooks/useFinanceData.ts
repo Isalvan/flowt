@@ -1927,6 +1927,171 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
+  const handleDeleteMovimiento = async (mov: Movimiento) => {
+    const amt = Number(mov.importe);
+    const isIngreso = mov.tipo === 'ingreso';
+
+    if (!isFirebaseConfigured) {
+      // 1. MODO DEMO
+      let nextHuchas = [...huchas];
+
+      if (!isIngreso) {
+        // Gasto: revertir sumando de vuelta
+        const hid = mov.hucha_id || huchas.find(h => h.es_principal)?.id || huchas[0]?.id;
+        nextHuchas = nextHuchas.map(h => h.id === hid ? { ...h, saldo_acumulado: Number((h.saldo_acumulado + amt).toFixed(2)) } : h);
+      } else {
+        // Ingreso: revertir restando
+        if (mov.hucha_id) {
+          nextHuchas = nextHuchas.map(h => h.id === mov.hucha_id ? { ...h, saldo_acumulado: Number((h.saldo_acumulado - amt).toFixed(2)) } : h);
+        } else {
+          // Revertir auto-reparto estándar
+          const deltas: Record<string, number> = {};
+          let remaining = amt;
+          // 1. Flat
+          nextHuchas.forEach(h => {
+            if (h.tipo_aportacion === 'flat' && remaining > 0) {
+              const val = h.valor_aportacion || 0;
+              const toAdd = Math.min(val, remaining);
+              deltas[h.id] = toAdd;
+              remaining -= toAdd;
+            }
+          });
+          // 2. Porcentaje
+          nextHuchas.forEach(h => {
+            if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
+              const perc = h.valor_aportacion || 0;
+              const share = amt * (perc / 100);
+              const toAdd = Math.min(share, remaining);
+              deltas[h.id] = (deltas[h.id] || 0) + toAdd;
+              remaining -= toAdd;
+            }
+          });
+          // 3. Resto
+          const resto = nextHuchas.find(h => h.tipo_aportacion === 'resto') || nextHuchas.find(h => h.es_principal) || nextHuchas[0];
+          if (resto && remaining > 0) {
+            deltas[resto.id] = (deltas[resto.id] || 0) + remaining;
+          }
+          // Redirigir desbordamiento (topes)
+          const { adjusted: finalDeltas } = redirectOverflowToResto(deltas, nextHuchas);
+          // Restar deltas para revertir
+          nextHuchas = nextHuchas.map(h => {
+            const delta = finalDeltas[h.id] || 0;
+            return { ...h, saldo_acumulado: Number((h.saldo_acumulado - delta).toFixed(2)) };
+          });
+        }
+      }
+
+      const nextMovs = movimientos.filter(m => m.id !== mov.id);
+      const nextStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
+      if (isIngreso) nextStats.total_ingresos = Math.max(0, nextStats.total_ingresos - amt);
+      else nextStats.total_gastos = Math.max(0, nextStats.total_gastos - amt);
+
+      saveDemoState(nextMovs, nextHuchas, suscripciones, nextStats);
+      showToast('Movimiento eliminado', 'success');
+      return;
+    }
+
+    // 2. MODO FIREBASE
+    if (!user) return;
+    try {
+      await runTransaction(db, async (transaction) => {
+        const movRef = doc(db, 'movimientos', mov.id);
+        const statsRef = doc(db, 'stats', user.uid);
+        const statsSnap = await transaction.get(statsRef);
+        const currentStats = statsSnap.data() || { total_ingresos: 0, total_gastos: 0 };
+
+        if (!isIngreso) {
+          // Gasto: revertir sumando de vuelta
+          const hid = mov.hucha_id || huchas.find(h => h.es_principal)?.id || huchas[0]?.id;
+          if (hid) {
+            const huchaRef = doc(db, 'huchas', hid);
+            const huchaSnap = await transaction.get(huchaRef);
+            if (huchaSnap.exists()) {
+              const bal = huchaSnap.data().saldo_acumulado || 0;
+              transaction.update(huchaRef, { saldo_acumulado: bal + amt, updated_at: serverTimestamp() });
+            }
+          }
+        } else {
+          // Ingreso: revertir restando
+          if (mov.hucha_id) {
+            const huchaRef = doc(db, 'huchas', mov.hucha_id);
+            const huchaSnap = await transaction.get(huchaRef);
+            if (huchaSnap.exists()) {
+              const bal = huchaSnap.data().saldo_acumulado || 0;
+              transaction.update(huchaRef, { saldo_acumulado: bal - amt, updated_at: serverTimestamp() });
+            }
+          } else {
+            // Revertir auto-reparto bancario estándar
+            let remaining = amt;
+            const huchasRefs = huchas.map(h => doc(db, 'huchas', h.id));
+            const huchasSnaps = [];
+            for (const ref of huchasRefs) {
+              huchasSnaps.push(await transaction.get(ref));
+            }
+
+            const distributions: Record<string, number> = {};
+
+            // 1. Flat
+            huchasSnaps.forEach((snap) => {
+              const data = snap.data();
+              if (data && data.tipo_aportacion === 'flat' && remaining > 0) {
+                const val = data.valor_aportacion || 0;
+                const toAdd = Math.min(val, remaining);
+                distributions[snap.id] = toAdd;
+                remaining -= toAdd;
+              }
+            });
+            // 2. Porcentaje
+            huchasSnaps.forEach((snap) => {
+              const data = snap.data();
+              if (data && data.tipo_aportacion === 'porcentaje' && remaining > 0) {
+                const perc = data.valor_aportacion || 0;
+                const share = amt * (perc / 100);
+                const toAdd = Math.min(share, remaining);
+                distributions[snap.id] = (distributions[snap.id] || 0) + toAdd;
+                remaining -= toAdd;
+              }
+            });
+            // 3. Resto
+            const restoSnap = huchasSnaps.find(s => s.exists() && (s.data() as any)?.tipo_aportacion === 'resto')
+                           || huchasSnaps.find(s => s.exists() && (s.data() as any)?.es_principal)
+                           || huchasSnaps[0];
+            if (restoSnap && remaining > 0) {
+              distributions[restoSnap.id] = (distributions[restoSnap.id] || 0) + remaining;
+            }
+
+            // Restar deltas de cada hucha
+            huchasSnaps.forEach(snap => {
+              const change = distributions[snap.id] || 0;
+              const data = snap.data();
+              if (change > 0 && data) {
+                const bal = data.saldo_acumulado || 0;
+                transaction.update(doc(db, 'huchas', snap.id), { saldo_acumulado: bal - change, updated_at: serverTimestamp() });
+              }
+            });
+          }
+        }
+
+        // Eliminar el documento del movimiento
+        transaction.delete(movRef);
+
+        // Actualizar estadísticas
+        const nextStats = { ...currentStats };
+        if (isIngreso) {
+          nextStats.total_ingresos = Math.max(0, (nextStats.total_ingresos || 0) - amt);
+        } else {
+          nextStats.total_gastos = Math.max(0, (nextStats.total_gastos || 0) - amt);
+        }
+        transaction.set(statsRef, nextStats, { merge: true });
+      });
+
+      showToast('Movimiento eliminado', 'success');
+    } catch (error) {
+      console.error('Error deleting movement:', error);
+      showToast('Error al eliminar el movimiento.');
+    }
+  };
+
   // Auto-delete cancel-pending expired subscriptions
   useEffect(() => {
     if (suscripciones.length === 0) return;
@@ -2081,6 +2246,7 @@ export const useFinanceData = (forceDemo = false) => {
     handleApprovePendingEmail,
     handleDiscardPendingEmail,
     handleCreateManualMovimiento,
+    handleDeleteMovimiento,
     injectDemoMovement,
   };
 };

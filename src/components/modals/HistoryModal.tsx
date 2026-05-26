@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { History, Search, ArrowUpRight, ArrowDownRight, Edit, Check, X, ShieldCheck, RefreshCw, Calendar, Banknote } from 'lucide-react';
+import { History, Search, ArrowUpRight, ArrowDownRight, Edit, Check, X, ShieldCheck, RefreshCw, Calendar, Banknote, Trash2 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { type Movimiento } from '../../types';
 
@@ -12,6 +12,7 @@ interface HistoryModalProps {
   isLoading: boolean;
   onUpdateConcepto: (movId: string, newConcepto: string) => Promise<void>;
   onUnlink: (mov: Movimiento) => Promise<void>;
+  onDeleteMovimiento: (mov: Movimiento) => void;
 }
 
 export const HistoryModal: React.FC<HistoryModalProps> = ({
@@ -23,6 +24,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   isLoading,
   onUpdateConcepto,
   onUnlink,
+  onDeleteMovimiento,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'ingreso' | 'gasto'>('all');
@@ -199,10 +201,17 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                           </span>
                           <button
                             onClick={() => handleStartEdit(m)}
-                            className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-opacity p-0.5"
+                            className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 transition-opacity p-0.5"
                             aria-label="Editar concepto"
                           >
                             <Edit size={10} />
+                          </button>
+                          <button
+                            onClick={() => onDeleteMovimiento(m)}
+                            className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-rose-500 hover:text-rose-700 transition-opacity p-0.5 ml-1.5 cursor-pointer"
+                            title="Eliminar movimiento"
+                          >
+                            <Trash2 size={10} />
                           </button>
                         </div>
                       )}

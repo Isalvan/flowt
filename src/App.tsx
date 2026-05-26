@@ -184,6 +184,7 @@ const AppContent: React.FC = () => {
     handleApprovePendingEmail,
     handleDiscardPendingEmail,
     handleCreateManualMovimiento,
+    handleDeleteMovimiento,
     injectDemoMovement,
   } = useFinanceData(forceDemo);
 
@@ -472,6 +473,21 @@ const AppContent: React.FC = () => {
     setConfettiTrigger(prev => prev + 1);
   };
 
+  // Safe wrapper for movement deletion with confirmation modal
+  const onDeleteMovimientoWrapper = (mov: Movimiento) => {
+    secureAction(() => {
+      setConfirmModal({
+        title: 'Eliminar Movimiento',
+        message: `¿Eliminar el movimiento "${mov.concepto}" de ${mov.importe.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}? Se revertirán los saldos de tus carteras.`,
+        confirmLabel: 'Eliminar',
+        onConfirm: async () => {
+          await handleDeleteMovimiento(mov);
+          setConfirmModal(null);
+        }
+      });
+    });
+  };
+
   // Rendering loading state
   if (loading) {
     return <DashboardSkeleton />;
@@ -699,6 +715,7 @@ const AppContent: React.FC = () => {
             onOpenTransferModal={() => secureAction(() => setIsTransferModalOpen(true))}
             onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
             onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
+            onDeleteMovimiento={onDeleteMovimientoWrapper}
           />
         )}
 
@@ -848,6 +865,7 @@ const AppContent: React.FC = () => {
         isLoading={historyLoading}
         onUpdateConcepto={handleUpdateMovimientoConcepto}
         onUnlink={handleUnlinkMovimiento}
+        onDeleteMovimiento={onDeleteMovimientoWrapper}
       />
 
       <ManualMovimientoModal

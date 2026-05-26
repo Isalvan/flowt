@@ -32,6 +32,7 @@ interface ActivityListProps {
   onLink: (mov: Movimiento) => void;
   onUnlink: (ingreso: Movimiento) => void;
   onChangeHucha: (mov: Movimiento, newHuchaId: string) => void;
+  onDeleteMovimiento: (mov: Movimiento) => void;
 }
 
 export const ActivityList: React.FC<ActivityListProps> = ({
@@ -43,6 +44,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   onLink,
   onUnlink,
   onChangeHucha,
+  onDeleteMovimiento,
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tempConcepto, setTempConcepto] = useState('');
@@ -590,6 +592,15 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                         </button>
                       )
                     )}
+
+                    {/* Delete Movement Button */}
+                    <button
+                      onClick={() => onDeleteMovimiento(m)}
+                      className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-slate-100 hover:bg-rose-500/10 text-slate-400 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm cursor-pointer"
+                      title="Eliminar movimiento"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
