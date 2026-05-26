@@ -46,10 +46,10 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const config = typeConfig[type] || typeConfig.warning;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="sm" hideHeader={true}>
+    <Modal isOpen={isOpen} onClose={onClose} size="sm" hideHeader={true} overflowVisible={true}>
       <div className="relative flex flex-col items-center text-center p-3 animate-in fade-in zoom-in-95 duration-300">
         {/* Subtle Accent Glow Ring */}
-        <div className={`absolute -inset-10 rounded-full blur-3xl opacity-30 pointer-events-none ${config.accentGlow}`} />
+        <div className={`absolute inset-0 rounded-full blur-3xl opacity-30 pointer-events-none ${config.accentGlow}`} />
 
         {/* Absolute Top-Right Close Button */}
         <button

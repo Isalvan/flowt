@@ -9,6 +9,7 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   closeOnBackdrop?: boolean;
   hideHeader?: boolean;
+  overflowVisible?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -19,6 +20,7 @@ export const Modal: React.FC<ModalProps> = ({
   size = 'md',
   closeOnBackdrop = true,
   hideHeader = false,
+  overflowVisible = false,
 }) => {
   // Listen for escape key to close modal
   useEffect(() => {
@@ -104,7 +106,7 @@ export const Modal: React.FC<ModalProps> = ({
         )}
 
         {/* Content */}
-        <div className="overflow-y-auto custom-scrollbar flex-1 pr-1 -mr-2">
+        <div className={`${overflowVisible ? 'overflow-visible' : 'overflow-y-auto custom-scrollbar'} flex-1 pr-1 -mr-2`}>
           {children}
         </div>
       </div>
