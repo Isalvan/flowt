@@ -1666,6 +1666,267 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
+  const handleCreateManualMovimiento = async (movData: {
+    tipo: 'gasto' | 'ingreso';
+    concepto: string;
+    importe: number;
+    fecha_operacion: string;
+    hucha_id?: string;
+    es_metalico?: boolean;
+  }) => {
+    const amt = Number(movData.importe);
+    const isIngreso = movData.tipo === 'ingreso';
+    const isMetalico = !!movData.es_metalico;
+
+    if (!isFirebaseConfigured) {
+      // 1. MODO DEMO
+      let nextHuchas = [...huchas];
+      let targetHuchaId = movData.hucha_id;
+
+      // Provisionar hucha de Efectivo si es metálico y no existe
+      if (isMetalico) {
+        let cashHucha = nextHuchas.find(h => h.es_metalico || h.nombre.toLowerCase().includes('metalico') || h.nombre.toLowerCase().includes('efectivo'));
+        if (!cashHucha) {
+          const cashId = 'h-efectivo-' + Math.random().toString(36).substr(2, 9);
+          cashHucha = {
+            id: cashId,
+            nombre: 'Efectivo',
+            saldo_acumulado: 0,
+            objetivo: null,
+            tipo_aportacion: 'flat',
+            valor_aportacion: 0,
+            orden: nextHuchas.length + 1,
+            es_metalico: true,
+            es_principal: false
+          };
+          nextHuchas.push(cashHucha);
+        }
+        targetHuchaId = cashHucha.id;
+      }
+
+      const id = 'm-manual-' + Math.random().toString(36).substr(2, 9);
+      const newMov: Movimiento = {
+        id,
+        tipo: movData.tipo,
+        concepto: movData.concepto,
+        importe: amt,
+        fecha_operacion: new Date(movData.fecha_operacion),
+        hucha_id: targetHuchaId,
+        es_metalico: isMetalico
+      };
+
+      if (!isIngreso) {
+        // Gasto
+        const hid = targetHuchaId || nextHuchas.find(h => h.es_principal)?.id || nextHuchas[0]?.id;
+        nextHuchas = nextHuchas.map(h => h.id === hid ? { ...h, saldo_acumulado: Number((h.saldo_acumulado - amt).toFixed(2)) } : h);
+      } else {
+        // Ingreso
+        if (targetHuchaId) {
+          nextHuchas = nextHuchas.map(h => h.id === targetHuchaId ? { ...h, saldo_acumulado: Number((h.saldo_acumulado + amt).toFixed(2)) } : h);
+        } else {
+          // Auto-reparto estándar
+          const deltas: Record<string, number> = {};
+          let remaining = amt;
+          // 1. Flat
+          nextHuchas.forEach(h => {
+            if (h.tipo_aportacion === 'flat' && remaining > 0) {
+              const val = h.valor_aportacion || 0;
+              const toAdd = Math.min(val, remaining);
+              deltas[h.id] = toAdd;
+              remaining -= toAdd;
+            }
+          });
+          // 2. Porcentaje
+          nextHuchas.forEach(h => {
+            if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
+              const perc = h.valor_aportacion || 0;
+              const share = amt * (perc / 100);
+              const toAdd = Math.min(share, remaining);
+              deltas[h.id] = (deltas[h.id] || 0) + toAdd;
+              remaining -= toAdd;
+            }
+          });
+          // 3. Resto
+          const resto = nextHuchas.find(h => h.tipo_aportacion === 'resto') || nextHuchas.find(h => h.es_principal) || nextHuchas[0];
+          if (resto && remaining > 0) {
+            deltas[resto.id] = (deltas[resto.id] || 0) + remaining;
+          }
+          // Redirigir desbordamiento (topes)
+          const { adjusted: finalDeltas, overflow } = redirectOverflowToResto(deltas, nextHuchas);
+          if (overflow > 0.01) {
+            showToast(`${overflow.toFixed(2)} € sin asignar: todas las huchas están llenas`);
+          }
+          // Sumar deltas
+          nextHuchas = nextHuchas.map(h => {
+            const delta = finalDeltas[h.id] || 0;
+            return { ...h, saldo_acumulado: Number((h.saldo_acumulado + delta).toFixed(2)) };
+          });
+        }
+      }
+
+      const nextMovs = [newMov, ...movimientos];
+      const nextStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
+      if (isIngreso) nextStats.total_ingresos += amt;
+      else nextStats.total_gastos += amt;
+
+      saveDemoState(nextMovs, nextHuchas, suscripciones, nextStats);
+      showToast('Movimiento registrado correctamente', 'success');
+      return;
+    }
+
+    // 2. MODO FIREBASE
+    if (!user) return;
+    try {
+      await runTransaction(db, async (transaction) => {
+        const statsRef = doc(db, 'stats', user.uid);
+        const statsSnap = await transaction.get(statsRef);
+        const currentStats = statsSnap.data() || { total_ingresos: 0, total_gastos: 0 };
+
+        let targetHuchaId = movData.hucha_id;
+        let createdCashHuchaId: string | null = null;
+        let nextHuchasState = [...huchas];
+
+        // Provisionar hucha de Efectivo si es metálico y no existe
+        if (isMetalico) {
+          let cashHucha = nextHuchasState.find(h => h.es_metalico || h.nombre.toLowerCase().includes('metalico') || h.nombre.toLowerCase().includes('efectivo'));
+          if (!cashHucha) {
+            const newHuchaRef = doc(collection(db, 'huchas'));
+            const cashData = {
+              id_propietario: user.uid,
+              nombre: 'Efectivo',
+              tipo_aportacion: 'flat',
+              valor_aportacion: 0,
+              objetivo: null,
+              saldo_acumulado: 0,
+              orden: nextHuchasState.length + 1,
+              es_metalico: true,
+              es_principal: false,
+              created_at: serverTimestamp(),
+              updated_at: serverTimestamp()
+            };
+            transaction.set(newHuchaRef, cashData);
+            createdCashHuchaId = newHuchaRef.id;
+            targetHuchaId = newHuchaRef.id;
+            
+            // Añadir al estado local temporal
+            nextHuchasState.push({ id: newHuchaRef.id, ...cashData } as unknown as Hucha);
+          } else {
+            targetHuchaId = cashHucha.id;
+          }
+        }
+
+        if (!isIngreso) {
+          // Gasto
+          const hid = targetHuchaId || nextHuchasState.find(h => h.es_principal)?.id || nextHuchasState[0]?.id;
+          if (hid) {
+            const huchaRef = doc(db, 'huchas', hid);
+            let bal = 0;
+            if (hid !== createdCashHuchaId) {
+              const huchaSnap = await transaction.get(huchaRef);
+              if (huchaSnap.exists()) {
+                bal = huchaSnap.data().saldo_acumulado || 0;
+              }
+            }
+            transaction.update(huchaRef, { saldo_acumulado: bal - amt, updated_at: serverTimestamp() });
+          }
+        } else {
+          // Ingreso
+          if (targetHuchaId) {
+            const huchaRef = doc(db, 'huchas', targetHuchaId);
+            let bal = 0;
+            if (targetHuchaId !== createdCashHuchaId) {
+              const huchaSnap = await transaction.get(huchaRef);
+              if (huchaSnap.exists()) {
+                bal = huchaSnap.data().saldo_acumulado || 0;
+              }
+            }
+            transaction.update(huchaRef, { saldo_acumulado: bal + amt, updated_at: serverTimestamp() });
+          } else {
+            // Auto-reparto bancario estándar
+            let remaining = amt;
+            const huchasRefs = nextHuchasState.map(h => doc(db, 'huchas', h.id));
+            const huchasSnaps = [];
+            for (const ref of huchasRefs) {
+              if (ref.id === createdCashHuchaId) {
+                huchasSnaps.push({ id: ref.id, exists: () => true, data: () => ({ id: ref.id, nombre: 'Efectivo', tipo_aportacion: 'flat', valor_aportacion: 0, saldo_acumulado: 0 }) });
+              } else {
+                huchasSnaps.push(await transaction.get(ref));
+              }
+            }
+
+            const distributions: Record<string, number> = {};
+
+            // 1. Flat
+            huchasSnaps.forEach((snap) => {
+              const data = snap.data();
+              if (data && data.tipo_aportacion === 'flat' && remaining > 0) {
+                const val = data.valor_aportacion || 0;
+                const toAdd = Math.min(val, remaining);
+                distributions[snap.id] = toAdd;
+                remaining -= toAdd;
+              }
+            });
+            // 2. Porcentaje
+            huchasSnaps.forEach((snap) => {
+              const data = snap.data();
+              if (data && data.tipo_aportacion === 'porcentaje' && remaining > 0) {
+                const perc = data.valor_aportacion || 0;
+                const share = amt * (perc / 100);
+                const toAdd = Math.min(share, remaining);
+                distributions[snap.id] = (distributions[snap.id] || 0) + toAdd;
+                remaining -= toAdd;
+              }
+            });
+            // 3. Resto
+            const restoSnap = huchasSnaps.find(s => s.exists() && s.data()?.tipo_aportacion === 'resto')
+                           || huchasSnaps.find(s => s.exists() && s.data()?.es_principal)
+                           || huchasSnaps[0];
+            if (restoSnap && remaining > 0) {
+              distributions[restoSnap.id] = (distributions[restoSnap.id] || 0) + remaining;
+            }
+
+            // Aplicar saldos actualizados
+            huchasSnaps.forEach(snap => {
+              const change = distributions[snap.id] || 0;
+              const data = snap.data();
+              if (change > 0 && data) {
+                const bal = data.saldo_acumulado || 0;
+                transaction.update(doc(db, 'huchas', snap.id), { saldo_acumulado: bal + change, updated_at: serverTimestamp() });
+              }
+            });
+          }
+        }
+
+        // Crear documento del movimiento
+        const movRef = doc(collection(db, 'movimientos'));
+        transaction.set(movRef, {
+          id_propietario: user.uid,
+          tipo: movData.tipo,
+          concepto: movData.concepto.trim(),
+          importe: amt,
+          fecha_operacion: new Date(movData.fecha_operacion),
+          hucha_id: targetHuchaId || null,
+          es_metalico: isMetalico,
+          created_at: serverTimestamp()
+        });
+
+        // Actualizar estadísticas
+        const nextStats = { ...currentStats };
+        if (isIngreso) {
+          nextStats.total_ingresos = (nextStats.total_ingresos || 0) + amt;
+        } else {
+          nextStats.total_gastos = (nextStats.total_gastos || 0) + amt;
+        }
+        transaction.set(statsRef, nextStats, { merge: true });
+      });
+
+      showToast('Movimiento registrado correctamente', 'success');
+    } catch (error) {
+      console.error('Error creating manual movement:', error);
+      showToast('Error al registrar el movimiento.');
+    }
+  };
+
   // Auto-delete cancel-pending expired subscriptions
   useEffect(() => {
     if (suscripciones.length === 0) return;
@@ -1735,6 +1996,23 @@ export const useFinanceData = (forceDemo = false) => {
   const totalGastos = userStats?.total_gastos ?? 0;
   const balance = totalIngresos - totalGastos;
 
+  const mediaIngresos = useMemo(() => {
+    const monthlyIngresos: Record<string, number> = {};
+    chartMovements.forEach((m) => {
+      if (m.tipo !== 'ingreso') return;
+      const date = parseMovimientoDate(m.fecha_operacion);
+      if (!date) return;
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      monthlyIngresos[key] = (monthlyIngresos[key] || 0) + m.importe;
+    });
+
+    const validMonths = Object.values(monthlyIngresos).filter((amount) => amount > 900);
+    if (validMonths.length === 0) return 0;
+
+    const sum = validMonths.reduce((a, b) => a + b, 0);
+    return Number((sum / validMonths.length).toFixed(2));
+  }, [chartMovements]);
+
   const totalMensualSuscripciones = useMemo(
     () => suscripciones.filter(s => s.activa).reduce((sum, s) => sum + calcMensual(s), 0),
     [suscripciones]
@@ -1776,6 +2054,7 @@ export const useFinanceData = (forceDemo = false) => {
     pendingEmails,
     userStats,
     totalIngresos,
+    mediaIngresos,
     totalGastos,
     balance,
     totalMensualSuscripciones,
@@ -1801,6 +2080,7 @@ export const useFinanceData = (forceDemo = false) => {
     handleChangeMovimientoHucha,
     handleApprovePendingEmail,
     handleDiscardPendingEmail,
+    handleCreateManualMovimiento,
     injectDemoMovement,
   };
 };

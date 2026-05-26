@@ -6,6 +6,7 @@ export interface Movimiento {
   fecha_operacion: any; // Firestore Timestamp, Date, or string representation
   hucha_id?: string;
   id_propietario?: string;
+  es_metalico?: boolean;
   // Compensación entre movimientos
   compensa_movimiento_id?: string | null; // solo en ingresos: gasto que compensa
   compensado_por?: string[] | null;       // solo en gastos: ingresos que lo compensan
@@ -24,6 +25,7 @@ export interface Hucha {
   orden: number;
   es_principal?: boolean;
   es_suscripciones?: boolean;
+  es_metalico?: boolean;
   tope_objetivo?: boolean;
   id_propietario?: string;
   created_at?: any;

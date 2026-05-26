@@ -25,7 +25,7 @@ interface DashboardViewProps {
   chartMovements: Movimiento[];
   huchas: Hucha[];
   suscripciones: Suscripcion[];
-  totalIngresos: number;
+  mediaIngresos: number;
   totalGastos: number;
   balance: number;
   totalMensualSuscripciones: number;
@@ -50,7 +50,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   chartMovements,
   huchas,
   suscripciones,
-  totalIngresos,
+  mediaIngresos,
   totalGastos,
   balance,
   totalMensualSuscripciones,
@@ -215,16 +215,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Total ingress card */}
         <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-emerald">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Ingresos Mensuales</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Media Mensual</span>
             <TrendingUp className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="flex items-end justify-between mt-3.5">
             <div>
               <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
-                {formatCurrency(totalIngresos)}
+                {formatCurrency(mediaIngresos)}
               </span>
               <p className="text-[10px] text-slate-450 dark:text-slate-550 font-semibold mt-1">
-                Nóminas y bizums recibidos
+                Media de meses con &gt;900 €
               </p>
             </div>
             {renderSparkline(ingresosTrend, '#10b981')}
