@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { History, Search, ArrowUpRight, ArrowDownRight, Edit, Check, X, ShieldCheck, RefreshCw, Calendar } from 'lucide-react';
+import { History, Search, ArrowUpRight, ArrowDownRight, Edit, Check, X, ShieldCheck, RefreshCw, Calendar, Banknote } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { type Movimiento } from '../../types';
 
@@ -155,12 +155,14 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                       rounded-lg 
                       flex items-center justify-center 
                       shrink-0
-                      ${isGasto 
-                        ? 'bg-rose-500/10 text-rose-500' 
-                        : 'bg-emerald-500/10 text-emerald-500'
+                      ${m.es_metalico
+                        ? 'bg-sky-500/10 text-sky-500'
+                        : isGasto 
+                          ? 'bg-rose-500/10 text-rose-500' 
+                          : 'bg-emerald-500/10 text-emerald-500'
                       }
                     `}>
-                      {isGasto ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
+                      {m.es_metalico ? <Banknote size={18} /> : isGasto ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
                     </div>
 
                     {/* Concept and Subtitle */}

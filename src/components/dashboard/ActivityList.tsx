@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
+  Banknote,
   Edit2, 
   Check, 
   X, 
@@ -444,11 +445,19 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                 <div className="flex items-center gap-3.5 min-w-0 flex-1">
                   {/* Icon depending on type */}
                   <div className={`flex items-center justify-center w-10 h-10 rounded-2xl shrink-0 ${
-                    m.tipo === 'ingreso'
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10'
-                      : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/10'
+                    m.es_metalico
+                      ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/10 shadow-sm'
+                      : m.tipo === 'ingreso'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10'
+                        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/10'
                   }`}>
-                    {m.tipo === 'ingreso' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                    {m.es_metalico ? (
+                      <Banknote className="w-5 h-5" />
+                    ) : m.tipo === 'ingreso' ? (
+                      <ArrowUpRight className="w-5 h-5" />
+                    ) : (
+                      <ArrowDownRight className="w-5 h-5" />
+                    )}
                   </div>
 
                   {/* Concept and Info */}

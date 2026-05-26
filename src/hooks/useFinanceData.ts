@@ -1878,8 +1878,8 @@ export const useFinanceData = (forceDemo = false) => {
               }
             });
             // 3. Resto
-            const restoSnap = huchasSnaps.find(s => s.exists() && s.data()?.tipo_aportacion === 'resto')
-                           || huchasSnaps.find(s => s.exists() && s.data()?.es_principal)
+            const restoSnap = huchasSnaps.find(s => s.exists() && (s.data() as any)?.tipo_aportacion === 'resto')
+                           || huchasSnaps.find(s => s.exists() && (s.data() as any)?.es_principal)
                            || huchasSnaps[0];
             if (restoSnap && remaining > 0) {
               distributions[restoSnap.id] = (distributions[restoSnap.id] || 0) + remaining;

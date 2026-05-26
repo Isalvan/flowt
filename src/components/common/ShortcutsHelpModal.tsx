@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Keyboard, PiggyBank, ArrowRightLeft, History, EyeOff, HelpCircle } from 'lucide-react';
+import { X, Keyboard, PiggyBank, ArrowRightLeft, History, EyeOff, HelpCircle, Plus } from 'lucide-react';
 
 interface ShortcutsHelpModalProps {
   isOpen: boolean;
@@ -11,7 +11,8 @@ export const ShortcutsHelpModal: React.FC<ShortcutsHelpModalProps> = ({ isOpen, 
 
   const shortcuts = [
     { key: 'N', desc: 'Nueva Hucha de ahorro', icon: <PiggyBank size={16} className="text-indigo-400" /> },
-    { key: 'T', desc: 'Traspasar fondos entre huchas', icon: <ArrowRightLeft size={16} className="text-sky-400" /> },
+    { key: 'M', desc: 'Registrar movimiento manual (efectivo/banco)', icon: <Plus size={16} className="text-sky-400" /> },
+    { key: 'T', desc: 'Traspasar funds entre huchas', icon: <ArrowRightLeft size={16} className="text-sky-450" /> },
     { key: 'H', desc: 'Historial completo de movimientos', icon: <History size={16} className="text-emerald-400" /> },
     { key: 'P', desc: 'Alternar Privacidad (Ocultar/Bloquear Saldos)', icon: <EyeOff size={16} className="text-rose-400" /> },
     { key: '?', desc: 'Abrir / Cerrar esta ayuda de atajos', icon: <HelpCircle size={16} className="text-violet-400" /> },

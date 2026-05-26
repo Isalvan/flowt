@@ -43,6 +43,7 @@ interface DashboardViewProps {
   onDeleteHucha: (hucha: Hucha) => void;
   onOpenTransferModal: () => void;
   onOpenHistoryModal: () => void;
+  onOpenManualMovimientoModal: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -64,6 +65,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onDeleteHucha,
   onOpenTransferModal,
   onOpenHistoryModal,
+  onOpenManualMovimientoModal,
 }) => {
   const { formatCurrency } = usePrivacy();
 
@@ -155,6 +157,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* Floating primary actions */}
         <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={onOpenManualMovimientoModal}
+            className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-sky-500/10 hover:shadow-sky-500/20 active:scale-95 transition-all border border-sky-400/20 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Añadir Movimiento
+          </button>
+
           <button
             onClick={() => onOpenHuchaModal(null)}
             className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/20 active:scale-95 transition-all border border-indigo-400/20"

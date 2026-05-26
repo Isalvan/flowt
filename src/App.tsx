@@ -20,6 +20,7 @@ import { ConvertModal } from './components/modals/ConvertModal';
 import { LinkModal } from './components/modals/LinkModal';
 import { SuscripcionModal } from './components/modals/SuscripcionModal';
 import { HistoryModal } from './components/modals/HistoryModal';
+import { ManualMovimientoModal } from './components/modals/ManualMovimientoModal';
 // Demo, Feedback, and Premium Visuals
 import { DemoSimulator } from './components/demo/DemoSimulator';
 import { Toast } from './components/common/Toast';
@@ -157,7 +158,6 @@ const AppContent: React.FC = () => {
     huchas,
     suscripciones,
     pendingEmails,
-    totalIngresos,
     mediaIngresos,
     totalGastos,
     balance,
@@ -183,6 +183,7 @@ const AppContent: React.FC = () => {
     handleChangeMovimientoHucha,
     handleApprovePendingEmail,
     handleDiscardPendingEmail,
+    handleCreateManualMovimiento,
     injectDemoMovement,
   } = useFinanceData(forceDemo);
 
@@ -208,6 +209,7 @@ const AppContent: React.FC = () => {
   const [editingSuscripcion, setEditingSuscripcion] = useState<Suscripcion | null>(null);
   
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isManualMovimientoModalOpen, setIsManualMovimientoModalOpen] = useState(false);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
 
@@ -367,6 +369,9 @@ const AppContent: React.FC = () => {
       if (key === 'N') {
         e.preventDefault();
         handleOpenHuchaModal(null);
+      } else if (key === 'M') {
+        e.preventDefault();
+        secureAction(() => setIsManualMovimientoModalOpen(true));
       } else if (key === 'T') {
         e.preventDefault();
         secureAction(() => setIsTransferModalOpen(true));
@@ -693,6 +698,7 @@ const AppContent: React.FC = () => {
             onDeleteHucha={handleOpenDeleteHuchaModal}
             onOpenTransferModal={() => secureAction(() => setIsTransferModalOpen(true))}
             onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
+            onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
           />
         )}
 
@@ -842,6 +848,13 @@ const AppContent: React.FC = () => {
         isLoading={historyLoading}
         onUpdateConcepto={handleUpdateMovimientoConcepto}
         onUnlink={handleUnlinkMovimiento}
+      />
+
+      <ManualMovimientoModal
+        isOpen={isManualMovimientoModalOpen}
+        onClose={() => setIsManualMovimientoModalOpen(false)}
+        onSave={handleCreateManualMovimiento}
+        huchas={huchas}
       />
 
       {/* 5. One-Click Mock Transaction Injector Panel for Demo Mode */}
