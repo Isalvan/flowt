@@ -159,7 +159,6 @@ const AppContent: React.FC = () => {
     suscripciones,
     pendingEmails,
     balance,
-    totalMensualSuscripciones,
     chartData,
     huchaMonthlyBudgets,
     toast,
