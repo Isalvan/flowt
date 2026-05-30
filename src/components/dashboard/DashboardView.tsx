@@ -14,10 +14,8 @@ import {
   ArrowRightLeft, 
   History, 
   Calendar, 
-  DollarSign, 
   TrendingUp, 
   TrendingDown, 
-  CreditCard, 
   Info,
   ChevronDown
 } from 'lucide-react';
@@ -33,7 +31,6 @@ interface DashboardViewProps {
   huchas: Hucha[];
   suscripciones: Suscripcion[];
   balance: number;
-  totalMensualSuscripciones: number;
   huchaMonthlyBudgets: Record<string, number>;
   chartData: any[];
 
@@ -183,10 +180,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     { ingresos: 160, gastos: 90 }
   ];
 
-  const balanceTrend = lastSixData.map(d => d.ingresos - d.gastos);
   const ingresosTrend = lastSixData.map(d => d.ingresos);
   const gastosTrend = lastSixData.map(d => d.gastos);
-  const subsTrend = lastSixData.map(d => Math.max(12, d.gastos * 0.08 + 15));
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

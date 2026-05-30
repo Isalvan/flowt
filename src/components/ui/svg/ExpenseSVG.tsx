@@ -1,4 +1,3 @@
-import React from 'react';
 
 export const ExpenseSVG = ({ className = "" }: { className?: string }) => {
   return (

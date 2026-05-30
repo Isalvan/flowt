@@ -1,4 +1,3 @@
-import React from 'react';
 
 export const VaporizerSVG = ({ percentage, className = "" }: { percentage: number, className?: string }) => {
   const safePercentage = Math.max(0, Math.min(100, percentage));
