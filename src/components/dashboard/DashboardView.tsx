@@ -5,6 +5,10 @@ import { ActivityList } from './ActivityList';
 import { AnalyticsSection } from './AnalyticsSection';
 import { Card } from '../common/Card';
 import { EmptyIllustration } from '../common/EmptyIllustration';
+import { FlowHeroSVG } from '../ui/svg/FlowHeroSVG';
+import { IncomeSVG } from '../ui/svg/IncomeSVG';
+import { ExpenseSVG } from '../ui/svg/ExpenseSVG';
+import { VaporizerSVG } from '../ui/svg/VaporizerSVG';
 import { 
   Plus, 
   ArrowRightLeft, 
@@ -21,7 +25,6 @@ import { getNextPaymentDate, parseMovimientoDate } from '../../hooks/useFinanceD
 
 type TimePeriod = 'este_mes' | 'mes_pasado' | 'este_anio' | 'historico';
 import { usePrivacy } from '../../context/PrivacyContext';
-import { GlobalBurnBar } from './BurnRateVisuals';
 
 interface DashboardViewProps {
   // Data states
@@ -264,35 +267,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Stat summaries */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        
-        {/* Total balance card */}
-        <Card className="bg-gradient-to-br from-indigo-500 to-blue-600 text-white p-5 shadow-xl border-none group glass-glare">
-          <div className="flex items-center justify-between opacity-80">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Saldo Total Acumulado</span>
-            <DollarSign className="w-4 h-4" />
-          </div>
-          <div className="flex items-end justify-between mt-3.5">
-            <div>
-              <span className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums leading-none">
-                {formatCurrency(balance)}
-              </span>
-              <p className="text-[10px] opacity-75 font-semibold mt-1">
-                Ahorros distribuidos
-              </p>
-            </div>
-            {renderSparkline(balanceTrend, '#ffffff', true)}
-          </div>
-        </Card>
+      {/* Hero Animated SVG Section */}
+      <FlowHeroSVG balance={balance} />
 
+      {/* 2. Stat summaries & Top Cards */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+        
         {/* Total ingress card */}
-        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-emerald">
-          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
+        <Card className="relative bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-emerald overflow-hidden">
+          <IncomeSVG className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" />
+          <div className="relative z-10 flex items-center justify-between text-slate-400 dark:text-slate-500">
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Ingresos del Período</span>
             <TrendingUp className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="flex items-end justify-between mt-3.5">
+          <div className="relative z-10 flex items-end justify-between mt-3.5">
             <div>
               <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
                 {formatCurrency(periodIngresos)}
@@ -306,12 +294,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </Card>
 
         {/* Total expenses card */}
-        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-rose">
-          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
+        <Card className="relative bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-rose overflow-hidden">
+          <ExpenseSVG className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" />
+          <div className="relative z-10 flex items-center justify-between text-slate-400 dark:text-slate-500">
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Gastos del Período</span>
             <TrendingDown className="w-4 h-4 text-rose-500" />
           </div>
-          <div className="flex items-end justify-between mt-3.5">
+          <div className="relative z-10 flex items-end justify-between mt-3.5">
             <div>
               <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
                 {formatCurrency(periodGastos)}
@@ -324,32 +313,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </Card>
 
-        {/* Subscription budget card */}
-        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-indigo">
-          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Fondo Recurrente</span>
-            <CreditCard className="w-4 h-4 text-violet-500" />
-          </div>
-          <div className="flex items-end justify-between mt-3.5">
-            <div>
-              <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
-                {formatCurrency(totalMensualSuscripciones)}
-              </span>
-              <p className="text-[10px] text-slate-450 dark:text-slate-550 font-semibold mt-1">
-                Presupuesto mensual estimado
+        {/* Vaporizer (Burn Rate) Compact Card */}
+        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex items-center justify-between group glass-glare">
+          <div className="flex flex-col h-full justify-between">
+            <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]">Vaporizer</span>
+            </div>
+            <div className="mt-3">
+              <p className="text-[10px] text-slate-450 dark:text-slate-550 font-semibold uppercase tracking-wider max-w-[120px]">
+                Consumo de ingresos en {selectedPeriod.replace('_', ' ')}
               </p>
             </div>
-            {renderSparkline(subsTrend, '#8b5cf6')}
           </div>
+          <VaporizerSVG 
+            percentage={periodIngresos > 0 ? Math.round((periodGastos / periodIngresos) * 100) : 0} 
+            className="w-20 h-20 shrink-0" 
+          />
         </Card>
       </div>
-
-      {/* Global Period Burn Bar */}
-      <GlobalBurnBar 
-        totalIngresos={periodIngresos} 
-        totalGastos={periodGastos} 
-        period={selectedPeriod}
-      />
 
       {/* 3. Savind pockets (Huchas grid) */}
       <div className="space-y-4">

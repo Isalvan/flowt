@@ -88,7 +88,7 @@ const FlowtLogoSVG: React.FC<{ size?: number }> = ({ size = 20 }) => (
     
     {/* Snout */}
     <path 
-      d="M6.5 13H5.5a0.8 0 0 0-0.8 0.8v1.4a0.8 0 0 0 0.8 0.8h1" 
+      d="M6.5 13H5.5a0.8 0.8 0 0 0 -0.8 0.8v1.4a0.8 0.8 0 0 0 0.8 0.8h1" 
       fill="none" 
       stroke="url(#piggyStroke)" 
       strokeWidth="1.5" 
@@ -97,7 +97,7 @@ const FlowtLogoSVG: React.FC<{ size?: number }> = ({ size = 20 }) => (
     
     {/* Ears */}
     <path 
-      d="M10 7.5l-1.5-2.2A0.8 0 0 0 7.8 5c-.4 0-.8.4-.8.8v1.7" 
+      d="M10 7.5l-1.5-2.2A0.8 0.8 0 0 0 7.8 5c-.4 0-.8.4-.8.8v1.7" 
       fill="none" 
       stroke="url(#piggyStroke)" 
       strokeWidth="1.5" 

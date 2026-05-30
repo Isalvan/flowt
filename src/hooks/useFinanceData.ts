@@ -183,6 +183,7 @@ export const useFinanceData = (forceDemo = false) => {
   // Check if Firebase is available (or forceDemo overrides it)
   useEffect(() => {
     if (forceDemo || !import.meta.env.VITE_FIREBASE_API_KEY) {
+      setIsFirebaseConfigured(false);
       if (isLocked) {
         setMovimientos([]);
         setChartMovements([]);

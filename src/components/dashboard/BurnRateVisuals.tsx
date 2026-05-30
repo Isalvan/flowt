@@ -15,9 +15,9 @@ export const ExpenseImpactBadge = ({
   const baseStyles = "relative inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider overflow-hidden backdrop-blur-md border shadow-lg transition-all duration-300";
   
   const severityStyles: Record<string, string> = {
-    critical: "bg-red-500/20 border-red-500/50 text-red-100 shadow-[0_0_15px_rgba(239,68,68,0.5),inset_0_0_10px_rgba(239,68,68,0.2)] animate-pulse-shake",
-    warning: "bg-amber-500/20 border-amber-500/50 text-amber-100 shadow-[0_0_10px_rgba(245,158,11,0.3),inset_0_0_5px_rgba(245,158,11,0.1)]",
-    neutral: "bg-slate-500/20 border-slate-500/30 text-slate-300 shadow-[0_0_5px_rgba(148,163,184,0.1)]"
+    critical: "bg-red-500/20 border-red-500/50 text-red-700 dark:text-red-100 shadow-[0_0_15px_rgba(239,68,68,0.5),inset_0_0_10px_rgba(239,68,68,0.2)] animate-pulse-shake",
+    warning: "bg-amber-500/20 border-amber-500/50 text-amber-700 dark:text-amber-100 shadow-[0_0_10px_rgba(245,158,11,0.3),inset_0_0_5px_rgba(245,158,11,0.1)]",
+    neutral: "bg-slate-500/20 border-slate-500/30 text-slate-700 dark:text-slate-300 shadow-[0_0_5px_rgba(148,163,184,0.1)]"
   };
 
   const glowStyles: Record<string, string> = {
