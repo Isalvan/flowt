@@ -741,52 +741,72 @@ const AppContent: React.FC = () => {
         )}
       </main>
 
-      {/* 3. Mobile Bottom navigation tabs bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-200/50 dark:border-white/5 py-2 px-6 flex justify-around shadow-2xl">
-        <button
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
-            activeTab === 'dashboard' ? 'text-sky-500 dark:text-sky-400' : 'text-slate-400 hover:text-slate-500'
-          }`}
-        >
-          <TrendingUp size={20} />
-          <span className="text-[9px] font-black uppercase tracking-wider">Dashboard</span>
-        </button>
+      {/* 3. Mobile Bottom navigation tabs bar - FLOATING PREMIUM */}
+      <div className="md:hidden fixed bottom-6 left-4 right-4 z-50">
+        <div className="bg-white/80 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[2rem] p-1.5 flex justify-between shadow-[0_10px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] glass-glare overflow-visible">
+          
+          {/* Dashboard Tab */}
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/4 py-2.5 cursor-pointer transition-all duration-300 z-10 rounded-full ${
+              activeTab === 'dashboard' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            {activeTab === 'dashboard' && (
+              <div className="absolute inset-0 bg-gradient-to-tr from-sky-500 to-indigo-500 dark:from-sky-500 dark:to-indigo-600 rounded-full shadow-[0_0_20px_rgba(14,165,233,0.4)] -z-10 animate-in zoom-in-90 fade-in duration-300"></div>
+            )}
+            <TrendingUp size={20} className={`transition-transform duration-300 ease-spring ${activeTab === 'dashboard' ? 'scale-110 -translate-y-0.5' : 'scale-100'}`} />
+            <span className={`text-[8px] font-black uppercase tracking-wider transition-opacity duration-300 ${activeTab === 'dashboard' ? 'opacity-100' : 'opacity-70'}`}>Dashboard</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('suscripciones')}
-          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
-            activeTab === 'suscripciones' ? 'text-sky-500 dark:text-sky-400' : 'text-slate-400 hover:text-slate-500'
-          }`}
-        >
-          <Layers size={20} />
-          <span className="text-[9px] font-black uppercase tracking-wider">Suscripciones</span>
-        </button>
+          {/* Suscripciones Tab */}
+          <button
+            onClick={() => setActiveTab('suscripciones')}
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/4 py-2.5 cursor-pointer transition-all duration-300 z-10 rounded-full ${
+              activeTab === 'suscripciones' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            {activeTab === 'suscripciones' && (
+              <div className="absolute inset-0 bg-gradient-to-tr from-sky-500 to-indigo-500 dark:from-sky-500 dark:to-indigo-600 rounded-full shadow-[0_0_20px_rgba(14,165,233,0.4)] -z-10 animate-in zoom-in-90 fade-in duration-300"></div>
+            )}
+            <Layers size={20} className={`transition-transform duration-300 ease-spring ${activeTab === 'suscripciones' ? 'scale-110 -translate-y-0.5' : 'scale-100'}`} />
+            <span className={`text-[8px] font-black uppercase tracking-wider transition-opacity duration-300 ${activeTab === 'suscripciones' ? 'opacity-100' : 'opacity-70'}`}>Recurrente</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('calendario')}
-          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
-            activeTab === 'calendario' ? 'text-sky-500 dark:text-sky-400' : 'text-slate-400 hover:text-slate-500'
-          }`}
-        >
-          <CalendarDays size={20} />
-          <span className="text-[9px] font-black uppercase tracking-wider">Calendario</span>
-        </button>
+          {/* Calendario Tab */}
+          <button
+            onClick={() => setActiveTab('calendario')}
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/4 py-2.5 cursor-pointer transition-all duration-300 z-10 rounded-full ${
+              activeTab === 'calendario' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            {activeTab === 'calendario' && (
+              <div className="absolute inset-0 bg-gradient-to-tr from-sky-500 to-indigo-500 dark:from-sky-500 dark:to-indigo-600 rounded-full shadow-[0_0_20px_rgba(14,165,233,0.4)] -z-10 animate-in zoom-in-90 fade-in duration-300"></div>
+            )}
+            <CalendarDays size={20} className={`transition-transform duration-300 ease-spring ${activeTab === 'calendario' ? 'scale-110 -translate-y-0.5' : 'scale-100'}`} />
+            <span className={`text-[8px] font-black uppercase tracking-wider transition-opacity duration-300 ${activeTab === 'calendario' ? 'opacity-100' : 'opacity-70'}`}>Calendario</span>
+          </button>
 
-        <button
-          onClick={() => secureAction(() => setActiveTab('manual'))}
-          className={`relative flex flex-col items-center gap-1 cursor-pointer transition-colors ${
-            activeTab === 'manual' ? 'text-sky-500 dark:text-sky-400' : 'text-slate-400 hover:text-slate-500'
-          }`}
-        >
-          <Mail size={20} />
-          <span className="text-[9px] font-black uppercase tracking-wider">Revisión</span>
-          {pendingEmails.length > 0 && (
-            <span className="absolute -top-1 right-2 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[7px] font-black animate-pulse">
-              {pendingEmails.length}
-            </span>
-          )}
-        </button>
+          {/* Revisión Tab */}
+          <button
+            onClick={() => secureAction(() => setActiveTab('manual'))}
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/4 py-2.5 cursor-pointer transition-all duration-300 z-10 rounded-full ${
+              activeTab === 'manual' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            {activeTab === 'manual' && (
+              <div className="absolute inset-0 bg-gradient-to-tr from-sky-500 to-indigo-500 dark:from-sky-500 dark:to-indigo-600 rounded-full shadow-[0_0_20px_rgba(14,165,233,0.4)] -z-10 animate-in zoom-in-90 fade-in duration-300"></div>
+            )}
+            <Mail size={20} className={`transition-transform duration-300 ease-spring ${activeTab === 'manual' ? 'scale-110 -translate-y-0.5' : 'scale-100'}`} />
+            <span className={`text-[8px] font-black uppercase tracking-wider transition-opacity duration-300 ${activeTab === 'manual' ? 'opacity-100' : 'opacity-70'}`}>Revisión</span>
+            
+            {pendingEmails.length > 0 && (
+              <span className={`absolute ${activeTab === 'manual' ? '-top-1 right-2' : 'top-0 right-3'} px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[8px] font-black animate-pulse shadow-md border-2 border-white/20 dark:border-white/10 transition-all duration-300`}>
+                {pendingEmails.length}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* 4. Global Specialized Form Modals overlays mounting */}
