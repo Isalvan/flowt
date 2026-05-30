@@ -83,51 +83,41 @@ export const GlobalBurnBar = ({
   const isWarning = percentage >= 65 && !isCritical;
 
   return (
-    <div className="w-full flex flex-col gap-3 p-6 rounded-[2rem] bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-2xl shadow-indigo-500/5 relative overflow-hidden group">
-      {/* Subtle background glow depending on status */}
-      <div className={`absolute -inset-20 opacity-20 blur-[100px] transition-colors duration-1000 ${
-        isCritical ? 'bg-rose-500' : isWarning ? 'bg-amber-500' : 'bg-teal-500'
-      }`} />
-      
-      <div className="relative flex justify-between items-end">
+    <div className="w-full flex flex-col gap-3 p-5 rounded-2xl bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md relative overflow-hidden">
+      <div className="relative flex justify-between items-end mb-1">
         <div>
-          <h4 className="font-black text-lg text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
-            Vaporizer 
-            <span className="px-2.5 py-1 rounded-full bg-slate-200/50 dark:bg-slate-800/50 text-[9px] font-black tracking-widest uppercase text-slate-500 dark:text-slate-400 border border-slate-300/30 dark:border-white/5">
-              {period === 'este_mes' ? 'Burn Rate Este Mes' : period === 'mes_pasado' ? 'Burn Rate Mes Pasado' : period === 'este_anio' ? 'Burn Rate Anual' : 'Burn Rate Histórico'}
+          <div className="flex items-center gap-2 mb-1.5">
+            <h4 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 uppercase tracking-wider">
+              Vaporizer
+            </h4>
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[8px] font-bold tracking-widest uppercase text-slate-500 border border-slate-200/50 dark:border-white/5">
+              {period === 'este_mes' ? 'Este Mes' : period === 'mes_pasado' ? 'Mes Pasado' : period === 'este_anio' ? 'Anual' : 'Histórico'}
             </span>
-          </h4>
-          <p className="text-[11px] text-slate-500 font-semibold tracking-wider mt-1">
-            {percentage === 0 ? 'Sin datos de gasto' : `Has vaporizado el ${percentage}% de tus ingresos`}
+          </div>
+          <p className="text-[10px] text-slate-450 dark:text-slate-550 font-semibold uppercase tracking-wider">
+            {percentage === 0 ? 'Sin datos de gasto' : `Has consumido el ${percentage}% de los ingresos`}
           </p>
         </div>
-        <div className={`text-2xl font-black tracking-tighter tabular-nums drop-shadow-sm transition-colors duration-500 ${
-          isCritical ? 'text-red-500' : isWarning ? 'text-amber-500' : 'text-emerald-500'
+        <div className={`text-xl font-black tracking-tight tabular-nums transition-colors duration-500 ${
+          isCritical ? 'text-rose-500' : isWarning ? 'text-amber-500' : 'text-emerald-500'
         }`}>
           {percentage}%
         </div>
       </div>
 
       {/* Progress Bar Container */}
-      <div className="relative h-5 w-full bg-slate-200/50 dark:bg-slate-950/50 rounded-full overflow-hidden shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)] border border-white/20 dark:border-white/5">
+      <div className="relative h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
         {/* The Fill */}
         <div 
-          className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 cubic-bezier(0.34, 1.56, 0.64, 1) ${
+          className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-out ${
             isCritical 
-              ? 'bg-gradient-to-r from-rose-500 via-red-500 to-orange-500 shadow-[0_0_20px_rgba(244,63,94,0.6)]'
+              ? 'bg-rose-500'
               : isWarning
-                ? 'bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 shadow-[0_0_20px_rgba(251,191,36,0.6)]'
-                : 'bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-[0_0_20px_rgba(52,211,153,0.6)]'
+                ? 'bg-amber-500'
+                : 'bg-emerald-500'
           }`}
           style={{ width: `${animatedRatio * 100}%` }}
-        >
-          {/* Inner glass highlight */}
-          <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent rounded-full" />
-          {/* Pulsing effect if critical */}
-          {isCritical && (
-            <div className="absolute inset-0 bg-white/20 animate-pulse rounded-full" />
-          )}
-        </div>
+        />
       </div>
     </div>
   );
