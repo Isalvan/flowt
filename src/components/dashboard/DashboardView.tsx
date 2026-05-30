@@ -56,7 +56,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   huchas,
   suscripciones,
   balance,
-  totalMensualSuscripciones,
   huchaMonthlyBudgets,
   chartData,
   onUpdateConcepto,

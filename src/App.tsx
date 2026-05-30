@@ -700,7 +700,6 @@ const AppContent: React.FC = () => {
             huchas={huchas}
             suscripciones={suscripciones}
             balance={balance}
-            totalMensualSuscripciones={totalMensualSuscripciones}
             chartData={chartData}
             huchaMonthlyBudgets={huchaMonthlyBudgets}
             onUpdateConcepto={handleUpdateMovimientoConcepto}
