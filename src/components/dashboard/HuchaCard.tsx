@@ -3,14 +3,17 @@ import { Card } from '../common/Card';
 import { type Hucha } from '../../types';
 import { Edit3, Trash2, CreditCard, Lock, CheckCircle, PiggyBank } from 'lucide-react';
 import { usePrivacy } from '../../context/PrivacyContext';
+import { HuchaBurnRing } from './BurnRateVisuals';
 
 interface HuchaCardProps {
   hucha: Hucha;
+  monthlyBudget?: number;
+  spentThisMonth?: number;
   onEdit: (hucha: Hucha) => void;
   onDelete: (hucha: Hucha) => void;
 }
 
-export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete }) => {
+export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, monthlyBudget, spentThisMonth, onEdit, onDelete }) => {
   const hasObjetivo = hucha.objetivo != null && hucha.objetivo > 0;
   const isCapped = !!hucha.tope_objetivo && hasObjetivo;
   const isFull = hasObjetivo && hucha.saldo_acumulado >= (hucha.objetivo || 0);
@@ -121,7 +124,11 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete })
 
         {/* Circular Progress Wheel */}
         <div className="relative flex items-center justify-center shrink-0 w-14 h-14 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-white/5 rounded-full shadow-inner">
-          {hasObjetivo ? (
+          {monthlyBudget != null && monthlyBudget > 0 && spentThisMonth != null ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <HuchaBurnRing budget={monthlyBudget} spent={spentThisMonth} size={56} />
+            </div>
+          ) : hasObjetivo ? (
             <>
               <svg className="w-12 h-12 -rotate-90 transform">
                 {/* Background circle */}

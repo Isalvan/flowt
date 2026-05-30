@@ -2178,6 +2178,46 @@ export const useFinanceData = (forceDemo = false) => {
     return Number((sum / validMonths.length).toFixed(2));
   }, [chartMovements]);
 
+  const huchaMonthlyBudgets = useMemo(() => {
+    const budgets: Record<string, number> = {};
+    if (mediaIngresos <= 0) return budgets;
+    
+    let remaining = mediaIngresos;
+
+    // 1. Flat amounts
+    huchas.forEach((h) => {
+      if (h.tipo_aportacion === 'flat' && remaining > 0) {
+        const val = h.valor_aportacion || 0;
+        const toAdd = Math.min(val, remaining);
+        budgets[h.id] = toAdd;
+        remaining -= toAdd;
+      }
+    });
+
+    // 2. Percentages
+    huchas.forEach((h) => {
+      if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
+        const perc = h.valor_aportacion || 0;
+        const share = mediaIngresos * (perc / 100);
+        const toAdd = Math.min(share, remaining);
+        budgets[h.id] = (budgets[h.id] || 0) + toAdd;
+        remaining -= toAdd;
+      }
+    });
+
+    // 3. Resto
+    const restoHucha =
+      huchas.find((h) => h.tipo_aportacion === 'resto') ||
+      huchas.find((h) => h.es_principal) ||
+      huchas[0];
+
+    if (restoHucha && remaining > 0) {
+      budgets[restoHucha.id] = (budgets[restoHucha.id] || 0) + remaining;
+    }
+
+    return budgets;
+  }, [huchas, mediaIngresos]);
+
   const totalMensualSuscripciones = useMemo(
     () => suscripciones.filter(s => s.activa).reduce((sum, s) => sum + calcMensual(s), 0),
     [suscripciones]
@@ -2223,6 +2263,7 @@ export const useFinanceData = (forceDemo = false) => {
     totalGastos,
     balance,
     totalMensualSuscripciones,
+    huchaMonthlyBudgets,
     principalHucha,
     chartData,
     toast,

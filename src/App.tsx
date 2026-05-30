@@ -163,6 +163,7 @@ const AppContent: React.FC = () => {
     balance,
     totalMensualSuscripciones,
     chartData,
+    huchaMonthlyBudgets,
     toast,
     setToast,
     confirmModal,
@@ -705,6 +706,7 @@ const AppContent: React.FC = () => {
             balance={balance}
             totalMensualSuscripciones={totalMensualSuscripciones}
             chartData={chartData}
+            huchaMonthlyBudgets={huchaMonthlyBudgets}
             onUpdateConcepto={handleUpdateMovimientoConcepto}
             onConvert={handleOpenConvertModal}
             onLink={handleOpenLinkModal}

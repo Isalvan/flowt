@@ -29,6 +29,7 @@ interface DashboardViewProps {
   totalGastos: number;
   balance: number;
   totalMensualSuscripciones: number;
+  huchaMonthlyBudgets: Record<string, number>;
   chartData: any[];
 
   // Action methods
@@ -56,6 +57,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   totalGastos,
   balance,
   totalMensualSuscripciones,
+  huchaMonthlyBudgets,
   chartData,
   onUpdateConcepto,
   onConvert,
@@ -291,6 +293,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <HuchaCard
                 key={h.id}
                 hucha={h}
+                monthlyBudget={huchaMonthlyBudgets[h.id] || 0}
+                spentThisMonth={(() => {
+                  const now = new Date();
+                  return chartMovements.filter(m => 
+                    m.tipo === 'gasto' && 
+                    m.hucha_id === h.id &&
+                    m.fecha_operacion && 
+                    new Date(m.fecha_operacion).getMonth() === now.getMonth() &&
+                    new Date(m.fecha_operacion).getFullYear() === now.getFullYear()
+                  ).reduce((sum, m) => sum + m.importe, 0);
+                })()}
                 onEdit={onOpenHuchaModal}
                 onDelete={onDeleteHucha}
               />
@@ -322,6 +335,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             movimientos={movimientos}
             allMovimientos={chartMovements}
             huchas={huchas}
+            huchaMonthlyBudgets={huchaMonthlyBudgets}
             onUpdateConcepto={onUpdateConcepto}
             onConvert={onConvert}
             onLink={onLink}

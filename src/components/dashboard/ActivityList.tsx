@@ -22,11 +22,13 @@ import { Card } from '../common/Card';
 import { type Movimiento, type Hucha } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { EmptyIllustration } from '../common/EmptyIllustration';
+import { ExpenseImpactBadge } from './BurnRateVisuals';
 
 interface ActivityListProps {
   movimientos: Movimiento[];
   allMovimientos: Movimiento[];
   huchas: Hucha[];
+  huchaMonthlyBudgets: Record<string, number>;
   onUpdateConcepto: (movId: string, newConcepto: string) => void;
   onConvert: (mov: Movimiento) => void;
   onLink: (mov: Movimiento) => void;
@@ -39,6 +41,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   movimientos,
   allMovimientos,
   huchas,
+  huchaMonthlyBudgets,
   onUpdateConcepto,
   onConvert,
   onLink,
@@ -399,6 +402,14 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                                      (m.tipo === 'ingreso' && !!m.compensa_movimiento_id);
             const linkedMovs = hasCompensaciones ? getLinkedMovements(m) : [];
             const isEditing = editingId === m.id;
+            
+            let expensePercentage = 0;
+            if (m.tipo === 'gasto' && m.hucha_id) {
+              const budget = huchaMonthlyBudgets[m.hucha_id] || 0;
+              if (budget > 0) {
+                expensePercentage = (m.importe / budget) * 100;
+              }
+            }
 
             return (
               <div
@@ -523,8 +534,14 @@ export const ActivityList: React.FC<ActivityListProps> = ({
 
                 {/* Amounts and action indicators */}
                 <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2.5 w-full sm:w-auto mt-2 sm:mt-0 shrink-0">
-                  <div className="text-left sm:text-right shrink-0">
-                    <p className={`text-base font-extrabold tabular-nums tracking-tight ${
+                  <div className="flex items-center sm:items-end flex-row sm:flex-col gap-2 sm:gap-0 shrink-0">
+                    {expensePercentage >= 5 && (
+                      <div className="mb-1">
+                        <ExpenseImpactBadge percentage={expensePercentage} />
+                      </div>
+                    )}
+                    <div className="text-left sm:text-right shrink-0">
+                      <p className={`text-base font-extrabold tabular-nums tracking-tight ${
                       m.tipo === 'ingreso' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                     } ${m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0 ? 'line-through opacity-50' : ''}`}>
                       {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
@@ -541,6 +558,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                         <Undo2 className="w-2.5 h-2.5" /> compensación
                       </p>
                     )}
+                  </div>
                   </div>
 
                   {/* Actions (Link, Convert, Reassign Hucha) */}
