@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { type Movimiento, type Hucha, type Suscripcion } from '../../types';
 import { HuchaCard } from './HuchaCard';
 import { ActivityList } from './ActivityList';
@@ -14,9 +14,12 @@ import {
   TrendingUp, 
   TrendingDown, 
   CreditCard, 
-  Info
+  Info,
+  ChevronDown
 } from 'lucide-react';
-import { getNextPaymentDate } from '../../hooks/useFinanceData';
+import { getNextPaymentDate, parseMovimientoDate } from '../../hooks/useFinanceData';
+
+type TimePeriod = 'este_mes' | 'mes_pasado' | 'este_anio' | 'historico';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { GlobalBurnBar } from './BurnRateVisuals';
 
@@ -26,8 +29,6 @@ interface DashboardViewProps {
   chartMovements: Movimiento[];
   huchas: Hucha[];
   suscripciones: Suscripcion[];
-  mediaIngresos: number;
-  totalGastos: number;
   balance: number;
   totalMensualSuscripciones: number;
   huchaMonthlyBudgets: Record<string, number>;
@@ -54,8 +55,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   chartMovements,
   huchas,
   suscripciones,
-  mediaIngresos,
-  totalGastos,
   balance,
   totalMensualSuscripciones,
   huchaMonthlyBudgets,
@@ -73,6 +72,44 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onDeleteMovimiento,
 }) => {
   const { formatCurrency } = usePrivacy();
+
+  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('este_mes');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const filteredMovements = useMemo(() => {
+    if (selectedPeriod === 'historico') return chartMovements;
+    
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return chartMovements.filter(m => {
+      const date = parseMovimientoDate(m.fecha_operacion);
+      if (!date) return false;
+      
+      const mMonth = date.getMonth();
+      const mYear = date.getFullYear();
+
+      if (selectedPeriod === 'este_mes') {
+        return mMonth === currentMonth && mYear === currentYear;
+      } else if (selectedPeriod === 'mes_pasado') {
+        const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+        return mMonth === lastMonth && mYear === lastMonthYear;
+      } else if (selectedPeriod === 'este_anio') {
+        return mYear === currentYear;
+      }
+      return true;
+    });
+  }, [chartMovements, selectedPeriod]);
+
+  const periodIngresos = useMemo(() => {
+    return filteredMovements.filter(m => m.tipo === 'ingreso').reduce((acc, m) => acc + m.importe, 0);
+  }, [filteredMovements]);
+
+  const periodGastos = useMemo(() => {
+    return filteredMovements.filter(m => m.tipo === 'gasto').reduce((acc, m) => acc + m.importe, 0);
+  }, [filteredMovements]);
 
   // Resolve upcoming recurrences (top 3 next active)
   const getUpcomingBills = (): Array<{ sub: Suscripcion; date: Date; daysLeft: number }> => {
@@ -148,18 +185,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const gastosTrend = lastSixData.map(d => d.gastos);
   const subsTrend = lastSixData.map(d => Math.max(12, d.gastos * 0.08 + 15));
 
-  const totalIngresosAllTime = chartMovements.filter(m => m.tipo === 'ingreso').reduce((sum, m) => sum + m.importe, 0);
-  const totalGastosAllTime = chartMovements.filter(m => m.tipo === 'gasto').reduce((sum, m) => sum + m.importe, 0);
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       
       {/* 1. Header with Title & Main Buttons */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-            Mi Panel
-          </h2>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+              Mi Panel
+            </h2>
+            <div className="relative">
+              <button 
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black uppercase tracking-widest rounded-lg border border-slate-200/50 dark:border-white/5 transition-all"
+              >
+                {selectedPeriod === 'este_mes' ? 'Este Mes' : 
+                 selectedPeriod === 'mes_pasado' ? 'Mes Pasado' : 
+                 selectedPeriod === 'este_anio' ? 'Este Año' : 'Histórico'}
+                <ChevronDown size={14} className={`transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {isDropdownOpen && (
+                <div className="absolute top-full mt-1 left-0 w-36 bg-white dark:bg-slate-800 border border-slate-100 dark:border-white/5 shadow-xl rounded-xl overflow-hidden z-40">
+                  <button onClick={() => { setSelectedPeriod('este_mes'); setIsDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${selectedPeriod === 'este_mes' ? 'text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'text-slate-600 dark:text-slate-300'}`}>Este Mes</button>
+                  <button onClick={() => { setSelectedPeriod('mes_pasado'); setIsDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${selectedPeriod === 'mes_pasado' ? 'text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'text-slate-600 dark:text-slate-300'}`}>Mes Pasado</button>
+                  <button onClick={() => { setSelectedPeriod('este_anio'); setIsDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${selectedPeriod === 'este_anio' ? 'text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'text-slate-600 dark:text-slate-300'}`}>Este Año</button>
+                  <button onClick={() => { setSelectedPeriod('historico'); setIsDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${selectedPeriod === 'historico' ? 'text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'text-slate-600 dark:text-slate-300'}`}>Histórico</button>
+                </div>
+              )}
+            </div>
+          </div>
           <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">Gestión inteligente y reparto automatizado de ahorros</p>
         </div>
 
@@ -233,16 +289,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Total ingress card */}
         <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-emerald">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Media Mensual</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Ingresos del Período</span>
             <TrendingUp className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="flex items-end justify-between mt-3.5">
             <div>
               <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
-                {formatCurrency(mediaIngresos)}
+                {formatCurrency(periodIngresos)}
               </span>
               <p className="text-[10px] text-slate-450 dark:text-slate-550 font-semibold mt-1">
-                Media de meses con &gt;900 €
+                Total ingresado
               </p>
             </div>
             {renderSparkline(ingresosTrend, '#10b981')}
@@ -252,16 +308,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Total expenses card */}
         <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-rose">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Gastos Mensuales</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Gastos del Período</span>
             <TrendingDown className="w-4 h-4 text-rose-500" />
           </div>
           <div className="flex items-end justify-between mt-3.5">
             <div>
               <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
-                {formatCurrency(totalGastos)}
+                {formatCurrency(periodGastos)}
               </span>
               <p className="text-[10px] text-slate-450 dark:text-slate-550 font-semibold mt-1">
-                Compras y servicios abonados
+                Total gastado
               </p>
             </div>
             {renderSparkline(gastosTrend, '#ef4444')}
@@ -288,10 +344,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </Card>
       </div>
 
-      {/* Global All-Time Burn Bar */}
+      {/* Global Period Burn Bar */}
       <GlobalBurnBar 
-        totalIngresos={totalIngresosAllTime} 
-        totalGastos={totalGastosAllTime} 
+        totalIngresos={periodIngresos} 
+        totalGastos={periodGastos} 
+        period={selectedPeriod}
       />
 
       {/* 3. Savind pockets (Huchas grid) */}
@@ -322,7 +379,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         chartData={chartData} 
         huchas={huchas} 
         suscripciones={suscripciones}
-        allMovimientos={chartMovements}
+        allMovimientos={filteredMovements}
       />
 
       {/* 5. Main Content split (Activity List & Upcoming Recurring Bills) */}

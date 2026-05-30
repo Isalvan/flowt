@@ -158,8 +158,6 @@ const AppContent: React.FC = () => {
     huchas,
     suscripciones,
     pendingEmails,
-    mediaIngresos,
-    totalGastos,
     balance,
     totalMensualSuscripciones,
     chartData,
@@ -701,8 +699,6 @@ const AppContent: React.FC = () => {
             chartMovements={chartMovements}
             huchas={huchas}
             suscripciones={suscripciones}
-            mediaIngresos={mediaIngresos}
-            totalGastos={totalGastos}
             balance={balance}
             totalMensualSuscripciones={totalMensualSuscripciones}
             chartData={chartData}
