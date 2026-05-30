@@ -54,120 +54,75 @@ export const ExpenseImpactBadge = ({
   );
 };
 
-// HuchaBurnRing Component
-export const HuchaBurnRing = ({
-  budget,
-  spent,
-  size = 120,
+// GlobalBurnBar Component (All-Time Retroactive Health Bar)
+export const GlobalBurnBar = ({
+  totalIngresos,
+  totalGastos
 }: {
-  budget: number;
-  spent: number;
-  size?: number;
+  totalIngresos: number;
+  totalGastos: number;
 }) => {
-  const [animatedSpent, setAnimatedSpent] = useState(0);
-  const strokeWidth = size * 0.12;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
+  const [animatedRatio, setAnimatedRatio] = useState(0);
   
-  // Cap at 100% for the ring display, but calculate actual for colors
-  const actualRatio = budget > 0 ? spent / budget : 0;
-  const displayRatio = Math.min(Math.max(animatedSpent / budget, 0), 1) || 0;
-  
-  const strokeDashoffset = circumference - displayRatio * circumference;
+  const ratio = totalIngresos > 0 ? (totalGastos / totalIngresos) : 0;
+  const cappedRatio = Math.min(Math.max(ratio, 0), 1);
 
   useEffect(() => {
-    // Simple spring-like animation effect
     const timeout = setTimeout(() => {
-      setAnimatedSpent(spent);
-    }, 100);
+      setAnimatedRatio(cappedRatio);
+    }, 200);
     return () => clearTimeout(timeout);
-  }, [spent]);
+  }, [cappedRatio]);
 
-  // Determine colors based on burn rate
-  let startColor = '#3b82f6'; // blue-500
-  let endColor = '#8b5cf6'; // violet-500
-  let trackColor = 'rgba(30, 41, 59, 0.5)'; // slate-800
-  let shadowColor = 'rgba(59, 130, 246, 0.5)';
+  const percentage = Math.round(ratio * 100);
   
-  if (actualRatio >= 0.9) {
-    startColor = '#ef4444'; // red-500
-    endColor = '#f97316'; // orange-500
-    trackColor = 'rgba(69, 10, 10, 0.5)';
-    shadowColor = 'rgba(239, 68, 68, 0.6)';
-  } else if (actualRatio >= 0.75) {
-    startColor = '#f59e0b'; // amber-500
-    endColor = '#eab308'; // yellow-500
-    trackColor = 'rgba(69, 26, 3, 0.5)';
-    shadowColor = 'rgba(245, 158, 11, 0.5)';
-  }
+  // Determine state based on percentage
+  const isCritical = percentage >= 85;
+  const isWarning = percentage >= 65 && !isCritical;
 
   return (
-    <div className="relative inline-flex flex-col items-center justify-center drop-shadow-2xl" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="transform -rotate-90 filter drop-shadow-lg overflow-visible">
-        <defs>
-          {/* Gradient for the ring */}
-          <linearGradient id={`gradient-${actualRatio}`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={startColor} />
-            <stop offset="100%" stopColor={endColor} />
-          </linearGradient>
-          
-          {/* Subtle inset shadow filter */}
-          <filter id="inset-shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feOffset dx="0" dy="2"/>
-            <feGaussianBlur stdDeviation="2" result="offset-blur"/>
-            <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse"/>
-            <feFlood floodColor="black" floodOpacity="0.7" result="color"/>
-            <feComposite operator="in" in="color" in2="inverse" result="shadow"/>
-            <feComposite operator="over" in="shadow" in2="SourceGraphic"/>
-          </filter>
-        </defs>
-
-        {/* Track (Background Ring) */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={trackColor}
-          strokeWidth={strokeWidth}
-          filter="url(#inset-shadow)"
-          className="transition-colors duration-500"
-        />
-
-        {/* Progress Ring */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={`url(#gradient-${actualRatio})`}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          style={{
-            transition: 'stroke-dashoffset 1.5s cubic-bezier(0.34, 1.56, 0.64, 1), stroke 0.5s ease',
-            filter: `drop-shadow(0px 0px 8px ${shadowColor})`
-          }}
-        />
-        
-        {/* Inner glass highlight */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius - strokeWidth/2}
-          fill="none"
-          stroke="rgba(255,255,255,0.1)"
-          strokeWidth={1}
-        />
-      </svg>
+    <div className="w-full flex flex-col gap-2 p-5 rounded-3xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200/50 dark:border-white/5 relative overflow-hidden group">
+      {/* Subtle background glow depending on status */}
+      <div className={`absolute -inset-10 opacity-10 blur-3xl transition-colors duration-1000 ${
+        isCritical ? 'bg-red-500' : isWarning ? 'bg-amber-500' : 'bg-emerald-500'
+      }`} />
       
-      {/* Center Content */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest drop-shadow-md">Burn</span>
-        <span className={`text-xl font-bold tracking-tighter drop-shadow-lg ${actualRatio >= 0.9 ? 'text-red-100' : actualRatio >= 0.75 ? 'text-amber-100' : 'text-slate-100'}`}>
-          {Math.round(displayRatio * 100)}%
-        </span>
+      <div className="relative flex justify-between items-end mb-1">
+        <div>
+          <h4 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+            Vaporizer <span className="text-[10px] font-bold text-slate-400">(All-Time Burn Rate)</span>
+          </h4>
+          <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest">
+            Consumo histórico total
+          </p>
+        </div>
+        <div className={`text-2xl font-black tracking-tighter tabular-nums drop-shadow-sm transition-colors duration-500 ${
+          isCritical ? 'text-red-500' : isWarning ? 'text-amber-500' : 'text-emerald-500'
+        }`}>
+          {percentage}%
+        </div>
+      </div>
+
+      {/* Progress Bar Container */}
+      <div className="relative h-4 w-full bg-slate-200 dark:bg-slate-800/80 rounded-full overflow-hidden shadow-inner">
+        {/* The Fill */}
+        <div 
+          className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 cubic-bezier(0.34, 1.56, 0.64, 1) ${
+            isCritical 
+              ? 'bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+              : isWarning
+                ? 'bg-gradient-to-r from-amber-400 to-orange-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
+                : 'bg-gradient-to-r from-emerald-400 to-teal-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]'
+          }`}
+          style={{ width: `${animatedRatio * 100}%` }}
+        >
+          {/* Inner glass highlight */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent rounded-full" />
+          {/* Pulsing effect if critical */}
+          {isCritical && (
+            <div className="absolute inset-0 bg-white/20 animate-pulse rounded-full" />
+          )}
+        </div>
       </div>
     </div>
   );

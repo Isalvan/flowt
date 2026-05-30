@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { getNextPaymentDate } from '../../hooks/useFinanceData';
 import { usePrivacy } from '../../context/PrivacyContext';
+import { GlobalBurnBar } from './BurnRateVisuals';
 
 interface DashboardViewProps {
   // Data states
@@ -146,6 +147,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const ingresosTrend = lastSixData.map(d => d.ingresos);
   const gastosTrend = lastSixData.map(d => d.gastos);
   const subsTrend = lastSixData.map(d => Math.max(12, d.gastos * 0.08 + 15));
+
+  const totalIngresosAllTime = chartMovements.filter(m => m.tipo === 'ingreso').reduce((sum, m) => sum + m.importe, 0);
+  const totalGastosAllTime = chartMovements.filter(m => m.tipo === 'gasto').reduce((sum, m) => sum + m.importe, 0);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -284,6 +288,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </Card>
       </div>
 
+      {/* Global All-Time Burn Bar */}
+      <GlobalBurnBar 
+        totalIngresos={totalIngresosAllTime} 
+        totalGastos={totalGastosAllTime} 
+      />
+
       {/* 3. Savind pockets (Huchas grid) */}
       <div className="space-y-4">
         <h3 className="font-extrabold text-sm text-slate-400 dark:text-slate-500 uppercase tracking-widest">Mis Carteras de Ahorro</h3>
@@ -293,17 +303,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <HuchaCard
                 key={h.id}
                 hucha={h}
-                monthlyBudget={huchaMonthlyBudgets[h.id] || 0}
-                spentThisMonth={(() => {
-                  const now = new Date();
-                  return chartMovements.filter(m => 
-                    m.tipo === 'gasto' && 
-                    m.hucha_id === h.id &&
-                    m.fecha_operacion && 
-                    new Date(m.fecha_operacion).getMonth() === now.getMonth() &&
-                    new Date(m.fecha_operacion).getFullYear() === now.getFullYear()
-                  ).reduce((sum, m) => sum + m.importe, 0);
-                })()}
                 onEdit={onOpenHuchaModal}
                 onDelete={onDeleteHucha}
               />
