@@ -761,7 +761,7 @@ const AppContent: React.FC = () => {
 
         {activeTab === 'exportar' && (
           <ExportView
-            movimientos={movimientos}
+            movimientos={chartMovements}
             huchas={huchas}
             userId={user?.uid}
           />

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Download, FileJson, FileText, Save, ListFilter, Trash2, CheckCircle2, Search, Filter } from 'lucide-react';
-import { type Movimiento, type Hucha } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
+import { parseMovimientoDate } from '../../hooks/useFinanceData';
 
 interface ExportViewProps {
   movimientos: Movimiento[];
@@ -88,8 +88,19 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, use
   const filteredMovimientos = useMemo(() => {
     return movimientos.filter((mov) => {
       // 1. Date filter
-      if (filters.startDate && mov.fecha_operacion < filters.startDate) return false;
-      if (filters.endDate && mov.fecha_operacion > filters.endDate) return false;
+      const movDate = parseMovimientoDate(mov.fecha_operacion);
+      if (movDate) {
+        if (filters.startDate) {
+          const start = new Date(filters.startDate);
+          start.setHours(0, 0, 0, 0);
+          if (movDate < start) return false;
+        }
+        if (filters.endDate) {
+          const end = new Date(filters.endDate);
+          end.setHours(23, 59, 59, 999);
+          if (movDate > end) return false;
+        }
+      }
       
       // 2. Type filter
       if (filters.type !== 'all' && mov.tipo !== filters.type) return false;
@@ -112,13 +123,16 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, use
   // Formatting Logic
   const handleCopyJSON = async () => {
     // Sanitize output (don't include internal IDs if not needed, but keeping them might be useful. Let's keep it simple)
-    const data = filteredMovimientos.map(m => ({
-      fecha: m.fecha_operacion,
-      concepto: m.concepto,
-      importe: m.importe,
-      tipo: m.tipo,
-      cartera: huchas.find(h => h.id === m.hucha_id)?.nombre || 'Desconocida'
-    }));
+    const data = filteredMovimientos.map(m => {
+      const d = parseMovimientoDate(m.fecha_operacion);
+      return {
+        fecha: d ? d.toISOString().split('T')[0] : 'Desconocida',
+        concepto: m.concepto,
+        importe: m.importe,
+        tipo: m.tipo,
+        cartera: huchas.find(h => h.id === m.hucha_id)?.nombre || 'Desconocida'
+      };
+    });
 
     try {
       await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
@@ -132,9 +146,11 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, use
   const handleCopyMD = async () => {
     const header = `| Fecha | Concepto | Tipo | Cartera | Importe |\n|---|---|---|---|---|`;
     const rows = filteredMovimientos.map(m => {
+      const d = parseMovimientoDate(m.fecha_operacion);
+      const fechaStr = d ? d.toLocaleDateString('es-ES') : 'Desconocida';
       const cartera = huchas.find(h => h.id === m.hucha_id)?.nombre || 'Desconocida';
       const importeStr = `${m.tipo === 'gasto' ? '-' : '+'}${m.importe.toFixed(2)}€`;
-      return `| ${m.fecha_operacion} | ${m.concepto} | ${m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'} | ${cartera} | ${importeStr} |`;
+      return `| ${fechaStr} | ${m.concepto} | ${m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'} | ${cartera} | ${importeStr} |`;
     }).join('\n');
 
     const mdString = `${header}\n${rows}\n\n**Total Seleccionado: ${totalAmount.toFixed(2)}€**`;
@@ -183,6 +199,16 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, use
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Fechas */}
+              <div className="col-span-1 sm:col-span-2 flex items-center justify-between mt-2">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Rango de Fechas</span>
+                <button 
+                  onClick={() => setFilters(prev => ({ ...prev, startDate: '', endDate: '' }))}
+                  className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-md transition-colors"
+                >
+                  Todo el tiempo
+                </button>
+              </div>
+              
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Desde</label>
                 <input
