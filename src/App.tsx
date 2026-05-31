@@ -162,6 +162,7 @@ const AppContent: React.FC = () => {
     huchas,
     suscripciones,
     pendingEmails,
+    userStats,
     balance,
     chartData,
     huchaMonthlyBudgets,
