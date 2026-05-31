@@ -1092,13 +1092,6 @@ export const useFinanceData = (forceDemo = false) => {
         return m;
       });
 
-      const gastoActual = movimientos.find(m => m.id === gasto.id);
-      const oldNeto = gastoActual?.importe_neto ?? (gastoActual?.importe || 0);
-      const prevComp = gastoActual?.compensado_por?.reduce((s, id) => {
-        const mv = movimientos.find(x => x.id === id);
-        return s + (mv ? mv.importe : 0);
-      }, 0) || 0;
-      const newNeto = Math.max(0, (gastoActual?.importe || 0) - prevComp - totalIngresos);
       const updatedStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
       // Stats stay as Gross (no compensation subtracted)
 
@@ -1110,12 +1103,9 @@ export const useFinanceData = (forceDemo = false) => {
     try {
       await runTransaction(db, async (transaction) => {
         const gastoRef = doc(db, 'movimientos', gasto.id);
-        const statsRef = doc(db, 'stats', user!.uid);
         const ingresoRefs = ingresos.map(i => doc(db, 'movimientos', i.id));
 
         const gastoSnap = await transaction.get(gastoRef);
-        const statsSnap = await transaction.get(statsRef);
-
         if (!gastoSnap.exists()) throw new Error('Gasto no existe');
         const gastoData = gastoSnap.data() as Movimiento;
 
@@ -1125,9 +1115,7 @@ export const useFinanceData = (forceDemo = false) => {
           return s + (m ? m.importe : 0);
         }, 0);
         
-        const oldNeto = gastoData.importe_neto ?? gastoData.importe;
         const neto = Math.max(0, gastoData.importe - prevCompensado - totalIngresos);
-        const effectiveCompensation = oldNeto - neto;
 
         transaction.update(gastoRef, { compensado_por: compPor, importe_neto: neto, updated_at: serverTimestamp() });
         for (const ref of ingresoRefs) {
@@ -1146,17 +1134,14 @@ export const useFinanceData = (forceDemo = false) => {
     const gastoId = ingreso.compensa_movimiento_id;
 
     if (!isFirebaseConfigured) {
-      let effectiveUncompensation = 0;
       const updatedMovs = movimientos.map(m => {
         if (m.id === gastoId) {
-          const oldNeto = m.importe_neto ?? m.importe;
           const compPor = (m.compensado_por || []).filter(id => id !== ingreso.id);
           const prevCompSinEste = compPor.reduce((s, id) => {
             const mv = movimientos.find(x => x.id === id);
             return s + (mv ? mv.importe : 0);
           }, 0);
           const neto = Math.max(0, m.importe - prevCompSinEste);
-          effectiveUncompensation = neto - oldNeto;
           
           return {
             ...m,
@@ -1182,15 +1167,11 @@ export const useFinanceData = (forceDemo = false) => {
       await runTransaction(db, async (transaction) => {
         const gastoRef = doc(db, 'movimientos', gastoId);
         const ingresoRef = doc(db, 'movimientos', ingreso.id);
-        const statsRef = doc(db, 'stats', user!.uid);
 
         const gastoSnap = await transaction.get(gastoRef);
-        const statsSnap = await transaction.get(statsRef);
 
-        let effectiveUncompensation = 0;
         if (gastoSnap.exists()) {
           const gastoData = gastoSnap.data() as Movimiento;
-          const oldNeto = gastoData.importe_neto ?? gastoData.importe;
           const compPor = (gastoData.compensado_por || []).filter(id => id !== ingreso.id);
           const prevCompSinEste = compPor.reduce((s, id) => {
             const mv = movimientos.find(x => x.id === id);
@@ -1198,7 +1179,6 @@ export const useFinanceData = (forceDemo = false) => {
           }, 0);
           
           const neto = Math.max(0, gastoData.importe - prevCompSinEste);
-          effectiveUncompensation = neto - oldNeto;
           
           transaction.update(gastoRef, {
             compensado_por: compPor.length > 0 ? compPor : deleteField(),
