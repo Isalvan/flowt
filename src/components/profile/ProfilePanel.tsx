@@ -16,8 +16,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
   user,
   onLogout
 }) => {
-  const { theme } = useTheme();
-  const { hasPin, openCreateModal, removePin, isLocked, verifyAndUnlock } = usePrivacy();
+  const { hasPin, openCreateModal, removePin, isLocked } = usePrivacy();
 
   // Close on escape key
   useEffect(() => {
