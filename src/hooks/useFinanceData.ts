@@ -1040,7 +1040,7 @@ export const useFinanceData = (forceDemo = false) => {
       const updatedMovs = movimientos.map(m => {
         if (m.id === gasto.id) {
           const compPor = [...(m.compensado_por || []), ...ingresos.map(i => i.id)];
-          const oldNeto = m.importe_neto !== undefined ? m.importe_neto : m.importe;
+          const oldNeto = m.importe_neto ?? m.importe;
           const neto = Math.max(0, m.importe - (m.importe - oldNeto) - totalIngresos);
           return { ...m, compensado_por: compPor, importe_neto: neto };
         }
@@ -1051,7 +1051,7 @@ export const useFinanceData = (forceDemo = false) => {
       });
 
       const gastoActual = movimientos.find(m => m.id === gasto.id);
-      const oldNeto = gastoActual?.importe_neto !== undefined ? gastoActual.importe_neto : (gastoActual?.importe || 0);
+      const oldNeto = gastoActual?.importe_neto ?? (gastoActual?.importe || 0);
       const prevComp = gastoActual?.compensado_por?.reduce((s, id) => {
         const mv = movimientos.find(x => x.id === id);
         return s + (mv ? mv.importe : 0);
@@ -1086,7 +1086,7 @@ export const useFinanceData = (forceDemo = false) => {
           return s + (m ? m.importe : 0);
         }, 0);
         
-        const oldNeto = gastoData.importe_neto !== undefined ? gastoData.importe_neto : gastoData.importe;
+        const oldNeto = gastoData.importe_neto ?? gastoData.importe;
         const neto = Math.max(0, gastoData.importe - prevCompensado - totalIngresos);
         const effectiveCompensation = oldNeto - neto;
 
@@ -1112,13 +1112,12 @@ export const useFinanceData = (forceDemo = false) => {
   const handleUnlinkMovimiento = async (ingreso: Movimiento) => {
     if (!ingreso.compensa_movimiento_id) return;
     const gastoId = ingreso.compensa_movimiento_id;
-    const iAmt = ingreso.importe;
 
     if (!isFirebaseConfigured) {
       let effectiveUncompensation = 0;
       const updatedMovs = movimientos.map(m => {
         if (m.id === gastoId) {
-          const oldNeto = m.importe_neto !== undefined ? m.importe_neto : m.importe;
+          const oldNeto = m.importe_neto ?? m.importe;
           const compPor = (m.compensado_por || []).filter(id => id !== ingreso.id);
           const prevCompSinEste = compPor.reduce((s, id) => {
             const mv = movimientos.find(x => x.id === id);
@@ -1160,7 +1159,7 @@ export const useFinanceData = (forceDemo = false) => {
         let effectiveUncompensation = 0;
         if (gastoSnap.exists()) {
           const gastoData = gastoSnap.data() as Movimiento;
-          const oldNeto = gastoData.importe_neto !== undefined ? gastoData.importe_neto : gastoData.importe;
+          const oldNeto = gastoData.importe_neto ?? gastoData.importe;
           const compPor = (gastoData.compensado_por || []).filter(id => id !== ingreso.id);
           const prevCompSinEste = compPor.reduce((s, id) => {
             const mv = movimientos.find(x => x.id === id);
