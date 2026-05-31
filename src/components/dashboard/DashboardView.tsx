@@ -72,7 +72,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const { formatCurrency } = usePrivacy();
 
-  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('este_mes');
+  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('historico');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const filteredMovements = useMemo(() => {
@@ -271,7 +271,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <Card className="relative bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-emerald overflow-hidden">
           <IncomeSVG className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" />
           <div className="relative z-10 flex items-center justify-between text-slate-400 dark:text-slate-500">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Ingresos del Período</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+              {selectedPeriod === 'historico' ? 'Ingresos Totales' : 'Ingresos del Período'}
+            </span>
             <TrendingUp className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="relative z-10 flex items-end justify-between mt-3.5">
@@ -291,7 +293,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <Card className="relative bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between group glass-glare glow-card-rose overflow-hidden">
           <ExpenseSVG className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" />
           <div className="relative z-10 flex items-center justify-between text-slate-400 dark:text-slate-500">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Gastos del Período</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+              {selectedPeriod === 'historico' ? 'Gastos Totales' : 'Gastos del Período'}
+            </span>
             <TrendingDown className="w-4 h-4 text-rose-500" />
           </div>
           <div className="relative z-10 flex items-end justify-between mt-3.5">
