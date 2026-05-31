@@ -1040,7 +1040,8 @@ export const useFinanceData = (forceDemo = false) => {
       const updatedMovs = movimientos.map(m => {
         if (m.id === gasto.id) {
           const compPor = [...(m.compensado_por || []), ...ingresos.map(i => i.id)];
-          const neto = Math.max(0, m.importe - (m.importe_neto ? m.importe - m.importe_neto : 0) - totalIngresos);
+          const oldNeto = m.importe_neto !== undefined ? m.importe_neto : m.importe;
+          const neto = Math.max(0, m.importe - (m.importe - oldNeto) - totalIngresos);
           return { ...m, compensado_por: compPor, importe_neto: neto };
         }
         if (ingresos.find(i => i.id === m.id)) {
@@ -1049,9 +1050,18 @@ export const useFinanceData = (forceDemo = false) => {
         return m;
       });
 
+      const gastoActual = movimientos.find(m => m.id === gasto.id);
+      const oldNeto = gastoActual?.importe_neto !== undefined ? gastoActual.importe_neto : (gastoActual?.importe || 0);
+      const prevComp = gastoActual?.compensado_por?.reduce((s, id) => {
+        const mv = movimientos.find(x => x.id === id);
+        return s + (mv ? mv.importe : 0);
+      }, 0) || 0;
+      const newNeto = Math.max(0, (gastoActual?.importe || 0) - prevComp - totalIngresos);
+      const effectiveCompensation = oldNeto - newNeto;
+
       const updatedStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
-      updatedStats.total_ingresos = Math.max(0, updatedStats.total_ingresos - totalIngresos);
-      updatedStats.total_gastos = Math.max(0, updatedStats.total_gastos - totalIngresos);
+      updatedStats.total_ingresos = Math.max(0, updatedStats.total_ingresos - effectiveCompensation);
+      updatedStats.total_gastos = Math.max(0, updatedStats.total_gastos - effectiveCompensation);
 
       saveDemoState(updatedMovs, huchas, suscripciones, updatedStats);
       showToast('Movimientos vinculados', 'success');
@@ -1075,7 +1085,10 @@ export const useFinanceData = (forceDemo = false) => {
           const m = movimientos.find(x => x.id === id);
           return s + (m ? m.importe : 0);
         }, 0);
+        
+        const oldNeto = gastoData.importe_neto !== undefined ? gastoData.importe_neto : gastoData.importe;
         const neto = Math.max(0, gastoData.importe - prevCompensado - totalIngresos);
+        const effectiveCompensation = oldNeto - neto;
 
         transaction.update(gastoRef, { compensado_por: compPor, importe_neto: neto, updated_at: serverTimestamp() });
         for (const ref of ingresoRefs) {
@@ -1084,8 +1097,8 @@ export const useFinanceData = (forceDemo = false) => {
 
         const cur = statsSnap.data() || {};
         transaction.set(statsRef, {
-          total_ingresos: Math.max(0, (cur.total_ingresos || 0) - totalIngresos),
-          total_gastos: Math.max(0, (cur.total_gastos || 0) - totalIngresos),
+          total_ingresos: Math.max(0, (cur.total_ingresos || 0) - effectiveCompensation),
+          total_gastos: Math.max(0, (cur.total_gastos || 0) - effectiveCompensation),
           updated_at: serverTimestamp(),
         }, { merge: true });
       });
@@ -1102,14 +1115,22 @@ export const useFinanceData = (forceDemo = false) => {
     const iAmt = ingreso.importe;
 
     if (!isFirebaseConfigured) {
+      let effectiveUncompensation = 0;
       const updatedMovs = movimientos.map(m => {
         if (m.id === gastoId) {
+          const oldNeto = m.importe_neto !== undefined ? m.importe_neto : m.importe;
           const compPor = (m.compensado_por || []).filter(id => id !== ingreso.id);
-          const neto = compPor.length > 0 ? (m.importe_neto || 0) + iAmt : null;
+          const prevCompSinEste = compPor.reduce((s, id) => {
+            const mv = movimientos.find(x => x.id === id);
+            return s + (mv ? mv.importe : 0);
+          }, 0);
+          const neto = Math.max(0, m.importe - prevCompSinEste);
+          effectiveUncompensation = neto - oldNeto;
+          
           return {
             ...m,
             compensado_por: compPor.length > 0 ? compPor : null,
-            importe_neto: neto
+            importe_neto: compPor.length > 0 ? neto : null
           };
         }
         if (m.id === ingreso.id) {
@@ -1119,8 +1140,8 @@ export const useFinanceData = (forceDemo = false) => {
       });
 
       const updatedStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
-      updatedStats.total_ingresos += iAmt;
-      updatedStats.total_gastos += iAmt;
+      updatedStats.total_ingresos += effectiveUncompensation;
+      updatedStats.total_gastos += effectiveUncompensation;
 
       saveDemoState(updatedMovs, huchas, suscripciones, updatedStats);
       showToast('Vínculo deshecho', 'success');
@@ -1136,14 +1157,22 @@ export const useFinanceData = (forceDemo = false) => {
         const gastoSnap = await transaction.get(gastoRef);
         const statsSnap = await transaction.get(statsRef);
 
+        let effectiveUncompensation = 0;
         if (gastoSnap.exists()) {
           const gastoData = gastoSnap.data() as Movimiento;
+          const oldNeto = gastoData.importe_neto !== undefined ? gastoData.importe_neto : gastoData.importe;
           const compPor = (gastoData.compensado_por || []).filter(id => id !== ingreso.id);
-          const neto = compPor.length > 0 ? (gastoData.importe_neto || 0) + iAmt : deleteField();
+          const prevCompSinEste = compPor.reduce((s, id) => {
+            const mv = movimientos.find(x => x.id === id);
+            return s + (mv ? mv.importe : 0);
+          }, 0);
+          
+          const neto = Math.max(0, gastoData.importe - prevCompSinEste);
+          effectiveUncompensation = neto - oldNeto;
           
           transaction.update(gastoRef, {
             compensado_por: compPor.length > 0 ? compPor : deleteField(),
-            importe_neto: neto,
+            importe_neto: compPor.length > 0 ? neto : deleteField(),
             updated_at: serverTimestamp()
           });
         }
@@ -1151,8 +1180,8 @@ export const useFinanceData = (forceDemo = false) => {
         transaction.update(ingresoRef, { compensa_movimiento_id: deleteField(), updated_at: serverTimestamp() });
         const cur = statsSnap.data() || {};
         transaction.set(statsRef, {
-          total_ingresos: (cur.total_ingresos || 0) + iAmt,
-          total_gastos: (cur.total_gastos || 0) + iAmt,
+          total_ingresos: (cur.total_ingresos || 0) + effectiveUncompensation,
+          total_gastos: (cur.total_gastos || 0) + effectiveUncompensation,
           updated_at: serverTimestamp(),
         }, { merge: true });
       });
