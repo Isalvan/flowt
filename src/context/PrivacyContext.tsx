@@ -71,6 +71,13 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
           }
         } catch (e) {
           console.error("Error fetching PIN settings", e);
+          const activePin = sessionStorage.getItem('flowt-security-pin');
+          if (activePin) {
+            setHasPin(true);
+            setMemoryPin(activePin);
+          } else {
+            setHasPin(false);
+          }
         }
       } else {
         setUserId(null);

@@ -42,6 +42,10 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && userId == request.auth.uid;
     }
 
+    match /settings/{userId} {
+      allow read, write: if isAuthenticated() && userId == request.auth.uid;
+    }
+
     match /suscripciones/{suscripcion} {
       allow create: if isAuthenticated() &&
                       request.resource.data.id_propietario == request.auth.uid;
