@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { type User } from 'firebase/auth';
 import {
   collection,
@@ -334,12 +334,15 @@ export const useFinanceData = (forceDemo = false) => {
     };
   }, [user, isFirebaseConfigured, isLocked]);
 
+  const hasRepairedStats = useRef(false);
+
   // Autorepair stats mathematical mismatches (Global rebuild)
   useEffect(() => {
-    if (loading || !user || !isFirebaseConfigured || !userStats) return;
+    if (loading || !user || !isFirebaseConfigured || !userStats || hasRepairedStats.current) return;
 
     const checkAndRepairStats = async () => {
       try {
+        hasRepairedStats.current = true;
         const allMovSnapshot = await getDocs(
           query(collection(db, 'movimientos'), where('id_propietario', '==', user.uid))
         );
@@ -374,7 +377,7 @@ export const useFinanceData = (forceDemo = false) => {
 
     checkAndRepairStats();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, user, isFirebaseConfigured]);
+  }, [loading, user, isFirebaseConfigured, userStats]);
 
   // Save Demo helper
   const saveDemoState = (
