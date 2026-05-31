@@ -11,6 +11,7 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { SuscripcionesView } from './components/suscripciones/SuscripcionesView';
 import { CalendarioView } from './components/calendario/CalendarioView';
 import { ManualReviewView } from './components/manual/ManualReviewView';
+import { ExportView } from './components/export/ExportView';
 
 // Modals
 import { HuchaModal } from './components/modals/HuchaModal';
@@ -21,6 +22,7 @@ import { LinkModal } from './components/modals/LinkModal';
 import { SuscripcionModal } from './components/modals/SuscripcionModal';
 import { HistoryModal } from './components/modals/HistoryModal';
 import { ManualMovimientoModal } from './components/modals/ManualMovimientoModal';
+import { ProfilePanel } from './components/profile/ProfilePanel';
 // Demo, Feedback, and Premium Visuals
 import { DemoSimulator } from './components/demo/DemoSimulator';
 import { Toast } from './components/common/Toast';
@@ -42,7 +44,9 @@ import {
   ShieldAlert,
   Mail,
   Eye,
-  EyeOff
+  EyeOff,
+  User,
+  Download
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { PinModal } from './components/common/PinModal';
@@ -187,7 +191,7 @@ const AppContent: React.FC = () => {
   } = useFinanceData(forceDemo);
 
   // Tab switching state
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'suscripciones' | 'calendario' | 'manual'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'suscripciones' | 'calendario' | 'manual' | 'exportar'>('dashboard');
 
   // Form modals state overlays
   const [isHuchaModalOpen, setIsHuchaModalOpen] = useState(false);
@@ -209,6 +213,7 @@ const AppContent: React.FC = () => {
   
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isManualMovimientoModalOpen, setIsManualMovimientoModalOpen] = useState(false);
+  const [isProfilePanelOpen, setIsProfilePanelOpen] = useState(false);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
 
@@ -620,6 +625,17 @@ const AppContent: React.FC = () => {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('exportar')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
+                activeTab === 'exportar'
+                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
+              }`}
+            >
+              <Download size={14} />
+              Exportar
+            </button>
           </nav>
 
           {/* Quick utility controls */}
@@ -666,9 +682,12 @@ const AppContent: React.FC = () => {
               </div>
             ) : (
               user && (
-                <div className="flex items-center gap-2.5 pl-2.5 pr-1.5 py-1 rounded-2xl bg-slate-150/40 dark:bg-slate-900 border border-slate-200/30 dark:border-white/5">
+                <button
+                  onClick={() => setIsProfilePanelOpen(true)}
+                  className="flex items-center gap-2.5 pl-2.5 pr-1.5 py-1 rounded-2xl bg-slate-150/40 dark:bg-slate-900 border border-slate-200/30 dark:border-white/5 hover:border-indigo-500/30 hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer group active:scale-95"
+                >
                   <div className="flex flex-col text-right shrink-0">
-                     <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 leading-tight">
+                     <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                       {user.displayName || 'Usuario'}
                     </span>
                     <span className="text-[8px] font-semibold text-slate-400 leading-none">
@@ -676,14 +695,14 @@ const AppContent: React.FC = () => {
                     </span>
                   </div>
                   
-                  <button
-                    onClick={handleLogout}
-                    className="w-8 h-8 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md hover:shadow-rose-500/10"
-                    title="Cerrar sesión"
-                  >
-                    <LogOut size={14} />
-                  </button>
-                </div>
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center transition-all group-hover:bg-indigo-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-indigo-500/20">
+                    {user.photoURL ? (
+                       <img src={user.photoURL} alt="Avatar" className="w-full h-full rounded-lg object-cover" />
+                    ) : (
+                       <User size={14} />
+                    )}
+                  </div>
+                </button>
               )
             )}
           </div>
@@ -739,6 +758,14 @@ const AppContent: React.FC = () => {
             onDiscard={handleDiscardPendingEmail}
           />
         )}
+
+        {activeTab === 'exportar' && (
+          <ExportView
+            movimientos={movimientos}
+            huchas={huchas}
+            userId={user?.uid}
+          />
+        )}
       </main>
 
       {/* 3. Mobile Bottom navigation tabs bar - FLOATING PREMIUM */}
@@ -747,12 +774,13 @@ const AppContent: React.FC = () => {
           
           {/* Animated Sliding Background Pill */}
           <div 
-            className="absolute top-1.5 bottom-1.5 w-[calc(25%-3px)] bg-gradient-to-tr from-sky-500 to-indigo-500 dark:from-sky-500 dark:to-indigo-600 rounded-full shadow-[0_0_20px_rgba(14,165,233,0.4)] transition-transform duration-500 ease-out z-0"
+            className="absolute top-1.5 bottom-1.5 w-[calc(20%-3px)] bg-gradient-to-tr from-sky-500 to-indigo-500 dark:from-sky-500 dark:to-indigo-600 rounded-full shadow-[0_0_20px_rgba(14,165,233,0.4)] transition-transform duration-500 ease-out z-0"
             style={{ 
               transform: `translateX(calc(${
                 activeTab === 'dashboard' ? 0 : 
                 activeTab === 'suscripciones' ? 1 : 
-                activeTab === 'calendario' ? 2 : 3
+                activeTab === 'calendario' ? 2 : 
+                activeTab === 'manual' ? 3 : 4
               } * 100%))` 
             }}
           />
@@ -760,7 +788,7 @@ const AppContent: React.FC = () => {
           {/* Dashboard Tab */}
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/4 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/5 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
               activeTab === 'dashboard' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
@@ -771,7 +799,7 @@ const AppContent: React.FC = () => {
           {/* Suscripciones Tab */}
           <button
             onClick={() => setActiveTab('suscripciones')}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/4 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/5 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
               activeTab === 'suscripciones' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
@@ -782,7 +810,7 @@ const AppContent: React.FC = () => {
           {/* Calendario Tab */}
           <button
             onClick={() => setActiveTab('calendario')}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/4 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/5 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
               activeTab === 'calendario' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
@@ -793,7 +821,7 @@ const AppContent: React.FC = () => {
           {/* Revisión Tab */}
           <button
             onClick={() => secureAction(() => setActiveTab('manual'))}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/4 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/5 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
               activeTab === 'manual' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
@@ -806,8 +834,26 @@ const AppContent: React.FC = () => {
               </span>
             )}
           </button>
+
+          {/* Exportar Tab */}
+          <button
+            onClick={() => setActiveTab('exportar')}
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/5 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
+              activeTab === 'exportar' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <Download size={20} className={`transition-transform duration-500 ease-spring ${activeTab === 'exportar' ? 'scale-110 -translate-y-0.5' : 'scale-100'}`} />
+            <span className={`text-[8px] font-black uppercase tracking-wider transition-opacity duration-300 ${activeTab === 'exportar' ? 'opacity-100' : 'opacity-70'}`}>Exportar</span>
+          </button>
         </div>
       </div>
+
+      <ProfilePanel 
+        isOpen={isProfilePanelOpen} 
+        onClose={() => setIsProfilePanelOpen(false)} 
+        user={user} 
+        onLogout={handleLogout} 
+      />
 
       {/* 4. Global Specialized Form Modals overlays mounting */}
       <HuchaModal

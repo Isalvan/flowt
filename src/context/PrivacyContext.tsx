@@ -1,4 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { auth, db } from '../firebase';
+import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface PrivacyContextType {
   isLocked: boolean;
@@ -9,8 +12,10 @@ interface PrivacyContextType {
   openUnlockModal: (callback?: (success: boolean) => void) => void;
   openCreateModal: () => void;
   closePinModal: () => void;
-  setPin: (pin: string) => void;
-  verifyAndUnlock: (pin: string) => boolean;
+  setPin: (pin: string) => Promise<void>;
+  verifyAndUnlock: (pin: string) => Promise<boolean>;
+  resetPinWithGoogle: () => Promise<boolean>;
+  removePin: () => Promise<void>;
   formatCurrency: (value: number) => string;
   formatPlainCurrency: (value: number) => string;
   maskValue: (value: any) => string;
@@ -18,6 +23,14 @@ interface PrivacyContextType {
   setPinModalMode: (mode: 'enter' | 'create' | 'confirm') => void;
   tempNewPin: string;
   setTempNewPin: (pin: string) => void;
+}
+
+// Utility function to hash the PIN
+async function hashPin(pin: string): Promise<string> {
+  const msgUint8 = new TextEncoder().encode(pin + 'flowt-salt-2026');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 const PrivacyContext = createContext<PrivacyContextType | undefined>(undefined);
@@ -30,12 +43,48 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [tempNewPin, setTempNewPin] = useState<string>('');
   const [pinCallback, setPinCallback] = useState<((success: boolean) => void) | null>(null);
 
-  // Load PIN status on mount
+  const [memoryPin, setMemoryPin] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Load PIN status on mount and subscribe to auth
   useEffect(() => {
-    const storedPin = localStorage.getItem('flowt-security-pin');
-    const pinExists = !!storedPin;
-    setHasPin(pinExists);
-    setIsLocked(true); // Always start locked on app load for maximum privacy and hiding of numbers from the start
+    setIsLocked(true); // Always start locked on app load
+    localStorage.removeItem('flowt-security-pin'); // Aggressively clean up plaintext
+
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserId(user.uid);
+        try {
+          const docRef = doc(db, 'settings', user.uid);
+          const snap = await getDoc(docRef);
+          if (snap.exists() && snap.data().pin_hash) {
+            setHasPin(true);
+            setMemoryPin(snap.data().pin_hash);
+          } else {
+            const activePin = sessionStorage.getItem('flowt-security-pin');
+            if (activePin) {
+              setHasPin(true);
+              setMemoryPin(activePin);
+            } else {
+              setHasPin(false);
+            }
+          }
+        } catch (e) {
+          console.error("Error fetching PIN settings", e);
+        }
+      } else {
+        setUserId(null);
+        const activePin = sessionStorage.getItem('flowt-security-pin');
+        if (activePin) {
+          setHasPin(true);
+          setMemoryPin(activePin);
+        } else {
+          setHasPin(false);
+        }
+      }
+    });
+
+    return () => unsub();
   }, []);
 
   const lock = useCallback(() => {
@@ -65,17 +114,73 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setPinCallback(null);
   }, []);
 
-  const setPin = useCallback((newPin: string) => {
-    localStorage.setItem('flowt-security-pin', newPin);
+  const setPin = useCallback(async (newPin: string) => {
+    const hashedPin = await hashPin(newPin);
+    setMemoryPin(hashedPin);
+    sessionStorage.setItem('flowt-security-pin', hashedPin);
+    localStorage.removeItem('flowt-security-pin'); // Leave no trace in local storage
+    
+    if (userId) {
+      try {
+        await setDoc(doc(db, 'settings', userId), { pin_hash: hashedPin }, { merge: true });
+      } catch (e) {
+        console.error("Error saving PIN to DB", e);
+      }
+    }
+
     setHasPin(true);
     setIsLocked(false);
     setIsPinModalOpen(false);
     setTempNewPin('');
-  }, []);
+  }, [userId]);
 
-  const verifyAndUnlock = useCallback((pin: string): boolean => {
-    const storedPin = localStorage.getItem('flowt-security-pin');
-    if (storedPin === pin) {
+  const removePin = useCallback(async () => {
+    setMemoryPin(null);
+    sessionStorage.removeItem('flowt-security-pin');
+    localStorage.removeItem('flowt-security-pin');
+    
+    if (userId) {
+      try {
+        await setDoc(doc(db, 'settings', userId), { pin_hash: null }, { merge: true });
+      } catch (e) {
+        console.error("Error removing PIN from DB", e);
+      }
+    }
+    setHasPin(false);
+    setIsLocked(false);
+  }, [userId]);
+
+  const resetPinWithGoogle = useCallback(async (): Promise<boolean> => {
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      // Re-authenticate user to prove identity
+      const result = await signInWithPopup(auth, provider);
+      
+      // Strict check: ensures they signed in with the same active account
+      if (userId && result.user.uid !== userId) {
+        return false;
+      }
+
+      await removePin();
+      setPinModalMode('create');
+      return true;
+    } catch (error) {
+      console.error("Error resetting PIN:", error);
+      return false;
+    }
+  }, [userId, removePin]);
+
+  const verifyAndUnlock = useCallback(async (pin: string): Promise<boolean> => {
+    const activePin = memoryPin || sessionStorage.getItem('flowt-security-pin');
+    if (!activePin) return false;
+
+    const hashedInput = await hashPin(pin);
+
+    if (activePin === hashedInput) {
+      setMemoryPin(hashedInput);
+      sessionStorage.setItem('flowt-security-pin', hashedInput);
+      localStorage.removeItem('flowt-security-pin'); // Leave no trace!
       setIsLocked(false);
       setIsPinModalOpen(false);
       if (pinCallback) {
@@ -85,7 +190,7 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return true;
     }
     return false;
-  }, [pinCallback]);
+  }, [pinCallback, memoryPin]);
 
   // Clean currency formatting
   const formatPlainCurrency = useCallback((value: number): string => {
@@ -119,6 +224,8 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
         closePinModal,
         setPin,
         verifyAndUnlock,
+        resetPinWithGoogle,
+        removePin,
         formatCurrency,
         formatPlainCurrency,
         maskValue,
