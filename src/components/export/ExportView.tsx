@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Download, FileJson, FileText, Save, ListFilter, Trash2, CheckCircle2, Search, Filter } from 'lucide-react';
+import { type Movimiento, type Hucha } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
 
