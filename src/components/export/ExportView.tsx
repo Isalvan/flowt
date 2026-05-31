@@ -118,10 +118,36 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
     });
   }, [movimientos, filters]);
 
-  // Calculations
+  // Calculations for Advanced Metrics
   const totalAmount = filteredMovimientos.reduce((sum, mov) => {
     return mov.tipo === 'ingreso' ? sum + mov.importe : sum - mov.importe;
   }, 0);
+
+  const totalSavings = huchas.reduce((sum, h) => sum + h.saldo_acumulado, 0);
+  const incomeMovements = movimientos.filter(m => m.tipo === 'ingreso');
+  const expenseMovements = movimientos.filter(m => m.tipo === 'gasto');
+  const globalTotalIncome = incomeMovements.reduce((sum, m) => sum + m.importe, 0);
+  const globalTotalExpense = expenseMovements.reduce((sum, m) => sum + m.importe, 0);
+  const savingsRate = globalTotalIncome > 0 ? Math.max(0, ((globalTotalIncome - globalTotalExpense) / globalTotalIncome) * 100) : 0;
+  
+  let representativeDays = 30;
+  if (movimientos.length > 1) {
+    const dates = movimientos.map(m => {
+      const d = parseMovimientoDate(m.fecha_operacion);
+      return d ? d.getTime() : new Date().getTime();
+    });
+    const minDate = Math.min(...dates);
+    const maxDate = Math.max(...dates);
+    const diffDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
+    if (diffDays > 0) representativeDays = Math.min(180, diffDays);
+  }
+  
+  const dailyBurnRate = representativeDays > 0 ? (globalTotalExpense / representativeDays) : 0;
+  const averageMonthlyExpense = dailyBurnRate * 30.4;
+  const runwayMonths = averageMonthlyExpense > 0 ? (totalSavings / averageMonthlyExpense) : 0;
+  const monthlySubsCost = suscripciones.filter(s => s.activa).reduce((sum, s) => sum + (s.mi_parte != null ? s.mi_parte : s.importe), 0);
+  const monthlyIncome = representativeDays > 0 ? (globalTotalIncome / (representativeDays / 30.4)) : 0;
+  const subsPressure = monthlyIncome > 0 ? (monthlySubsCost / monthlyIncome) * 100 : 0;
 
   // Formatting Logic
   const handleCopyJSON = async () => {
@@ -132,6 +158,14 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
         total_ingresos_historicos: userStats?.total_ingresos || 0,
         total_gastos_historicos: userStats?.total_gastos || 0,
         balance_historico: (userStats?.total_ingresos || 0) - (userStats?.total_gastos || 0)
+      },
+      metricas_libertad_financiera: {
+        tasa_ahorro_neta_porcentaje: Number(savingsRate.toFixed(2)),
+        pista_libertad_meses_runway: Number(runwayMonths.toFixed(2)),
+        tasa_consumo_diario: Number(dailyBurnRate.toFixed(2)),
+        gasto_promedio_mensual_estimado: Number(averageMonthlyExpense.toFixed(2)),
+        presion_suscripciones_porcentaje: Number(subsPressure.toFixed(2)),
+        dias_historial_analizados: representativeDays
       },
       carteras_huchas: huchas.map(h => ({
         nombre: h.nombre,
@@ -191,6 +225,15 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
     mdString += `- **Ingresos Totales:** +${(userStats?.total_ingresos || 0).toFixed(2)}€\n`;
     mdString += `- **Gastos Totales:** -${(userStats?.total_gastos || 0).toFixed(2)}€\n`;
     mdString += `- **Balance Histórico:** ${((userStats?.total_ingresos || 0) - (userStats?.total_gastos || 0)).toFixed(2)}€\n\n`;
+
+    // 2. Métricas de Libertad y Salud Financiera
+    mdString += `## 🛡️ Métricas de Libertad y Salud Financiera\n`;
+    mdString += `- **Pista de Libertad (Runway):** ${runwayMonths.toFixed(1)} meses de independencia financiados con el ahorro actual.\n`;
+    mdString += `- **Tasa de Ahorro Neto:** ${savingsRate.toFixed(1)}% de los ingresos se han retenido.\n`;
+    mdString += `- **Tasa de Consumo Diario (Burn Rate):** ${dailyBurnRate.toFixed(2)}€ / día.\n`;
+    mdString += `- **Gasto Mensual Estimado:** ${averageMonthlyExpense.toFixed(2)}€ / mes.\n`;
+    mdString += `- **Presión de Suscripciones:** ${subsPressure.toFixed(1)}% de los ingresos mensuales fijos comprometidos.\n`;
+    mdString += `_Basado en un historial analizado de ${representativeDays} días._\n\n`;
 
     // 2. Carteras
     mdString += `## 🏦 Estado de las Carteras (Huchas)\n`;
