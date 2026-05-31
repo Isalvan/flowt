@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import CountUp from 'react-countup';
 import { type Movimiento, type Hucha, type Suscripcion } from '../../types';
 import { HuchaCard } from './HuchaCard';
 import { ActivityList } from './ActivityList';
@@ -70,7 +71,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenManualMovimientoModal,
   onDeleteMovimiento,
 }) => {
-  const { formatCurrency } = usePrivacy();
+  const { isLocked, formatCurrency } = usePrivacy();
 
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('historico');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -279,7 +280,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="relative z-10 flex items-end justify-between mt-3.5">
             <div>
               <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
-                {formatCurrency(periodIngresos)}
+                {isLocked ? '•••• €' : <CountUp end={periodIngresos} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.5} />}
               </span>
               <p className="text-[10px] text-slate-450 dark:text-slate-550 font-semibold mt-1">
                 Total ingresado
@@ -301,7 +302,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="relative z-10 flex items-end justify-between mt-3.5">
             <div>
               <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
-                {formatCurrency(periodGastos)}
+                {isLocked ? '•••• €' : <CountUp end={periodGastos} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.5} />}
               </span>
               <p className="text-[10px] text-slate-450 dark:text-slate-550 font-semibold mt-1">
                 Total gastado

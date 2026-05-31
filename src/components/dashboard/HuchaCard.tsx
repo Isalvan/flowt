@@ -1,4 +1,5 @@
 import React from 'react';
+import CountUp from 'react-countup';
 import { Card } from '../common/Card';
 import { type Hucha } from '../../types';
 import { Edit3, Trash2, CreditCard, Lock, CheckCircle, PiggyBank } from 'lucide-react';
@@ -20,7 +21,7 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete })
   const progressFraction = Math.min(Math.max(rawProgress, 0), 1);
   const progressPercent = Math.round(progressFraction * 100);
 
-  const { isLocked, formatCurrency } = usePrivacy();
+  const { isLocked } = usePrivacy();
 
   const getContributionLabel = () => {
     if (hucha.tipo_aportacion === 'porcentaje') return `${hucha.valor_aportacion}%`;
@@ -101,11 +102,11 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete })
       <div className="flex items-center justify-between mt-6 relative z-10">
         <div className="flex flex-col">
           <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tighter drop-shadow-lg">
-            {formatCurrency(hucha.saldo_acumulado)}
+            {isLocked ? '•••• €' : <CountUp end={hucha.saldo_acumulado} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.5} />}
           </span>
           {hasObjetivo && (
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-              Obj: {formatCurrency(hucha.objetivo!)}
+              Obj: {isLocked ? '•• €' : <CountUp end={hucha.objetivo!} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.5} />}
             </div>
           )}
         </div>
