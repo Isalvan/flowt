@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CountUp from 'react-countup';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area 
 } from 'recharts';
@@ -61,17 +62,23 @@ const App = () => {
         {/* Status Cards */}
         <section className="glass-card stat-card">
           <span className="stat-label">Saldo Total</span>
-          <span className="stat-value">{totalBalance}€</span>
+          <span className="stat-value">
+            <CountUp end={totalBalance} decimals={2} decimal="," separator="." suffix="€" />
+          </span>
         </section>
 
         <section className="glass-card stat-card">
           <span className="stat-label">Ingresos del Mes</span>
-          <span className="stat-value income-text">+2,400€</span>
+          <span className="stat-value income-text">
+            <CountUp end={2400} prefix="+" separator="," suffix="€" />
+          </span>
         </section>
 
         <section className="glass-card stat-card">
           <span className="stat-label">Gastos del Mes</span>
-          <span className="stat-value expense-text">-1,850€</span>
+          <span className="stat-value expense-text">
+            <CountUp end={1850} prefix="-" separator="," suffix="€" />
+          </span>
         </section>
 
         {/* Charts */}
