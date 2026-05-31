@@ -1,5 +1,5 @@
 import React from 'react';
-import CountUp from 'react-countup';
+import { CountUp } from '../common/CountUp';
 import { Card } from '../common/Card';
 import { type Hucha } from '../../types';
 import { Edit3, Trash2, CreditCard, Lock, CheckCircle, PiggyBank } from 'lucide-react';

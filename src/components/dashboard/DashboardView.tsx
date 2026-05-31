@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import CountUp from 'react-countup';
+import { CountUp } from '../common/CountUp';
 import { type Movimiento, type Hucha, type Suscripcion } from '../../types';
 import { HuchaCard } from './HuchaCard';
 import { ActivityList } from './ActivityList';
