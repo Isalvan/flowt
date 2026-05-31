@@ -1,10 +1,13 @@
 import React from 'react';
+import { usePrivacy } from '../../../context/PrivacyContext';
+import { CountUp } from '../../common/CountUp';
 
 interface FlowHeroSVGProps {
   balance: number;
 }
 
 export const FlowHeroSVG: React.FC<FlowHeroSVGProps> = ({ balance }) => {
+  const { isLocked } = usePrivacy();
   return (
     <div className="relative w-full h-64 sm:h-80 rounded-[3rem] overflow-hidden bg-slate-950 border border-white/5 shadow-2xl flex items-center justify-center isolate group">
       
@@ -94,7 +97,7 @@ export const FlowHeroSVG: React.FC<FlowHeroSVGProps> = ({ balance }) => {
         <div className="relative">
           <span className="absolute -inset-4 bg-white/5 blur-xl rounded-full"></span>
           <h1 className="relative text-5xl sm:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/40 tracking-tighter drop-shadow-2xl">
-            {balance.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+            {isLocked ? '•••• €' : <CountUp end={balance} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={2} />}
           </h1>
         </div>
       </div>
