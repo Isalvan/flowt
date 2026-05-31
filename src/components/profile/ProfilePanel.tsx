@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { User, LogOut, Key, ShieldOff, X } from 'lucide-react';
 import { usePrivacy } from '../../context/PrivacyContext';
-import { useTheme } from '../../hooks/useTheme';
 
 interface ProfilePanelProps {
   isOpen: boolean;
