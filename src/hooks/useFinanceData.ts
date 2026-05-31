@@ -344,32 +344,28 @@ export const useFinanceData = (forceDemo = false) => {
           query(collection(db, 'movimientos'), where('id_propietario', '==', user.uid))
         );
 
-        let calcTotalGastos = 0;
-        let calcTotalIngresos = 0;
-        let totalCompensation = 0;
+        let grossGastos = 0;
+        let grossIngresos = 0;
 
         allMovSnapshot.docs.forEach(d => {
           const m = d.data() as Movimiento;
           if (m.tipo === 'gasto') {
-            const neto = m.importe_neto ?? m.importe;
-            calcTotalGastos += neto;
-            totalCompensation += (m.importe - neto);
+            grossGastos += m.importe;
           } else if (m.tipo === 'ingreso') {
-            calcTotalIngresos += m.importe;
+            grossIngresos += m.importe;
           }
         });
 
-        const finalIngresos = Math.max(0, calcTotalIngresos - totalCompensation);
-        const finalGastos = Math.max(0, calcTotalGastos);
-
-        if (Math.abs(userStats.total_ingresos - finalIngresos) > 0.05 || Math.abs(userStats.total_gastos - finalGastos) > 0.05) {
-          console.log('Restoring true historical stats...', { finalIngresos, finalGastos, userStats });
+        if (Math.abs(userStats.total_ingresos - grossIngresos) > 0.05 || Math.abs(userStats.total_gastos - grossGastos) > 0.05) {
+          console.log('Restoring true GROSS historical stats...', { grossIngresos, grossGastos, userStats });
           const statsRef = doc(db, 'stats', user.uid);
           await setDoc(statsRef, {
-            total_ingresos: finalIngresos,
-            total_gastos: finalGastos,
+            total_ingresos: grossIngresos,
+            total_gastos: grossGastos,
             updated_at: serverTimestamp()
           }, { merge: true });
+          
+          setUserStats(prev => prev ? { ...prev, total_ingresos: grossIngresos, total_gastos: grossGastos } : null);
         }
       } catch (error) {
         console.error('Error in auto-repair:', error);
@@ -1103,11 +1099,8 @@ export const useFinanceData = (forceDemo = false) => {
         return s + (mv ? mv.importe : 0);
       }, 0) || 0;
       const newNeto = Math.max(0, (gastoActual?.importe || 0) - prevComp - totalIngresos);
-      const effectiveCompensation = oldNeto - newNeto;
-
       const updatedStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
-      updatedStats.total_ingresos = Math.max(0, updatedStats.total_ingresos - effectiveCompensation);
-      updatedStats.total_gastos = Math.max(0, updatedStats.total_gastos - effectiveCompensation);
+      // Stats stay as Gross (no compensation subtracted)
 
       saveDemoState(updatedMovs, huchas, suscripciones, updatedStats);
       showToast('Movimientos vinculados', 'success');
@@ -1140,13 +1133,6 @@ export const useFinanceData = (forceDemo = false) => {
         for (const ref of ingresoRefs) {
           transaction.update(ref, { compensa_movimiento_id: gasto.id, updated_at: serverTimestamp() });
         }
-
-        const cur = statsSnap.data() || {};
-        transaction.set(statsRef, {
-          total_ingresos: Math.max(0, (cur.total_ingresos || 0) - effectiveCompensation),
-          total_gastos: Math.max(0, (cur.total_gastos || 0) - effectiveCompensation),
-          updated_at: serverTimestamp(),
-        }, { merge: true });
       });
       showToast('Movimientos vinculados', 'success');
     } catch (error: any) {
@@ -1185,8 +1171,7 @@ export const useFinanceData = (forceDemo = false) => {
       });
 
       const updatedStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
-      updatedStats.total_ingresos += effectiveUncompensation;
-      updatedStats.total_gastos += effectiveUncompensation;
+      // Stats stay as Gross
 
       saveDemoState(updatedMovs, huchas, suscripciones, updatedStats);
       showToast('Vínculo deshecho', 'success');
@@ -1223,12 +1208,6 @@ export const useFinanceData = (forceDemo = false) => {
         }
 
         transaction.update(ingresoRef, { compensa_movimiento_id: deleteField(), updated_at: serverTimestamp() });
-        const cur = statsSnap.data() || {};
-        transaction.set(statsRef, {
-          total_ingresos: (cur.total_ingresos || 0) + effectiveUncompensation,
-          total_gastos: (cur.total_gastos || 0) + effectiveUncompensation,
-          updated_at: serverTimestamp(),
-        }, { merge: true });
       });
       showToast('Vínculo deshecho', 'success');
     } catch (error: any) {
