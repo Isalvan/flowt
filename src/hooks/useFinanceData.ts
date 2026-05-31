@@ -334,6 +334,52 @@ export const useFinanceData = (forceDemo = false) => {
     };
   }, [user, isFirebaseConfigured, isLocked]);
 
+  // Autorepair stats mathematical mismatches (Global rebuild)
+  useEffect(() => {
+    if (loading || !user || !isFirebaseConfigured || !userStats) return;
+
+    const checkAndRepairStats = async () => {
+      try {
+        const allMovSnapshot = await getDocs(
+          query(collection(db, 'movimientos'), where('id_propietario', '==', user.uid))
+        );
+
+        let calcTotalGastos = 0;
+        let calcTotalIngresos = 0;
+        let totalCompensation = 0;
+
+        allMovSnapshot.docs.forEach(d => {
+          const m = d.data() as Movimiento;
+          if (m.tipo === 'gasto') {
+            const neto = m.importe_neto ?? m.importe;
+            calcTotalGastos += neto;
+            totalCompensation += (m.importe - neto);
+          } else if (m.tipo === 'ingreso') {
+            calcTotalIngresos += m.importe;
+          }
+        });
+
+        const finalIngresos = Math.max(0, calcTotalIngresos - totalCompensation);
+        const finalGastos = Math.max(0, calcTotalGastos);
+
+        if (Math.abs(userStats.total_ingresos - finalIngresos) > 0.05 || Math.abs(userStats.total_gastos - finalGastos) > 0.05) {
+          console.log('Restoring true historical stats...', { finalIngresos, finalGastos, userStats });
+          const statsRef = doc(db, 'stats', user.uid);
+          await setDoc(statsRef, {
+            total_ingresos: finalIngresos,
+            total_gastos: finalGastos,
+            updated_at: serverTimestamp()
+          }, { merge: true });
+        }
+      } catch (error) {
+        console.error('Error in auto-repair:', error);
+      }
+    };
+
+    checkAndRepairStats();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user, isFirebaseConfigured]);
+
   // Save Demo helper
   const saveDemoState = (
     newMovs: Movimiento[], 
