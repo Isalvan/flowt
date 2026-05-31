@@ -120,48 +120,56 @@ def validate_parsed_data(data: Dict[str, Any]) -> bool:
     return True
 
 @firestore.transactional
-def process_movement_transaction(transaction, mov_ref, movimiento: Dict[str, Any], owner_id: str):
+def process_email_movements_transaction(transaction, movements_to_process: List[Dict], owner_id: str):
     """
-    Firestore transaction to save the movement and update huchas.
-    Returns True if a new movement was created, False if it already existed.
+    Firestore transaction to save MULTIPLE movements and update huchas.
+    movements_to_process is a list of dicts: {"doc_id": "...", "movimiento": {...}}
+    Returns the list of doc_ids that were actually recorded.
     """
-    # Check if movement already exists
-    mov_snapshot = mov_ref.get(transaction=transaction)
-    if mov_snapshot.exists:
-        return False
+    recorded_ids = []
 
-    # Read stats doc before any writes
+    # 1. Read stats doc
     stats_ref = db.collection("stats").document(owner_id)
     stats_snapshot = stats_ref.get(transaction=transaction)
 
+    # 2. Read all huchas
     huchas_ref = db.collection("huchas")
     query = huchas_ref.where("id_propietario", "==", owner_id).order_by("orden")
-    # ... rest of the logic remains the same ...
-    
-    # Get all huchas for the owner - ALL READS MUST HAPPEN FIRST
     huchas_docs = list(query.stream(transaction=transaction))
     
-    # Fetch active subscriptions to handle linked provisions
+    # 3. Read active subscriptions
     subs_ref = db.collection("suscripciones")
     subs_query = subs_ref.where("id_propietario", "==", owner_id).where("activa", "==", True)
     subs_docs = list(subs_query.stream(transaction=transaction))
     
+    # 4. Check which movements exist
+    mov_refs = [db.collection("movimientos").document(m["doc_id"]) for m in movements_to_process]
+    if not mov_refs:
+        return []
+    mov_snapshots = db.get_all(mov_refs, transaction=transaction)
+    existing_ids = {snap.id for snap in mov_snapshots if snap.exists}
+
     # Group active subscriptions by linked hucha
     freq_divisors = {"mensual": 1, "trimestral": 3, "semestral": 6, "anual": 12}
     linked_provisions = {} # hucha_id -> total_mensual
     subs_hucha_id = None
     
+    # We will accumulate the state of huchas in memory
+    # Initialize with current DB state
+    huchas_state = {}
     for h_doc in huchas_docs:
-        if h_doc.to_dict().get("es_suscripciones"):
+        data = h_doc.to_dict()
+        huchas_state[h_doc.id] = {
+            "ref": h_doc.reference,
+            "data": data,
+            "saldo_actual": float(data.get("saldo_acumulado", 0) or 0)
+        }
+        if data.get("es_suscripciones"):
             subs_hucha_id = h_doc.id
-            break
 
     for s_doc in subs_docs:
         s_data = s_doc.to_dict()
         divisor = freq_divisors.get(s_data.get("frecuencia", "mensual"), 1)
-        # If "mi_parte" is set, the subscription is shared and only that amount
-        # is the user's actual cost. The rest is reimbursed by other people via
-        # linked income movements (compensaciones).
         mi_parte = s_data.get("mi_parte")
         importe_efectivo = float(mi_parte) if mi_parte is not None else float(s_data.get("importe", 0))
         mensual = importe_efectivo / divisor
@@ -169,156 +177,175 @@ def process_movement_transaction(transaction, mov_ref, movimiento: Dict[str, Any
         if h_id:
             linked_provisions[h_id] = linked_provisions.get(h_id, 0) + mensual
 
-    amount = float(movimiento["importe"])
-    distributions = {} # doc_id -> amount_change (positive or negative)
+    stats_changes = {"ingresos": 0.0, "gastos": 0.0}
     
-    target_gasto_hucha_id = None
     new_hucha_ref = None
     new_hucha_data = None
-
-    if not huchas_docs:
-        logger.info(f"No huchas found for user {owner_id}. Creating default 'Cuenta Principal'.")
-        new_hucha_ref = huchas_ref.document()
-        target_gasto_hucha_id = new_hucha_ref.id
-        
-        if movimiento["tipo"] == "ingreso":
-            distributions[target_gasto_hucha_id] = amount
-        else:
-            distributions[target_gasto_hucha_id] = -amount
+    
+    for m in movements_to_process:
+        doc_id = m["doc_id"]
+        if doc_id in existing_ids:
+            continue
             
-        new_hucha_data = {
-            "id_propietario": owner_id,
-            "nombre": "Cuenta Principal",
-            "tipo_aportacion": "resto",
-            "saldo_acumulado": distributions[target_gasto_hucha_id],
-            "orden": 1,
-            "es_principal": True,
-            "created_at": firestore.SERVER_TIMESTAMP,
-            "updated_at": firestore.SERVER_TIMESTAMP
-        }
-    else:
+        movimiento = m["movimiento"]
+        amount = float(movimiento["importe"])
+        target_gasto_hucha_id = None
+        
+        # If no huchas exist, create default
+        if not huchas_state and not new_hucha_ref:
+            logger.info(f"No huchas found for user {owner_id}. Creating default 'Cuenta Principal'.")
+            new_hucha_ref = huchas_ref.document()
+            target_gasto_hucha_id = new_hucha_ref.id
+            
+            init_balance = amount if movimiento["tipo"] == "ingreso" else -amount
+            
+            new_hucha_data = {
+                "id_propietario": owner_id,
+                "nombre": "Cuenta Principal",
+                "tipo_aportacion": "resto",
+                "saldo_acumulado": init_balance,
+                "orden": 1,
+                "es_principal": True,
+                "created_at": firestore.SERVER_TIMESTAMP,
+                "updated_at": firestore.SERVER_TIMESTAMP
+            }
+            # Put it in huchas_state so next movement in same batch sees it
+            huchas_state[target_gasto_hucha_id] = {
+                "ref": new_hucha_ref,
+                "data": new_hucha_data,
+                "saldo_actual": init_balance
+            }
+            
+            movimiento["hucha_id"] = target_gasto_hucha_id
+            transaction.set(mov_refs[movements_to_process.index(m)], movimiento)
+            recorded_ids.append(doc_id)
+            if movimiento["tipo"] == "ingreso":
+                stats_changes["ingresos"] += amount
+            else:
+                stats_changes["gastos"] += amount
+            continue
+
         if movimiento["tipo"] == "ingreso":
             total_percentage = sum(
-                doc.to_dict().get("valor_aportacion", 0) 
-                for doc in huchas_docs 
-                if doc.to_dict().get("tipo_aportacion") == "porcentaje"
+                h_info["data"].get("valor_aportacion", 0) 
+                for h_info in huchas_state.values() 
+                if h_info["data"].get("tipo_aportacion") == "porcentaje"
             )
             if total_percentage > 100:
                 logger.error(f"Total percentage ({total_percentage}%) exceeds 100%. Income not distributed.")
             else:
                 remaining_amount = amount
-                # 1. Flat amounts
-                for doc in huchas_docs:
-                    hucha_id = doc.id
-                    data = doc.to_dict()
+                # 1. Flat amounts (HARD LIMIT)
+                for h_id, h_info in huchas_state.items():
+                    data = h_info["data"]
                     if data.get("tipo_aportacion") == "flat":
                         target_val = float(data.get("valor_aportacion", 0))
+                        current_balance = h_info["saldo_actual"]
                         
-                        if hucha_id == subs_hucha_id:
-                            # Effective target for Subs hucha is its flat val MINUS what others are providing
+                        # HARD LIMIT calculation
+                        hueco_libre = max(0, target_val - current_balance)
+                        
+                        # Apply provisions subtraction logic to the hueco_libre
+                        if h_id == subs_hucha_id:
                             provision_from_others = sum(linked_provisions.values())
-                            effective_target = max(0, target_val - provision_from_others)
+                            effective_target = max(0, hueco_libre - provision_from_others)
                         else:
-                            provision_for_subs = linked_provisions.get(hucha_id, 0)
-                            effective_target = max(0, target_val - provision_for_subs)
+                            provision_for_subs = linked_provisions.get(h_id, 0)
+                            effective_target = max(0, hueco_libre - provision_for_subs)
                             
                             # Add provision to Subs hucha instead of this hucha
-                            if provision_for_subs > 0 and subs_hucha_id:
+                            if provision_for_subs > 0 and subs_hucha_id and remaining_amount > 0:
                                 to_subs = min(provision_for_subs, remaining_amount)
-                                distributions[subs_hucha_id] = distributions.get(subs_hucha_id, 0) + to_subs
+                                huchas_state[subs_hucha_id]["saldo_actual"] += to_subs
                                 remaining_amount -= to_subs
                         
                         to_add = min(effective_target, remaining_amount)
-                        distributions[hucha_id] = distributions.get(hucha_id, 0) + to_add
-                        remaining_amount -= to_add
+                        if to_add > 0:
+                            huchas_state[h_id]["saldo_actual"] += to_add
+                            remaining_amount -= to_add
 
                 # 2. Percentages
-                for doc in huchas_docs:
-                    hucha_id = doc.id
-                    data = doc.to_dict()
+                for h_id, h_info in huchas_state.items():
+                    data = h_info["data"]
                     if data.get("tipo_aportacion") == "porcentaje":
                         perc_val = float(data.get("valor_aportacion", 0))
                         planned_total = amount * (perc_val / 100.0)
                         
-                        provision_for_subs = linked_provisions.get(hucha_id, 0)
+                        provision_for_subs = linked_provisions.get(h_id, 0)
                         effective_target = max(0, planned_total - provision_for_subs)
                         
                         # Add provision to Subs hucha
-                        if provision_for_subs > 0 and subs_hucha_id:
+                        if provision_for_subs > 0 and subs_hucha_id and remaining_amount > 0:
                             to_subs = min(provision_for_subs, remaining_amount)
-                            distributions[subs_hucha_id] = distributions.get(subs_hucha_id, 0) + to_subs
+                            huchas_state[subs_hucha_id]["saldo_actual"] += to_subs
                             remaining_amount -= to_subs
 
                         to_add = min(effective_target, remaining_amount)
-                        distributions[hucha_id] = distributions.get(hucha_id, 0) + to_add
-                        remaining_amount -= to_add
+                        if to_add > 0:
+                            huchas_state[h_id]["saldo_actual"] += to_add
+                            remaining_amount -= to_add
 
                 # 3. Resto (Income Overflow)
-                # We strictly look for the hucha defined as "resto"
-                resto_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("tipo_aportacion") == "resto"), None)
+                resto_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("tipo_aportacion") == "resto"), None)
+                if not resto_hucha_id:
+                    resto_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("es_principal")), None)
+                if not resto_hucha_id and huchas_state:
+                    resto_hucha_id = list(huchas_state.keys())[0]
                 
-                # Fallback: If no "resto" hucha exists, use the one marked as principal
-                if not resto_hucha:
-                    resto_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("es_principal")), None)
-                
-                # Final Fallback: First available hucha (to ensure money is always stored)
-                if not resto_hucha and huchas_docs:
-                    resto_hucha = huchas_docs[0]
-                
-                if resto_hucha and remaining_amount > 0:
-                    distributions[resto_hucha.id] = distributions.get(resto_hucha.id, 0) + remaining_amount
+                if resto_hucha_id and remaining_amount > 0:
+                    huchas_state[resto_hucha_id]["saldo_actual"] += remaining_amount
         else:
-            # Es gasto (Default Expense Pocket)
-            # We strictly look for the hucha marked as "principal"
-            target_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("es_principal")), None)
-            
-            # Fallback: If no principal hucha exists, use the one defined as "resto"
-            if not target_hucha:
-                target_hucha = next((doc for doc in huchas_docs if doc.to_dict().get("tipo_aportacion") == "resto"), None)
-            
-            # Final Fallback: First available
-            if not target_hucha and huchas_docs:
-                target_hucha = huchas_docs[0]
+            # Es gasto
+            target_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("es_principal")), None)
+            if not target_hucha_id:
+                target_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("tipo_aportacion") == "resto"), None)
+            if not target_hucha_id and huchas_state:
+                target_hucha_id = list(huchas_state.keys())[0]
                 
-            target_gasto_hucha_id = target_hucha.id
-            distributions[target_gasto_hucha_id] = -amount
+            target_gasto_hucha_id = target_hucha_id
+            if target_gasto_hucha_id:
+                huchas_state[target_gasto_hucha_id]["saldo_actual"] -= amount
 
-    # Apply updates - ALL WRITES MUST HAPPEN AFTER ALL READS
-    for doc in huchas_docs:
-        change = distributions.get(doc.id, 0)
-        if change != 0:
-            current_balance = doc.to_dict().get("saldo_acumulado", 0) or 0
-            transaction.update(huchas_ref.document(doc.id), {
-                "saldo_acumulado": current_balance + change,
-                "updated_at": firestore.SERVER_TIMESTAMP
-            })
-            logger.info(f"Updated hucha {doc.id} balance by {change:.2f}")
-            
+        if target_gasto_hucha_id:
+            movimiento["hucha_id"] = target_gasto_hucha_id
+
+        # Mark as recorded and save movement
+        transaction.set(mov_refs[movements_to_process.index(m)], movimiento)
+        recorded_ids.append(doc_id)
+        
+        if movimiento["tipo"] == "ingreso":
+            stats_changes["ingresos"] += amount
+        else:
+            stats_changes["gastos"] += amount
+
+    # Apply all writes at the end
     if new_hucha_ref and new_hucha_data:
         transaction.set(new_hucha_ref, new_hucha_data)
         logger.info(f"Created default hucha {new_hucha_ref.id} with balance {new_hucha_data['saldo_acumulado']:.2f}")
 
-    if target_gasto_hucha_id:
-        movimiento["hucha_id"] = target_gasto_hucha_id
+    for h_id, h_info in huchas_state.items():
+        original_balance = float(h_info["data"].get("saldo_acumulado", 0) or 0)
+        new_balance = h_info["saldo_actual"]
+        if abs(new_balance - original_balance) > 0.001:  # if changed
+            # Don't update the new default hucha twice if we just created it
+            if new_hucha_ref and h_id == new_hucha_ref.id:
+                continue
+            transaction.update(h_info["ref"], {
+                "saldo_acumulado": new_balance,
+                "updated_at": firestore.SERVER_TIMESTAMP
+            })
+            logger.info(f"Updated hucha {h_id} balance by {new_balance - original_balance:.2f} (New: {new_balance:.2f})")
 
-    transaction.set(mov_ref, movimiento)
+    # Update stats
+    if stats_changes["ingresos"] > 0 or stats_changes["gastos"] > 0:
+        current_stats = stats_snapshot.to_dict() or {}
+        transaction.set(stats_ref, {
+            "total_ingresos": current_stats.get("total_ingresos", 0) + stats_changes["ingresos"],
+            "total_gastos": current_stats.get("total_gastos", 0) + stats_changes["gastos"],
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        })
 
-    # Update global stats atomically
-    amount = float(movimiento["importe"])
-    current_stats = stats_snapshot.to_dict() or {}
-    if movimiento["tipo"] == "ingreso":
-        new_total_ingresos = current_stats.get("total_ingresos", 0) + amount
-        new_total_gastos = current_stats.get("total_gastos", 0)
-    else:
-        new_total_ingresos = current_stats.get("total_ingresos", 0)
-        new_total_gastos = current_stats.get("total_gastos", 0) + amount
-    transaction.set(stats_ref, {
-        "total_ingresos": new_total_ingresos,
-        "total_gastos": new_total_gastos,
-        "updated_at": firestore.SERVER_TIMESTAMP,
-    })
-
-    return True
+    return recorded_ids
 
 def extract_email(header_value: str) -> str:
     """Extracts the email address from a From header (e.g. 'Name <email@domain.com>' -> 'email@domain.com')"""
@@ -401,6 +428,8 @@ def process_emails():
         has_recorded_any = False
         has_low_confidence = False
         
+        movements_to_process = []
+        
         for index, parsed_data in enumerate(movements_list):
             if not validate_parsed_data(parsed_data):
                 logger.warning(f"Movement {index} from email {email_id} discarded: Invalid data.")
@@ -469,20 +498,28 @@ def process_emails():
                 "email_id": email_id
             }
             
+            movements_to_process.append({
+                "doc_id": doc_id,
+                "index": index,
+                "movimiento": movimiento
+            })
+            
+        if movements_to_process:
             try:
-                mov_ref = db.collection("movimientos").document(doc_id)
                 transaction = db.transaction()
-                # Capture the return value from the transaction
-                was_recorded = process_movement_transaction(transaction, mov_ref, movimiento, UID_PROPIETARIO)
+                recorded_ids = process_email_movements_transaction(transaction, movements_to_process, UID_PROPIETARIO)
                 
-                if was_recorded:
-                    logger.info(f"Movement {doc_id} (index {index}) recorded successfully.")
+                if recorded_ids:
                     has_recorded_any = True
+                    for m in movements_to_process:
+                        if m["doc_id"] in recorded_ids:
+                            logger.info(f"Movement {m['doc_id']} (index {m['index']}) recorded successfully.")
+                        else:
+                            logger.info(f"Movement {m['doc_id']} (index {m['index']}) already exists. Skipping.")
                 else:
-                    logger.info(f"Movement {doc_id} (index {index}) already exists. Skipping.")
-                    
+                    logger.info(f"All movements for email {email_id} already existed. Skipping.")
             except Exception as e:
-                logger.error(f"Error saving movement {index} for email {email_id}: {e}")
+                logger.error(f"Error saving batch movements for email {email_id}: {e}")
                 has_low_confidence = True
 
         if has_low_confidence and not has_recorded_any:
