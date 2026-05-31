@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Download, FileJson, FileText, Save, ListFilter, Trash2, CheckCircle2, Search, Filter } from 'lucide-react';
-import { type Movimiento, type Hucha } from '../../types';
+import { type Movimiento, type Hucha, type Suscripcion } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
 
 interface ExportViewProps {
   movimientos: Movimiento[];
   huchas: Hucha[];
+  suscripciones: Suscripcion[];
+  userStats: { total_ingresos: number; total_gastos: number } | null;
   userId: string | undefined;
 }
 
@@ -32,7 +34,7 @@ const DEFAULT_FILTERS: FilterState = {
   searchTerm: '',
 };
 
-export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, userId }) => {
+export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, suscripciones, userStats, userId }) => {
   const { isLocked } = usePrivacy();
   
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
@@ -123,20 +125,57 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, use
 
   // Formatting Logic
   const handleCopyJSON = async () => {
-    // Sanitize output (don't include internal IDs if not needed, but keeping them might be useful. Let's keep it simple)
-    const data = filteredMovimientos.map(m => {
-      const d = parseMovimientoDate(m.fecha_operacion);
-      return {
-        fecha: d ? d.toISOString().split('T')[0] : 'Desconocida',
-        concepto: m.concepto,
-        importe: m.importe,
-        tipo: m.tipo,
-        cartera: huchas.find(h => h.id === m.hucha_id)?.nombre || 'Desconocida'
-      };
-    });
+    // Sanitize and structure the output into a detailed report
+    const report = {
+      generado_el: new Date().toISOString(),
+      estadisticas_globales: {
+        total_ingresos_historicos: userStats?.total_ingresos || 0,
+        total_gastos_historicos: userStats?.total_gastos || 0,
+        balance_historico: (userStats?.total_ingresos || 0) - (userStats?.total_gastos || 0)
+      },
+      carteras_huchas: huchas.map(h => ({
+        nombre: h.nombre,
+        saldo_actual: h.saldo_acumulado,
+        objetivo: h.objetivo || null,
+        regla_aportacion: h.tipo_aportacion,
+        valor_aportacion: h.valor_aportacion || 0,
+        es_principal: !!h.es_principal,
+        es_suscripciones: !!h.es_suscripciones
+      })),
+      suscripciones_activas: suscripciones.filter(s => s.activa).map(s => ({
+        nombre: s.nombre,
+        importe: s.importe,
+        mi_parte: s.mi_parte || s.importe,
+        frecuencia: s.frecuencia,
+        categoria: s.categoria
+      })),
+      movimientos_filtrados: filteredMovimientos.map(m => {
+        const d = parseMovimientoDate(m.fecha_operacion);
+        
+        let destino_origen = '';
+        if (m.tipo === 'gasto') {
+          destino_origen = `Extraído de cartera: ${huchas.find(h => h.id === m.hucha_id)?.nombre || 'Desconocida'}`;
+        } else {
+          destino_origen = 'Repartido automáticamente según reglas de aportación de las carteras';
+        }
+
+        return {
+          fecha: d ? d.toISOString().split('T')[0] : 'Desconocida',
+          concepto: m.concepto,
+          importe: m.importe,
+          tipo: m.tipo,
+          detalle_origen_destino: destino_origen,
+          notas_compensacion: m.compensa_movimiento_id ? 'Es un reembolso/compensación de un gasto previo' : (m.compensado_por?.length ? `Gasto parcialmente compensado. Coste neto real: ${m.importe_neto}€` : null)
+        };
+      }),
+      resumen_filtro_actual: {
+        total_movimientos: filteredMovimientos.length,
+        balance_periodo_filtrado: totalAmount
+      }
+    };
 
     try {
-      await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+      await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
       setCopiedFormat('json');
       setTimeout(() => setCopiedFormat(null), 3000);
     } catch (err) {
@@ -145,16 +184,61 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, use
   };
 
   const handleCopyMD = async () => {
-    const header = `| Fecha | Concepto | Tipo | Cartera | Importe |\n|---|---|---|---|---|`;
-    const rows = filteredMovimientos.map(m => {
+    let mdString = `# Reporte Financiero Flowt\nGenerado el: ${new Date().toLocaleDateString('es-ES')}\n\n`;
+
+    // 1. Estadísticas Globales
+    mdString += `## 📊 Estadísticas Globales Históricas\n`;
+    mdString += `- **Ingresos Totales:** +${(userStats?.total_ingresos || 0).toFixed(2)}€\n`;
+    mdString += `- **Gastos Totales:** -${(userStats?.total_gastos || 0).toFixed(2)}€\n`;
+    mdString += `- **Balance Histórico:** ${((userStats?.total_ingresos || 0) - (userStats?.total_gastos || 0)).toFixed(2)}€\n\n`;
+
+    // 2. Carteras
+    mdString += `## 🏦 Estado de las Carteras (Huchas)\n`;
+    mdString += `| Cartera | Saldo Actual | Objetivo | Regla de Ingreso | Principal |\n`;
+    mdString += `|---|---|---|---|---|\n`;
+    huchas.forEach(h => {
+      const objetivo = h.objetivo ? `${h.objetivo}€` : 'Sin objetivo';
+      let regla = h.tipo_aportacion === 'flat' ? `${h.valor_aportacion}€ fijos` : h.tipo_aportacion === 'porcentaje' ? `${h.valor_aportacion}% del ingreso` : 'Resto sobrante';
+      mdString += `| ${h.nombre} | ${h.saldo_acumulado.toFixed(2)}€ | ${objetivo} | ${regla} | ${h.es_principal ? '✅' : '❌'} |\n`;
+    });
+    mdString += `\n`;
+
+    // 3. Suscripciones
+    const activas = suscripciones.filter(s => s.activa);
+    if (activas.length > 0) {
+      mdString += `## 🔄 Suscripciones Activas\n`;
+      mdString += `| Suscripción | Coste Total | Mi Parte | Frecuencia | Categoría |\n`;
+      mdString += `|---|---|---|---|---|\n`;
+      activas.forEach(s => {
+        mdString += `| ${s.nombre} | ${s.importe.toFixed(2)}€ | ${(s.mi_parte || s.importe).toFixed(2)}€ | ${s.frecuencia} | ${s.categoria} |\n`;
+      });
+      mdString += `\n`;
+    }
+
+    // 4. Movimientos Filtrados
+    mdString += `## 📋 Movimientos (Periodo Filtrado)\n`;
+    mdString += `**Total Seleccionado: ${filteredMovimientos.length} movimientos | Balance del periodo: ${totalAmount >= 0 ? '+' : ''}${totalAmount.toFixed(2)}€**\n\n`;
+    
+    mdString += `| Fecha | Concepto | Tipo | Origen/Destino | Importe | Notas |\n`;
+    mdString += `|---|---|---|---|---|---|\n`;
+    filteredMovimientos.forEach(m => {
       const d = parseMovimientoDate(m.fecha_operacion);
       const fechaStr = d ? d.toLocaleDateString('es-ES') : 'Desconocida';
-      const cartera = huchas.find(h => h.id === m.hucha_id)?.nombre || 'Desconocida';
       const importeStr = `${m.tipo === 'gasto' ? '-' : '+'}${m.importe.toFixed(2)}€`;
-      return `| ${fechaStr} | ${m.concepto} | ${m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'} | ${cartera} | ${importeStr} |`;
-    }).join('\n');
+      
+      let destino_origen = '';
+      if (m.tipo === 'gasto') {
+        destino_origen = huchas.find(h => h.id === m.hucha_id)?.nombre || 'Desconocida';
+      } else {
+        destino_origen = 'Repartido en Carteras';
+      }
 
-    const mdString = `${header}\n${rows}\n\n**Total Seleccionado: ${totalAmount.toFixed(2)}€**`;
+      let notas = '';
+      if (m.compensa_movimiento_id) notas = 'Reembolso';
+      if (m.compensado_por?.length) notas = `Compensado (Coste neto: ${m.importe_neto}€)`;
+
+      mdString += `| ${fechaStr} | ${m.concepto} | ${m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'} | ${destino_origen} | ${importeStr} | ${notas} |\n`;
+    });
 
     try {
       await navigator.clipboard.writeText(mdString);

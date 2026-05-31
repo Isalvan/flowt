@@ -763,6 +763,8 @@ const AppContent: React.FC = () => {
           <ExportView
             movimientos={chartMovements}
             huchas={huchas}
+            suscripciones={suscripciones}
+            userStats={userStats}
             userId={user?.uid}
           />
         )}
