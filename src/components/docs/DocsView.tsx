@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Book, Shield, FileCode, Server, ChevronLeft } from 'lucide-react';
+import { Book, Shield, FileCode, Server, ChevronLeft, Copy, Check } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
 import readmeContent from '../../../README.md?raw';
@@ -39,6 +39,7 @@ const docContents: Record<DocSection, { title: string; content: string; icon: Re
 
 export const DocsView: React.FC = () => {
   const [activeSection, setActiveSection] = useState<DocSection>('README');
+  const [copied, setCopied] = useState(false);
   const { theme, toggleTheme } = useTheme(); // Initialize theme hook if needed for manual toggle, though app layout doesn't strictly need it if it reads system/html class.
   
   // Back to home action
@@ -47,6 +48,12 @@ export const DocsView: React.FC = () => {
   };
 
   const activeData = docContents[activeSection];
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(activeData.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 font-sans pb-24">
@@ -118,9 +125,18 @@ export const DocsView: React.FC = () => {
 
         {/* Content Area */}
         <main className="flex-1 min-w-0">
-          <div className="glass-panel rounded-[2rem] p-6 sm:p-10">
+          <div className="glass-panel rounded-[2rem] p-6 sm:p-10 relative">
+            <button
+              onClick={handleCopy}
+              className="absolute top-6 right-6 sm:top-8 sm:right-8 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100/50 hover:bg-slate-200 dark:bg-slate-800/50 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
+              title="Copiar Markdown RAW"
+            >
+              {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+              {copied ? 'Copiado' : 'Copiar MD'}
+            </button>
+
             {/* Tailwind Typography 'prose' takes care of the markdown styling automatically */}
-            <article className="prose prose-slate dark:prose-invert prose-headings:font-title prose-a:text-indigo-500 hover:prose-a:text-indigo-600 prose-img:rounded-xl max-w-none prose-hr:border-slate-200/50 dark:prose-hr:border-white/10">
+            <article className="prose prose-slate dark:prose-invert prose-headings:font-title prose-a:text-indigo-500 hover:prose-a:text-indigo-600 prose-img:rounded-xl max-w-none prose-hr:border-slate-200/50 dark:prose-hr:border-white/10 mt-8 sm:mt-0">
               <ReactMarkdown>{activeData.content}</ReactMarkdown>
             </article>
           </div>
