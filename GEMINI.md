@@ -1,5 +1,9 @@
 # Flowt - Project Context & Decisions
 
+## Recent Changes (2026-06-06)
+- **Migrated to Gemini Python SDK**: Replaced the Gemini CLI integration with the official `google.generativeai` SDK for better stability, speed, and native JSON schema support.
+- **Documentation Update**: Reviewed and updated architecture notes across all READMEs and INSTRUCTIONS to reflect the current SDK implementation.
+
 ## Recent Changes (2026-04-18)
 - **Completed Manual Migration**: Successfully processed 5 pending emails using the new `/manual` workflow.
 - **Improved Fallback Logic**: 
@@ -18,7 +22,7 @@ Automated financial tracker that extracts movements (income/expenses) from bank 
 
 ## Architecture
 - **Frontend**: React + Tailwind + Recharts (deployed on Firebase Hosting).
-- **Backend**: Python script (`main.py`) using Gmail API and Gemini CLI.
+- **Backend**: Python script (`main.py`) using Gmail API and Gemini Python SDK (`google.generativeai`).
 - **Database**: Firestore.
 
 ## Key Decisions & Implementation Details
@@ -28,7 +32,7 @@ Automated financial tracker that extracts movements (income/expenses) from bank 
 - **Date Logic**: Uses "FECHA DE ENVÍO DEL CORREO" (Sent Date) from Gmail headers as a fallback or primary date if the email body lacks a specific transaction date.
 - **Multiple Movements**: A single email can contain multiple movements. The system processes all of them.
 - **Deduplication**: Uses a SHA-256 hash of `gmail_id + movement_index` as the Firestore document ID to prevent duplicate processing while allowing multiple movements from the same email.
-- **Robust JSON Parsing**: Implemented regex-based extraction to isolate JSON blocks from Gemini CLI output, ignoring non-JSON noise (logs, MCP warnings).
+- **Robust JSON Parsing**: Uses Gemini SDK native JSON schema generation to guarantee well-structured outputs, eliminating the need for complex regex parsing.
 
 ### Huchas (Savings Pockets) Distribution
 - **Income**: Distributed among huchas based on rules:

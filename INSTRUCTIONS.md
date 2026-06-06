@@ -44,7 +44,7 @@
 * **Gestión de entorno:** `venv` o `poetry`.
 * **Librerías clave:**
     * `python-dotenv` — leer el `.env`.
-    * `subprocess` — ejecutar Gemini CLI.
+    * `google-generativeai` — integrar la IA de Google Gemini nativamente.
     * `firebase-admin` — interactuar con Firestore.
     * `hashlib` — generar IDs de documento seguros.
     * `logging` — auditoría local rotatoria.
@@ -60,12 +60,12 @@
     * Se extrae el cuerpo del correo y su `Message-ID` original.
 
 3. **Procesado Aislado (Extract):**
-    * Subprocess a Gemini CLI con `shell=False`, contenido del correo por `stdin`.
-    * **Timeout explícito** (ej. 30s). Si se supera:
+    * Llamada directa al SDK `google.generativeai` pasando el texto limpio del correo (usando `BeautifulSoup`).
+    * **Manejo de errores estricto**. Si falla:
         ```python
-        except subprocess.TimeoutExpired:
-            log.error(f"[{email_id}] Timeout al llamar a Gemini CLI. Se reintentará.")
-            # No se marca como leído → reintento en próxima ejecución
+        except Exception as e:
+            log.error(f"[{email_id}] Error llamando a Gemini: {e}")
+            # Se marca para revisión manual o se intenta Regex Fallback
         ```
 
 4. **Validación de Datos (Sanitize):**
