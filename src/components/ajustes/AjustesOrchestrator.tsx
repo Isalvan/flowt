@@ -2,21 +2,21 @@ import React, { useState } from 'react';
 import { Layers, Download } from 'lucide-react';
 import { SuscripcionesView } from '../suscripciones/SuscripcionesView';
 import { ExportView } from '../export/ExportView';
-import type { Suscripcion, Hucha, Movimiento, UserStats } from '../../types';
+import type { Suscripcion, Hucha, Movimiento } from '../../types';
 
 interface AjustesOrchestratorProps {
   // Suscripciones props
   suscripciones: Suscripcion[];
   huchas: Hucha[];
-  onOpenSuscripcionModal: (suscripcion?: Suscripcion) => void;
-  onDeleteSuscripcion: (id: string) => Promise<void>;
-  onToggleSuscripcion: (id: string, currentStatus: boolean) => Promise<void>;
-  onCancelSuscripcion: (id: string) => Promise<void>;
-  onUndoCancelSuscripcion: (id: string) => Promise<void>;
+  onOpenSuscripcionModal: (suscripcion: Suscripcion | null) => void;
+  onDeleteSuscripcion: (s: Suscripcion) => void;
+  onToggleSuscripcion: (s: Suscripcion) => void;
+  onCancelSuscripcion: (s: Suscripcion) => void;
+  onUndoCancelSuscripcion: (s: Suscripcion) => void;
   
   // Export props
   chartMovements: Movimiento[];
-  userStats: UserStats | null;
+  userStats: any;
   userId: string | undefined;
 }
 

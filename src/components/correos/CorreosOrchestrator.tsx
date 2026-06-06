@@ -8,7 +8,7 @@ interface CorreosOrchestratorProps {
   pendingEmails: PendingEmail[];
   historicoCorreos: CorreoHistorico[];
   huchas: Hucha[];
-  onApprove: (email: PendingEmail, values: { tipo: 'ingreso' | 'gasto'; importe: number; fecha: string; descripcion: string; moneda: string }, useEmailDateAsFallback: boolean) => Promise<void>;
+  onApprove: (emailId: string, data: { tipo: "gasto" | "ingreso"; concepto: string; importe: number; fecha_operacion: string; hucha_id?: string }) => Promise<void>;
   onDiscard: (emailRef: string) => Promise<void>;
 }
 

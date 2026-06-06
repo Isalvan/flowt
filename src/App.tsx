@@ -36,20 +36,17 @@ import {
   Sun, 
   Moon, 
   TrendingUp, 
-  Layers, 
-  CalendarDays, 
   Key, 
   Sparkles,
   ShieldAlert,
   Mail,
   Eye,
   EyeOff,
-  User,
-  Download,
-  MailOpen
+  User
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { PinModal } from './components/common/PinModal';
+import { Calendar, Settings } from 'lucide-react';
 
 const FlowtLogoSVG: React.FC<{ size?: number }> = ({ size = 20 }) => (
   <svg 
@@ -430,12 +427,6 @@ const AppContent: React.FC = () => {
     });
   };
 
-  const handleOpenSuscripcionModal = (sub: Suscripcion | null) => {
-    secureAction(() => {
-      setEditingSuscripcion(sub);
-      setIsSuscripcionModalOpen(true);
-    });
-  };
   // Safe wrapper for conversion
   const onSafeConvert = async (mov: Movimiento, rows?: any[], targetHuchaId?: string) => {
     await handleConvertMovimiento(mov, rows, targetHuchaId);
@@ -467,15 +458,6 @@ const AppContent: React.FC = () => {
         }, 300);
       }
     }
-  };
-
-  // Safe wrapper for manual approval with success celebration interceptor
-  const onApproveEmail = async (
-    emailId: string, 
-    movData: { tipo: 'ingreso' | 'gasto', concepto: string, importe: number, fecha_operacion: string, hucha_id?: string }
-  ) => {
-    await handleApprovePendingEmail(emailId, movData);
-    setConfettiTrigger(prev => prev + 1);
   };
 
   // Safe wrapper for movement deletion with confirmation modal
@@ -706,41 +688,24 @@ const AppContent: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         {activeTab === 'dashboard' && (
           <DashboardView
-            balance={balance}
             movimientos={movimientos}
             chartMovements={chartMovements}
             huchas={huchas}
             suscripciones={suscripciones}
+            balance={balance}
             chartData={chartData}
             huchaMonthlyBudgets={huchaMonthlyBudgets}
-            onOpenHuchaModal={() => {
-              setEditingHucha(null);
-              setIsHuchaModalOpen(true);
-            }}
-            onEditHucha={(hucha) => {
-              setEditingHucha(hucha);
-              setIsHuchaModalOpen(true);
-            }}
-            onOpenTransferModal={() => setIsTransferModalOpen(true)}
-            onDeleteHucha={(hucha) => {
-              setHuchaToDelete(hucha);
-              setIsDeleteHuchaModalOpen(true);
-            }}
-            onConvertMovimiento={(movimiento) => {
-              setMovimientoToConvert(movimiento);
-              setIsConvertModalOpen(true);
-            }}
-            onLinkMovimiento={(movimiento) => {
-              setMovimientoToLink(movimiento);
-              setIsLinkModalOpen(true);
-            }}
-            onUnlinkMovimiento={handleUnlinkMovimiento}
-            onChangeMovimientoHucha={handleChangeMovimientoHucha}
-            onDeleteMovimiento={handleDeleteMovimiento}
-            onUpdateMovimientoConcepto={handleUpdateMovimientoConcepto}
-            onLoadMoreHistory={loadMoreHistory}
-            hasMoreHistory={historyHasMore}
-            isLoadingHistory={historyLoading}
+            onUpdateConcepto={handleUpdateMovimientoConcepto}
+            onConvert={handleOpenConvertModal}
+            onLink={handleOpenLinkModal}
+            onUnlink={handleUnlinkMovimiento}
+            onChangeHucha={handleChangeMovimientoHucha}
+            onOpenHuchaModal={handleOpenHuchaModal}
+            onDeleteHucha={handleOpenDeleteHuchaModal}
+            onOpenTransferModal={() => secureAction(() => setIsTransferModalOpen(true))}
+            onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
+            onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
+            onDeleteMovimiento={onDeleteMovimientoWrapper}
           />
         )}
 
