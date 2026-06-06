@@ -47,7 +47,7 @@ export const HistoricoCorreosView: React.FC<HistoricoCorreosViewProps> = ({ hist
           </div>
           <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">No hay correos en el historial</h3>
           <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-            Los correos que apruebes en la sección de revisión aparecerán aquí, manteniendo un registro seguro y transparente de tus finanzas.
+            Aquí aparecerán todos los correos que se han procesado exitosamente y han generado movimientos en tus huchas (tanto los automáticos como los aprobados manualmente).
           </p>
         </div>
       ) : (

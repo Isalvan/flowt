@@ -8,11 +8,9 @@ import { type Hucha, type Suscripcion, type Movimiento } from './types';
 
 // Tab subviews
 import { DashboardView } from './components/dashboard/DashboardView';
-import { SuscripcionesView } from './components/suscripciones/SuscripcionesView';
 import { CalendarioView } from './components/calendario/CalendarioView';
-import { ManualReviewView } from './components/manual/ManualReviewView';
-import { ExportView } from './components/export/ExportView';
-import { HistoricoCorreosView } from './components/historico/HistoricoCorreosView';
+import { CorreosOrchestrator } from './components/correos/CorreosOrchestrator';
+import { AjustesOrchestrator } from './components/ajustes/AjustesOrchestrator';
 
 // Modals
 import { HuchaModal } from './components/modals/HuchaModal';
@@ -195,7 +193,7 @@ const AppContent: React.FC = () => {
   } = useFinanceData(forceDemo);
 
   // Tab switching state
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'suscripciones' | 'calendario' | 'manual' | 'historico' | 'exportar'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'calendario' | 'correos' | 'ajustes'>('dashboard');
 
   // Form modals state overlays
   const [isHuchaModalOpen, setIsHuchaModalOpen] = useState(false);
@@ -592,17 +590,6 @@ const AppContent: React.FC = () => {
               Dashboard
             </button>
             <button
-              onClick={() => setActiveTab('suscripciones')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
-                activeTab === 'suscripciones'
-                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
-              }`}
-            >
-              <Layers size={14} />
-              Suscripciones
-            </button>
-            <button
               onClick={() => setActiveTab('calendario')}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
                 activeTab === 'calendario'
@@ -610,46 +597,37 @@ const AppContent: React.FC = () => {
                   : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
               }`}
             >
-              <CalendarDays size={14} />
+              <Calendar size={14} />
               Calendario
             </button>
             <button
-              onClick={() => secureAction(() => setActiveTab('manual'))}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
-                activeTab === 'manual'
+              onClick={() => setActiveTab('correos')}
+              className={`relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
+                activeTab === 'correos'
                   ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
               }`}
             >
               <Mail size={14} />
-              Revisión
+              Correos
               {pendingEmails.length > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[8px] font-black animate-pulse">
+                <span className={`ml-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black ${
+                  activeTab === 'correos' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300' : 'bg-indigo-500 text-white shadow-sm shadow-indigo-500/20'
+                }`}>
                   {pendingEmails.length}
                 </span>
               )}
             </button>
             <button
-              onClick={() => setActiveTab('historico')}
+              onClick={() => setActiveTab('ajustes')}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
-                activeTab === 'historico'
+                activeTab === 'ajustes'
                   ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
               }`}
             >
-              <MailOpen size={14} />
-              Historial
-            </button>
-            <button
-              onClick={() => setActiveTab('exportar')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
-                activeTab === 'exportar'
-                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
-              }`}
-            >
-              <Download size={14} />
-              Exportar
+              <Settings size={14} />
+              Ajustes
             </button>
           </nav>
 
@@ -728,36 +706,41 @@ const AppContent: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         {activeTab === 'dashboard' && (
           <DashboardView
+            balance={balance}
             movimientos={movimientos}
             chartMovements={chartMovements}
             huchas={huchas}
             suscripciones={suscripciones}
-            balance={balance}
             chartData={chartData}
             huchaMonthlyBudgets={huchaMonthlyBudgets}
-            onUpdateConcepto={handleUpdateMovimientoConcepto}
-            onConvert={handleOpenConvertModal}
-            onLink={handleOpenLinkModal}
-            onUnlink={handleUnlinkMovimiento}
-            onChangeHucha={handleChangeMovimientoHucha}
-            onOpenHuchaModal={handleOpenHuchaModal}
-            onDeleteHucha={handleOpenDeleteHuchaModal}
-            onOpenTransferModal={() => secureAction(() => setIsTransferModalOpen(true))}
-            onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
-            onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
-            onDeleteMovimiento={onDeleteMovimientoWrapper}
-          />
-        )}
-
-        {activeTab === 'suscripciones' && (
-          <SuscripcionesView
-            suscripciones={suscripciones}
-            huchas={huchas}
-            onOpenSuscripcionModal={handleOpenSuscripcionModal}
-            onDeleteSuscripcion={handleDeleteSuscripcion}
-            onToggleSuscripcion={handleToggleSuscripcion}
-            onCancelSuscripcion={handleCancelSuscripcion}
-            onUndoCancelSuscripcion={handleUndoCancelSuscripcion}
+            onOpenHuchaModal={() => {
+              setEditingHucha(null);
+              setIsHuchaModalOpen(true);
+            }}
+            onEditHucha={(hucha) => {
+              setEditingHucha(hucha);
+              setIsHuchaModalOpen(true);
+            }}
+            onOpenTransferModal={() => setIsTransferModalOpen(true)}
+            onDeleteHucha={(hucha) => {
+              setHuchaToDelete(hucha);
+              setIsDeleteHuchaModalOpen(true);
+            }}
+            onConvertMovimiento={(movimiento) => {
+              setMovimientoToConvert(movimiento);
+              setIsConvertModalOpen(true);
+            }}
+            onLinkMovimiento={(movimiento) => {
+              setMovimientoToLink(movimiento);
+              setIsLinkModalOpen(true);
+            }}
+            onUnlinkMovimiento={handleUnlinkMovimiento}
+            onChangeMovimientoHucha={handleChangeMovimientoHucha}
+            onDeleteMovimiento={handleDeleteMovimiento}
+            onUpdateMovimientoConcepto={handleUpdateMovimientoConcepto}
+            onLoadMoreHistory={loadMoreHistory}
+            hasMoreHistory={historyHasMore}
+            isLoadingHistory={historyLoading}
           />
         )}
 
@@ -765,24 +748,29 @@ const AppContent: React.FC = () => {
           <CalendarioView suscripciones={suscripciones} />
         )}
 
-        {activeTab === 'manual' && (
-          <ManualReviewView
+        {activeTab === 'correos' && (
+          <CorreosOrchestrator
             pendingEmails={pendingEmails}
+            historicoCorreos={historicoCorreos}
             huchas={huchas}
-            onApprove={onApproveEmail}
+            onApprove={handleApprovePendingEmail}
             onDiscard={handleDiscardPendingEmail}
           />
         )}
 
-        {activeTab === 'historico' && (
-          <HistoricoCorreosView historicoCorreos={historicoCorreos} />
-        )}
-
-        {activeTab === 'exportar' && (
-          <ExportView
-            movimientos={chartMovements}
-            huchas={huchas}
+        {activeTab === 'ajustes' && (
+          <AjustesOrchestrator
             suscripciones={suscripciones}
+            huchas={huchas}
+            onOpenSuscripcionModal={(s) => {
+              setEditingSuscripcion(s || null);
+              setIsSuscripcionModalOpen(true);
+            }}
+            onDeleteSuscripcion={handleDeleteSuscripcion}
+            onToggleSuscripcion={handleToggleSuscripcion}
+            onCancelSuscripcion={handleCancelSuscripcion}
+            onUndoCancelSuscripcion={handleUndoCancelSuscripcion}
+            chartMovements={chartMovements}
             userStats={userStats}
             userId={user?.uid}
           />
@@ -791,93 +779,56 @@ const AppContent: React.FC = () => {
 
       {/* 3. Mobile Bottom navigation tabs bar - FLOATING PREMIUM */}
       <div className="md:hidden fixed bottom-6 left-4 right-4 z-50">
-        <div className="relative bg-white/80 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[2rem] p-1.5 flex shadow-[0_10px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] glass-glare overflow-hidden">
-          
-          {/* Animated Sliding Background Pill */}
-          <div 
-            className="absolute top-1.5 bottom-1.5 w-[calc(16.666%-3px)] bg-gradient-to-tr from-sky-500 to-indigo-500 dark:from-sky-500 dark:to-indigo-600 rounded-full shadow-[0_0_20px_rgba(14,165,233,0.4)] transition-transform duration-500 ease-out z-0"
-            style={{ 
-              transform: `translateX(calc(${
-                activeTab === 'dashboard' ? 0 : 
-                activeTab === 'suscripciones' ? 1 : 
-                activeTab === 'calendario' ? 2 : 
-                activeTab === 'manual' ? 3 : 
-                activeTab === 'historico' ? 4 : 5
-              } * 100%))` 
-            }}
-          />
-
-          {/* Dashboard Tab */}
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/6 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
-              activeTab === 'dashboard' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <TrendingUp size={20} className={`transition-transform duration-500 ease-spring ${activeTab === 'dashboard' ? 'scale-110 -translate-y-0.5' : 'scale-100'}`} />
-            <span className={`text-[8px] font-black uppercase tracking-wider transition-opacity duration-300 ${activeTab === 'dashboard' ? 'opacity-100' : 'opacity-70'}`}>Dashboard</span>
-          </button>
-
-          {/* Suscripciones Tab */}
-          <button
-            onClick={() => setActiveTab('suscripciones')}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/6 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
-              activeTab === 'suscripciones' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <Layers size={20} className={`transition-transform duration-500 ease-spring ${activeTab === 'suscripciones' ? 'scale-110 -translate-y-0.5' : 'scale-100'}`} />
-            <span className={`text-[8px] font-black uppercase tracking-wider transition-opacity duration-300 ${activeTab === 'suscripciones' ? 'opacity-100' : 'opacity-70'}`}>Recurrente</span>
-          </button>
-
-          {/* Calendario Tab */}
-          <button
-            onClick={() => setActiveTab('calendario')}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/6 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
-              activeTab === 'calendario' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <CalendarDays size={20} className={`transition-transform duration-500 ease-spring ${activeTab === 'calendario' ? 'scale-110 -translate-y-0.5' : 'scale-100'}`} />
-            <span className={`text-[8px] font-black uppercase tracking-wider transition-opacity duration-300 ${activeTab === 'calendario' ? 'opacity-100' : 'opacity-70'}`}>Calendario</span>
-          </button>
-
-          {/* Revisión Tab */}
-          <button
-            onClick={() => secureAction(() => setActiveTab('manual'))}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/6 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
-              activeTab === 'manual' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <Mail size={20} className={`transition-transform duration-500 ease-spring ${activeTab === 'manual' ? 'scale-110 -translate-y-0.5' : 'scale-100'}`} />
-            <span className={`text-[8px] font-black uppercase tracking-wider transition-opacity duration-300 ${activeTab === 'manual' ? 'opacity-100' : 'opacity-70'}`}>Revisión</span>
-            
+        <div className="relative bg-white/80 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[2rem] flex items-center h-16 shadow-[0_10px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden">
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex flex-col items-center justify-center w-1/4 h-full relative cursor-pointer ${
+            activeTab === 'dashboard' ? 'text-indigo-500' : 'text-slate-400 hover:text-slate-300'
+          }`}
+        >
+          <div className="relative">
+            <TrendingUp size={20} className={`mb-1 transition-transform duration-300 ${activeTab === 'dashboard' ? 'scale-110' : ''}`} />
+          </div>
+          <span className="text-[9px] font-bold uppercase tracking-wider">Inicio</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('calendario')}
+          className={`flex flex-col items-center justify-center w-1/4 h-full relative cursor-pointer ${
+            activeTab === 'calendario' ? 'text-indigo-500' : 'text-slate-400 hover:text-slate-300'
+          }`}
+        >
+          <div className="relative">
+            <Calendar size={20} className={`mb-1 transition-transform duration-300 ${activeTab === 'calendario' ? 'scale-110' : ''}`} />
+          </div>
+          <span className="text-[9px] font-bold uppercase tracking-wider">Calendario</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('correos')}
+          className={`flex flex-col items-center justify-center w-1/4 h-full relative cursor-pointer ${
+            activeTab === 'correos' ? 'text-indigo-500' : 'text-slate-400 hover:text-slate-300'
+          }`}
+        >
+          <div className="relative">
+            <Mail size={20} className={`mb-1 transition-transform duration-300 ${activeTab === 'correos' ? 'scale-110' : ''}`} />
             {pendingEmails.length > 0 && (
-              <span className={`absolute ${activeTab === 'manual' ? '-top-1 right-2' : 'top-0 right-3'} px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[8px] font-black animate-pulse shadow-md border-2 border-white/20 dark:border-white/10 transition-all duration-300`}>
+              <span className="absolute -top-1.5 -right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-white text-[8px] font-black border-2 border-slate-900">
                 {pendingEmails.length}
               </span>
             )}
-          </button>
-
-          {/* Historial Tab */}
-          <button
-            onClick={() => setActiveTab('historico')}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/6 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
-              activeTab === 'historico' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <MailOpen size={20} className={`transition-transform duration-500 ease-spring ${activeTab === 'historico' ? 'scale-110 -translate-y-0.5' : 'scale-100'}`} />
-            <span className={`text-[8px] font-black uppercase tracking-wider transition-opacity duration-300 ${activeTab === 'historico' ? 'opacity-100' : 'opacity-70'}`}>Historial</span>
-          </button>
-
-          {/* Exportar Tab */}
-          <button
-            onClick={() => setActiveTab('exportar')}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/6 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
-              activeTab === 'exportar' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <Download size={20} className={`transition-transform duration-500 ease-spring ${activeTab === 'exportar' ? 'scale-110 -translate-y-0.5' : 'scale-100'}`} />
-            <span className={`text-[8px] font-black uppercase tracking-wider transition-opacity duration-300 ${activeTab === 'exportar' ? 'opacity-100' : 'opacity-70'}`}>Exportar</span>
-          </button>
+          </div>
+          <span className="text-[9px] font-bold uppercase tracking-wider">Correos</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('ajustes')}
+          className={`flex flex-col items-center justify-center w-1/4 h-full relative cursor-pointer ${
+            activeTab === 'ajustes' ? 'text-indigo-500' : 'text-slate-400 hover:text-slate-300'
+          }`}
+        >
+          <div className="relative">
+            <Settings size={20} className={`mb-1 transition-transform duration-300 ${activeTab === 'ajustes' ? 'scale-110' : ''}`} />
+          </div>
+          <span className="text-[9px] font-bold uppercase tracking-wider">Ajustes</span>
+        </button>
         </div>
       </div>
 
