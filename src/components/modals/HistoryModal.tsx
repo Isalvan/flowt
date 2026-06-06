@@ -224,27 +224,37 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                         </span>
 
                         {/* Compensated visual badges */}
-                        {m.tipo === 'ingreso' && m.compensa_movimiento_id && (
+                        {m.tipo === 'ingreso' && (m.compensa_movimiento_id || (m.compensaciones_destinos?.length ?? 0) > 0) && (
                           <div className="flex items-center gap-1 py-0.5 px-1.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-extrabold tracking-wide">
                             <ShieldCheck size={8} />
-                            Compensa Gasto
+                            Repartido
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onUnlink(m);
                               }}
                               className="text-rose-500 hover:text-rose-700 ml-0.5"
-                              title="Deshacer compensación"
+                              title="Deshacer todos los repartos de este ingreso"
                             >
                               ✕
                             </button>
                           </div>
                         )}
-                        {m.tipo === 'gasto' && m.compensado_por && m.compensado_por.length > 0 && (
-                          <span className="flex items-center gap-1 py-0.5 px-1.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[9px] font-extrabold tracking-wide">
+                        {m.tipo === 'gasto' && ((m.compensado_por?.length ?? 0) > 0 || (m.compensado_por_detalles?.length ?? 0) > 0) && (
+                          <div className="flex items-center gap-1 py-0.5 px-1.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[9px] font-extrabold tracking-wide">
                             <ShieldCheck size={8} />
                             Compensado
-                          </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onUnlink(m);
+                              }}
+                              className="text-rose-500 hover:text-rose-700 ml-0.5"
+                              title="Deshacer todas las compensaciones de este gasto"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>

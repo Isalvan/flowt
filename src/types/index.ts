@@ -7,9 +7,14 @@ export interface Movimiento {
   hucha_id?: string;
   id_propietario?: string;
   es_metalico?: boolean;
-  // Compensación entre movimientos
-  compensa_movimiento_id?: string | null; // solo en ingresos: gasto que compensa
-  compensado_por?: string[] | null;       // solo en gastos: ingresos que lo compensan
+  // Compensación entre movimientos (Legacy 1:N)
+  compensa_movimiento_id?: string | null; 
+  compensado_por?: string[] | null;       
+  
+  // Compensación M:N (Nativo con cantidades)
+  compensaciones_destinos?: { gasto_id: string; importe: number }[] | null; // solo en ingresos
+  compensado_por_detalles?: { ingreso_id: string; importe: number }[] | null; // solo en gastos
+  
   importe_neto?: number | null;           // solo en gastos compensados: importe efectivo restante
   created_at?: any;
   updated_at?: any;

@@ -590,25 +590,22 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                       <RefreshCw className="w-3.5 h-3.5" />
                     </button>
 
-                    {/* Link Bizum button */}
-                    {m.tipo === 'gasto' ? (
+                    {/* Link / Unlink Button */}
+                    <button
+                      onClick={() => onLink(m)}
+                      className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-slate-100 hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-600 dark:bg-slate-800 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
+                      title={m.tipo === 'gasto' ? "Vincular/Compensar con Bizum" : "Repartir este ingreso en gastos"}
+                    >
+                      <Link className="w-3.5 h-3.5" />
+                    </button>
+                    {((m.tipo === 'gasto' && ((m.compensado_por?.length ?? 0) > 0 || (m.compensado_por_detalles?.length ?? 0) > 0)) || (m.tipo === 'ingreso' && (m.compensa_movimiento_id || (m.compensaciones_destinos?.length ?? 0) > 0))) && (
                       <button
-                        onClick={() => onLink(m)}
-                        className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-slate-100 hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-600 dark:bg-slate-800 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
-                        title="Vincular/Compensar con Bizum"
+                        onClick={() => onUnlink(m)}
+                        className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 border border-rose-500/10 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
+                        title="Deshacer vínculo de compensación"
                       >
-                        <Link className="w-3.5 h-3.5" />
+                        <Link2Off className="w-3.5 h-3.5" />
                       </button>
-                    ) : (
-                      m.compensa_movimiento_id && (
-                        <button
-                          onClick={() => onUnlink(m)}
-                          className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 border border-rose-500/10 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
-                          title="Deshacer vínculo de compensación"
-                        >
-                          <Link2Off className="w-3.5 h-3.5" />
-                        </button>
-                      )
                     )}
 
                     {/* Delete Movement Button */}

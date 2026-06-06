@@ -1078,121 +1078,236 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
-  const handleLinkMovimiento = async (gasto: Movimiento, ingresos: Movimiento[]) => {
-    const totalIngresos = ingresos.reduce((s, m) => s + m.importe, 0);
-
+  const handleLinkMovimiento = async (baseMov: Movimiento, allocations: { mov: Movimiento; importe: number }[]) => {
     if (!isFirebaseConfigured) {
-      const updatedMovs = movimientos.map(m => {
-        if (m.id === gasto.id) {
-          const compPor = [...(m.compensado_por || []), ...ingresos.map(i => i.id)];
-          const oldNeto = m.importe_neto ?? m.importe;
-          const neto = Math.max(0, m.importe - (m.importe - oldNeto) - totalIngresos);
-          return { ...m, compensado_por: compPor, importe_neto: neto };
-        }
-        if (ingresos.find(i => i.id === m.id)) {
-          return { ...m, compensa_movimiento_id: gasto.id };
-        }
-        return m;
-      });
-
-      const updatedStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
-      // Stats stay as Gross (no compensation subtracted)
-
-      saveDemoState(updatedMovs, huchas, suscripciones, updatedStats);
-      showToast('Movimientos vinculados', 'success');
+      showToast('Funcionalidad no disponible en modo Demo', 'error');
       return;
     }
 
     try {
       await runTransaction(db, async (transaction) => {
-        const gastoRef = doc(db, 'movimientos', gasto.id);
-        const ingresoRefs = ingresos.map(i => doc(db, 'movimientos', i.id));
+        const baseRef = doc(db, 'movimientos', baseMov.id);
+        const targetRefs = allocations.map(a => doc(db, 'movimientos', a.mov.id));
 
-        const gastoSnap = await transaction.get(gastoRef);
-        if (!gastoSnap.exists()) throw new Error('Gasto no existe');
-        const gastoData = gastoSnap.data() as Movimiento;
+        const baseSnap = await transaction.get(baseRef);
+        if (!baseSnap.exists()) throw new Error('El movimiento base no existe');
+        const baseData = baseSnap.data() as Movimiento;
 
-        const compPor = [...(gastoData.compensado_por || []), ...ingresos.map(i => i.id)];
-        const prevCompensado = (gastoData.compensado_por || []).reduce((s, id) => {
-          const m = movimientos.find(x => x.id === id);
-          return s + (m ? m.importe : 0);
-        }, 0);
-        
-        const neto = Math.max(0, gastoData.importe - prevCompensado - totalIngresos);
+        const targetsSnaps = await Promise.all(targetRefs.map(ref => transaction.get(ref)));
+        const targetsData = targetsSnaps.map(snap => {
+          if (!snap.exists()) throw new Error('Un movimiento objetivo no existe');
+          return { id: snap.id, ...snap.data() } as Movimiento;
+        });
 
-        transaction.update(gastoRef, { compensado_por: compPor, importe_neto: neto, updated_at: serverTimestamp() });
-        for (const ref of ingresoRefs) {
-          transaction.update(ref, { compensa_movimiento_id: gasto.id, updated_at: serverTimestamp() });
+        // Helper to update a Gasto
+        const updateGasto = (gastoData: Movimiento, ingresoId: string, amount: number): Partial<Movimiento> => {
+          const compPorDetalles = [...(gastoData.compensado_por_detalles || [])];
+          const existingIdx = compPorDetalles.findIndex(d => d.ingreso_id === ingresoId);
+          if (existingIdx >= 0) {
+            compPorDetalles[existingIdx].importe += amount;
+          } else {
+            compPorDetalles.push({ ingreso_id: ingresoId, importe: amount });
+          }
+          
+          const currentNeto = gastoData.importe_neto ?? gastoData.importe;
+          const neto = Math.max(0, currentNeto - amount);
+          
+          return {
+            compensado_por_detalles: compPorDetalles,
+            importe_neto: Number(neto.toFixed(2))
+          };
+        };
+
+        // Helper to update an Ingreso
+        const updateIngreso = (ingresoData: Movimiento, gastoId: string, amount: number): Partial<Movimiento> => {
+          const compDestinos = [...(ingresoData.compensaciones_destinos || [])];
+          const existingIdx = compDestinos.findIndex(d => d.gasto_id === gastoId);
+          if (existingIdx >= 0) {
+            compDestinos[existingIdx].importe += amount;
+          } else {
+            compDestinos.push({ gasto_id: gastoId, importe: amount });
+          }
+          return { compensaciones_destinos: compDestinos };
+        };
+
+        let baseUpdate: Partial<Movimiento> = {};
+        const targetUpdates: { ref: any; data: Partial<Movimiento> }[] = [];
+
+        if (baseData.tipo === 'ingreso') {
+          // Base = Ingreso, Targets = Gastos
+          let currentIngresoData = { ...baseData };
+          for (let i = 0; i < allocations.length; i++) {
+            const alloc = allocations[i];
+            const targetData = targetsData[i];
+            
+            // Update Base (Ingreso)
+            const partialBase = updateIngreso(currentIngresoData, targetData.id, alloc.importe);
+            currentIngresoData = { ...currentIngresoData, ...partialBase };
+            
+            // Update Target (Gasto)
+            const partialTarget = updateGasto(targetData, baseData.id, alloc.importe);
+            targetUpdates.push({ ref: targetRefs[i], data: partialTarget });
+          }
+          baseUpdate = updateIngreso(baseData, '', 0); // Initialize if needed
+          baseUpdate.compensaciones_destinos = currentIngresoData.compensaciones_destinos;
+
+        } else {
+          // Base = Gasto, Targets = Ingresos
+          let currentGastoData = { ...baseData };
+          for (let i = 0; i < allocations.length; i++) {
+            const alloc = allocations[i];
+            const targetData = targetsData[i];
+            
+            // Update Base (Gasto)
+            const partialBase = updateGasto(currentGastoData, targetData.id, alloc.importe);
+            currentGastoData = { ...currentGastoData, ...partialBase };
+            
+            // Update Target (Ingreso)
+            const partialTarget = updateIngreso(targetData, baseData.id, alloc.importe);
+            targetUpdates.push({ ref: targetRefs[i], data: partialTarget });
+          }
+          baseUpdate = updateGasto(baseData, '', 0); // Initialize
+          baseUpdate.compensado_por_detalles = currentGastoData.compensado_por_detalles;
+          baseUpdate.importe_neto = currentGastoData.importe_neto;
+        }
+
+        // Apply all updates
+        transaction.update(baseRef, { ...baseUpdate, updated_at: serverTimestamp() });
+        for (const update of targetUpdates) {
+          transaction.update(update.ref, { ...update.data, updated_at: serverTimestamp() });
         }
       });
-      showToast('Movimientos vinculados', 'success');
+      showToast('Compensación registrada correctamente', 'success');
     } catch (error: any) {
       console.error('Error vinculando:', error);
       showToast(error.message || 'Error al vincular');
     }
   };
 
-  const handleUnlinkMovimiento = async (ingreso: Movimiento) => {
-    if (!ingreso.compensa_movimiento_id) return;
-    const gastoId = ingreso.compensa_movimiento_id;
-
+  const handleUnlinkMovimiento = async (mov1: Movimiento, mov2?: Movimiento) => {
+    // We only support unlinking specific M:N links if mov2 is provided.
+    // If only mov1 is provided, it might be the legacy behavior. We will handle both cases.
     if (!isFirebaseConfigured) {
-      const updatedMovs = movimientos.map(m => {
-        if (m.id === gastoId) {
-          const compPor = (m.compensado_por || []).filter(id => id !== ingreso.id);
-          const prevCompSinEste = compPor.reduce((s, id) => {
-            const mv = movimientos.find(x => x.id === id);
-            return s + (mv ? mv.importe : 0);
-          }, 0);
-          const neto = Math.max(0, m.importe - prevCompSinEste);
-          
-          return {
-            ...m,
-            compensado_por: compPor.length > 0 ? compPor : null,
-            importe_neto: compPor.length > 0 ? neto : null
-          };
-        }
-        if (m.id === ingreso.id) {
-          return { ...m, compensa_movimiento_id: null };
-        }
-        return m;
-      });
-
-      const updatedStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
-      // Stats stay as Gross
-
-      saveDemoState(updatedMovs, huchas, suscripciones, updatedStats);
-      showToast('Vínculo deshecho', 'success');
+      showToast('Funcionalidad no disponible en modo Demo', 'error');
       return;
     }
 
     try {
       await runTransaction(db, async (transaction) => {
-        const gastoRef = doc(db, 'movimientos', gastoId);
+        // Find which is Gasto and which is Ingreso
+        let gasto: Movimiento | null = null;
+        let ingreso: Movimiento | null = null;
+
+        if (mov2) {
+          gasto = mov1.tipo === 'gasto' ? mov1 : mov2.tipo === 'gasto' ? mov2 : null;
+          ingreso = mov1.tipo === 'ingreso' ? mov1 : mov2.tipo === 'ingreso' ? mov2 : null;
+        } else {
+          // Only one movement provided. Unlink ALL its connections.
+          const movRef = doc(db, 'movimientos', mov1.id);
+          const movSnap = await transaction.get(movRef);
+          if (!movSnap.exists()) return;
+          const movData = movSnap.data() as Movimiento;
+
+          if (movData.tipo === 'gasto') {
+            const connectedIngresoIds = (movData.compensado_por_detalles || []).map(d => d.ingreso_id);
+            if (movData.compensado_por) connectedIngresoIds.push(...movData.compensado_por); // legacy
+            
+            for (const ingId of new Set(connectedIngresoIds)) {
+              const ingRef = doc(db, 'movimientos', ingId);
+              const ingSnap = await transaction.get(ingRef);
+              if (ingSnap.exists()) {
+                const ingData = ingSnap.data() as Movimiento;
+                const newDestinos = (ingData.compensaciones_destinos || []).filter(d => d.gasto_id !== mov1.id);
+                transaction.update(ingRef, {
+                  compensaciones_destinos: newDestinos.length > 0 ? newDestinos : deleteField(),
+                  compensa_movimiento_id: ingData.compensa_movimiento_id === mov1.id ? deleteField() : ingData.compensa_movimiento_id,
+                  updated_at: serverTimestamp()
+                });
+              }
+            }
+            transaction.update(movRef, {
+              compensado_por_detalles: deleteField(),
+              compensado_por: deleteField(),
+              importe_neto: deleteField(),
+              updated_at: serverTimestamp()
+            });
+
+          } else {
+            // It's an ingreso
+            const connectedGastoIds = (movData.compensaciones_destinos || []).map(d => d.gasto_id);
+            if (movData.compensa_movimiento_id) connectedGastoIds.push(movData.compensa_movimiento_id); // legacy
+
+            for (const gastId of new Set(connectedGastoIds)) {
+              const gasRef = doc(db, 'movimientos', gastId);
+              const gasSnap = await transaction.get(gasRef);
+              if (gasSnap.exists()) {
+                const gasData = gasSnap.data() as Movimiento;
+                const removedDetalle = (gasData.compensado_por_detalles || []).find(d => d.ingreso_id === mov1.id);
+                const newDetalles = (gasData.compensado_por_detalles || []).filter(d => d.ingreso_id !== mov1.id);
+                const newCompPor = (gasData.compensado_por || []).filter(id => id !== mov1.id);
+                
+                const restoredAmount = removedDetalle ? removedDetalle.importe : mov1.importe;
+                const currentNeto = gasData.importe_neto ?? gasData.importe;
+                const neto = Math.min(gasData.importe, currentNeto + restoredAmount);
+
+                transaction.update(gasRef, {
+                  compensado_por_detalles: newDetalles.length > 0 ? newDetalles : deleteField(),
+                  compensado_por: newCompPor.length > 0 ? newCompPor : deleteField(),
+                  importe_neto: (newDetalles.length > 0 || newCompPor.length > 0) ? Number(neto.toFixed(2)) : deleteField(),
+                  updated_at: serverTimestamp()
+                });
+              }
+            }
+            transaction.update(movRef, {
+              compensaciones_destinos: deleteField(),
+              compensa_movimiento_id: deleteField(),
+              updated_at: serverTimestamp()
+            });
+          }
+          return; // Early return for single unlinking
+        }
+
+        if (!gasto || !ingreso) throw new Error('Debes proporcionar un gasto y un ingreso');
+
+        const gastoRef = doc(db, 'movimientos', gasto.id);
         const ingresoRef = doc(db, 'movimientos', ingreso.id);
 
-        const gastoSnap = await transaction.get(gastoRef);
+        const [gastoSnap, ingresoSnap] = await Promise.all([
+          transaction.get(gastoRef),
+          transaction.get(ingresoRef)
+        ]);
 
         if (gastoSnap.exists()) {
           const gastoData = gastoSnap.data() as Movimiento;
-          const compPor = (gastoData.compensado_por || []).filter(id => id !== ingreso.id);
-          const prevCompSinEste = compPor.reduce((s, id) => {
-            const mv = movimientos.find(x => x.id === id);
-            return s + (mv ? mv.importe : 0);
-          }, 0);
+          const removedDetalle = (gastoData.compensado_por_detalles || []).find(d => d.ingreso_id === ingreso!.id);
+          const newDetalles = (gastoData.compensado_por_detalles || []).filter(d => d.ingreso_id !== ingreso!.id);
+          const newCompPor = (gastoData.compensado_por || []).filter(id => id !== ingreso!.id);
           
-          const neto = Math.max(0, gastoData.importe - prevCompSinEste);
-          
+          const restoredAmount = removedDetalle ? removedDetalle.importe : ingreso!.importe;
+          const currentNeto = gastoData.importe_neto ?? gastoData.importe;
+          const neto = Math.min(gastoData.importe, currentNeto + restoredAmount);
+
           transaction.update(gastoRef, {
-            compensado_por: compPor.length > 0 ? compPor : deleteField(),
-            importe_neto: compPor.length > 0 ? neto : deleteField(),
+            compensado_por_detalles: newDetalles.length > 0 ? newDetalles : deleteField(),
+            compensado_por: newCompPor.length > 0 ? newCompPor : deleteField(),
+            importe_neto: (newDetalles.length > 0 || newCompPor.length > 0) ? Number(neto.toFixed(2)) : deleteField(),
             updated_at: serverTimestamp()
           });
         }
 
-        transaction.update(ingresoRef, { compensa_movimiento_id: deleteField(), updated_at: serverTimestamp() });
+        if (ingresoSnap.exists()) {
+          const ingresoData = ingresoSnap.data() as Movimiento;
+          const newDestinos = (ingresoData.compensaciones_destinos || []).filter(d => d.gasto_id !== gasto!.id);
+          
+          transaction.update(ingresoRef, {
+            compensaciones_destinos: newDestinos.length > 0 ? newDestinos : deleteField(),
+            compensa_movimiento_id: ingresoData.compensa_movimiento_id === gasto.id ? deleteField() : ingresoData.compensa_movimiento_id,
+            updated_at: serverTimestamp()
+          });
+        }
+
       });
-      showToast('Vínculo deshecho', 'success');
+      showToast('Desvinculación completada', 'success');
     } catch (error: any) {
       console.error('Error desvinculando:', error);
       showToast('Error al desvincular');
@@ -1965,6 +2080,12 @@ export const useFinanceData = (forceDemo = false) => {
   };
 
   const handleDeleteMovimiento = async (mov: Movimiento) => {
+    // Auto-unlink if it has any connections
+    if ((mov.tipo === 'gasto' && ((mov.compensado_por?.length ?? 0) > 0 || (mov.compensado_por_detalles?.length ?? 0) > 0)) ||
+        (mov.tipo === 'ingreso' && (mov.compensa_movimiento_id || (mov.compensaciones_destinos?.length ?? 0) > 0))) {
+      await handleUnlinkMovimiento(mov);
+    }
+
     const amt = Number(mov.importe);
     const isIngreso = mov.tipo === 'ingreso';
 
