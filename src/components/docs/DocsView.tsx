@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Book, Shield, FileCode, Server, ChevronLeft, Copy, Check } from 'lucide-react';
+import { Book, Shield, FileCode, Server, ChevronLeft, Copy, Check, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
 import readmeContent from '../../../README.md?raw';
@@ -10,39 +10,34 @@ import backendContent from '../../../tracker-backend/README.md?raw';
 
 type DocSection = 'README' | 'GEMINI' | 'INSTRUCTIONS' | 'BACKEND';
 
-const docContents: Record<DocSection, { title: string; content: string; icon: React.ReactNode; color: string }> = {
+const docContents: Record<DocSection, { title: string; content: string; icon: React.ReactNode }> = {
   README: { 
     title: 'General (README)', 
     content: readmeContent,
-    icon: <Book size={18} />,
-    color: 'indigo'
+    icon: <Book size={16} />,
   },
   GEMINI: { 
     title: 'Arquitectura (ADR)', 
     content: geminiContent,
-    icon: <FileCode size={18} />,
-    color: 'violet'
+    icon: <FileCode size={16} />,
   },
   INSTRUCTIONS: { 
-    title: 'Instrucciones & Seguridad', 
+    title: 'Instrucciones', 
     content: instructionsContent,
-    icon: <Shield size={18} />,
-    color: 'rose'
+    icon: <Shield size={16} />,
   },
   BACKEND: { 
     title: 'Setup Backend', 
     content: backendContent,
-    icon: <Server size={18} />,
-    color: 'emerald'
+    icon: <Server size={16} />,
   }
 };
 
 export const DocsView: React.FC = () => {
   const [activeSection, setActiveSection] = useState<DocSection>('README');
   const [copied, setCopied] = useState(false);
-  const { theme, toggleTheme } = useTheme(); // Initialize theme hook if needed for manual toggle, though app layout doesn't strictly need it if it reads system/html class.
+  const { theme, toggleTheme } = useTheme();
   
-  // Back to home action
   const goHome = () => {
     window.location.href = '/';
   };
@@ -56,50 +51,26 @@ export const DocsView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 font-sans pb-24">
-      {/* Background decorations matching App.tsx */}
-      <div className="fixed inset-0 pointer-events-none z-[-2] opacity-85" style={{
-          backgroundImage: 'linear-gradient(rgba(99, 102, 241, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px)',
-          backgroundSize: '56px 56px'
-      }} />
-      <div className="bg-orb-left" />
-      <div className="bg-orb-right" />
-
-      {/* Header */}
-      <header className="sticky top-0 z-30 backdrop-blur-md bg-white/70 dark:bg-slate-950/70 border-b border-slate-100 dark:border-white/5 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={goHome}
-              className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200/30 dark:border-white/5 flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm hover:shadow-md cursor-pointer"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <div>
-              <h1 className="text-lg font-black tracking-tight leading-none uppercase text-slate-800 dark:text-white">
-                Developer Docs
-              </h1>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 leading-none block mt-1">
-                Flowt Project Context
-              </span>
+    <div className="flex h-screen bg-white dark:bg-[#0a0a0a] text-slate-900 dark:text-slate-50 font-sans selection:bg-indigo-500/30 overflow-hidden transition-colors duration-300">
+      
+      {/* Sidebar */}
+      <aside className="w-64 border-r border-slate-200 dark:border-white/10 flex flex-col shrink-0 bg-slate-50/50 dark:bg-[#0a0a0a] z-10">
+        
+        {/* Brand / Header */}
+        <div className="h-16 flex items-center px-6 border-b border-slate-200 dark:border-white/10 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded bg-indigo-600 flex items-center justify-center text-white font-bold text-xs">
+              F
             </div>
-          </div>
-          <div className="flex gap-2">
-             <button
-              onClick={toggleTheme}
-              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-450 border border-slate-200/30 dark:border-white/5 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-sm"
-            >
-              {theme === 'dark' ? '☀️' : '🌙'}
-            </button>
+            <span className="font-semibold tracking-tight text-sm">Flowt Docs</span>
           </div>
         </div>
-      </header>
 
-      {/* Main Layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 flex flex-col md:flex-row gap-8">
-        
-        {/* Sidebar Navigation */}
-        <aside className="w-full md:w-64 shrink-0 space-y-2">
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+          <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 mt-2 px-3">
+            Documentos
+          </div>
           {(Object.keys(docContents) as DocSection[]).map((sectionKey) => {
             const isActive = activeSection === sectionKey;
             const data = docContents[sectionKey];
@@ -108,41 +79,80 @@ export const DocsView: React.FC = () => {
               <button
                 key={sectionKey}
                 onClick={() => setActiveSection(sectionKey)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all cursor-pointer ${
                   isActive 
-                    ? `bg-${data.color}-500/10 border border-${data.color}-500/20 text-${data.color}-600 dark:text-${data.color}-400 shadow-sm` 
-                    : 'bg-white/40 dark:bg-slate-900/40 border border-white/20 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:bg-white/80 dark:hover:bg-slate-900/80 hover:scale-[1.02]'
+                    ? 'bg-slate-200/50 dark:bg-white/10 text-indigo-600 dark:text-white font-medium' 
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
                 }`}
               >
-                <div className={`p-1.5 rounded-lg ${isActive ? `bg-${data.color}-500/20 text-${data.color}-600 dark:text-${data.color}-400` : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                <div className={`${isActive ? 'text-indigo-600 dark:text-white' : 'text-slate-400 dark:text-slate-500'}`}>
                   {data.icon}
                 </div>
-                <span className="font-bold text-sm">{data.title}</span>
+                <span>{data.title}</span>
               </button>
             );
           })}
-        </aside>
+        </nav>
 
-        {/* Content Area */}
-        <main className="flex-1 min-w-0">
-          <div className="glass-panel rounded-[2rem] p-6 sm:p-10 relative">
+        {/* Footer actions */}
+        <div className="p-4 border-t border-slate-200 dark:border-white/10">
+          <button
+            onClick={goHome}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+          >
+            <ChevronLeft size={16} />
+            <span>Volver a la App</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col h-screen relative bg-white dark:bg-[#0a0a0a]">
+        
+        {/* Topbar */}
+        <header className="h-16 flex items-center justify-end px-8 border-b border-slate-200 dark:border-white/10 shrink-0 sticky top-0 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md z-10">
+          <button
+            onClick={toggleTheme}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            title="Cambiar tema"
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+        </header>
+
+        {/* Scrollable Document Area */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-8 py-12 relative">
+            
             <button
               onClick={handleCopy}
-              className="absolute top-6 right-6 sm:top-8 sm:right-8 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100/50 hover:bg-slate-200 dark:bg-slate-800/50 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
+              className="absolute top-12 right-8 flex items-center gap-2 px-3 py-1.5 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-[#111] hover:bg-slate-50 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300 transition-all text-xs font-medium shadow-sm cursor-pointer"
               title="Copiar Markdown RAW"
             >
               {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-              {copied ? 'Copiado' : 'Copiar MD'}
+              {copied ? 'Copiado' : 'Copiar'}
             </button>
 
-            {/* Tailwind Typography 'prose' takes care of the markdown styling automatically */}
-            <article className="prose prose-slate dark:prose-invert prose-headings:font-title prose-a:text-indigo-500 hover:prose-a:text-indigo-600 prose-img:rounded-xl max-w-none prose-hr:border-slate-200/50 dark:prose-hr:border-white/10 mt-8 sm:mt-0">
+            <article className="prose prose-slate dark:prose-invert max-w-none 
+              prose-headings:font-title prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-slate-900 dark:prose-headings:text-white
+              prose-h1:text-4xl prose-h1:mb-8
+              prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-4 prose-h2:border-b prose-h2:border-slate-200 dark:prose-h2:border-white/10 prose-h2:pb-2
+              prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-p:leading-relaxed
+              prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-a:font-medium prose-a:no-underline hover:prose-a:underline
+              prose-code:text-slate-800 dark:prose-code:text-slate-200 prose-code:bg-slate-100 dark:prose-code:bg-white/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-sm prose-code:before:content-none prose-code:after:content-none
+              prose-pre:bg-slate-50 dark:prose-pre:bg-[#111] prose-pre:border prose-pre:border-slate-200 dark:prose-pre:border-white/10 prose-pre:rounded-xl prose-pre:shadow-sm
+              prose-hr:border-slate-200 dark:prose-hr:border-white/10
+              prose-li:text-slate-600 dark:prose-li:text-slate-300
+              prose-strong:text-slate-900 dark:prose-strong:text-white
+              prose-blockquote:border-indigo-500 prose-blockquote:bg-indigo-50 dark:prose-blockquote:bg-indigo-500/10 prose-blockquote:px-4 prose-blockquote:py-1 prose-blockquote:rounded-r-lg prose-blockquote:text-slate-700 dark:prose-blockquote:text-slate-300 prose-blockquote:not-italic"
+            >
               <ReactMarkdown>{activeData.content}</ReactMarkdown>
             </article>
-          </div>
-        </main>
 
-      </div>
+          </div>
+        </div>
+
+      </main>
     </div>
   );
 };
