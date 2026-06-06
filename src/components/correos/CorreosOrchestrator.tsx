@@ -33,10 +33,10 @@ export const CorreosOrchestrator: React.FC<CorreosOrchestratorProps> = ({
           
           <button
             onClick={() => setSubTab('revision')}
-            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${
+            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer ${
               subTab === 'revision'
-                ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-md'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_10px_rgba(0,0,0,0.08)] ring-1 ring-slate-900/5 dark:ring-white/10 scale-[1.02]'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
             }`}
           >
             <Mail size={16} className={subTab === 'revision' ? 'text-indigo-500' : ''} />
@@ -54,10 +54,10 @@ export const CorreosOrchestrator: React.FC<CorreosOrchestratorProps> = ({
           
           <button
             onClick={() => setSubTab('historico')}
-            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${
+            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer ${
               subTab === 'historico'
-                ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-md'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_10px_rgba(0,0,0,0.08)] ring-1 ring-slate-900/5 dark:ring-white/10 scale-[1.02]'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
             }`}
           >
             <History size={16} className={subTab === 'historico' ? 'text-indigo-500' : ''} />

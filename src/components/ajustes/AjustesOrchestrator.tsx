@@ -43,10 +43,10 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
           
           <button
             onClick={() => setSubTab('suscripciones')}
-            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${
+            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer ${
               subTab === 'suscripciones'
-                ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-md'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_10px_rgba(0,0,0,0.08)] ring-1 ring-slate-900/5 dark:ring-white/10 scale-[1.02]'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
             }`}
           >
             <Layers size={16} className={subTab === 'suscripciones' ? 'text-indigo-500' : ''} />
@@ -55,10 +55,10 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
           
           <button
             onClick={() => setSubTab('exportar')}
-            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${
+            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer ${
               subTab === 'exportar'
-                ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-md'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_10px_rgba(0,0,0,0.08)] ring-1 ring-slate-900/5 dark:ring-white/10 scale-[1.02]'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
             }`}
           >
             <Download size={16} className={subTab === 'exportar' ? 'text-indigo-500' : ''} />
