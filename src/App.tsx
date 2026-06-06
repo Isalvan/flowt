@@ -12,6 +12,7 @@ import { SuscripcionesView } from './components/suscripciones/SuscripcionesView'
 import { CalendarioView } from './components/calendario/CalendarioView';
 import { ManualReviewView } from './components/manual/ManualReviewView';
 import { ExportView } from './components/export/ExportView';
+import { HistoricoCorreosView } from './components/historico/HistoricoCorreosView';
 
 // Modals
 import { HuchaModal } from './components/modals/HuchaModal';
@@ -46,7 +47,8 @@ import {
   Eye,
   EyeOff,
   User,
-  Download
+  Download,
+  MailOpen
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { PinModal } from './components/common/PinModal';
@@ -162,6 +164,7 @@ const AppContent: React.FC = () => {
     huchas,
     suscripciones,
     pendingEmails,
+    historicoCorreos,
     userStats,
     balance,
     chartData,
@@ -192,7 +195,7 @@ const AppContent: React.FC = () => {
   } = useFinanceData(forceDemo);
 
   // Tab switching state
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'suscripciones' | 'calendario' | 'manual' | 'exportar'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'suscripciones' | 'calendario' | 'manual' | 'historico' | 'exportar'>('dashboard');
 
   // Form modals state overlays
   const [isHuchaModalOpen, setIsHuchaModalOpen] = useState(false);
@@ -627,6 +630,17 @@ const AppContent: React.FC = () => {
               )}
             </button>
             <button
+              onClick={() => setActiveTab('historico')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
+                activeTab === 'historico'
+                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
+              }`}
+            >
+              <MailOpen size={14} />
+              Historial
+            </button>
+            <button
               onClick={() => setActiveTab('exportar')}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
                 activeTab === 'exportar'
@@ -760,6 +774,10 @@ const AppContent: React.FC = () => {
           />
         )}
 
+        {activeTab === 'historico' && (
+          <HistoricoCorreosView historicoCorreos={historicoCorreos} />
+        )}
+
         {activeTab === 'exportar' && (
           <ExportView
             movimientos={chartMovements}
@@ -777,13 +795,14 @@ const AppContent: React.FC = () => {
           
           {/* Animated Sliding Background Pill */}
           <div 
-            className="absolute top-1.5 bottom-1.5 w-[calc(20%-3px)] bg-gradient-to-tr from-sky-500 to-indigo-500 dark:from-sky-500 dark:to-indigo-600 rounded-full shadow-[0_0_20px_rgba(14,165,233,0.4)] transition-transform duration-500 ease-out z-0"
+            className="absolute top-1.5 bottom-1.5 w-[calc(16.666%-3px)] bg-gradient-to-tr from-sky-500 to-indigo-500 dark:from-sky-500 dark:to-indigo-600 rounded-full shadow-[0_0_20px_rgba(14,165,233,0.4)] transition-transform duration-500 ease-out z-0"
             style={{ 
               transform: `translateX(calc(${
                 activeTab === 'dashboard' ? 0 : 
                 activeTab === 'suscripciones' ? 1 : 
                 activeTab === 'calendario' ? 2 : 
-                activeTab === 'manual' ? 3 : 4
+                activeTab === 'manual' ? 3 : 
+                activeTab === 'historico' ? 4 : 5
               } * 100%))` 
             }}
           />
@@ -791,7 +810,7 @@ const AppContent: React.FC = () => {
           {/* Dashboard Tab */}
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/5 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/6 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
               activeTab === 'dashboard' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
@@ -802,7 +821,7 @@ const AppContent: React.FC = () => {
           {/* Suscripciones Tab */}
           <button
             onClick={() => setActiveTab('suscripciones')}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/5 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/6 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
               activeTab === 'suscripciones' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
@@ -813,7 +832,7 @@ const AppContent: React.FC = () => {
           {/* Calendario Tab */}
           <button
             onClick={() => setActiveTab('calendario')}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/5 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/6 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
               activeTab === 'calendario' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
@@ -824,7 +843,7 @@ const AppContent: React.FC = () => {
           {/* Revisión Tab */}
           <button
             onClick={() => secureAction(() => setActiveTab('manual'))}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/5 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/6 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
               activeTab === 'manual' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
@@ -838,10 +857,21 @@ const AppContent: React.FC = () => {
             )}
           </button>
 
+          {/* Historial Tab */}
+          <button
+            onClick={() => setActiveTab('historico')}
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/6 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
+              activeTab === 'historico' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <MailOpen size={20} className={`transition-transform duration-500 ease-spring ${activeTab === 'historico' ? 'scale-110 -translate-y-0.5' : 'scale-100'}`} />
+            <span className={`text-[8px] font-black uppercase tracking-wider transition-opacity duration-300 ${activeTab === 'historico' ? 'opacity-100' : 'opacity-70'}`}>Historial</span>
+          </button>
+
           {/* Exportar Tab */}
           <button
             onClick={() => setActiveTab('exportar')}
-            className={`relative flex flex-col items-center justify-center gap-1 w-1/5 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
+            className={`relative flex flex-col items-center justify-center gap-1 w-1/6 py-2.5 cursor-pointer z-10 rounded-full transition-colors duration-300 ${
               activeTab === 'exportar' ? 'text-white drop-shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >

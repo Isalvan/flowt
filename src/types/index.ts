@@ -67,3 +67,12 @@ export interface PendingEmail {
   id_propietario?: string;
   created_at?: any;
 }
+
+export interface CorreoHistorico {
+  id: string; // email_id
+  id_propietario: string;
+  cuerpo: string;
+  fecha_envio: string;
+  movimientos_generados: string[]; // array of movement IDs
+  created_at?: any;
+}

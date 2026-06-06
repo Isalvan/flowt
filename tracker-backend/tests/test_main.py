@@ -104,6 +104,17 @@ def test_process_emails_success(mock_config, mock_gmail_client, mock_subprocess)
     # Check that document was accessed with the right ID
     mock_collection.document.assert_any_call(expected_doc_id)
     
+    # Check that email was saved to correos_historico
+    mock_collection.document.assert_any_call("msg-123")
+    mock_doc.set.assert_any_call({
+        "id_propietario": "test_user_123",
+        "email_id": "msg-123",
+        "cuerpo": "Ingreso de 100 EUR",
+        "fecha_envio": "Sat, 11 Apr 2026 20:36:55 +0200",
+        "movimientos_generados": [expected_doc_id],
+        "created_at": main.firestore.SERVER_TIMESTAMP
+    })
+    
     # Verify email marked as read
     mock_mark.assert_called_once_with("msg-123")
 
@@ -184,6 +195,17 @@ def test_process_multiple_movements_success(mock_config, mock_gmail_client, mock
     mock_collection.document.assert_any_call(expected_doc_id_0)
     mock_collection.document.assert_any_call(expected_doc_id_1)
     
+    # Verify correos_historico was written
+    mock_collection.document.assert_any_call("multi-msg")
+    mock_doc.set.assert_any_call({
+        "id_propietario": "test_user_123",
+        "email_id": "multi-msg",
+        "cuerpo": "Dos cargos",
+        "fecha_envio": "Sat, 11 Apr 2026 20:36:55 +0200",
+        "movimientos_generados": [expected_doc_id_0, expected_doc_id_1],
+        "created_at": main.firestore.SERVER_TIMESTAMP
+    })
+
     # Verify email marked as read only once
     mock_mark.assert_called_once_with("multi-msg")
 

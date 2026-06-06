@@ -17,7 +17,7 @@ import {
   type DocumentSnapshot,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail } from '../types';
+import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type CorreoHistorico } from '../types';
 import { usePrivacy } from '../context/PrivacyContext';
 
 // Standard fallback configurations and options
@@ -131,6 +131,7 @@ export const useFinanceData = (forceDemo = false) => {
   const [huchas, setHuchas] = useState<Hucha[]>([]);
   const [suscripciones, setSuscripciones] = useState<Suscripcion[]>([]);
   const [pendingEmails, setPendingEmails] = useState<PendingEmail[]>([]);
+  const [historicoCorreos, setHistoricoCorreos] = useState<CorreoHistorico[]>([]);
   const [userStats, setUserStats] = useState<{ total_ingresos: number; total_gastos: number } | null>(null);
 
   // Global toasts & confirms
@@ -190,6 +191,7 @@ export const useFinanceData = (forceDemo = false) => {
         setHuchas([]);
         setSuscripciones([]);
         setPendingEmails([]);
+        setHistoricoCorreos([]);
         setUserStats(null);
         setLoading(false);
       } else {
@@ -217,6 +219,7 @@ export const useFinanceData = (forceDemo = false) => {
       setHuchas([]);
       setSuscripciones([]);
       setPendingEmails([]);
+      setHistoricoCorreos([]);
       setUserStats(null);
       return;
     }
@@ -324,6 +327,19 @@ export const useFinanceData = (forceDemo = false) => {
       setPendingEmails(docs);
     });
 
+    // Load historico correos
+    const qHistorico = query(
+      collection(db, 'correos_historico'),
+      where('id_propietario', '==', user.uid),
+      orderBy('created_at', 'desc'),
+      limit(50) // Adjust limit as needed
+    );
+
+    const unsubHistorico = onSnapshot(qHistorico, (snapshot) => {
+      const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as CorreoHistorico));
+      setHistoricoCorreos(docs);
+    });
+
     return () => {
       unsubMov();
       unsubChart();
@@ -331,6 +347,7 @@ export const useFinanceData = (forceDemo = false) => {
       unsubStats();
       unsubSuscripciones();
       unsubPending();
+      unsubHistorico();
     };
   }, [user, isFirebaseConfigured, isLocked]);
 
@@ -1688,9 +1705,11 @@ export const useFinanceData = (forceDemo = false) => {
         const movRef = doc(collection(db, 'movimientos'));
         const statsRef = doc(db, 'stats', user!.uid);
 
-        // Get stats
+        // Reads
         const statsSnap = await transaction.get(statsRef);
         const currentStats = statsSnap.data() || { total_ingresos: 0, total_gastos: 0 };
+        const emailSnap = await transaction.get(emailRef);
+        const emailData = emailSnap.exists() ? emailSnap.data() : null;
 
         // Get selected hucha (or principal)
         let targetHuchaId = movData.hucha_id;
@@ -1789,6 +1808,19 @@ export const useFinanceData = (forceDemo = false) => {
           nextStats.total_gastos = (nextStats.total_gastos || 0) + amt;
         }
         transaction.set(statsRef, nextStats, { merge: true });
+
+        // Insert into correos_historico
+        if (emailData) {
+          const historicoRef = doc(db, 'correos_historico', emailId);
+          transaction.set(historicoRef, {
+            id: emailData.email_id || emailId,
+            id_propietario: user!.uid,
+            cuerpo: emailData.cuerpo || '',
+            fecha_envio: emailData.fecha_envio || new Date().toISOString(),
+            movimientos_generados: [movRef.id],
+            created_at: serverTimestamp()
+          });
+        }
 
         // Delete pending email from manual queue
         transaction.delete(emailRef);
@@ -2415,6 +2447,7 @@ export const useFinanceData = (forceDemo = false) => {
     huchas,
     suscripciones,
     pendingEmails,
+    historicoCorreos,
     userStats,
     totalIngresos,
     mediaIngresos,

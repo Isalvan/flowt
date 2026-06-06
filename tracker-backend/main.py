@@ -516,6 +516,19 @@ def process_emails():
                             logger.info(f"Movement {m['doc_id']} (index {m['index']}) recorded successfully.")
                         else:
                             logger.info(f"Movement {m['doc_id']} (index {m['index']}) already exists. Skipping.")
+                    
+                    try:
+                        db.collection("correos_historico").document(email_id).set({
+                            "id_propietario": UID_PROPIETARIO,
+                            "email_id": email_id,
+                            "cuerpo": email["body"],
+                            "fecha_envio": email_date,
+                            "movimientos_generados": recorded_ids,
+                            "created_at": firestore.SERVER_TIMESTAMP
+                        })
+                        logger.info(f"Email {email_id} saved to correos_historico.")
+                    except Exception as e:
+                        logger.error(f"Failed to save email {email_id} to correos_historico: {e}")
                 else:
                     logger.info(f"All movements for email {email_id} already existed. Skipping.")
             except Exception as e:
