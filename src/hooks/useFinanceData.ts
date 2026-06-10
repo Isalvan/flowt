@@ -1108,7 +1108,7 @@ export const useFinanceData = (forceDemo = false) => {
 
         const baseSnap = await transaction.get(baseRef);
         if (!baseSnap.exists()) throw new Error('El movimiento base no existe');
-        const baseData = baseSnap.data() as Movimiento;
+        const baseData = { id: baseSnap.id, ...baseSnap.data() } as Movimiento;
 
         const targetsSnaps = await Promise.all(targetRefs.map(ref => transaction.get(ref)));
         const targetsData = targetsSnaps.map(snap => {
@@ -1165,8 +1165,7 @@ export const useFinanceData = (forceDemo = false) => {
             const partialTarget = updateGasto(targetData, baseData.id, alloc.importe);
             targetUpdates.push({ ref: targetRefs[i], data: partialTarget });
           }
-          baseUpdate = updateIngreso(baseData, '', 0); // Initialize if needed
-          baseUpdate.compensaciones_destinos = currentIngresoData.compensaciones_destinos;
+          baseUpdate = { compensaciones_destinos: currentIngresoData.compensaciones_destinos };
 
         } else {
           // Base = Gasto, Targets = Ingresos
@@ -1183,9 +1182,10 @@ export const useFinanceData = (forceDemo = false) => {
             const partialTarget = updateIngreso(targetData, baseData.id, alloc.importe);
             targetUpdates.push({ ref: targetRefs[i], data: partialTarget });
           }
-          baseUpdate = updateGasto(baseData, '', 0); // Initialize
-          baseUpdate.compensado_por_detalles = currentGastoData.compensado_por_detalles;
-          baseUpdate.importe_neto = currentGastoData.importe_neto;
+          baseUpdate = {
+            compensado_por_detalles: currentGastoData.compensado_por_detalles,
+            importe_neto: currentGastoData.importe_neto
+          };
         }
 
         // Apply all updates

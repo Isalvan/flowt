@@ -54,6 +54,14 @@
         { "fieldPath": "id_propietario", "order": "ASCENDING" },
         { "fieldPath": "created_at", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "correos_historico",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_propietario", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
