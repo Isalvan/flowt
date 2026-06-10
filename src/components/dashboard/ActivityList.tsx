@@ -219,12 +219,17 @@ export const ActivityList: React.FC<ActivityListProps> = ({
 
   // Find linked movements for tooltips
   const getLinkedMovements = (mov: Movimiento) => {
-    if (mov.tipo === 'gasto' && mov.compensado_por && mov.compensado_por.length > 0) {
-      return allMovimientos.filter(m => mov.compensado_por?.includes(m.id));
+    if (mov.tipo === 'gasto') {
+      const legacyIds = mov.compensado_por || [];
+      const newIds = (mov.compensado_por_detalles || []).map(d => d.ingreso_id);
+      const allIds = Array.from(new Set([...legacyIds, ...newIds]));
+      return allIds.length > 0 ? allMovimientos.filter(m => allIds.includes(m.id)) : [];
     }
-    if (mov.tipo === 'ingreso' && mov.compensa_movimiento_id) {
-      const exp = allMovimientos.find(m => m.id === mov.compensa_movimiento_id);
-      return exp ? [exp] : [];
+    if (mov.tipo === 'ingreso') {
+      const legacyId = mov.compensa_movimiento_id ? [mov.compensa_movimiento_id] : [];
+      const newIds = (mov.compensaciones_destinos || []).map(d => d.gasto_id);
+      const allIds = Array.from(new Set([...legacyId, ...newIds]));
+      return allIds.length > 0 ? allMovimientos.filter(m => allIds.includes(m.id)) : [];
     }
     return [];
   };
@@ -398,8 +403,10 @@ export const ActivityList: React.FC<ActivityListProps> = ({
       <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
         {filteredMovimientos.length > 0 ? (
           filteredMovimientos.map((m) => {
-            const hasCompensaciones = (m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0) || 
-                                     (m.tipo === 'ingreso' && !!m.compensa_movimiento_id);
+          const hasCompensaciones = 
+              (m.tipo === 'gasto' && ((m.compensado_por?.length ?? 0) > 0 || (m.compensado_por_detalles?.length ?? 0) > 0)) || 
+              (m.tipo === 'ingreso' && (!!m.compensa_movimiento_id || (m.compensaciones_destinos?.length ?? 0) > 0));
+            
             const linkedMovs = hasCompensaciones ? getLinkedMovements(m) : [];
             const isEditing = editingId === m.id;
             
@@ -543,17 +550,17 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                     <div className="text-left sm:text-right shrink-0">
                       <p className={`text-base font-extrabold tabular-nums tracking-tight ${
                       m.tipo === 'ingreso' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                    } ${m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0 ? 'line-through opacity-50' : ''}`}>
+                    } ${hasCompensaciones ? 'line-through opacity-50' : ''}`}>
                       {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
                     </p>
                     
-                    {m.tipo === 'gasto' && (m.compensado_por?.length ?? 0) > 0 && (
+                    {m.tipo === 'gasto' && hasCompensaciones && (
                       <p className="text-xs font-black tabular-nums text-emerald-600 dark:text-emerald-400 -mt-0.5 flex items-center gap-1 justify-end">
                         neto −{formatCurrency(m.importe_neto ?? m.importe)}
                       </p>
                     )}
 
-                    {m.tipo === 'ingreso' && m.compensa_movimiento_id && (
+                    {m.tipo === 'ingreso' && hasCompensaciones && (
                       <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center gap-0.5 justify-end">
                         <Undo2 className="w-2.5 h-2.5" /> compensación
                       </p>
