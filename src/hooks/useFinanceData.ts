@@ -875,14 +875,14 @@ export const useFinanceData = (forceDemo = false) => {
           }
         });
 
-        // Deltas: Revert expenditure (+amount) + add split shares
-        const rawDeltas: Record<string, number> = {};
-        if (mov.hucha_id) rawDeltas[mov.hucha_id] = (rawDeltas[mov.hucha_id] || 0) + amount;
-        for (const [hid, s] of Object.entries(shares)) {
-          rawDeltas[hid] = (rawDeltas[hid] || 0) + s;
+        // Only apply overflow rules to the new income shares
+        const { adjusted: deltas, overflow } = redirectOverflowToResto(shares, updatedHuchas);
+
+        // Revert the expenditure by adding it back directly (ignoring topes, since it was already in the hucha)
+        if (mov.hucha_id) {
+          deltas[mov.hucha_id] = (deltas[mov.hucha_id] || 0) + amount;
         }
 
-        const { adjusted: deltas, overflow } = redirectOverflowToResto(rawDeltas, updatedHuchas);
         if (overflow > 0.01) {
           showToast(`${overflow.toFixed(2)} € sin asignar: todas las huchas están llenas`);
         }
@@ -976,13 +976,15 @@ export const useFinanceData = (forceDemo = false) => {
         });
 
         const oldHuchaId = mov.hucha_id;
-        const rawDeltas: Record<string, number> = {};
-        if (oldHuchaId) rawDeltas[oldHuchaId] = (rawDeltas[oldHuchaId] || 0) + amount;
-        for (const [hid, share] of Object.entries(shares)) {
-          rawDeltas[hid] = (rawDeltas[hid] || 0) + share;
+        
+        // Apply overflow rules ONLY to the new income distribution shares
+        const { adjusted: deltas, overflow } = redirectOverflowToResto(shares, huchas);
+        
+        // Revert the expenditure by adding it back directly (ignoring topes, since it was previously subtracted)
+        if (oldHuchaId) {
+          deltas[oldHuchaId] = (deltas[oldHuchaId] || 0) + amount;
         }
 
-        const { adjusted: deltas, overflow } = redirectOverflowToResto(rawDeltas, huchas);
         if (overflow > 0.01) {
           showToast(`${overflow.toFixed(2)} € sin asignar: todas las huchas están llenas`);
         }

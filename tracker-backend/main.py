@@ -235,23 +235,27 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                 logger.error(f"Total percentage ({total_percentage}%) exceeds 100%. Income not distributed.")
             else:
                 remaining_amount = amount
-                # 1. Flat amounts (HARD LIMIT)
+                # 1. Flat amounts
                 for h_id, h_info in huchas_state.items():
                     data = h_info["data"]
                     if data.get("tipo_aportacion") == "flat":
-                        target_val = float(data.get("valor_aportacion", 0))
-                        current_balance = h_info["saldo_actual"]
+                        planned_total = float(data.get("valor_aportacion", 0))
                         
-                        # HARD LIMIT calculation
-                        hueco_libre = max(0, target_val - current_balance)
+                        # Apply tope_objetivo if exists
+                        if data.get("tope_objetivo") and data.get("objetivo"):
+                            objetivo = float(data.get("objetivo"))
+                            if objetivo > 0:
+                                current_balance = h_info["saldo_actual"]
+                                hueco_libre = max(0, objetivo - current_balance)
+                                planned_total = min(planned_total, hueco_libre)
                         
-                        # Apply provisions subtraction logic to the hueco_libre
+                        # Apply provisions subtraction logic
                         if h_id == subs_hucha_id:
                             provision_from_others = sum(linked_provisions.values())
-                            effective_target = max(0, hueco_libre - provision_from_others)
+                            effective_target = max(0, planned_total - provision_from_others)
                         else:
                             provision_for_subs = linked_provisions.get(h_id, 0)
-                            effective_target = max(0, hueco_libre - provision_for_subs)
+                            effective_target = max(0, planned_total - provision_for_subs)
                             
                             # Add provision to Subs hucha instead of this hucha
                             if provision_for_subs > 0 and subs_hucha_id and remaining_amount > 0:
@@ -270,6 +274,14 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                     if data.get("tipo_aportacion") == "porcentaje":
                         perc_val = float(data.get("valor_aportacion", 0))
                         planned_total = amount * (perc_val / 100.0)
+                        
+                        # Apply tope_objetivo if exists
+                        if data.get("tope_objetivo") and data.get("objetivo"):
+                            objetivo = float(data.get("objetivo"))
+                            if objetivo > 0:
+                                current_balance = h_info["saldo_actual"]
+                                hueco_libre = max(0, objetivo - current_balance)
+                                planned_total = min(planned_total, hueco_libre)
                         
                         provision_for_subs = linked_provisions.get(h_id, 0)
                         effective_target = max(0, planned_total - provision_for_subs)
