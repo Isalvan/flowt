@@ -95,7 +95,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all cursor-pointer"
           >
             <option value="" disabled className="text-slate-400">Seleccionar origen</option>
-            {huchas.map(h => (
+            {huchas.filter(h => h.activa !== false).map(h => (
               <option key={h.id} value={h.id} className="text-slate-800 dark:text-slate-200">
                 {h.nombre} ({formatCurrency(h.saldo_acumulado)})
               </option>

@@ -42,7 +42,7 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
       } else {
         // Gasto -> Ingreso: setup income allocation rows
         // Prefill default rows based on huchas configuration
-        const defaultRows: ConvertRow[] = huchas.map(h => ({
+        const defaultRows: ConvertRow[] = huchas.filter(h => h.activa !== false).map(h => ({
           huchaId: h.id,
           tipoAportacion: h.tipo_aportacion,
           value: h.valor_aportacion || 0,
@@ -172,7 +172,7 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
                 onChange={(e) => setTargetHuchaId(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all cursor-pointer"
               >
-                {huchas.map(h => (
+                {huchas.filter(h => h.activa !== false).map(h => (
                   <option key={h.id} value={h.id} className="text-slate-800 dark:text-slate-200">
                     {h.nombre} (Saldo: {formatCurrency(h.saldo_acumulado)})
                   </option>
@@ -220,7 +220,7 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
                       onChange={(e) => handleRowChange(idx, 'huchaId', e.target.value)}
                       className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-800 dark:text-white"
                     >
-                      {huchas.map(h => (
+                      {huchas.filter(h => h.activa !== false).map(h => (
                         <option key={h.id} value={h.id}>{h.nombre}</option>
                       ))}
                     </select>

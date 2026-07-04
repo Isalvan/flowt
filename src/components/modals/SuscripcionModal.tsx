@@ -207,7 +207,7 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
               className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all cursor-pointer"
             >
               <option value="">Sin provisión de saldo</option>
-              {huchas.map(h => (
+              {huchas.filter(h => h.activa !== false).map(h => (
                 <option key={h.id} value={h.id}>
                   {h.nombre} ({formatCurrency(h.saldo_acumulado)})
                 </option>

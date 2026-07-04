@@ -50,13 +50,14 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
 
     if (metodo === 'efectivo') {
       // Find existing cash pocket if any, otherwise it will auto-create
-      const cashHucha = huchas.find(h => h.es_metalico || h.nombre.toLowerCase().includes('metalico') || h.nombre.toLowerCase().includes('efectivo'));
+      const cashHucha = huchas.find(h => (h.es_metalico || h.nombre.toLowerCase().includes('metalico') || h.nombre.toLowerCase().includes('efectivo')) && h.activa !== false);
       setHuchaId(cashHucha ? cashHucha.id : 'efectivo_auto');
     } else {
       // Banco
       if (tipo === 'gasto') {
         // Default to principal hucha for bank expenses
-        const principal = huchas.find(h => h.es_principal) || huchas[0];
+        const activeHuchas = huchas.filter(h => h.activa !== false);
+        const principal = activeHuchas.find(h => h.es_principal) || activeHuchas[0];
         setHuchaId(principal ? principal.id : '');
       } else {
         // Default to "autoreparto" (empty string) for bank incomes
@@ -267,7 +268,7 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
                   >
                     <option value="" disabled>Seleccionar cartera...</option>
                     {huchas
-                      .filter(h => !h.es_suscripciones && !h.es_metalico)
+                      .filter(h => !h.es_suscripciones && !h.es_metalico && h.activa !== false)
                       .map(h => (
                         <option key={h.id} value={h.id}>
                           {h.nombre} (Saldo: {h.saldo_acumulado.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })})
@@ -289,7 +290,7 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
                       ★ Autoreparto estándar (Repartir automáticamente)
                     </option>
                     {huchas
-                      .filter(h => !h.es_suscripciones && !h.es_metalico)
+                      .filter(h => !h.es_suscripciones && !h.es_metalico && h.activa !== false)
                       .map(h => (
                         <option key={h.id} value={h.id} className="font-semibold">
                           Ingresar 100% en: {h.nombre}

@@ -31,6 +31,7 @@ export interface Hucha {
   es_principal?: boolean;
   es_suscripciones?: boolean;
   es_metalico?: boolean;
+  activa?: boolean;
   tope_objetivo?: boolean;
   id_propietario?: string;
   created_at?: any;

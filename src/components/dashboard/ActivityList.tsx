@@ -315,7 +315,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                 className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none cursor-pointer"
               >
                 <option value="all">Todas</option>
-                {huchas.map(h => (
+                {huchas.filter(h => h.activa !== false).map(h => (
                   <option key={h.id} value={h.id}>{h.nombre}</option>
                 ))}
               </select>
@@ -572,7 +572,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                   <div className="flex flex-wrap items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 w-full sm:w-auto justify-end">
                     
                     {/* Hucha reassign select (expenses only) */}
-                    {m.tipo === 'gasto' && huchas.filter(h => !h.es_suscripciones).length > 0 && (
+                    {m.tipo === 'gasto' && huchas.filter(h => !h.es_suscripciones && h.activa !== false).length > 0 && (
                       <select
                         value={m.hucha_id || ''}
                         onChange={(e) => onChangeHucha(m, e.target.value)}
@@ -581,7 +581,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                       >
                         <option value="" disabled>Reasignar...</option>
                         {huchas
-                          .filter(h => !h.es_suscripciones)
+                          .filter(h => !h.es_suscripciones && h.activa !== false)
                           .map(h => (
                             <option key={h.id} value={h.id}>{h.nombre}</option>
                           ))}

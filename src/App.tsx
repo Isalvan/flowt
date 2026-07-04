@@ -171,6 +171,7 @@ const AppContent: React.FC = () => {
     showToast,
     handleCreateOrUpdateHucha,
     handleDeleteHucha,
+    handleRestoreHucha,
     handleTransfer,
     handleUpdateMovimientoConcepto,
     handleConvertMovimiento,
@@ -738,6 +739,7 @@ const AppContent: React.FC = () => {
             chartMovements={chartMovements}
             userStats={userStats}
             userId={user?.uid}
+            onRestoreHucha={handleRestoreHucha}
           />
         )}
       </main>

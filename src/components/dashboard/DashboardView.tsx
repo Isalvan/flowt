@@ -336,7 +336,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <h3 className="font-extrabold text-sm text-slate-400 dark:text-slate-500 uppercase tracking-widest">Mis Carteras de Ahorro</h3>
         <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
           {huchas.length > 0 ? (
-            huchas.map(h => (
+            huchas.filter(h => h.activa !== false).map(h => (
               <HuchaCard
                 key={h.id}
                 hucha={h}

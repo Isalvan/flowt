@@ -34,6 +34,13 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   const [tempConcepto, setTempConcepto] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore && !isLoading) {
+      onLoadMore();
+    }
+  };
+
   // Search & Type filters
   const filteredHistory = useMemo(() => {
     return history.filter(m => {
@@ -139,7 +146,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
         </div>
 
         {/* History Ledger List */}
-        <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
+        <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar" onScroll={handleScroll}>
           {filteredHistory.length > 0 ? (
             filteredHistory.map(m => {
               const isGasto = m.tipo === 'gasto';
@@ -281,20 +288,11 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
           )}
         </div>
 
-        {/* Load More Button */}
-        {hasMore && (
-          <button
-            type="button"
-            onClick={onLoadMore}
-            disabled={isLoading}
-            className="w-full py-2.5 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900/30 text-xs font-bold transition-all flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <RefreshCw className="animate-spin" size={14} />
-            ) : (
-              <span>Cargar más movimientos</span>
-            )}
-          </button>
+        {/* Infinite Scroll Loader */}
+        {isLoading && hasMore && (
+          <div className="flex justify-center py-4">
+            <RefreshCw className="animate-spin text-slate-400" size={18} />
+          </div>
         )}
       </div>
     </Modal>

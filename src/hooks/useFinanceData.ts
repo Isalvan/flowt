@@ -423,9 +423,10 @@ export const useFinanceData = (forceDemo = false) => {
   // Re-runs the income/expense allocations on Demo local memory
   const processLocalDistribution = (tipo: 'ingreso' | 'gasto', importe: number, huchaId?: string): Hucha[] => {
     let updatedHuchas = [...huchas];
+    const activeHuchas = updatedHuchas.filter(h => h.activa !== false);
     if (tipo === 'gasto') {
-      const targetHuchaId = huchaId || huchas.find(h => h.es_principal)?.id || huchas[0]?.id;
-      updatedHuchas = huchas.map(h => {
+      const targetHuchaId = huchaId || activeHuchas.find(h => h.es_principal)?.id || activeHuchas[0]?.id;
+      updatedHuchas = updatedHuchas.map(h => {
         if (h.id === targetHuchaId) {
           return { ...h, saldo_acumulado: Math.max(0, h.saldo_acumulado - importe) };
         }
@@ -437,7 +438,7 @@ export const useFinanceData = (forceDemo = false) => {
       const rawDeltas: Record<string, number> = {};
 
       // 1. Flat amounts
-      updatedHuchas.forEach(h => {
+      activeHuchas.forEach(h => {
         if (h.tipo_aportacion === 'flat' && remaining > 0) {
           const val = h.valor_aportacion || 0;
           const toAdd = Math.min(val, remaining);
@@ -447,7 +448,7 @@ export const useFinanceData = (forceDemo = false) => {
       });
 
       // 2. Percentages
-      updatedHuchas.forEach(h => {
+      activeHuchas.forEach(h => {
         if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
           const perc = h.valor_aportacion || 0;
           const share = importe * (perc / 100);
@@ -458,15 +459,15 @@ export const useFinanceData = (forceDemo = false) => {
       });
 
       // 3. Rest remainder
-      const restoHucha = updatedHuchas.find(h => h.tipo_aportacion === 'resto') 
-                     || updatedHuchas.find(h => h.es_principal)
-                     || updatedHuchas[0];
+      const restoHucha = activeHuchas.find(h => h.tipo_aportacion === 'resto') 
+                     || activeHuchas.find(h => h.es_principal)
+                     || activeHuchas[0];
       if (restoHucha && remaining > 0) {
         rawDeltas[restoHucha.id] = (rawDeltas[restoHucha.id] || 0) + remaining;
       }
 
       // Apply redirect overflow boundaries (topes)
-      const { adjusted: finalDeltas, overflow } = redirectOverflowToResto(rawDeltas, updatedHuchas);
+      const { adjusted: finalDeltas, overflow } = redirectOverflowToResto(rawDeltas, activeHuchas);
       if (overflow > 0.01) {
         showToast(`${overflow.toFixed(2)} € sin asignar: todas las huchas están llenas`);
       }
@@ -559,6 +560,7 @@ export const useFinanceData = (forceDemo = false) => {
           objetivo: newHucha.objetivo,
           es_principal: newHucha.es_principal,
           tope_objetivo: newHucha.objetivo && newHucha.objetivo > 0 ? !!newHucha.tope_objetivo : false,
+          activa: true,
           saldo_acumulado: 0,
           orden: huchas.length + 1
         };
@@ -584,6 +586,7 @@ export const useFinanceData = (forceDemo = false) => {
       objetivo: newHucha.objetivo && newHucha.objetivo > 0 ? Number(newHucha.objetivo) : null,
       es_principal: !!newHucha.es_principal,
       tope_objetivo: newHucha.objetivo && newHucha.objetivo > 0 ? !!newHucha.tope_objetivo : false,
+      activa: true,
       updated_at: serverTimestamp()
     };
 
@@ -637,14 +640,14 @@ export const useFinanceData = (forceDemo = false) => {
         message: `¿Estás seguro de que quieres eliminar la cartera "${hucha.nombre}"?`,
         onConfirm: async () => {
           if (!isFirebaseConfigured) {
-            const updated = huchas.filter(h => h.id !== hucha.id);
+            const updated = huchas.map(h => h.id === hucha.id ? { ...h, activa: false, saldo_acumulado: 0 } : h);
             saveDemoState(movimientos, updated, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
             showToast('Cartera eliminada', 'success');
             setConfirmModal(null);
             return;
           }
           try {
-            await deleteDoc(doc(db, 'huchas', hucha.id));
+            await setDoc(doc(db, 'huchas', hucha.id), { activa: false, saldo_acumulado: 0, updated_at: serverTimestamp() }, { merge: true });
             showToast('Cartera eliminada', 'success');
           } catch (error) {
             console.error('Error al eliminar hucha:', error);
@@ -660,7 +663,7 @@ export const useFinanceData = (forceDemo = false) => {
     if (!deleteMode) return;
 
     if (!isFirebaseConfigured) {
-      const remainingHuchas = huchas.filter(h => h.id !== hucha.id);
+      const remainingHuchas = huchas.filter(h => h.id !== hucha.id && h.activa !== false);
       let dists: Record<string, number> = {};
 
       if (deleteMode === 'auto') {
@@ -692,7 +695,8 @@ export const useFinanceData = (forceDemo = false) => {
         dists = manualDistributions || {};
       }
 
-      const updated = remainingHuchas.map(h => {
+      const updated = huchas.map(h => {
+        if (h.id === hucha.id) return { ...h, activa: false, saldo_acumulado: 0 };
         const delta = dists[h.id] || 0;
         return { ...h, saldo_acumulado: Number((h.saldo_acumulado + delta).toFixed(2)) };
       });
@@ -705,7 +709,7 @@ export const useFinanceData = (forceDemo = false) => {
     // Symmetrical for Firebase
     try {
       await runTransaction(db, async (transaction) => {
-        const remainingHuchas = huchas.filter(h => h.id !== hucha.id);
+        const remainingHuchas = huchas.filter(h => h.id !== hucha.id && h.activa !== false);
         let dists: Record<string, number> = {};
         
         if (deleteMode === 'auto') {
@@ -740,7 +744,7 @@ export const useFinanceData = (forceDemo = false) => {
         const huchaRefs = remainingHuchas.map(h => doc(db, 'huchas', h.id));
         const huchaDocs = await Promise.all(huchaRefs.map(ref => transaction.get(ref)));
         
-        transaction.delete(doc(db, 'huchas', hucha.id));
+        transaction.update(doc(db, 'huchas', hucha.id), { activa: false, saldo_acumulado: 0, updated_at: serverTimestamp() });
         
         huchaDocs.forEach(d => {
           if (d.exists() && dists[d.id]) {
@@ -755,6 +759,22 @@ export const useFinanceData = (forceDemo = false) => {
     } catch (error: any) {
       console.error('Error distribuyendo hucha:', error);
       showToast(error.message || 'Error al eliminar la hucha.');
+    }
+  };
+
+  const handleRestoreHucha = async (huchaId: string) => {
+    if (!isFirebaseConfigured) {
+      const updated = huchas.map(h => h.id === huchaId ? { ...h, activa: true } : h);
+      saveDemoState(movimientos, updated, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      showToast('Cartera restaurada', 'success');
+      return;
+    }
+    try {
+      await setDoc(doc(db, 'huchas', huchaId), { activa: true, updated_at: serverTimestamp() }, { merge: true });
+      showToast('Cartera restaurada', 'success');
+    } catch (error) {
+      console.error('Error restaurando hucha:', error);
+      showToast('Error al restaurar cartera');
     }
   };
 
@@ -2466,6 +2486,7 @@ export const useFinanceData = (forceDemo = false) => {
     showToast,
     handleCreateOrUpdateHucha,
     handleDeleteHucha,
+    handleRestoreHucha,
     handleTransfer,
     handleUpdateMovimientoConcepto,
     handleConvertMovimiento,
