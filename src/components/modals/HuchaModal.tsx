@@ -24,6 +24,8 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
   const [objetivo, setObjetivo] = useState('');
   const [esPrincipal, setEsPrincipal] = useState(false);
   const [topeObjetivo, setTopeObjetivo] = useState(false);
+  const [subsanarHasta, setSubsanarHasta] = useState('0');
+  const [subsanarCon, setSubsanarCon] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Initialize fields on open/edit change
@@ -35,6 +37,8 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
       setObjetivo(editingHucha.objetivo?.toString() || '');
       setEsPrincipal(!!editingHucha.es_principal);
       setTopeObjetivo(!!editingHucha.tope_objetivo);
+      setSubsanarHasta(editingHucha.subsanar_hasta?.toString() || '0');
+      setSubsanarCon(editingHucha.subsanar_con || null);
     } else {
       setNombre('');
       setTipoAportacion('porcentaje');
@@ -42,6 +46,8 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
       setObjetivo('');
       setEsPrincipal(allHuchas.length === 0); // first pocket defaults to principal
       setTopeObjetivo(false);
+      setSubsanarHasta('0');
+      setSubsanarCon(null);
     }
   }, [editingHucha, isOpen, allHuchas]);
 
@@ -58,6 +64,8 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
         objetivo: objetivo ? Number(objetivo) : null,
         es_principal: esPrincipal,
         tope_objetivo: objetivo ? topeObjetivo : false,
+        subsanar_hasta: Number(subsanarHasta) || 0,
+        subsanar_con: subsanarCon,
       };
       await onSave(huchaData, editingHucha?.id || null);
       onClose();
@@ -230,6 +238,51 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
             </label>
           )}
         </div>
+
+        {/* Opciones de Subsanación (Deuda) */}
+        {!editingHucha?.es_suscripciones && (
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800/60">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+              Opciones de Subsanación Automática
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Subsanar hasta (€)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={subsanarHasta}
+                  onChange={(e) => setSubsanarHasta(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all"
+                  title="Balance objetivo cuando pulses 'Subsanar' por saldo negativo"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Tomar dinero de (Prestamista)
+                </label>
+                <select
+                  value={subsanarCon || ''}
+                  onChange={(e) => setSubsanarCon(e.target.value || null)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all"
+                >
+                  <option value="">Por defecto (Resto/Principal)</option>
+                  {allHuchas
+                    .filter(h => h.id !== editingHucha?.id)
+                    .map(h => (
+                      <option key={h.id} value={h.id}>{h.nombre}</option>
+                    ))
+                  }
+                </select>
+              </div>
+            </div>
+            <p className="text-[9px] text-slate-400 mt-2 leading-relaxed">
+              Si tu saldo cae en negativo, podrás subsanarlo. Los próximos ingresos irán destinados a pagar la deuda a la cartera prestamista automáticamente.
+            </p>
+          </div>
+        )}
 
         {/* Buttons */}
         <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/60">

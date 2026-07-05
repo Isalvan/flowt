@@ -33,6 +33,10 @@ export interface Hucha {
   es_metalico?: boolean;
   activa?: boolean;
   tope_objetivo?: boolean;
+  subsanar_con?: string | null;
+  subsanar_hasta?: number;
+  deuda_pendiente?: number;
+  deuda_con?: string | null;
   id_propietario?: string;
   created_at?: any;
   updated_at?: any;

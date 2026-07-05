@@ -441,9 +441,18 @@ export const useFinanceData = (forceDemo = false) => {
       activeHuchas.forEach(h => {
         if (h.tipo_aportacion === 'flat' && remaining > 0) {
           const val = h.valor_aportacion || 0;
-          const toAdd = Math.min(val, remaining);
-          rawDeltas[h.id] = (rawDeltas[h.id] || 0) + toAdd;
+          let toAdd = Math.min(val, remaining);
           remaining -= toAdd;
+          
+          if ((h.deuda_pendiente || 0) > 0) {
+            const payment = Math.min(h.deuda_pendiente!, toAdd);
+            h.deuda_pendiente! -= payment;
+            toAdd -= payment;
+            if (h.deuda_con) {
+              rawDeltas[h.deuda_con] = (rawDeltas[h.deuda_con] || 0) + payment;
+            }
+          }
+          rawDeltas[h.id] = (rawDeltas[h.id] || 0) + toAdd;
         }
       });
 
@@ -452,9 +461,18 @@ export const useFinanceData = (forceDemo = false) => {
         if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
           const perc = h.valor_aportacion || 0;
           const share = importe * (perc / 100);
-          const toAdd = Math.min(share, remaining);
-          rawDeltas[h.id] = (rawDeltas[h.id] || 0) + toAdd;
+          let toAdd = Math.min(share, remaining);
           remaining -= toAdd;
+
+          if ((h.deuda_pendiente || 0) > 0) {
+            const payment = Math.min(h.deuda_pendiente!, toAdd);
+            h.deuda_pendiente! -= payment;
+            toAdd -= payment;
+            if (h.deuda_con) {
+              rawDeltas[h.deuda_con] = (rawDeltas[h.deuda_con] || 0) + payment;
+            }
+          }
+          rawDeltas[h.id] = (rawDeltas[h.id] || 0) + toAdd;
         }
       });
 
@@ -463,7 +481,18 @@ export const useFinanceData = (forceDemo = false) => {
                      || activeHuchas.find(h => h.es_principal)
                      || activeHuchas[0];
       if (restoHucha && remaining > 0) {
-        rawDeltas[restoHucha.id] = (rawDeltas[restoHucha.id] || 0) + remaining;
+        let toAdd = remaining;
+        remaining = 0;
+        
+        if ((restoHucha.deuda_pendiente || 0) > 0) {
+          const payment = Math.min(restoHucha.deuda_pendiente!, toAdd);
+          restoHucha.deuda_pendiente! -= payment;
+          toAdd -= payment;
+          if (restoHucha.deuda_con) {
+            rawDeltas[restoHucha.deuda_con] = (rawDeltas[restoHucha.deuda_con] || 0) + payment;
+          }
+        }
+        rawDeltas[restoHucha.id] = (rawDeltas[restoHucha.id] || 0) + toAdd;
       }
 
       // Apply redirect overflow boundaries (topes)
@@ -624,7 +653,7 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
-  const handleDeleteHucha = async (hucha: Hucha, deleteMode?: 'auto' | 'manual', manualDistributions?: Record<string, number>) => {
+  const handleDeleteHucha = async (hucha: Hucha, deleteMode?: 'auto' | 'manual' | 'debt', manualDistributions?: Record<string, number>, debtAssignedTo?: string) => {
     if (hucha.es_suscripciones) {
       showToast('Esta cartera es gestionada automáticamente por tus suscripciones.');
       return;
@@ -701,6 +730,28 @@ export const useFinanceData = (forceDemo = false) => {
         return { ...h, saldo_acumulado: Number((h.saldo_acumulado + delta).toFixed(2)) };
       });
 
+      if (deleteMode === 'debt' && debtAssignedTo) {
+        if (debtAssignedTo === hucha.deuda_con) {
+          // Debt is just cancelled because it goes back to the lender
+        } else {
+          // Transfer debt to another wallet
+          const assignee = huchas.find(h => h.id === debtAssignedTo);
+          if (assignee) {
+            dists[assignee.id] = 0; // Trigger update map
+            updated = updated.map(h => {
+              if (h.id === assignee.id) {
+                return {
+                  ...h,
+                  deuda_pendiente: (h.deuda_pendiente || 0) + (hucha.deuda_pendiente || 0),
+                  deuda_con: hucha.deuda_con
+                };
+              }
+              return h;
+            });
+          }
+        }
+      }
+
       saveDemoState(movimientos, updated, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
       showToast('Cartera eliminada y fondos repartidos', 'success');
       return;
@@ -746,16 +797,29 @@ export const useFinanceData = (forceDemo = false) => {
         
         transaction.update(doc(db, 'huchas', hucha.id), { activa: false, saldo_acumulado: 0, updated_at: serverTimestamp() });
         
-        huchaDocs.forEach(d => {
-          if (d.exists() && dists[d.id]) {
-            transaction.update(d.ref, {
-              saldo_acumulado: (d.data().saldo_acumulado || 0) + dists[d.id],
-              updated_at: serverTimestamp()
-            });
+        if (deleteMode === 'debt' && debtAssignedTo) {
+          if (debtAssignedTo !== hucha.deuda_con) {
+            const assigneeDoc = await transaction.get(doc(db, 'huchas', debtAssignedTo));
+            if (assigneeDoc.exists()) {
+              transaction.update(assigneeDoc.ref, {
+                deuda_pendiente: (assigneeDoc.data().deuda_pendiente || 0) + (hucha.deuda_pendiente || 0),
+                deuda_con: hucha.deuda_con,
+                updated_at: serverTimestamp()
+              });
+            }
           }
-        });
+        } else {
+          huchaDocs.forEach(d => {
+            if (d.exists() && dists[d.id]) {
+              transaction.update(d.ref, {
+                saldo_acumulado: (d.data().saldo_acumulado || 0) + dists[d.id],
+                updated_at: serverTimestamp()
+              });
+            }
+          });
+        }
       });
-      showToast('Cartera eliminada y fondos repartidos', 'success');
+      showToast(deleteMode === 'debt' ? 'Cartera eliminada y deuda transferida' : 'Cartera eliminada y fondos repartidos', 'success');
     } catch (error: any) {
       console.error('Error distribuyendo hucha:', error);
       showToast(error.message || 'Error al eliminar la hucha.');
@@ -844,6 +908,131 @@ export const useFinanceData = (forceDemo = false) => {
     } catch (error: any) {
       console.error('Error en la transferencia:', error);
       showToast(error.message || 'Error al transferir fondos.');
+    }
+  };
+
+  const handleSubsanarHucha = async (hucha: Hucha) => {
+    if (hucha.saldo_acumulado >= (hucha.subsanar_hasta || 0)) {
+      showToast('Esta cartera no necesita ser subsanada.');
+      return;
+    }
+
+    const amount = (hucha.subsanar_hasta || 0) - hucha.saldo_acumulado;
+    
+    // Determine the fallback/lender wallet
+    let lenderHuchaId = hucha.subsanar_con;
+    if (!lenderHuchaId) {
+      const activeHuchas = huchas.filter(h => h.activa !== false && h.id !== hucha.id);
+      const restoCandidate = activeHuchas.find(h => h.tipo_aportacion === 'resto') 
+                        || activeHuchas.find(h => h.es_principal)
+                        || activeHuchas[0];
+      if (restoCandidate) {
+        lenderHuchaId = restoCandidate.id;
+      }
+    }
+
+    if (!lenderHuchaId) {
+      showToast('No se encontró una cartera prestamista.');
+      return;
+    }
+
+    const lender = huchas.find(h => h.id === lenderHuchaId);
+    if (!lender) {
+      showToast('La cartera prestamista ya no existe.');
+      return;
+    }
+
+    if (!isFirebaseConfigured) {
+      const updated = huchas.map(h => {
+        if (h.id === lenderHuchaId) {
+          return { ...h, saldo_acumulado: Number((h.saldo_acumulado - amount).toFixed(2)) };
+        }
+        if (h.id === hucha.id) {
+          return { 
+            ...h, 
+            saldo_acumulado: Number((h.saldo_acumulado + amount).toFixed(2)),
+            deuda_pendiente: (h.deuda_pendiente || 0) + amount,
+            deuda_con: lenderHuchaId
+          };
+        }
+        return h;
+      });
+
+      // Add mockup movements
+      const movIdGasto = 'm-' + Math.random().toString(36).substr(2, 9);
+      const movIdIngreso = 'm-' + Math.random().toString(36).substr(2, 9);
+      const newMovs: Movimiento[] = [
+        {
+          id: movIdGasto,
+          tipo: 'gasto',
+          concepto: `Préstamo a ${hucha.nombre}`,
+          importe: amount,
+          fecha_operacion: new Date(),
+          hucha_id: lenderHuchaId
+        },
+        {
+          id: movIdIngreso,
+          tipo: 'ingreso',
+          concepto: `Subsanación desde ${lender.nombre}`,
+          importe: amount,
+          fecha_operacion: new Date(),
+          hucha_id: hucha.id
+        }
+      ];
+
+      saveDemoState([...newMovs, ...movimientos], updated, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      showToast('Subsanación completada', 'success');
+      return;
+    }
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const fromRef = doc(db, 'huchas', lenderHuchaId!);
+        const toRef = doc(db, 'huchas', hucha.id);
+        
+        const fromDoc = await transaction.get(fromRef);
+        const toDoc = await transaction.get(toRef);
+
+        if (!fromDoc.exists() || !toDoc.exists()) throw new Error('Una de las carteras no existe');
+        
+        const fromBalance = fromDoc.data().saldo_acumulado || 0;
+        const toBalance = toDoc.data().saldo_acumulado || 0;
+
+        transaction.update(fromRef, { saldo_acumulado: fromBalance - amount, updated_at: serverTimestamp() });
+        transaction.update(toRef, { 
+          saldo_acumulado: toBalance + amount,
+          deuda_pendiente: (toDoc.data().deuda_pendiente || 0) + amount,
+          deuda_con: lenderHuchaId,
+          updated_at: serverTimestamp() 
+        });
+
+        const newMovGastoRef = doc(collection(db, 'movimientos'));
+        transaction.set(newMovGastoRef, {
+          id_propietario: user?.uid,
+          tipo: 'gasto',
+          concepto: `Préstamo a ${hucha.nombre}`,
+          importe: amount,
+          hucha_id: lenderHuchaId,
+          fecha_operacion: serverTimestamp(),
+          created_at: serverTimestamp()
+        });
+
+        const newMovIngresoRef = doc(collection(db, 'movimientos'));
+        transaction.set(newMovIngresoRef, {
+          id_propietario: user?.uid,
+          tipo: 'ingreso',
+          concepto: `Subsanación desde ${lender.nombre}`,
+          importe: amount,
+          hucha_id: hucha.id,
+          fecha_operacion: serverTimestamp(),
+          created_at: serverTimestamp()
+        });
+
+      });
+      showToast('Subsanación completada', 'success');
+    } catch (error: any) {
+      console.error('Error en la subsanación:', error);
+      showToast(error.message || 'Error al subsanar la cartera.');
     }
   };
 
@@ -2502,6 +2691,7 @@ export const useFinanceData = (forceDemo = false) => {
     handleDiscardPendingEmail,
     handleCreateManualMovimiento,
     handleDeleteMovimiento,
+    handleSubsanarHucha,
     injectDemoMovement,
   };
 };

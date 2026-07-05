@@ -10,9 +10,10 @@ interface HuchaCardProps {
   hucha: Hucha;
   onEdit: (hucha: Hucha) => void;
   onDelete: (hucha: Hucha) => void;
+  onSubsanar?: (hucha: Hucha) => void;
 }
 
-export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete }) => {
+export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete, onSubsanar }) => {
   const hasObjetivo = hucha.objetivo != null && hucha.objetivo > 0;
   const isCapped = !!hucha.tope_objetivo && hasObjetivo;
   const isFull = hasObjetivo && hucha.saldo_acumulado >= (hucha.objetivo || 0);
@@ -100,14 +101,22 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete })
       </div>
 
       <div className="flex items-center justify-between mt-6 relative z-10">
-        <div className="flex flex-col">
-          <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tighter drop-shadow-lg">
+        <div className="flex flex-col items-start">
+          <span className={`text-3xl font-black tracking-tighter drop-shadow-lg ${hucha.saldo_acumulado < 0 ? 'text-rose-500' : 'text-slate-800 dark:text-white'}`}>
             {isLocked ? '•••• €' : <CountUp end={hucha.saldo_acumulado} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.5} />}
           </span>
           {hasObjetivo && (
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
               Obj: {isLocked ? '•• €' : <CountUp end={hucha.objetivo!} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.5} />}
             </div>
+          )}
+          {hucha.saldo_acumulado < (hucha.subsanar_hasta || 0) && onSubsanar && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onSubsanar(hucha); }}
+              className="mt-2 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-600 hover:bg-rose-500 hover:text-white transition-colors rounded-lg border border-rose-500/20 shadow-sm"
+            >
+              Subsanar Deuda
+            </button>
           )}
         </div>
 

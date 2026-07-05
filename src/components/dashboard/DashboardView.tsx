@@ -42,6 +42,7 @@ interface DashboardViewProps {
   onUnlink: (ingreso: Movimiento) => void;
   onChangeHucha: (mov: Movimiento, newHuchaId: string) => void;
   onDeleteMovimiento: (mov: Movimiento) => void;
+  onSubsanar?: (hucha: Hucha) => void;
 
   // Modal triggers
   onOpenHuchaModal: (editingHucha: Hucha | null) => void;
@@ -70,6 +71,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenHistoryModal,
   onOpenManualMovimientoModal,
   onDeleteMovimiento,
+  onSubsanar,
 }) => {
   const { isLocked, formatCurrency } = usePrivacy();
 
@@ -342,6 +344,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 hucha={h}
                 onEdit={onOpenHuchaModal}
                 onDelete={onDeleteHucha}
+                onSubsanar={onSubsanar}
               />
             ))
           ) : (

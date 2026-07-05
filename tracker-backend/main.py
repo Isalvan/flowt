@@ -162,7 +162,8 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
         huchas_state[h_doc.id] = {
             "ref": h_doc.reference,
             "data": data,
-            "saldo_actual": float(data.get("saldo_acumulado", 0) or 0)
+            "saldo_actual": float(data.get("saldo_acumulado", 0) or 0),
+            "deuda_actual": float(data.get("deuda_pendiente", 0) or 0)
         }
         if data.get("es_suscripciones"):
             subs_hucha_id = h_doc.id
@@ -265,8 +266,19 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                         
                         to_add = min(effective_target, remaining_amount)
                         if to_add > 0:
-                            huchas_state[h_id]["saldo_actual"] += to_add
                             remaining_amount -= to_add
+                            
+                            # Intercept for debt repayment
+                            if h_info["deuda_actual"] > 0:
+                                lender_id = data.get("deuda_con")
+                                payment = min(h_info["deuda_actual"], to_add)
+                                h_info["deuda_actual"] -= payment
+                                to_add -= payment
+                                if lender_id and lender_id in huchas_state:
+                                    huchas_state[lender_id]["saldo_actual"] += payment
+                                    logger.info(f"Intercepted {payment} from flat allocation to {h_id} to repay debt to {lender_id}")
+
+                            huchas_state[h_id]["saldo_actual"] += to_add
 
                 # 2. Percentages
                 for h_id, h_info in huchas_state.items():
@@ -294,8 +306,19 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
 
                         to_add = min(effective_target, remaining_amount)
                         if to_add > 0:
-                            huchas_state[h_id]["saldo_actual"] += to_add
                             remaining_amount -= to_add
+                            
+                            # Intercept for debt repayment
+                            if h_info["deuda_actual"] > 0:
+                                lender_id = data.get("deuda_con")
+                                payment = min(h_info["deuda_actual"], to_add)
+                                h_info["deuda_actual"] -= payment
+                                to_add -= payment
+                                if lender_id and lender_id in huchas_state:
+                                    huchas_state[lender_id]["saldo_actual"] += payment
+                                    logger.info(f"Intercepted {payment} from % allocation to {h_id} to repay debt to {lender_id}")
+
+                            huchas_state[h_id]["saldo_actual"] += to_add
 
                 # 3. Resto (Income Overflow)
                 resto_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("tipo_aportacion") == "resto"), None)
@@ -305,7 +328,20 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                     resto_hucha_id = list(huchas_state.keys())[0]
                 
                 if resto_hucha_id and remaining_amount > 0:
-                    huchas_state[resto_hucha_id]["saldo_actual"] += remaining_amount
+                    resto_info = huchas_state[resto_hucha_id]
+                    to_add = remaining_amount
+                    remaining_amount = 0
+                    
+                    if resto_info["deuda_actual"] > 0:
+                        lender_id = resto_info["data"].get("deuda_con")
+                        payment = min(resto_info["deuda_actual"], to_add)
+                        resto_info["deuda_actual"] -= payment
+                        to_add -= payment
+                        if lender_id and lender_id in huchas_state:
+                            huchas_state[lender_id]["saldo_actual"] += payment
+                            logger.info(f"Intercepted {payment} from resto allocation to {resto_hucha_id} to repay debt to {lender_id}")
+                    
+                    resto_info["saldo_actual"] += to_add
         else:
             # Es gasto
             target_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("es_principal")), None)
@@ -337,16 +373,27 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
 
     for h_id, h_info in huchas_state.items():
         original_balance = float(h_info["data"].get("saldo_acumulado", 0) or 0)
+        original_deuda = float(h_info["data"].get("deuda_pendiente", 0) or 0)
+        
         new_balance = h_info["saldo_actual"]
-        if abs(new_balance - original_balance) > 0.001:  # if changed
+        new_deuda = h_info.get("deuda_actual", original_deuda)
+        
+        if abs(new_balance - original_balance) > 0.001 or abs(new_deuda - original_deuda) > 0.001:  # if changed
             # Don't update the new default hucha twice if we just created it
             if new_hucha_ref and h_id == new_hucha_ref.id:
                 continue
-            transaction.update(h_info["ref"], {
+            
+            update_data = {
                 "saldo_acumulado": new_balance,
                 "updated_at": firestore.SERVER_TIMESTAMP
-            })
-            logger.info(f"Updated hucha {h_id} balance by {new_balance - original_balance:.2f} (New: {new_balance:.2f})")
+            }
+            if abs(new_deuda - original_deuda) > 0.001:
+                update_data["deuda_pendiente"] = new_deuda
+                if new_deuda == 0:
+                    update_data["deuda_con"] = firestore.DELETE_FIELD
+                
+            transaction.update(h_info["ref"], update_data)
+            logger.info(f"Updated hucha {h_id} balance by {new_balance - original_balance:.2f} (New: {new_balance:.2f}), deuda: {new_deuda:.2f}")
 
     # Update stats
     if stats_changes["ingresos"] > 0 or stats_changes["gastos"] > 0:

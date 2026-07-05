@@ -187,6 +187,7 @@ const AppContent: React.FC = () => {
     handleDiscardPendingEmail,
     handleCreateManualMovimiento,
     handleDeleteMovimiento,
+    handleSubsanarHucha,
     injectDemoMovement,
   } = useFinanceData(forceDemo);
 
@@ -405,7 +406,7 @@ const AppContent: React.FC = () => {
 
   const handleOpenDeleteHuchaModal = (hucha: Hucha) => {
     secureAction(() => {
-      if (hucha.saldo_acumulado <= 0) {
+      if (hucha.saldo_acumulado <= 0 && !(hucha.deuda_pendiente && hucha.deuda_pendiente > 0)) {
         handleDeleteHucha(hucha);
       } else {
         setHuchaToDelete(hucha);
@@ -707,6 +708,7 @@ const AppContent: React.FC = () => {
             onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
             onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
             onDeleteMovimiento={onDeleteMovimientoWrapper}
+            onSubsanar={handleSubsanarHucha}
           />
         )}
 
