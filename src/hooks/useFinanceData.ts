@@ -724,7 +724,7 @@ export const useFinanceData = (forceDemo = false) => {
         dists = manualDistributions || {};
       }
 
-      const updated = huchas.map(h => {
+      let updated = huchas.map(h => {
         if (h.id === hucha.id) return { ...h, activa: false, saldo_acumulado: 0 };
         const delta = dists[h.id] || 0;
         return { ...h, saldo_acumulado: Number((h.saldo_acumulado + delta).toFixed(2)) };
