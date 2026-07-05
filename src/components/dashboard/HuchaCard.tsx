@@ -110,6 +110,11 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete, o
               Obj: {isLocked ? '•• €' : <CountUp end={hucha.objetivo!} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.5} />}
             </div>
           )}
+          {(hucha.deuda_pendiente || 0) > 0 && (
+            <div className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mt-1">
+              Deuda: {isLocked ? '•• €' : <CountUp end={hucha.deuda_pendiente!} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.5} />}
+            </div>
+          )}
           {hucha.saldo_acumulado < (hucha.subsanar_hasta || 0) && onSubsanar && (
             <button
               onClick={(e) => { e.stopPropagation(); onSubsanar(hucha); }}
