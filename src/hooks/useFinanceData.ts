@@ -1036,6 +1036,108 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
+  const handleRevertirDeuda = async (hucha: Hucha) => {
+    const deuda = hucha.deuda_pendiente;
+    const lenderHuchaId = hucha.deuda_con;
+    if (!deuda || !lenderHuchaId) return;
+
+    const lender = huchas.find(h => h.id === lenderHuchaId);
+    if (!lender) {
+      showToast('No se puede revertir: la cartera prestamista ya no existe.', 'error');
+      return;
+    }
+
+    if (forceDemo || !isFirebaseConfigured) {
+      let updated = huchas.map(h => {
+        if (h.id === lenderHuchaId) {
+          return { ...h, saldo_acumulado: Number((h.saldo_acumulado + deuda).toFixed(2)) };
+        }
+        if (h.id === hucha.id) {
+          const { deuda_pendiente, deuda_con, ...rest } = h;
+          return {
+            ...rest,
+            saldo_acumulado: Number((rest.saldo_acumulado - deuda).toFixed(2))
+          };
+        }
+        return h;
+      });
+
+      const movIdGasto = 'm-' + Math.random().toString(36).substr(2, 9);
+      const movIdIngreso = 'm-' + Math.random().toString(36).substr(2, 9);
+      const newMovs: Movimiento[] = [
+        {
+          id: movIdGasto,
+          tipo: 'gasto',
+          concepto: `Reversión de subsanación (devuelto a ${lender.nombre})`,
+          importe: deuda,
+          fecha_operacion: new Date(),
+          hucha_id: hucha.id
+        },
+        {
+          id: movIdIngreso,
+          tipo: 'ingreso',
+          concepto: `Reversión de préstamo (recuperado de ${hucha.nombre})`,
+          importe: deuda,
+          fecha_operacion: new Date(),
+          hucha_id: lenderHuchaId
+        }
+      ];
+
+      saveDemoState([...newMovs, ...movimientos], updated, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      showToast('Deuda revertida', 'success');
+      return;
+    }
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const fromRef = doc(db, 'huchas', hucha.id);
+        const toRef = doc(db, 'huchas', lenderHuchaId);
+        
+        const fromDoc = await transaction.get(fromRef);
+        const toDoc = await transaction.get(toRef);
+
+        if (!fromDoc.exists() || !toDoc.exists()) throw new Error('Una de las carteras no existe');
+        
+        const fromBalance = fromDoc.data().saldo_acumulado || 0;
+        const toBalance = toDoc.data().saldo_acumulado || 0;
+
+        transaction.update(toRef, { saldo_acumulado: toBalance + deuda, updated_at: serverTimestamp() });
+        transaction.update(fromRef, { 
+          saldo_acumulado: fromBalance - deuda,
+          deuda_pendiente: deleteField(),
+          deuda_con: deleteField(),
+          updated_at: serverTimestamp() 
+        });
+
+        const newMovGastoRef = doc(collection(db, 'movimientos'));
+        transaction.set(newMovGastoRef, {
+          id_propietario: user?.uid,
+          tipo: 'gasto',
+          concepto: `Reversión de subsanación (devuelto a ${lender.nombre})`,
+          importe: deuda,
+          hucha_id: hucha.id,
+          fecha_operacion: serverTimestamp(),
+          created_at: serverTimestamp()
+        });
+
+        const newMovIngresoRef = doc(collection(db, 'movimientos'));
+        transaction.set(newMovIngresoRef, {
+          id_propietario: user?.uid,
+          tipo: 'ingreso',
+          concepto: `Reversión de préstamo (recuperado de ${hucha.nombre})`,
+          importe: deuda,
+          hucha_id: lenderHuchaId,
+          fecha_operacion: serverTimestamp(),
+          created_at: serverTimestamp()
+        });
+      });
+      showToast('Deuda revertida', 'success');
+    } catch (error: any) {
+      console.error('Error al revertir la deuda:', error);
+      showToast(error.message || 'Error al revertir la deuda.');
+    }
+  };
+
   const handleUpdateMovimientoConcepto = async (movId: string, newConcepto: string) => {
     if (!newConcepto.trim()) return;
     
@@ -2692,6 +2794,7 @@ export const useFinanceData = (forceDemo = false) => {
     handleCreateManualMovimiento,
     handleDeleteMovimiento,
     handleSubsanarHucha,
+    handleRevertirDeuda,
     injectDemoMovement,
   };
 };

@@ -11,9 +11,10 @@ interface HuchaCardProps {
   onEdit: (hucha: Hucha) => void;
   onDelete: (hucha: Hucha) => void;
   onSubsanar?: (hucha: Hucha) => void;
+  onRevertirDeuda?: (hucha: Hucha) => void;
 }
 
-export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete, onSubsanar }) => {
+export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete, onSubsanar, onRevertirDeuda }) => {
   const hasObjetivo = hucha.objetivo != null && hucha.objetivo > 0;
   const isCapped = !!hucha.tope_objetivo && hasObjetivo;
   const isFull = hasObjetivo && hucha.saldo_acumulado >= (hucha.objetivo || 0);
@@ -111,8 +112,18 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, onEdit, onDelete, o
             </div>
           )}
           {(hucha.deuda_pendiente || 0) > 0 && (
-            <div className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mt-1">
-              Deuda: {isLocked ? '•• €' : <CountUp end={hucha.deuda_pendiente!} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.5} />}
+            <div className="flex items-center gap-2 mt-1">
+              <div className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">
+                Deuda: {isLocked ? '•• €' : <CountUp end={hucha.deuda_pendiente!} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.5} />}
+              </div>
+              {onRevertirDeuda && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onRevertirDeuda(hucha); }}
+                  className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded transition-colors"
+                >
+                  Revertir
+                </button>
+              )}
             </div>
           )}
           {hucha.saldo_acumulado < (hucha.subsanar_hasta || 0) && onSubsanar && (

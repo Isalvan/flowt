@@ -188,6 +188,7 @@ const AppContent: React.FC = () => {
     handleCreateManualMovimiento,
     handleDeleteMovimiento,
     handleSubsanarHucha,
+    handleRevertirDeuda,
     injectDemoMovement,
   } = useFinanceData(forceDemo);
 
@@ -709,6 +710,7 @@ const AppContent: React.FC = () => {
             onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
             onDeleteMovimiento={onDeleteMovimientoWrapper}
             onSubsanar={handleSubsanarHucha}
+            onRevertirDeuda={handleRevertirDeuda}
           />
         )}
 
