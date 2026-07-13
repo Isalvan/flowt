@@ -18,6 +18,7 @@ import {
 import { BarChart3, TrendingUp, DollarSign, PieChart as PieIcon, Lock, Shield, Zap, Sparkles, Star, Info } from 'lucide-react';
 import { PredictiveChart } from './PredictiveChart';
 import { usePrivacy } from '../../context/PrivacyContext';
+import { cuentaEnEstadisticas } from '../../utils/movements';
 
 interface AnalyticsSectionProps {
   chartData: Array<{ name: string; ingresos: number; gastos: number }>;
@@ -54,8 +55,9 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
   const totalSavings = huchas.reduce((sum, h) => sum + h.saldo_acumulado, 0);
 
   // --- ENGINE DE MÉTRICAS AVANZADAS DE LIBERTAD FINANCIERA ---
-  const incomeMovements = allMovimientos.filter(m => m.tipo === 'ingreso');
-  const expenseMovements = allMovimientos.filter(m => m.tipo === 'gasto');
+  const movimientosEstadisticos = allMovimientos.filter(cuentaEnEstadisticas);
+  const incomeMovements = movimientosEstadisticos.filter(m => m.tipo === 'ingreso');
+  const expenseMovements = movimientosEstadisticos.filter(m => m.tipo === 'gasto');
 
   const totalIncome = incomeMovements.reduce((sum, m) => sum + m.importe, 0);
   const totalExpense = expenseMovements.reduce((sum, m) => sum + m.importe, 0);
@@ -65,8 +67,8 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
 
   // Días de rango real en el historial
   let representativeDays = 30;
-  if (allMovimientos.length > 1) {
-    const dates = allMovimientos.map(m => new Date(m.fecha_operacion).getTime());
+  if (movimientosEstadisticos.length > 1) {
+    const dates = movimientosEstadisticos.map(m => new Date(m.fecha_operacion).getTime());
     const minDate = Math.min(...dates);
     const maxDate = Math.max(...dates);
     const diffDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
@@ -91,7 +93,7 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
 
   // Configuración dinámica del estado de Runway
   let runwayStatus = { label: 'Sin Datos', color: 'text-slate-400 bg-slate-500/15 border-slate-500/20', desc: 'Registra ingresos y gastos para calcular tu pista de despegue.' };
-  if (allMovimientos.length > 0) {
+  if (movimientosEstadisticos.length > 0) {
     if (runwayMonths === 0) {
       runwayStatus = { label: 'Zona Vulnerable', color: 'text-rose-500 bg-rose-500/10 border-rose-500/20', desc: 'No tienes ahorros acumulados o tus gastos consumen todo. Prioriza crear un fondo de emergencia.' };
     } else if (runwayMonths < 1) {
@@ -424,7 +426,7 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData, h
           </span>
         </div>
 
-        {allMovimientos.length > 0 ? (
+        {movimientosEstadisticos.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             
             {/* Metric 1: Financial Runway */}

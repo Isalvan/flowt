@@ -30,8 +30,12 @@
         "type": "string",
         "enum": ["alta", "media", "baja"],
         "description": "Nivel de certeza de la extracción"
+      },
+      "es_interno": {
+        "type": "boolean",
+        "description": "True si es un traspaso propio, retirada/reintegro de cajero o movimiento interno que no debe contar como ingreso/gasto historico"
       }
     },
-    "required": ["tipo", "importe", "moneda", "fecha", "descripcion", "confianza"]
+    "required": ["tipo", "importe", "moneda", "fecha", "descripcion", "confianza", "es_interno"]
   }
 }

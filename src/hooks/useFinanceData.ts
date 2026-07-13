@@ -19,6 +19,7 @@ import {
 import { auth, db } from '../firebase';
 import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type CorreoHistorico } from '../types';
 import { usePrivacy } from '../context/PrivacyContext';
+import { cuentaEnEstadisticas } from '../utils/movements';
 
 // Standard fallback configurations and options
 export const SUBSCRIPTION_COLORS = [
@@ -289,7 +290,8 @@ export const useFinanceData = (forceDemo = false) => {
         let total_gastos = 0;
         
         for (const d of allMovSnapshot.docs) {
-          const m = d.data();
+          const m = d.data() as Movimiento;
+          if (!cuentaEnEstadisticas(m)) continue;
           const importe = m.importe ?? 0;
           if (m.tipo === 'ingreso') total_ingresos += importe;
           else total_gastos += importe;
@@ -369,6 +371,7 @@ export const useFinanceData = (forceDemo = false) => {
 
         allMovSnapshot.docs.forEach(d => {
           const m = d.data() as Movimiento;
+          if (!cuentaEnEstadisticas(m)) return;
           if (m.tipo === 'gasto') {
             grossGastos += m.importe;
           } else if (m.tipo === 'ingreso') {
@@ -377,7 +380,7 @@ export const useFinanceData = (forceDemo = false) => {
         });
 
         if (Math.abs(userStats.total_ingresos - grossIngresos) > 0.05 || Math.abs(userStats.total_gastos - grossGastos) > 0.05) {
-          console.log('Restoring true GROSS historical stats...', { grossIngresos, grossGastos, userStats });
+          console.log('Restoring external historical stats...', { grossIngresos, grossGastos, userStats });
           const statsRef = doc(db, 'stats', user.uid);
           await setDoc(statsRef, {
             total_ingresos: grossIngresos,
@@ -968,7 +971,8 @@ export const useFinanceData = (forceDemo = false) => {
           concepto: `Préstamo a ${hucha.nombre}`,
           importe: amount,
           fecha_operacion: new Date(),
-          hucha_id: lenderHuchaId
+          hucha_id: lenderHuchaId,
+          es_interno: true
         },
         {
           id: movIdIngreso,
@@ -976,7 +980,8 @@ export const useFinanceData = (forceDemo = false) => {
           concepto: `Subsanación desde ${lender.nombre}`,
           importe: amount,
           fecha_operacion: new Date(),
-          hucha_id: hucha.id
+          hucha_id: hucha.id,
+          es_interno: true
         }
       ];
 
@@ -1013,6 +1018,7 @@ export const useFinanceData = (forceDemo = false) => {
           concepto: `Préstamo a ${hucha.nombre}`,
           importe: amount,
           hucha_id: lenderHuchaId,
+          es_interno: true,
           fecha_operacion: serverTimestamp(),
           created_at: serverTimestamp()
         });
@@ -1024,6 +1030,7 @@ export const useFinanceData = (forceDemo = false) => {
           concepto: `Subsanación desde ${lender.nombre}`,
           importe: amount,
           hucha_id: hucha.id,
+          es_interno: true,
           fecha_operacion: serverTimestamp(),
           created_at: serverTimestamp()
         });
@@ -1071,7 +1078,8 @@ export const useFinanceData = (forceDemo = false) => {
           concepto: `Reversión de subsanación (devuelto a ${lender.nombre})`,
           importe: deuda,
           fecha_operacion: new Date(),
-          hucha_id: hucha.id
+          hucha_id: hucha.id,
+          es_interno: true
         },
         {
           id: movIdIngreso,
@@ -1079,7 +1087,8 @@ export const useFinanceData = (forceDemo = false) => {
           concepto: `Reversión de préstamo (recuperado de ${hucha.nombre})`,
           importe: deuda,
           fecha_operacion: new Date(),
-          hucha_id: lenderHuchaId
+          hucha_id: lenderHuchaId,
+          es_interno: true
         }
       ];
 
@@ -1116,6 +1125,7 @@ export const useFinanceData = (forceDemo = false) => {
           concepto: `Reversión de subsanación (devuelto a ${lender.nombre})`,
           importe: deuda,
           hucha_id: hucha.id,
+          es_interno: true,
           fecha_operacion: serverTimestamp(),
           created_at: serverTimestamp()
         });
@@ -1127,6 +1137,7 @@ export const useFinanceData = (forceDemo = false) => {
           concepto: `Reversión de préstamo (recuperado de ${hucha.nombre})`,
           importe: deuda,
           hucha_id: lenderHuchaId,
+          es_interno: true,
           fecha_operacion: serverTimestamp(),
           created_at: serverTimestamp()
         });
@@ -1203,8 +1214,10 @@ export const useFinanceData = (forceDemo = false) => {
           return { ...h, saldo_acumulado: Number((h.saldo_acumulado + delta).toFixed(2)) };
         });
 
-        updatedStats.total_ingresos += amount;
-        updatedStats.total_gastos = Math.max(0, updatedStats.total_gastos - amount);
+        if (cuentaEnEstadisticas(mov)) {
+          updatedStats.total_ingresos += amount;
+          updatedStats.total_gastos = Math.max(0, updatedStats.total_gastos - amount);
+        }
       } else {
         // Ingreso -> Gasto (symmetrically reverts the multi-pocket income distribution, and subtracts the new expense from the target pocket)
         if (!targetHuchaId) return;
@@ -1250,8 +1263,10 @@ export const useFinanceData = (forceDemo = false) => {
           return { ...h, saldo_acumulado: Number(newBal.toFixed(2)) };
         });
 
-        updatedStats.total_ingresos = Math.max(0, updatedStats.total_ingresos - amount);
-        updatedStats.total_gastos += amount;
+        if (cuentaEnEstadisticas(mov)) {
+          updatedStats.total_ingresos = Math.max(0, updatedStats.total_ingresos - amount);
+          updatedStats.total_gastos += amount;
+        }
       }
 
       // Update movement details
@@ -1319,11 +1334,13 @@ export const useFinanceData = (forceDemo = false) => {
           
           transaction.update(movRef, { tipo: 'ingreso', hucha_id: deleteField() });
           const curStats = statsSnap.data() || {};
-          transaction.set(statsRef, {
-            total_ingresos: (curStats.total_ingresos || 0) + amount,
-            total_gastos: Math.max(0, (curStats.total_gastos || 0) - amount),
-            updated_at: serverTimestamp(),
-          }, { merge: true });
+          if (cuentaEnEstadisticas(mov)) {
+            transaction.set(statsRef, {
+              total_ingresos: (curStats.total_ingresos || 0) + amount,
+              total_gastos: Math.max(0, (curStats.total_gastos || 0) - amount),
+              updated_at: serverTimestamp(),
+            }, { merge: true });
+          }
         });
         showToast('Movimiento convertido a ingreso', 'success');
       } else {
@@ -1394,11 +1411,13 @@ export const useFinanceData = (forceDemo = false) => {
 
           // Update stats
           const curStats = statsSnap.data() || {};
-          transaction.set(statsRef, {
-            total_ingresos: Math.max(0, (curStats.total_ingresos || 0) - amount),
-            total_gastos: (curStats.total_gastos || 0) + amount,
-            updated_at: serverTimestamp(),
-          }, { merge: true });
+          if (cuentaEnEstadisticas(mov)) {
+            transaction.set(statsRef, {
+              total_ingresos: Math.max(0, (curStats.total_ingresos || 0) - amount),
+              total_gastos: (curStats.total_gastos || 0) + amount,
+              updated_at: serverTimestamp(),
+            }, { merge: true });
+          }
         });
         showToast('Movimiento convertido a gasto', 'success');
       }
@@ -2486,8 +2505,10 @@ export const useFinanceData = (forceDemo = false) => {
 
       const nextMovs = movimientos.filter(m => m.id !== mov.id);
       const nextStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
-      if (isIngreso) nextStats.total_ingresos = Math.max(0, nextStats.total_ingresos - amt);
-      else nextStats.total_gastos = Math.max(0, nextStats.total_gastos - amt);
+      if (cuentaEnEstadisticas(mov)) {
+        if (isIngreso) nextStats.total_ingresos = Math.max(0, nextStats.total_ingresos - amt);
+        else nextStats.total_gastos = Math.max(0, nextStats.total_gastos - amt);
+      }
 
       saveDemoState(nextMovs, nextHuchas, suscripciones, nextStats);
       showToast('Movimiento eliminado', 'success');
@@ -2740,7 +2761,7 @@ export const useFinanceData = (forceDemo = false) => {
       const name = d.toLocaleDateString('es-ES', { month: 'short' });
       months[key] = { name, ingresos: 0, gastos: 0 };
     }
-    chartMovements.forEach((m) => {
+    chartMovements.filter(cuentaEnEstadisticas).forEach((m) => {
       const date = parseMovimientoDate(m.fecha_operacion) || new Date();
       const key = `${date.getFullYear()}-${date.getMonth()}`;
       if (months[key]) {

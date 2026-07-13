@@ -1,3 +1,4 @@
+# -*- coding: cp1252 -*-
 import re
 import logging
 from typing import Optional, List, Dict, Any
@@ -101,8 +102,21 @@ def fallback_extract_movement(body: str, email_date: str) -> Optional[List[Dict[
             "devolucion",
             "reembolso",
         ]
-        if any(word in clean_text.lower() for word in income_keywords):
+        lower_text = clean_text.lower()
+        if any(word in lower_text for word in income_keywords):
             tipo = "ingreso"
+
+        internal_cash_keywords = [
+            "retirada de efectivo",
+            "retirada en cajero",
+            "reintegro en cajero",
+            "disposicion de efectivo",
+            "disposición de efectivo",
+            "sacar dinero",
+            "cajero automatico",
+            "cajero automático",
+        ]
+        es_interno = any(keyword in lower_text for keyword in internal_cash_keywords)
 
         # 4. Extract Description
         # Look for phrases like "en [STUFF]", "operaciÃ³n de [AMOUNT] en [STUFF]", "autorizado... en [STUFF]"
@@ -140,6 +154,7 @@ def fallback_extract_movement(body: str, email_date: str) -> Optional[List[Dict[
                 "moneda": "EUR",
                 "fecha": fecha,
                 "descripcion": f"[RESCUE] {descripcion}",
+                "es_interno": es_interno,
                 "confianza": "baja"
             }]
     except Exception as e:

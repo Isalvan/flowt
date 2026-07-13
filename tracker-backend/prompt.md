@@ -16,12 +16,14 @@ Schema per object:
   "moneda": "EUR" | "<ISO 4217 code>" | null,
   "fecha": "<ISO 8601 datetime>" | null,
   "descripcion": "<15 words max, factual>",
+  "es_interno": boolean,
   "confianza": "alta" | "media" | "baja"
 }
 
 CLASSIFICATION RULES:
-- "gasto": payment, cargo, compra, transferencia saliente, domiciliación, retirada
-- "ingreso": abono, nómina, transferencia entrante, devolución, ingreso
+- "gasto": payment, cargo, compra, transferencia saliente, domiciliación, retirada, salvo movimientos internos
+- "ingreso": abono, nómina, transferencia entrante, devolución, ingreso, salvo movimientos internos
+- Set "es_interno" to true for own-account transfers, ATM/cash withdrawals, cash deposits/reintegros, loan/subsanacion/reversal concepts, or any movement that only moves money between the user's own pockets/accounts. Set it to false for real external income, purchases, bills, subscriptions, refunds from third parties, payroll, and card payments.
 - If classification is ambiguous: set "tipo" to null and "confianza" to "baja"
 
 EXAMPLES:
@@ -34,7 +36,7 @@ Asunto: Cargo en cuenta
 Su cuenta ha sido cargada con 47,50 EUR el 03/04/2025 en concepto de Netflix.
 [FIN DEL CORREO]
 Output:
-[{"tipo":"gasto","importe":47.50,"moneda":"EUR","fecha":"2025-04-03","descripcion":"Cargo Netflix cuenta corriente","confianza":"alta"}]
+[{"tipo":"gasto","importe":47.50,"moneda":"EUR","fecha":"2025-04-03","descripcion":"Cargo Netflix cuenta corriente","confianza":"alta","es_interno":false}]
 
 Input:
 FECHA DE ENVÍO DEL CORREO: Tue, 1 Apr 2025 12:00:00 +0000
@@ -44,7 +46,7 @@ Asunto: Abono recibido
 Le informamos que ha recibido una transferencia de 1.200,00 EUR el 01/04/2025. Concepto: NOMINA ABRIL.
 [FIN DEL CORREO]
 Output:
-[{"tipo":"ingreso","importe":1200.00,"moneda":"EUR","fecha":"2025-04-01","descripcion":"Transferencia entrante nómina abril","confianza":"alta"}]
+[{"tipo":"ingreso","importe":1200.00,"moneda":"EUR","fecha":"2025-04-01","descripcion":"Transferencia entrante nómina abril","confianza":"alta","es_interno":false}]
 
 Input:
 FECHA DE ENVÍO DEL CORREO: Wed, 9 Apr 2025 15:30:00 +0000
@@ -54,4 +56,4 @@ Asunto: Movimiento en cuenta
 Se ha realizado un movimiento en su cuenta el día de hoy.
 [FIN DEL CORREO]
 Output:
-[{"tipo":null,"importe":null,"moneda":null,"fecha":"2025-04-09","descripcion":"Movimiento sin datos suficientes","confianza":"baja"}]
+[{"tipo":null,"importe":null,"moneda":null,"fecha":"2025-04-09","descripcion":"Movimiento sin datos suficientes","confianza":"baja","es_interno":false}]

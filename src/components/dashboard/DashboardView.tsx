@@ -21,6 +21,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { getNextPaymentDate, parseMovimientoDate } from '../../hooks/useFinanceData';
+import { cuentaEnEstadisticas } from '../../utils/movements';
 
 type TimePeriod = 'este_mes' | 'mes_pasado' | 'este_anio' | 'historico';
 import { usePrivacy } from '../../context/PrivacyContext';
@@ -81,13 +82,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const filteredMovements = useMemo(() => {
-    if (selectedPeriod === 'historico') return chartMovements;
+    if (selectedPeriod === 'historico') return chartMovements.filter(cuentaEnEstadisticas);
     
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
     return chartMovements.filter(m => {
+      if (!cuentaEnEstadisticas(m)) return false;
       const date = parseMovimientoDate(m.fecha_operacion);
       if (!date) return false;
       

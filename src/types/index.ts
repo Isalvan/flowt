@@ -7,6 +7,7 @@ export interface Movimiento {
   hucha_id?: string;
   id_propietario?: string;
   es_metalico?: boolean;
+  es_interno?: boolean;
   // Compensación entre movimientos (Legacy 1:N)
   compensa_movimiento_id?: string | null; 
   compensado_por?: string[] | null;       
@@ -31,6 +32,7 @@ export interface Hucha {
   es_principal?: boolean;
   es_suscripciones?: boolean;
   es_metalico?: boolean;
+  es_interno?: boolean;
   activa?: boolean;
   tope_objetivo?: boolean;
   subsanar_con?: string | null;

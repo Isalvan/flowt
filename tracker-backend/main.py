@@ -1,3 +1,4 @@
+# -*- coding: cp1252 -*-
 import os
 import hashlib
 import logging
@@ -220,10 +221,11 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
             movimiento["hucha_id"] = target_gasto_hucha_id
             transaction.set(mov_refs[movements_to_process.index(m)], movimiento)
             recorded_ids.append(doc_id)
-            if movimiento["tipo"] == "ingreso":
-                stats_changes["ingresos"] += amount
-            else:
-                stats_changes["gastos"] += amount
+            if not movimiento.get("es_interno", False):
+                if movimiento["tipo"] == "ingreso":
+                    stats_changes["ingresos"] += amount
+                else:
+                    stats_changes["gastos"] += amount
             continue
 
         if movimiento["tipo"] == "ingreso":
@@ -361,10 +363,11 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
         transaction.set(mov_refs[movements_to_process.index(m)], movimiento)
         recorded_ids.append(doc_id)
         
-        if movimiento["tipo"] == "ingreso":
-            stats_changes["ingresos"] += amount
-        else:
-            stats_changes["gastos"] += amount
+        if not movimiento.get("es_interno", False):
+            if movimiento["tipo"] == "ingreso":
+                stats_changes["ingresos"] += amount
+            else:
+                stats_changes["gastos"] += amount
 
     # Apply all writes at the end
     if new_hucha_ref and new_hucha_data:
@@ -553,6 +556,7 @@ def process_emails():
                 "fecha_operacion": fecha_dt, # Store as actual Timestamp in Firestore
                 "confianza": parsed_data.get("confianza", "alta"),
                 "version_prompt": PROMPT_VERSION,
+                "es_interno": bool(parsed_data.get("es_interno", False)),
                 "created_at": firestore.SERVER_TIMESTAMP,
                 "email_id": email_id
             }
