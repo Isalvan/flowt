@@ -49,97 +49,13 @@ import { PinModal } from './components/common/PinModal';
 import { Calendar, Settings } from 'lucide-react';
 
 const FlowtLogoSVG: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg 
+  <img 
+    src="/flowt-logo.png" 
+    alt="Flowt Logo" 
     width={size} 
     height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    className="overflow-visible pointer-events-none"
-  >
-    <style>{`
-      @keyframes logo-coin-drop {
-        0%, 100% { transform: translateY(-2px); }
-        50% { transform: translateY(1.5px); }
-      }
-      .anim-logo-coin {
-        animation: logo-coin-drop 2.5s ease-in-out infinite;
-        transform-origin: 14px 4px;
-      }
-    `}</style>
-    
-    <defs>
-      <linearGradient id="piggyStroke" x1="5" y1="5" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="#6366f1" />
-        <stop offset="100%" stopColor="#38bdf8" />
-      </linearGradient>
-      <linearGradient id="logoGold" x1="12" y1="2" x2="16" y2="6" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="#fbbf24" />
-        <stop offset="100%" stopColor="#d97706" />
-      </linearGradient>
-    </defs>
-    
-    {/* Tail */}
-    <path 
-      d="M20.5 13c1-.6 1.8-.4 1.8.3s-.8 1.2-1.8.3" 
-      fill="none" 
-      stroke="url(#piggyStroke)" 
-      strokeWidth="1.5" 
-      strokeLinecap="round" 
-    />
-    
-    {/* Snout */}
-    <path 
-      d="M6.5 13H5.5a0.8 0.8 0 0 0 -0.8 0.8v1.4a0.8 0.8 0 0 0 0.8 0.8h1" 
-      fill="none" 
-      stroke="url(#piggyStroke)" 
-      strokeWidth="1.5" 
-      strokeLinecap="round" 
-    />
-    
-    {/* Ears */}
-    <path 
-      d="M10 7.5l-1.5-2.2A0.8 0.8 0 0 0 7.8 5c-.4 0-.8.4-.8.8v1.7" 
-      fill="none" 
-      stroke="url(#piggyStroke)" 
-      strokeWidth="1.5" 
-      strokeLinecap="round" 
-    />
-    
-    {/* Main Body */}
-    <path 
-      d="M20.5 14A6.5 6.5 0 0 0 14 7.5h-1A6.5 6.5 0 0 0 6.5 14c0 2 1 3.8 2.5 5v1.8a1 1 0 0 0 2 0v-.8h5v.8a1 1 0 0 0 2 0V19c1.5-1.2 2.5-3 2.5-5z" 
-      fill="none" 
-      stroke="url(#piggyStroke)" 
-      strokeWidth="1.5" 
-      strokeLinejoin="round"
-    />
-    
-    {/* Slot */}
-    <line 
-      x1="12" 
-      y1="7.5" 
-      x2="16" 
-      y2="7.5" 
-      stroke="url(#piggyStroke)" 
-      strokeWidth="1.5" 
-      strokeLinecap="round" 
-    />
-    
-    {/* Eye */}
-    <circle cx="10" cy="11.5" r="0.75" fill="#6366f1" />
-
-    {/* Gold Coin sliding in with bounce */}
-    <circle 
-      cx="14" 
-      cy="4" 
-      r="2.2" 
-      fill="url(#logoGold)" 
-      stroke="#d97706" 
-      strokeWidth="0.5" 
-      className="anim-logo-coin" 
-      style={{ filter: 'drop-shadow(0px 1px 2px rgba(217,119,6,0.3))' }}
-    />
-  </svg>
+    className="object-contain"
+  />
 );
 
 
