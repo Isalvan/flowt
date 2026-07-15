@@ -67,9 +67,9 @@ export const BentoMenu: React.FC = () => {
 
       {/* --- MOBILE VERSION (FAB) --- */}
       {typeof document !== 'undefined' && createPortal(
-        <div className="md:hidden fixed bottom-28 right-4 z-[200]" ref={mobileMenuRef}>
+        <div className="md:hidden fixed bottom-28 left-4 z-[200]" ref={mobileMenuRef}>
           {isMobileOpen && (
-            <div className="absolute bottom-16 right-0 w-[85vw] max-w-sm p-4 rounded-3xl backdrop-blur-2xl bg-white/98 dark:bg-slate-900/90 border border-slate-200 dark:border-white/10 shadow-[0_12px_40px_rgba(15,23,42,0.16)] dark:shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-4 duration-200 origin-bottom-right mb-2">
+            <div className="absolute bottom-16 left-0 w-[85vw] max-w-sm p-4 rounded-3xl backdrop-blur-2xl bg-white/98 dark:bg-slate-900/90 border border-slate-200 dark:border-white/10 shadow-[0_12px_40px_rgba(15,23,42,0.16)] dark:shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-4 duration-200 origin-bottom-left mb-2">
               <div className="text-xs font-black uppercase tracking-[0.2em] text-[rgba(55,70,100,0.72)] dark:text-slate-400 mb-4 px-2">Aether Hub</div>
               <div className="grid grid-cols-3 gap-3">
                 <AppsGrid />
