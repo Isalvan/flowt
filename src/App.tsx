@@ -47,6 +47,7 @@ import {
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { PinModal } from './components/common/PinModal';
 import { Calendar, Settings } from 'lucide-react';
+import { BentoMenu } from './components/common/BentoMenu';
 
 const FlowtLogoSVG: React.FC<{ size?: number }> = ({ size = 20 }) => (
   <img 
@@ -535,6 +536,8 @@ const AppContent: React.FC = () => {
           {/* Quick utility controls */}
           <div className="flex items-center gap-3">
             
+            <BentoMenu />
+
             {/* Privacy switch */}
             <button
               onClick={handlePrivacyToggle}
