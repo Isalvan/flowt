@@ -1,63 +1,66 @@
 # Security Policy
 
-## Estado del proyecto
+## Versiones compatibles
 
-Flowt está en desarrollo y todavía mantiene hallazgos de seguridad abiertos. La rama `main` más reciente es la única versión que recibe correcciones; no se ofrecen garantías de soporte para commits o despliegues anteriores.
+Flowt se desarrolla de forma continua. Las correcciones de seguridad se aplican sobre la rama `main`.
 
-Antes de usar datos reales o exponer la aplicación a terceros, revisa los [issues abiertos](https://github.com/Isalvan/flowt/issues) y el [checklist de publicación](docs/PUBLIC_RELEASE_CHECKLIST.md).
+| Versión | Soporte |
+|---|---|
+| Último commit de `main` | Sí |
+| Commits y despliegues anteriores | No |
 
 ## Informar de una vulnerabilidad
 
-No publiques credenciales, datos financieros, correos, tokens ni instrucciones de explotación detalladas en un issue público.
+No abras un issue público con detalles de una vulnerabilidad sin corregir.
 
-Usa, por este orden:
-
-1. La opción **Report a vulnerability** de la pestaña Security del repositorio, si está habilitada.
-2. Un canal privado indicado por el mantenedor en su perfil de GitHub.
+Utiliza la opción **Report a vulnerability** de la pestaña **Security** del repositorio. Si el reporte privado no está disponible, contacta con el mantenedor por un canal privado indicado en su perfil de GitHub.
 
 Incluye:
 
 - componente y commit afectados;
-- condiciones necesarias para reproducir el problema;
-- impacto observado;
-- pasos mínimos de reproducción o una prueba de concepto inocua;
-- mitigación temporal, si existe.
+- descripción del impacto;
+- condiciones y pasos mínimos de reproducción;
+- prueba de concepto con datos ficticios;
+- mitigación propuesta, si existe.
 
-No incluyas datos reales de usuarios. Usa valores ficticios y elimina tokens de capturas y logs.
+No incluyas credenciales, correos, movimientos financieros ni datos personales reales.
 
-## Datos y credenciales sensibles
+## Proceso de respuesta
 
-En este proyecto deben tratarse como secretos:
+El mantenedor revisará el alcance, reproducirá el comportamiento y coordinará la corrección antes de publicar los detalles. La severidad tendrá en cuenta el impacto, los privilegios necesarios, la complejidad de explotación y la exposición de datos.
 
-- `serviceAccountKey.json` y cualquier clave privada de Firebase/Google Cloud;
+Cuando corresponda, la resolución incluirá:
+
+- corrección en la rama mantenida;
+- pruebas de regresión;
+- rotación de credenciales afectadas;
+- aviso de seguridad con versiones o commits impactados;
+- atribución al investigador que lo solicite.
+
+## Datos sensibles
+
+Se consideran secretos o datos sensibles:
+
+- claves privadas y cuentas de servicio de Firebase o Google Cloud;
 - `token.json` de Gmail OAuth;
-- `credentials.json` del cliente OAuth cuando contenga un secreto de cliente;
-- `GEMINI_API_KEY`;
+- secretos del cliente OAuth;
+- claves de Gemini;
 - archivos `.env` con valores reales;
-- valores de GitHub Actions Secrets;
-- logs, exportaciones o volcados con correos, movimientos financieros o identificadores de usuario.
+- GitHub Actions Secrets;
+- correos, movimientos financieros e identificadores de usuario;
+- logs, exportaciones y artefactos que contengan estos valores.
 
-La configuración web `VITE_FIREBASE_*` identifica el proyecto Firebase y suele enviarse al navegador. No debe usarse como barrera de seguridad: el acceso se controla con Authentication, reglas de Firestore, App Check cuando corresponda y configuración del proyecto.
+La configuración web `VITE_FIREBASE_*` identifica el proyecto y se distribuye al navegador. Los controles de acceso deben implementarse mediante Firebase Authentication, reglas de Firestore y la configuración del proyecto.
 
-## Si se expone una credencial
+## Credencial expuesta
 
-1. Revoca o deshabilita la credencial en el proveedor.
-2. Crea una credencial nueva y actualiza los despliegues.
-3. Revisa logs de acceso, IAM, ejecuciones de Actions y cambios de datos desde el momento de exposición.
-4. Elimina el valor de la rama actual y, si procede, reescribe el historial con coordinación previa.
-5. Revisa forks, clones, cachés, releases, artefactos, logs, issues y pull requests: reescribir Git no borra copias externas.
-6. Documenta el incidente sin volver a publicar el secreto.
+Si una credencial aparece en Git, logs, artefactos o metadatos públicos:
 
-Considera comprometida una credencial que haya llegado a un commit, aunque ese commit ya no esté en `main`.
+1. Revócala en el proveedor.
+2. Genera una credencial nueva.
+3. Actualiza los entornos que la utilizan.
+4. Revisa accesos y cambios realizados durante el periodo de exposición.
+5. Elimina el valor de las superficies afectadas.
+6. Documenta el incidente sin reproducir el secreto.
 
-## Alcance
-
-Son especialmente relevantes los problemas que permitan:
-
-- leer o modificar datos financieros de otro usuario;
-- ejecutar acciones sin autenticación o saltarse reglas de Firestore;
-- inyectar contenido activo en la interfaz;
-- manipular movimientos mediante correos, prompts o respuestas del modelo;
-- extraer credenciales desde código, historial, Actions o artefactos;
-- duplicar o alterar transacciones en condiciones concurrentes;
-- enviar datos personales a terceros sin la configuración o información esperadas.
+Eliminar el valor del último commit no invalida una credencial ni elimina copias anteriores.
