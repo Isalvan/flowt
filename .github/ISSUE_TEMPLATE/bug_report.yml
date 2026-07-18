@@ -1,0 +1,71 @@
+name: Informe de error
+description: Comunica un comportamiento reproducible que no funciona como se esperaba.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por informar del problema. No incluyas credenciales, correos ni datos financieros reales.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Comprobaciones previas
+      options:
+        - label: He buscado issues existentes.
+          required: true
+        - label: He eliminado información sensible.
+          required: true
+        - label: Este reporte no contiene una vulnerabilidad de seguridad.
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versión
+      description: Commit, rama o versión desplegada.
+      placeholder: main@abcdef0
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Componente
+      options:
+        - Frontend
+        - Backend
+        - Firebase
+        - GitHub Actions
+        - Documentación
+        - Otro
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción
+      description: Explica el problema y el resultado esperado.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      placeholder: |
+        1. Abre...
+        2. Configura...
+        3. Observa...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Entorno
+      description: Sistema operativo, navegador, Node.js o Python y configuración relevante.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs o capturas
+      description: Adjunta únicamente información depurada de datos sensibles.
