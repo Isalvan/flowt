@@ -24,9 +24,9 @@ La comunidad de Flowt se compromete a ofrecer un entorno abierto, respetuoso y l
 
 ## Aplicación
 
-Los incidentes deben comunicarse al mantenedor por un canal privado indicado en su perfil de GitHub. No incluyas datos sensibles innecesarios.
-
 El mantenedor puede editar o retirar contenido, cerrar conversaciones, rechazar contribuciones o limitar la participación cuando sea necesario para proteger a la comunidad. Las decisiones se tomarán atendiendo al contexto, el impacto y la reincidencia.
+
+Los incumplimientos visibles en el repositorio pueden señalarse en el hilo correspondiente sin reproducir datos personales. El proyecto no publica actualmente un canal privado específico para incidentes de conducta.
 
 ## Alcance
 
