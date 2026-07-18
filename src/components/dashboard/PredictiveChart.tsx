@@ -13,6 +13,7 @@ import {
 import { TrendingUp, AlertTriangle, Info, Sparkles, Lock } from 'lucide-react';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
 import { usePrivacy } from '../../context/PrivacyContext';
+import { getEffectiveSubscriptionAmount, getSubscriptionChargeForMonth } from '../../utils/subscriptions';
 
 interface PredictiveChartProps {
   huchas: Hucha[];
@@ -93,27 +94,14 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
 
       // 3. Deduct active subscription billing on its specific payment day
       estimates.activeSubs.forEach(sub => {
-        if (sub.dia_pago === dayOfMonth && day > 0) {
-          // Adjust subscription cost based on frequency
-          let chargeAmount = sub.importe;
-          if (sub.frecuencia === 'trimestral' && dayOfMonth === sub.dia_pago) {
-            // charge every 3 months
-            const diffMonths = currentDate.getMonth() - startDay.getMonth();
-            if (diffMonths % 3 !== 0) chargeAmount = 0;
-          } else if (sub.frecuencia === 'semestral') {
-            const diffMonths = currentDate.getMonth() - startDay.getMonth();
-            if (diffMonths % 6 !== 0) chargeAmount = 0;
-          } else if (sub.frecuencia === 'anual') {
-            const diffMonths = currentDate.getMonth() - startDay.getMonth();
-            if (diffMonths % 12 !== 0) chargeAmount = 0;
-          }
-
-          // Shared subscription compensation factor (mi_parte)
-          const effectiveCharge = sub.mi_parte !== null && sub.mi_parte !== undefined
-            ? parseFloat(sub.mi_parte.toString())
-            : chargeAmount;
-
-          currentBalance -= effectiveCharge;
+        const chargeDate = getSubscriptionChargeForMonth(
+          sub,
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          startDay,
+        );
+        if (chargeDate?.getDate() === dayOfMonth && day > 0) {
+          currentBalance -= getEffectiveSubscriptionAmount(sub);
         }
       });
 
