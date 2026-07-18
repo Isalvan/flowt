@@ -19,7 +19,7 @@ import {
 import { auth, db } from '../firebase';
 import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type CorreoHistorico } from '../types';
 import { usePrivacy } from '../context/PrivacyContext';
-import { cuentaEnEstadisticas } from '../utils/movements';
+import { crearRetiradaEfectivo, cuentaEnEstadisticas } from '../utils/movements';
 
 // Standard fallback configurations and options
 export const SUBSCRIPTION_COLORS = [
@@ -2189,10 +2189,20 @@ export const useFinanceData = (forceDemo = false) => {
     fecha_operacion: string;
     hucha_id?: string;
     es_metalico?: boolean;
+    es_interno?: boolean;
+    es_retirada_efectivo?: boolean;
+    hucha_origen_id?: string;
   }) => {
     const amt = Number(movData.importe);
     const isIngreso = movData.tipo === 'ingreso';
     const isMetalico = !!movData.es_metalico;
+    const isCashWithdrawal = !!movData.es_retirada_efectivo;
+    const isInternal = !!movData.es_interno || isCashWithdrawal;
+
+    if (isCashWithdrawal && (!isIngreso || !movData.hucha_origen_id)) {
+      showToast('Selecciona la cartera bancaria de origen para la retirada.');
+      return;
+    }
 
     if (!isFirebaseConfigured) {
       // 1. MODO DEMO
@@ -2228,8 +2238,30 @@ export const useFinanceData = (forceDemo = false) => {
         importe: amt,
         fecha_operacion: new Date(movData.fecha_operacion),
         hucha_id: targetHuchaId,
-        es_metalico: isMetalico
+        es_metalico: isMetalico,
+        es_interno: isInternal,
       };
+
+      if (isCashWithdrawal) {
+        const [salida, entrada] = crearRetiradaEfectivo({
+          gasto_id: `${id}-salida`,
+          ingreso_id: `${id}-entrada`,
+          transfer_id: `transfer-${id}`,
+          concepto: movData.concepto.trim(),
+          importe: amt,
+          fecha_operacion: new Date(movData.fecha_operacion),
+          hucha_origen_id: movData.hucha_origen_id!,
+          hucha_efectivo_id: targetHuchaId!,
+        });
+        nextHuchas = nextHuchas.map(h => {
+          if (h.id === movData.hucha_origen_id) return { ...h, saldo_acumulado: Number((h.saldo_acumulado - amt).toFixed(2)) };
+          if (h.id === targetHuchaId) return { ...h, saldo_acumulado: Number((h.saldo_acumulado + amt).toFixed(2)) };
+          return h;
+        });
+        saveDemoState([salida, entrada, ...movimientos], nextHuchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+        showToast('Retirada de efectivo registrada como transferencia interna', 'success');
+        return;
+      }
 
       if (!isIngreso) {
         // Gasto
@@ -2282,8 +2314,10 @@ export const useFinanceData = (forceDemo = false) => {
 
       const nextMovs = [newMov, ...movimientos];
       const nextStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
-      if (isIngreso) nextStats.total_ingresos += amt;
-      else nextStats.total_gastos += amt;
+      if (cuentaEnEstadisticas(newMov)) {
+        if (isIngreso) nextStats.total_ingresos += amt;
+        else nextStats.total_gastos += amt;
+      }
 
       saveDemoState(nextMovs, nextHuchas, suscripciones, nextStats);
       showToast('Movimiento registrado correctamente', 'success');
@@ -2300,6 +2334,7 @@ export const useFinanceData = (forceDemo = false) => {
 
         let targetHuchaId = movData.hucha_id;
         let createdCashHuchaId: string | null = null;
+        let createdCashHuchaData: Record<string, unknown> | null = null;
         let nextHuchasState = [...huchas];
 
         // Provisionar hucha de Efectivo si es metálico y no existe
@@ -2320,8 +2355,8 @@ export const useFinanceData = (forceDemo = false) => {
               created_at: serverTimestamp(),
               updated_at: serverTimestamp()
             };
-            transaction.set(newHuchaRef, cashData);
             createdCashHuchaId = newHuchaRef.id;
+            createdCashHuchaData = cashData;
             targetHuchaId = newHuchaRef.id;
             
             // Añadir al estado local temporal
@@ -2331,32 +2366,72 @@ export const useFinanceData = (forceDemo = false) => {
           }
         }
 
+        if (isCashWithdrawal) {
+          if (targetHuchaId === movData.hucha_origen_id) throw new Error('La cartera de origen y Efectivo deben ser distintas');
+
+          // Todas las lecturas se realizan antes de cualquier escritura: es un
+          // requisito de las transacciones Firestore.
+          const originRef = doc(db, 'huchas', movData.hucha_origen_id!);
+          const cashRef = doc(db, 'huchas', targetHuchaId!);
+          const originSnap = await transaction.get(originRef);
+          const cashSnap = targetHuchaId === createdCashHuchaId ? null : await transaction.get(cashRef);
+          if (!originSnap.exists()) throw new Error('La cartera de origen no existe');
+          if (cashSnap && !cashSnap.exists()) throw new Error('La cartera de Efectivo no existe');
+          const originBalance = originSnap.data().saldo_acumulado || 0;
+          if (originBalance < amt) throw new Error('Saldo insuficiente en la cartera de origen');
+
+          transaction.update(originRef, { saldo_acumulado: originBalance - amt, updated_at: serverTimestamp() });
+          if (targetHuchaId === createdCashHuchaId) {
+            transaction.set(cashRef, { ...createdCashHuchaData!, saldo_acumulado: amt, updated_at: serverTimestamp() });
+          } else {
+            transaction.update(cashRef, { saldo_acumulado: (cashSnap!.data().saldo_acumulado || 0) + amt, updated_at: serverTimestamp() });
+          }
+
+          const movementBase = {
+            id_propietario: user.uid,
+            created_at: serverTimestamp(),
+          };
+          const [salida, entrada] = crearRetiradaEfectivo({
+            gasto_id: doc(collection(db, 'movimientos')).id,
+            ingreso_id: doc(collection(db, 'movimientos')).id,
+            transfer_id: `transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            concepto: movData.concepto.trim(),
+            importe: amt,
+            fecha_operacion: new Date(movData.fecha_operacion),
+            hucha_origen_id: movData.hucha_origen_id!,
+            hucha_efectivo_id: targetHuchaId!,
+          });
+          transaction.set(doc(db, 'movimientos', salida.id), { ...movementBase, ...salida });
+          transaction.set(doc(db, 'movimientos', entrada.id), { ...movementBase, ...entrada });
+          return;
+        }
+
         if (!isIngreso) {
           // Gasto
           const hid = targetHuchaId || nextHuchasState.find(h => h.es_principal)?.id || nextHuchasState[0]?.id;
           if (hid) {
             const huchaRef = doc(db, 'huchas', hid);
-            let bal = 0;
-            if (hid !== createdCashHuchaId) {
+            if (hid === createdCashHuchaId) {
+              transaction.set(huchaRef, { ...createdCashHuchaData!, saldo_acumulado: -amt, updated_at: serverTimestamp() });
+            } else {
               const huchaSnap = await transaction.get(huchaRef);
-              if (huchaSnap.exists()) {
-                bal = huchaSnap.data().saldo_acumulado || 0;
-              }
+              if (!huchaSnap.exists()) throw new Error('La cartera seleccionada no existe');
+              const bal = huchaSnap.data().saldo_acumulado || 0;
+              transaction.update(huchaRef, { saldo_acumulado: bal - amt, updated_at: serverTimestamp() });
             }
-            transaction.update(huchaRef, { saldo_acumulado: bal - amt, updated_at: serverTimestamp() });
           }
         } else {
           // Ingreso
           if (targetHuchaId) {
             const huchaRef = doc(db, 'huchas', targetHuchaId);
-            let bal = 0;
-            if (targetHuchaId !== createdCashHuchaId) {
+            if (targetHuchaId === createdCashHuchaId) {
+              transaction.set(huchaRef, { ...createdCashHuchaData!, saldo_acumulado: amt, updated_at: serverTimestamp() });
+            } else {
               const huchaSnap = await transaction.get(huchaRef);
-              if (huchaSnap.exists()) {
-                bal = huchaSnap.data().saldo_acumulado || 0;
-              }
+              if (!huchaSnap.exists()) throw new Error('La cartera seleccionada no existe');
+              const bal = huchaSnap.data().saldo_acumulado || 0;
+              transaction.update(huchaRef, { saldo_acumulado: bal + amt, updated_at: serverTimestamp() });
             }
-            transaction.update(huchaRef, { saldo_acumulado: bal + amt, updated_at: serverTimestamp() });
           } else {
             // Auto-reparto bancario estándar
             let remaining = amt;
@@ -2423,15 +2498,18 @@ export const useFinanceData = (forceDemo = false) => {
           fecha_operacion: new Date(movData.fecha_operacion),
           hucha_id: targetHuchaId || null,
           es_metalico: isMetalico,
+          es_interno: isInternal,
           created_at: serverTimestamp()
         });
 
         // Actualizar estadísticas
         const nextStats = { ...currentStats };
-        if (isIngreso) {
-          nextStats.total_ingresos = (nextStats.total_ingresos || 0) + amt;
-        } else {
-          nextStats.total_gastos = (nextStats.total_gastos || 0) + amt;
+        if (cuentaEnEstadisticas({ es_interno: isInternal })) {
+          if (isIngreso) {
+            nextStats.total_ingresos = (nextStats.total_ingresos || 0) + amt;
+          } else {
+            nextStats.total_gastos = (nextStats.total_gastos || 0) + amt;
+          }
         }
         transaction.set(statsRef, nextStats, { merge: true });
       });
@@ -2444,6 +2522,58 @@ export const useFinanceData = (forceDemo = false) => {
   };
 
   const handleDeleteMovimiento = async (mov: Movimiento) => {
+    // Las patas de una transferencia interna forman una única operación:
+    // eliminarlas por separado desajusta los saldos de las carteras.
+    if (mov.transfer_id) {
+      const vinculados = movimientos.filter(m => m.transfer_id === mov.transfer_id && m.id !== mov.id);
+      if (vinculados.length === 0) {
+        showToast('No se puede eliminar una transferencia sin su movimiento vinculado.');
+        return;
+      }
+
+      const transferencia = [mov, ...vinculados];
+      if (transferencia.some(m => !m.hucha_id)) {
+        showToast('La transferencia no tiene carteras válidas para poder revertirse.');
+        return;
+      }
+      const deltasPorHucha = transferencia.reduce<Record<string, number>>((deltas, m) => {
+        const delta = m.tipo === 'gasto' ? m.importe : -m.importe;
+        deltas[m.hucha_id!] = (deltas[m.hucha_id!] || 0) + delta;
+        return deltas;
+      }, {});
+
+      if (!isFirebaseConfigured) {
+        const nextHuchas = huchas.map(h => ({
+          ...h,
+          saldo_acumulado: Number((h.saldo_acumulado + (deltasPorHucha[h.id] || 0)).toFixed(2)),
+        }));
+        const ids = new Set(transferencia.map(m => m.id));
+        saveDemoState(movimientos.filter(m => !ids.has(m.id)), nextHuchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+        showToast('Transferencia interna eliminada', 'success');
+        return;
+      }
+
+      if (!user) return;
+      try {
+        await runTransaction(db, async (transaction) => {
+          const huchaRefs = Object.keys(deltasPorHucha).map(id => doc(db, 'huchas', id));
+          const huchaSnaps = await Promise.all(huchaRefs.map(ref => transaction.get(ref)));
+          if (huchaSnaps.some(snap => !snap.exists())) throw new Error('Una cartera de la transferencia ya no existe');
+
+          huchaSnaps.forEach(snap => {
+            const balance = snap.data()!.saldo_acumulado || 0;
+            transaction.update(snap.ref, { saldo_acumulado: balance + (deltasPorHucha[snap.id] || 0), updated_at: serverTimestamp() });
+          });
+          transferencia.forEach(m => transaction.delete(doc(db, 'movimientos', m.id)));
+        });
+        showToast('Transferencia interna eliminada', 'success');
+      } catch (error) {
+        console.error('Error deleting internal transfer:', error);
+        showToast('Error al eliminar la transferencia interna.');
+      }
+      return;
+    }
+
     // Auto-unlink if it has any connections
     if ((mov.tipo === 'gasto' && ((mov.compensado_por?.length ?? 0) > 0 || (mov.compensado_por_detalles?.length ?? 0) > 0)) ||
         (mov.tipo === 'ingreso' && (mov.compensa_movimiento_id || (mov.compensaciones_destinos?.length ?? 0) > 0))) {
@@ -2601,10 +2731,12 @@ export const useFinanceData = (forceDemo = false) => {
 
         // Actualizar estadísticas
         const nextStats = { ...currentStats };
-        if (isIngreso) {
-          nextStats.total_ingresos = Math.max(0, (nextStats.total_ingresos || 0) - amt);
-        } else {
-          nextStats.total_gastos = Math.max(0, (nextStats.total_gastos || 0) - amt);
+        if (cuentaEnEstadisticas(mov)) {
+          if (isIngreso) {
+            nextStats.total_ingresos = Math.max(0, (nextStats.total_ingresos || 0) - amt);
+          } else {
+            nextStats.total_gastos = Math.max(0, (nextStats.total_gastos || 0) - amt);
+          }
         }
         transaction.set(statsRef, nextStats, { merge: true });
       });

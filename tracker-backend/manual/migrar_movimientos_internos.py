@@ -35,6 +35,10 @@ def is_internal(concept: str) -> bool:
     normalized = normalize(concept)
     if normalized.startswith(INTERNAL_EXACT_PREFIXES):
         return True
+    # Algunos registros manuales históricos usan exactamente este concepto,
+    # sin mencionar cajero ni efectivo.
+    if normalized.startswith("sacar dinero"):
+        return True
     return any(term in normalized for term in CASH_TERMS) and any(ctx in normalized for ctx in CASH_CONTEXT)
 
 

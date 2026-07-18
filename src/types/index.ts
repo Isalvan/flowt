@@ -8,6 +8,8 @@ export interface Movimiento {
   id_propietario?: string;
   es_metalico?: boolean;
   es_interno?: boolean;
+  /** Identifica las dos (o más) patas de una misma transferencia interna. */
+  transfer_id?: string;
   // Compensación entre movimientos (Legacy 1:N)
   compensa_movimiento_id?: string | null; 
   compensado_por?: string[] | null;       
