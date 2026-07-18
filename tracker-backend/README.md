@@ -1,82 +1,70 @@
 # Flowt Backend
 
-Sincronizador en Python que consulta notificaciones bancarias en Gmail, usa Gemini para extraer un movimiento estructurado y guarda el resultado en Firestore para el usuario configurado.
+Servicio de sincronización de Flowt. Consulta notificaciones bancarias en Gmail, extrae movimientos mediante Gemini y guarda el resultado en Firestore.
 
-> [!WARNING]
-> El backend procesa correos y datos financieros reales. Pruébalo primero con un proyecto aislado y datos no sensibles. Revisa los [hallazgos de seguridad abiertos](https://github.com/Isalvan/flowt/issues) antes de desplegarlo para terceros.
+## Responsabilidades
+
+- Autenticar el acceso de solo lectura a Gmail.
+- Buscar mensajes del remitente configurado.
+- Normalizar el contenido de los mensajes.
+- Extraer y validar movimientos financieros.
+- Enviar casos ambiguos a revisión manual.
+- Persistir movimientos e información de procesamiento en Firestore.
+- Evitar el reprocesamiento de mensajes ya gestionados.
 
 ## Requisitos
 
 - Python 3.10 o posterior.
-- Un proyecto de Firebase con Authentication y Firestore.
-- Una cuenta de servicio de Firebase con los permisos mínimos necesarios.
-- Un cliente OAuth de escritorio con Gmail API y el alcance `gmail.readonly`.
-- Una clave de API de Gemini.
+- Proyecto de Firebase con Firestore.
+- Cuenta de servicio de Firebase.
+- Proyecto de Google Cloud con Gmail API.
+- Cliente OAuth de escritorio con el alcance `gmail.readonly`.
+- Clave de API de Gemini.
 
 ## Instalación
 
-Desde `tracker-backend/`:
-
 ```bash
+cd tracker-backend
 python -m venv .venv
 ```
 
-Activa el entorno:
+Activa el entorno e instala las dependencias:
 
 ```bash
-# Linux/macOS
+# Linux y macOS
 source .venv/bin/activate
 
 # Windows PowerShell
 .venv\Scripts\Activate.ps1
-```
 
-Instala las dependencias:
-
-```bash
 python -m pip install -r requirements.txt
 ```
 
-En Windows también puedes usar `start.bat`, que prepara el entorno y ejecuta el sincronizador.
+En Windows también puede utilizarse `start.bat`.
 
-## 1. Firebase Admin
+## Configuración
 
-1. Crea o selecciona un proyecto en [Firebase Console](https://console.firebase.google.com/).
-2. Habilita Authentication y Firestore.
-3. Crea una cuenta de servicio dedicada con el menor conjunto de permisos compatible con el sincronizador.
-4. Descarga su clave JSON como `serviceAccountKey.json` dentro de `tracker-backend/`.
+### Firebase
 
-La cuenta de servicio ignora las reglas cliente de Firestore. Su clave permite actuar con los permisos IAM asignados; no la compartas ni la incluyas en Git.
+1. Habilita Authentication y Firestore en Firebase Console.
+2. Crea una cuenta de servicio dedicada.
+3. Descarga la clave como `tracker-backend/serviceAccountKey.json`.
 
-## 2. OAuth de Gmail
+### Gmail
 
-1. En [Google Cloud Console](https://console.cloud.google.com/), habilita Gmail API.
+1. Habilita Gmail API en Google Cloud.
 2. Configura la pantalla de consentimiento OAuth.
-3. Solicita solamente el alcance `gmail.readonly`.
+3. Añade el alcance `gmail.readonly`.
 4. Crea un cliente OAuth de tipo aplicación de escritorio.
-5. Descarga el archivo como `credentials.json` dentro de `tracker-backend/`.
+5. Descarga el cliente como `tracker-backend/credentials.json`.
 
-En la primera ejecución se abrirá el consentimiento de Google y se generará `token.json`. Ese token permite acceder al correo dentro de los permisos concedidos hasta que se revoque o expire.
+La primera ejecución abre el consentimiento de Google y genera `token.json`.
 
-## 3. Gemini
-
-Crea una clave en [Google AI Studio](https://aistudio.google.com/) y limita su uso cuando la plataforma lo permita. La disponibilidad, coste y tratamiento de datos dependen de la cuenta y del modelo configurados.
-
-## 4. Variables de entorno
-
-Copia el ejemplo:
+### Variables de entorno
 
 ```bash
 cp .env.example .env
 ```
-
-En Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Completa estas variables:
 
 ```dotenv
 BANK_SENDER=alertas@tu-banco.example
@@ -87,42 +75,44 @@ AI_MODEL=gemini-3-flash-preview
 GEMINI_API_KEY=...
 ```
 
-- `BANK_SENDER`: remitente admitido. Trátalo como un filtro de entrada, no como prueba criptográfica de identidad.
-- `UID_PROPIETARIO`: usuario de Firebase bajo el que se guardan los datos.
-- `MIN_CONFIDENCE`: umbral que decide qué movimientos requieren revisión.
-- `AI_MODEL`: modelo solicitado. El valor del ejemplo puede dejar de estar disponible al ser una versión preview.
+| Variable | Descripción |
+|---|---|
+| `BANK_SENDER` | Remitente de las notificaciones que se procesarán |
+| `UID_PROPIETARIO` | UID de Firebase propietario de los datos |
+| `MAX_EMAILS_PER_RUN` | Máximo de mensajes procesados por ejecución |
+| `MIN_CONFIDENCE` | Umbral para aceptar o enviar a revisión |
+| `AI_MODEL` | Modelo de Gemini utilizado |
+| `GEMINI_API_KEY` | Credencial de acceso a Gemini |
 
-## Ejecución local
+## Ejecución
 
 ```bash
 python main.py
 ```
 
-La primera ejecución requiere interacción para autorizar Gmail. Las posteriores reutilizan `token.json`.
-
-Para ejecutar las pruebas:
+## Pruebas
 
 ```bash
 python -m pytest
 ```
 
-## GitHub Actions
+## Automatización con GitHub Actions
 
-El workflow versionado está en [`.github/workflows/run_tracker.yml`](../.github/workflows/run_tracker.yml) y se puede iniciar manualmente o mediante su programación.
+El workflow [`.github/workflows/run_tracker.yml`](../.github/workflows/run_tracker.yml) ejecuta el sincronizador de forma programada y permite ejecuciones manuales.
 
-Configura estos secretos del repositorio:
+Configura estos secretos en **Settings → Secrets and variables → Actions**:
 
 | Secreto | Contenido |
 |---|---|
-| `BANK_SENDER` | Remitente permitido |
+| `BANK_SENDER` | Remitente bancario |
 | `UID_PROPIETARIO` | UID de Firebase |
 | `GEMINI_API_KEY` | Clave de Gemini |
 | `AI_MODEL` | Modelo configurado |
-| `GMAIL_CREDENTIALS_BASE64` | `credentials.json` codificado en base64 |
-| `GMAIL_TOKEN_BASE64` | `token.json` codificado en base64 |
-| `FIREBASE_SERVICE_ACCOUNT_BASE64` | `serviceAccountKey.json` codificado en base64 |
+| `GMAIL_CREDENTIALS_BASE64` | `credentials.json` en base64 |
+| `GMAIL_TOKEN_BASE64` | `token.json` en base64 |
+| `FIREBASE_SERVICE_ACCOUNT_BASE64` | `serviceAccountKey.json` en base64 |
 
-En Linux, genera cada valor sin saltos de línea:
+Codificación en Linux:
 
 ```bash
 base64 -w 0 credentials.json
@@ -130,30 +120,29 @@ base64 -w 0 token.json
 base64 -w 0 serviceAccountKey.json
 ```
 
-En macOS:
+Codificación en macOS:
 
 ```bash
 base64 < credentials.json | tr -d '\n'
 ```
 
-Base64 es una codificación, no cifrado. Los valores deben permanecer en GitHub Actions Secrets y no deben imprimirse en logs. Limita los permisos del workflow, fija las acciones de terceros a revisiones confiables y revisa los artefactos antes de hacer público el repositorio.
+Base64 no cifra el contenido. Conserva estos valores exclusivamente en el almacén de secretos.
 
-## Archivos que no deben publicarse
+## Archivos locales
+
+Los siguientes archivos contienen configuración o credenciales y están excluidos de Git:
 
 - `.env`
 - `credentials.json`
 - `token.json`
 - `serviceAccountKey.json`
-- logs, volcados, artefactos o capturas que contengan sus valores
+- `.venv/`
 
-Estos nombres están incluidos en el `.gitignore` del proyecto. Aun así, revisa el historial completo y rota cualquier credencial que haya llegado a Git o a metadatos de GitHub.
+## Operación
 
-## Límites de seguridad relevantes
+- El workflow se ejecuta cada 30 minutos según su expresión cron.
+- `workflow_dispatch` permite una ejecución manual desde GitHub.
+- Los mensajes que no alcanzan el umbral configurado quedan disponibles para revisión.
+- Cambiar el modelo de Gemini no requiere modificar el código si se configura mediante `AI_MODEL`.
 
-- El filtro por remitente no demuestra por sí solo que el mensaje proceda del banco.
-- El texto del correo y la salida del modelo son entradas no confiables y deben validarse antes de escribir en Firestore.
-- La idempotencia reduce duplicados en rutas concretas, pero debe comprobarse también en la aprobación manual y ante ejecuciones concurrentes.
-- Los datos enviados a Gemini salen del límite de Gmail/Firestore; evalúa minimización y retención.
-- Que el repositorio sea privado no corrige una credencial expuesta. Que sea público no implica exponer secretos si estos nunca están en Git ni en superficies públicas asociadas.
-
-Consulta [SECURITY.md](../SECURITY.md) y el [checklist de publicación](../docs/PUBLIC_RELEASE_CHECKLIST.md) antes de desplegar.
+La guía de despliegue del sistema completo está en [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md).
