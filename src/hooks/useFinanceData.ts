@@ -14,12 +14,21 @@ import {
   getDocs,
   setDoc,
   deleteField,
+  writeBatch,
+  type WriteBatch,
+  type DocumentReference,
   type DocumentSnapshot,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type CorreoHistorico } from '../types';
 import { usePrivacy } from '../context/PrivacyContext';
-import { cuentaEnEstadisticas } from '../utils/movements';
+import { crearRetiradaEfectivo, cuentaEnEstadisticas } from '../utils/movements';
+import {
+  getMonthlySubscriptionAmount,
+  getNextSubscriptionChargeDate,
+  isCancellationExpired,
+  toLocalDateKey,
+} from '../utils/subscriptions';
 
 // Standard fallback configurations and options
 export const SUBSCRIPTION_COLORS = [
@@ -45,18 +54,7 @@ export const CATEGORIA_OPTIONS = [
 ];
 
 export const calcMensual = (s: Suscripcion): number => {
-  const opt = FRECUENCIA_OPTIONS.find(o => o.value === s.frecuencia);
-  const importeEfectivo = s.mi_parte != null ? s.mi_parte : s.importe;
-  return importeEfectivo / (opt?.divisor ?? 1);
-};
-
-export const getNextPaymentDate = (diaPago: number): Date => {
-  const today = new Date();
-  const candidate = new Date(today.getFullYear(), today.getMonth(), diaPago);
-  if (candidate <= today) {
-    return new Date(today.getFullYear(), today.getMonth() + 1, diaPago);
-  }
-  return candidate;
+  return getMonthlySubscriptionAmount(s);
 };
 
 export const parseMovimientoDate = (dateValue: any): Date | null => {
@@ -964,6 +962,7 @@ export const useFinanceData = (forceDemo = false) => {
       // Add mockup movements
       const movIdGasto = 'm-' + Math.random().toString(36).substr(2, 9);
       const movIdIngreso = 'm-' + Math.random().toString(36).substr(2, 9);
+      const transferId = `transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const newMovs: Movimiento[] = [
         {
           id: movIdGasto,
@@ -972,7 +971,8 @@ export const useFinanceData = (forceDemo = false) => {
           importe: amount,
           fecha_operacion: new Date(),
           hucha_id: lenderHuchaId,
-          es_interno: true
+          es_interno: true,
+          transfer_id: transferId
         },
         {
           id: movIdIngreso,
@@ -981,7 +981,8 @@ export const useFinanceData = (forceDemo = false) => {
           importe: amount,
           fecha_operacion: new Date(),
           hucha_id: hucha.id,
-          es_interno: true
+          es_interno: true,
+          transfer_id: transferId
         }
       ];
 
@@ -991,6 +992,7 @@ export const useFinanceData = (forceDemo = false) => {
     }
 
     try {
+      const transferId = `transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       await runTransaction(db, async (transaction) => {
         const fromRef = doc(db, 'huchas', lenderHuchaId!);
         const toRef = doc(db, 'huchas', hucha.id);
@@ -1019,6 +1021,7 @@ export const useFinanceData = (forceDemo = false) => {
           importe: amount,
           hucha_id: lenderHuchaId,
           es_interno: true,
+          transfer_id: transferId,
           fecha_operacion: serverTimestamp(),
           created_at: serverTimestamp()
         });
@@ -1031,6 +1034,7 @@ export const useFinanceData = (forceDemo = false) => {
           importe: amount,
           hucha_id: hucha.id,
           es_interno: true,
+          transfer_id: transferId,
           fecha_operacion: serverTimestamp(),
           created_at: serverTimestamp()
         });
@@ -1071,6 +1075,7 @@ export const useFinanceData = (forceDemo = false) => {
 
       const movIdGasto = 'm-' + Math.random().toString(36).substr(2, 9);
       const movIdIngreso = 'm-' + Math.random().toString(36).substr(2, 9);
+      const transferId = `transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const newMovs: Movimiento[] = [
         {
           id: movIdGasto,
@@ -1079,7 +1084,8 @@ export const useFinanceData = (forceDemo = false) => {
           importe: deuda,
           fecha_operacion: new Date(),
           hucha_id: hucha.id,
-          es_interno: true
+          es_interno: true,
+          transfer_id: transferId
         },
         {
           id: movIdIngreso,
@@ -1088,7 +1094,8 @@ export const useFinanceData = (forceDemo = false) => {
           importe: deuda,
           fecha_operacion: new Date(),
           hucha_id: lenderHuchaId,
-          es_interno: true
+          es_interno: true,
+          transfer_id: transferId
         }
       ];
 
@@ -1098,6 +1105,7 @@ export const useFinanceData = (forceDemo = false) => {
     }
 
     try {
+      const transferId = `transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       await runTransaction(db, async (transaction) => {
         const fromRef = doc(db, 'huchas', hucha.id);
         const toRef = doc(db, 'huchas', lenderHuchaId);
@@ -1126,6 +1134,7 @@ export const useFinanceData = (forceDemo = false) => {
           importe: deuda,
           hucha_id: hucha.id,
           es_interno: true,
+          transfer_id: transferId,
           fecha_operacion: serverTimestamp(),
           created_at: serverTimestamp()
         });
@@ -1138,6 +1147,7 @@ export const useFinanceData = (forceDemo = false) => {
           importe: deuda,
           hucha_id: lenderHuchaId,
           es_interno: true,
+          transfer_id: transferId,
           fecha_operacion: serverTimestamp(),
           created_at: serverTimestamp()
         });
@@ -1743,21 +1753,65 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
-  const syncSuscripcionesHucha = async (updatedList: Suscripcion[], localHuchasState?: Hucha[]): Promise<Hucha[] | undefined> => {
+  const getRoundedSubscriptionTotal = (updatedList: Suscripcion[], systemHuchaId?: string): number => {
     const totalMensual = updatedList
-      .filter(s => s.activa)
+      .filter(s => s.activa && (!systemHuchaId || !s.hucha_id || s.hucha_id === systemHuchaId))
       .reduce((sum, s) => sum + calcMensual(s), 0);
-    const rounded = Math.round(totalMensual * 100) / 100;
+    return Math.round(totalMensual * 100) / 100;
+  };
 
+  const queueSuscripcionesHuchaSync = (
+    batch: WriteBatch,
+    updatedList: Suscripcion[],
+    currentHuchas: Hucha[],
+    preferredRef?: DocumentReference,
+  ): DocumentReference | null => {
+    if (!user) return null;
+    const current = currentHuchas.find(h => h.es_suscripciones);
+    const targetRef = current
+      ? doc(db, 'huchas', current.id)
+      : preferredRef ?? (updatedList.some(s => s.activa) ? doc(collection(db, 'huchas')) : null);
+
+    if (!targetRef) return null;
+    const rounded = getRoundedSubscriptionTotal(updatedList, targetRef.id);
+    if (current) {
+      batch.update(targetRef, {
+        objetivo: rounded > 0 ? rounded : null,
+        valor_aportacion: rounded,
+        tipo_aportacion: 'flat',
+        tope_objetivo: false,
+        updated_at: serverTimestamp(),
+      });
+    } else {
+      batch.set(targetRef, {
+        id_propietario: user.uid,
+        nombre: 'Suscripciones',
+        tipo_aportacion: 'flat',
+        valor_aportacion: rounded,
+        objetivo: rounded > 0 ? rounded : null,
+        saldo_acumulado: 0,
+        orden: currentHuchas.length + 1,
+        es_principal: false,
+        es_suscripciones: true,
+        tope_objetivo: false,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      });
+    }
+    return targetRef;
+  };
+
+  const syncSuscripcionesHucha = async (updatedList: Suscripcion[], localHuchasState?: Hucha[]): Promise<Hucha[] | undefined> => {
     const currentHuchas = localHuchasState || huchas;
     const suscripcionesHucha = currentHuchas.find(h => h.es_suscripciones);
+    const rounded = getRoundedSubscriptionTotal(updatedList, suscripcionesHucha?.id || 'h-susc');
 
     if (!isFirebaseConfigured) {
       let nextHuchas = [...currentHuchas];
       if (suscripcionesHucha) {
         nextHuchas = currentHuchas.map(h => {
           if (h.es_suscripciones) {
-            return { ...h, objetivo: rounded > 0 ? rounded : null, valor_aportacion: rounded };
+            return { ...h, objetivo: rounded > 0 ? rounded : null, valor_aportacion: rounded, tope_objetivo: false };
           }
           return h;
         });
@@ -1770,49 +1824,33 @@ export const useFinanceData = (forceDemo = false) => {
           tipo_aportacion: 'flat',
           valor_aportacion: rounded,
           orden: currentHuchas.length + 1,
-          es_suscripciones: true
+          es_suscripciones: true,
+          tope_objetivo: false,
         });
       }
       return nextHuchas;
     }
 
     if (!user) return;
-    if (suscripcionesHucha) {
-      await runTransaction(db, async (transaction) => {
-        transaction.update(doc(db, 'huchas', suscripcionesHucha.id), {
-          objetivo: rounded > 0 ? rounded : null,
-          valor_aportacion: rounded,
-          updated_at: serverTimestamp(),
-        });
-      });
-    } else if (rounded > 0) {
-      const newDocRef = doc(collection(db, 'huchas'));
-      await runTransaction(db, async (transaction) => {
-        transaction.set(newDocRef, {
-          id_propietario: user.uid,
-          nombre: 'Suscripciones',
-          tipo_aportacion: 'flat',
-          valor_aportacion: rounded,
-          objetivo: rounded,
-          saldo_acumulado: 0,
-          orden: currentHuchas.length + 1,
-          es_principal: false,
-          es_suscripciones: true,
-          created_at: serverTimestamp(),
-          updated_at: serverTimestamp(),
-        });
-      });
-    }
+    const batch = writeBatch(db);
+    const queued = queueSuscripcionesHuchaSync(batch, updatedList, currentHuchas);
+    if (queued) await batch.commit();
   };
 
   const handleCreateOrUpdateSuscripcion = async (newSub: Omit<Suscripcion, 'id' | 'created_at'>, editingSubId: string | null) => {
     if (!isFirebaseConfigured) {
       let updatedSubs = [...suscripciones];
+      const fallbackHuchaId = huchas.find(h => h.es_suscripciones)?.id || 'h-susc';
+      const demoSub = {
+        ...newSub,
+        fecha_inicio: newSub.fecha_inicio || toLocalDateKey(new Date()),
+        hucha_id: newSub.hucha_id || fallbackHuchaId,
+      };
       if (editingSubId) {
-        updatedSubs = suscripciones.map(s => s.id === editingSubId ? { ...s, ...newSub } : s);
+        updatedSubs = suscripciones.map(s => s.id === editingSubId ? { ...s, ...demoSub } : s);
       } else {
         const id = 's-' + Math.random().toString(36).substr(2, 9);
-        updatedSubs.push({ id, ...newSub });
+        updatedSubs.push({ id, ...demoSub });
       }
       const nextHuchas = await syncSuscripcionesHucha(updatedSubs);
       saveDemoState(movimientos, nextHuchas || huchas, updatedSubs, userStats || { total_ingresos: 0, total_gastos: 0 });
@@ -1821,36 +1859,38 @@ export const useFinanceData = (forceDemo = false) => {
     }
 
     if (!user) return;
+    const existingSystemHucha = huchas.find(h => h.es_suscripciones);
+    const newSystemHuchaRef = existingSystemHucha ? undefined : doc(collection(db, 'huchas'));
+    const resolvedHuchaId = newSub.hucha_id || existingSystemHucha?.id || newSystemHuchaRef?.id || null;
     const data = {
       id_propietario: user.uid,
       nombre: newSub.nombre.trim(),
       importe: Number(newSub.importe),
       frecuencia: newSub.frecuencia,
+      fecha_inicio: newSub.fecha_inicio || toLocalDateKey(new Date()),
       dia_pago: Number(newSub.dia_pago),
       categoria: newSub.categoria,
       color: newSub.color,
       activa: newSub.activa,
-      hucha_id: newSub.hucha_id || null,
+      hucha_id: resolvedHuchaId,
       mi_parte: newSub.mi_parte ?? null,
       updated_at: serverTimestamp(),
     };
 
     try {
       let updatedList: Suscripcion[];
+      const batch = writeBatch(db);
       if (editingSubId) {
-        await runTransaction(db, async (transaction) => {
-          transaction.update(doc(db, 'suscripciones', editingSubId), data);
-        });
+        batch.update(doc(db, 'suscripciones', editingSubId), data);
         updatedList = suscripciones.map(s => s.id === editingSubId ? { ...s, ...data } : s);
       } else {
         const newDocRef = doc(collection(db, 'suscripciones'));
-        await runTransaction(db, async (transaction) => {
-          transaction.set(newDocRef, { ...data, created_at: serverTimestamp() });
-        });
+        batch.set(newDocRef, { ...data, created_at: serverTimestamp() });
         updatedList = [...suscripciones, { id: newDocRef.id, ...data } as unknown as Suscripcion];
       }
 
-      await syncSuscripcionesHucha(updatedList);
+      queueSuscripcionesHuchaSync(batch, updatedList, huchas, newSystemHuchaRef);
+      await batch.commit();
       showToast(editingSubId ? 'Suscripción actualizada' : 'Suscripción creada', 'success');
     } catch (error) {
       console.error('Error al guardar suscripción:', error);
@@ -1872,9 +1912,11 @@ export const useFinanceData = (forceDemo = false) => {
           return;
         }
         try {
-          await deleteDoc(doc(db, 'suscripciones', s.id));
           const updatedList = suscripciones.filter(sub => sub.id !== s.id);
-          await syncSuscripcionesHucha(updatedList);
+          const batch = writeBatch(db);
+          batch.delete(doc(db, 'suscripciones', s.id));
+          queueSuscripcionesHuchaSync(batch, updatedList, huchas);
+          await batch.commit();
           showToast('Suscripción eliminada', 'success');
         } catch (error) {
           console.error('Error al eliminar suscripción:', error);
@@ -1895,11 +1937,11 @@ export const useFinanceData = (forceDemo = false) => {
 
     if (!user) return;
     try {
-      await runTransaction(db, async (transaction) => {
-        transaction.update(doc(db, 'suscripciones', s.id), { activa: !s.activa, updated_at: serverTimestamp() });
-      });
       const updatedList = suscripciones.map(sub => sub.id === s.id ? { ...sub, activa: !sub.activa } : sub);
-      await syncSuscripcionesHucha(updatedList);
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'suscripciones', s.id), { activa: !s.activa, updated_at: serverTimestamp() });
+      queueSuscripcionesHuchaSync(batch, updatedList, huchas);
+      await batch.commit();
     } catch (error) {
       console.error('Error al cambiar estado suscripción:', error);
       showToast('Error al actualizar la suscripción');
@@ -1907,7 +1949,8 @@ export const useFinanceData = (forceDemo = false) => {
   };
 
   const handleCancelSuscripcion = (s: Suscripcion) => {
-    const nextDate = getNextPaymentDate(s.dia_pago);
+    const nextDate = getNextSubscriptionChargeDate(s, new Date(), false);
+    const cancelAt = toLocalDateKey(nextDate);
     const label = nextDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
     setConfirmModal({
       title: 'Cancelar Suscripción',
@@ -1915,7 +1958,7 @@ export const useFinanceData = (forceDemo = false) => {
       confirmLabel: 'Cancelar',
       onConfirm: async () => {
         if (!isFirebaseConfigured) {
-          const updated = suscripciones.map(sub => sub.id === s.id ? { ...sub, cancelando: true } : sub);
+          const updated = suscripciones.map(sub => sub.id === s.id ? { ...sub, cancelando: true, cancel_at: cancelAt } : sub);
           saveDemoState(movimientos, huchas, updated, userStats || { total_ingresos: 0, total_gastos: 0 });
           showToast(`${s.nombre} se cancelará el ${label}`, 'success');
           setConfirmModal(null);
@@ -1923,7 +1966,11 @@ export const useFinanceData = (forceDemo = false) => {
         }
         try {
           await runTransaction(db, async (transaction) => {
-            transaction.update(doc(db, 'suscripciones', s.id), { cancelando: true, updated_at: serverTimestamp() });
+            transaction.update(doc(db, 'suscripciones', s.id), {
+              cancelando: true,
+              cancel_at: cancelAt,
+              updated_at: serverTimestamp(),
+            });
           });
           showToast(`${s.nombre} se cancelará el ${label}`, 'success');
         } catch (error) {
@@ -1937,7 +1984,7 @@ export const useFinanceData = (forceDemo = false) => {
 
   const handleUndoCancelSuscripcion = async (s: Suscripcion) => {
     if (!isFirebaseConfigured) {
-      const updated = suscripciones.map(sub => sub.id === s.id ? { ...sub, cancelando: false } : sub);
+      const updated = suscripciones.map(sub => sub.id === s.id ? { ...sub, cancelando: false, cancel_at: null } : sub);
       saveDemoState(movimientos, huchas, updated, userStats || { total_ingresos: 0, total_gastos: 0 });
       showToast(`${s.nombre} reactivada`, 'success');
       return;
@@ -1946,7 +1993,11 @@ export const useFinanceData = (forceDemo = false) => {
     if (!user) return;
     try {
       await runTransaction(db, async (transaction) => {
-        transaction.update(doc(db, 'suscripciones', s.id), { cancelando: false, updated_at: serverTimestamp() });
+        transaction.update(doc(db, 'suscripciones', s.id), {
+          cancelando: false,
+          cancel_at: null,
+          updated_at: serverTimestamp(),
+        });
       });
       showToast(`${s.nombre} reactivada`, 'success');
     } catch (error) {
@@ -2189,10 +2240,20 @@ export const useFinanceData = (forceDemo = false) => {
     fecha_operacion: string;
     hucha_id?: string;
     es_metalico?: boolean;
+    es_interno?: boolean;
+    es_retirada_efectivo?: boolean;
+    hucha_origen_id?: string;
   }) => {
     const amt = Number(movData.importe);
     const isIngreso = movData.tipo === 'ingreso';
     const isMetalico = !!movData.es_metalico;
+    const isCashWithdrawal = !!movData.es_retirada_efectivo;
+    const isInternal = !!movData.es_interno || isCashWithdrawal;
+
+    if (isCashWithdrawal && (!isIngreso || !movData.hucha_origen_id)) {
+      showToast('Selecciona la cartera bancaria de origen para la retirada.');
+      return;
+    }
 
     if (!isFirebaseConfigured) {
       // 1. MODO DEMO
@@ -2228,8 +2289,30 @@ export const useFinanceData = (forceDemo = false) => {
         importe: amt,
         fecha_operacion: new Date(movData.fecha_operacion),
         hucha_id: targetHuchaId,
-        es_metalico: isMetalico
+        es_metalico: isMetalico,
+        es_interno: isInternal,
       };
+
+      if (isCashWithdrawal) {
+        const [salida, entrada] = crearRetiradaEfectivo({
+          gasto_id: `${id}-salida`,
+          ingreso_id: `${id}-entrada`,
+          transfer_id: `transfer-${id}`,
+          concepto: movData.concepto.trim(),
+          importe: amt,
+          fecha_operacion: new Date(movData.fecha_operacion),
+          hucha_origen_id: movData.hucha_origen_id!,
+          hucha_efectivo_id: targetHuchaId!,
+        });
+        nextHuchas = nextHuchas.map(h => {
+          if (h.id === movData.hucha_origen_id) return { ...h, saldo_acumulado: Number((h.saldo_acumulado - amt).toFixed(2)) };
+          if (h.id === targetHuchaId) return { ...h, saldo_acumulado: Number((h.saldo_acumulado + amt).toFixed(2)) };
+          return h;
+        });
+        saveDemoState([salida, entrada, ...movimientos], nextHuchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+        showToast('Retirada de efectivo registrada como transferencia interna', 'success');
+        return;
+      }
 
       if (!isIngreso) {
         // Gasto
@@ -2282,8 +2365,10 @@ export const useFinanceData = (forceDemo = false) => {
 
       const nextMovs = [newMov, ...movimientos];
       const nextStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
-      if (isIngreso) nextStats.total_ingresos += amt;
-      else nextStats.total_gastos += amt;
+      if (cuentaEnEstadisticas(newMov)) {
+        if (isIngreso) nextStats.total_ingresos += amt;
+        else nextStats.total_gastos += amt;
+      }
 
       saveDemoState(nextMovs, nextHuchas, suscripciones, nextStats);
       showToast('Movimiento registrado correctamente', 'success');
@@ -2300,6 +2385,7 @@ export const useFinanceData = (forceDemo = false) => {
 
         let targetHuchaId = movData.hucha_id;
         let createdCashHuchaId: string | null = null;
+        let createdCashHuchaData: Record<string, unknown> | null = null;
         let nextHuchasState = [...huchas];
 
         // Provisionar hucha de Efectivo si es metálico y no existe
@@ -2320,8 +2406,8 @@ export const useFinanceData = (forceDemo = false) => {
               created_at: serverTimestamp(),
               updated_at: serverTimestamp()
             };
-            transaction.set(newHuchaRef, cashData);
             createdCashHuchaId = newHuchaRef.id;
+            createdCashHuchaData = cashData;
             targetHuchaId = newHuchaRef.id;
             
             // Añadir al estado local temporal
@@ -2331,32 +2417,72 @@ export const useFinanceData = (forceDemo = false) => {
           }
         }
 
+        if (isCashWithdrawal) {
+          if (targetHuchaId === movData.hucha_origen_id) throw new Error('La cartera de origen y Efectivo deben ser distintas');
+
+          // Todas las lecturas se realizan antes de cualquier escritura: es un
+          // requisito de las transacciones Firestore.
+          const originRef = doc(db, 'huchas', movData.hucha_origen_id!);
+          const cashRef = doc(db, 'huchas', targetHuchaId!);
+          const originSnap = await transaction.get(originRef);
+          const cashSnap = targetHuchaId === createdCashHuchaId ? null : await transaction.get(cashRef);
+          if (!originSnap.exists()) throw new Error('La cartera de origen no existe');
+          if (cashSnap && !cashSnap.exists()) throw new Error('La cartera de Efectivo no existe');
+          const originBalance = originSnap.data().saldo_acumulado || 0;
+          if (originBalance < amt) throw new Error('Saldo insuficiente en la cartera de origen');
+
+          transaction.update(originRef, { saldo_acumulado: originBalance - amt, updated_at: serverTimestamp() });
+          if (targetHuchaId === createdCashHuchaId) {
+            transaction.set(cashRef, { ...createdCashHuchaData!, saldo_acumulado: amt, updated_at: serverTimestamp() });
+          } else {
+            transaction.update(cashRef, { saldo_acumulado: (cashSnap!.data().saldo_acumulado || 0) + amt, updated_at: serverTimestamp() });
+          }
+
+          const movementBase = {
+            id_propietario: user.uid,
+            created_at: serverTimestamp(),
+          };
+          const [salida, entrada] = crearRetiradaEfectivo({
+            gasto_id: doc(collection(db, 'movimientos')).id,
+            ingreso_id: doc(collection(db, 'movimientos')).id,
+            transfer_id: `transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            concepto: movData.concepto.trim(),
+            importe: amt,
+            fecha_operacion: new Date(movData.fecha_operacion),
+            hucha_origen_id: movData.hucha_origen_id!,
+            hucha_efectivo_id: targetHuchaId!,
+          });
+          transaction.set(doc(db, 'movimientos', salida.id), { ...movementBase, ...salida });
+          transaction.set(doc(db, 'movimientos', entrada.id), { ...movementBase, ...entrada });
+          return;
+        }
+
         if (!isIngreso) {
           // Gasto
           const hid = targetHuchaId || nextHuchasState.find(h => h.es_principal)?.id || nextHuchasState[0]?.id;
           if (hid) {
             const huchaRef = doc(db, 'huchas', hid);
-            let bal = 0;
-            if (hid !== createdCashHuchaId) {
+            if (hid === createdCashHuchaId) {
+              transaction.set(huchaRef, { ...createdCashHuchaData!, saldo_acumulado: -amt, updated_at: serverTimestamp() });
+            } else {
               const huchaSnap = await transaction.get(huchaRef);
-              if (huchaSnap.exists()) {
-                bal = huchaSnap.data().saldo_acumulado || 0;
-              }
+              if (!huchaSnap.exists()) throw new Error('La cartera seleccionada no existe');
+              const bal = huchaSnap.data().saldo_acumulado || 0;
+              transaction.update(huchaRef, { saldo_acumulado: bal - amt, updated_at: serverTimestamp() });
             }
-            transaction.update(huchaRef, { saldo_acumulado: bal - amt, updated_at: serverTimestamp() });
           }
         } else {
           // Ingreso
           if (targetHuchaId) {
             const huchaRef = doc(db, 'huchas', targetHuchaId);
-            let bal = 0;
-            if (targetHuchaId !== createdCashHuchaId) {
+            if (targetHuchaId === createdCashHuchaId) {
+              transaction.set(huchaRef, { ...createdCashHuchaData!, saldo_acumulado: amt, updated_at: serverTimestamp() });
+            } else {
               const huchaSnap = await transaction.get(huchaRef);
-              if (huchaSnap.exists()) {
-                bal = huchaSnap.data().saldo_acumulado || 0;
-              }
+              if (!huchaSnap.exists()) throw new Error('La cartera seleccionada no existe');
+              const bal = huchaSnap.data().saldo_acumulado || 0;
+              transaction.update(huchaRef, { saldo_acumulado: bal + amt, updated_at: serverTimestamp() });
             }
-            transaction.update(huchaRef, { saldo_acumulado: bal + amt, updated_at: serverTimestamp() });
           } else {
             // Auto-reparto bancario estándar
             let remaining = amt;
@@ -2423,15 +2549,18 @@ export const useFinanceData = (forceDemo = false) => {
           fecha_operacion: new Date(movData.fecha_operacion),
           hucha_id: targetHuchaId || null,
           es_metalico: isMetalico,
+          es_interno: isInternal,
           created_at: serverTimestamp()
         });
 
         // Actualizar estadísticas
         const nextStats = { ...currentStats };
-        if (isIngreso) {
-          nextStats.total_ingresos = (nextStats.total_ingresos || 0) + amt;
-        } else {
-          nextStats.total_gastos = (nextStats.total_gastos || 0) + amt;
+        if (cuentaEnEstadisticas({ es_interno: isInternal })) {
+          if (isIngreso) {
+            nextStats.total_ingresos = (nextStats.total_ingresos || 0) + amt;
+          } else {
+            nextStats.total_gastos = (nextStats.total_gastos || 0) + amt;
+          }
         }
         transaction.set(statsRef, nextStats, { merge: true });
       });
@@ -2444,6 +2573,58 @@ export const useFinanceData = (forceDemo = false) => {
   };
 
   const handleDeleteMovimiento = async (mov: Movimiento) => {
+    // Las patas de una transferencia interna forman una única operación:
+    // eliminarlas por separado desajusta los saldos de las carteras.
+    if (mov.transfer_id) {
+      const vinculados = movimientos.filter(m => m.transfer_id === mov.transfer_id && m.id !== mov.id);
+      if (vinculados.length === 0) {
+        showToast('No se puede eliminar una transferencia sin su movimiento vinculado.');
+        return;
+      }
+
+      const transferencia = [mov, ...vinculados];
+      if (transferencia.some(m => !m.hucha_id)) {
+        showToast('La transferencia no tiene carteras válidas para poder revertirse.');
+        return;
+      }
+      const deltasPorHucha = transferencia.reduce<Record<string, number>>((deltas, m) => {
+        const delta = m.tipo === 'gasto' ? m.importe : -m.importe;
+        deltas[m.hucha_id!] = (deltas[m.hucha_id!] || 0) + delta;
+        return deltas;
+      }, {});
+
+      if (!isFirebaseConfigured) {
+        const nextHuchas = huchas.map(h => ({
+          ...h,
+          saldo_acumulado: Number((h.saldo_acumulado + (deltasPorHucha[h.id] || 0)).toFixed(2)),
+        }));
+        const ids = new Set(transferencia.map(m => m.id));
+        saveDemoState(movimientos.filter(m => !ids.has(m.id)), nextHuchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+        showToast('Transferencia interna eliminada', 'success');
+        return;
+      }
+
+      if (!user) return;
+      try {
+        await runTransaction(db, async (transaction) => {
+          const huchaRefs = Object.keys(deltasPorHucha).map(id => doc(db, 'huchas', id));
+          const huchaSnaps = await Promise.all(huchaRefs.map(ref => transaction.get(ref)));
+          if (huchaSnaps.some(snap => !snap.exists())) throw new Error('Una cartera de la transferencia ya no existe');
+
+          huchaSnaps.forEach(snap => {
+            const balance = snap.data()!.saldo_acumulado || 0;
+            transaction.update(snap.ref, { saldo_acumulado: balance + (deltasPorHucha[snap.id] || 0), updated_at: serverTimestamp() });
+          });
+          transferencia.forEach(m => transaction.delete(doc(db, 'movimientos', m.id)));
+        });
+        showToast('Transferencia interna eliminada', 'success');
+      } catch (error) {
+        console.error('Error deleting internal transfer:', error);
+        showToast('Error al eliminar la transferencia interna.');
+      }
+      return;
+    }
+
     // Auto-unlink if it has any connections
     if ((mov.tipo === 'gasto' && ((mov.compensado_por?.length ?? 0) > 0 || (mov.compensado_por_detalles?.length ?? 0) > 0)) ||
         (mov.tipo === 'ingreso' && (mov.compensa_movimiento_id || (mov.compensaciones_destinos?.length ?? 0) > 0))) {
@@ -2601,10 +2782,12 @@ export const useFinanceData = (forceDemo = false) => {
 
         // Actualizar estadísticas
         const nextStats = { ...currentStats };
-        if (isIngreso) {
-          nextStats.total_ingresos = Math.max(0, (nextStats.total_ingresos || 0) - amt);
-        } else {
-          nextStats.total_gastos = Math.max(0, (nextStats.total_gastos || 0) - amt);
+        if (cuentaEnEstadisticas(mov)) {
+          if (isIngreso) {
+            nextStats.total_ingresos = Math.max(0, (nextStats.total_ingresos || 0) - amt);
+          } else {
+            nextStats.total_gastos = Math.max(0, (nextStats.total_gastos || 0) - amt);
+          }
         }
         transaction.set(statsRef, nextStats, { merge: true });
       });
@@ -2619,14 +2802,7 @@ export const useFinanceData = (forceDemo = false) => {
   // Auto-delete cancel-pending expired subscriptions
   useEffect(() => {
     if (suscripciones.length === 0) return;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const expired = suscripciones.filter(s => {
-      if (!s.cancelando) return false;
-      const next = getNextPaymentDate(s.dia_pago);
-      return today >= next;
-    });
+    const expired = suscripciones.filter(s => isCancellationExpired(s));
     if (expired.length === 0) return;
 
     const processAutoDeletion = async () => {
@@ -2637,15 +2813,15 @@ export const useFinanceData = (forceDemo = false) => {
         return;
       }
       if (!user) return;
-      for (const s of expired) {
         try {
-          await deleteDoc(doc(db, 'suscripciones', s.id));
+        const remaining = suscripciones.filter(s => !expired.some(e => e.id === s.id));
+        const batch = writeBatch(db);
+        expired.forEach(s => batch.delete(doc(db, 'suscripciones', s.id)));
+        queueSuscripcionesHuchaSync(batch, remaining, huchas);
+        await batch.commit();
         } catch (e) {
-          console.error('Error deleting expired subscription:', e);
+        console.error('Error deleting expired subscriptions:', e);
         }
-      }
-      const remaining = suscripciones.filter(s => !expired.find(e => e.id === s.id));
-      await syncSuscripcionesHucha(remaining);
     };
     processAutoDeletion();
   }, [suscripciones, user, isFirebaseConfigured]);

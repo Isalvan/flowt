@@ -20,7 +20,8 @@ import {
   Info,
   ChevronDown
 } from 'lucide-react';
-import { getNextPaymentDate, parseMovimientoDate } from '../../hooks/useFinanceData';
+import { parseMovimientoDate } from '../../hooks/useFinanceData';
+import { getNextSubscriptionChargeDate } from '../../utils/subscriptions';
 import { cuentaEnEstadisticas } from '../../utils/movements';
 
 type TimePeriod = 'este_mes' | 'mes_pasado' | 'este_anio' | 'historico';
@@ -125,7 +126,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return suscripciones
       .filter(s => s.activa)
       .map(s => {
-        const nextDate = getNextPaymentDate(s.dia_pago);
+        const nextDate = getNextSubscriptionChargeDate(s);
         const diffTime = nextDate.getTime() - today.getTime();
         const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return { sub: s, date: nextDate, daysLeft };
@@ -452,7 +453,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="mt-6 pt-4 border-t border-white/5 flex gap-2.5 p-3 bg-indigo-500/5 rounded-2xl border border-indigo-500/10 text-[10px] leading-relaxed text-indigo-700 dark:text-indigo-300">
                 <Info size={14} className="shrink-0 mt-0.5" />
                 <span>
-                  Los fondos se restan de tu hucha de <strong>Suscripciones</strong> o <strong>Principal</strong> en sus días de vencimiento.
+                  Los cargos bancarios reconocidos se imputan a su cartera configurada; la previsión usa sus fechas reales de vencimiento.
                 </span>
               </div>
             )}

@@ -3,6 +3,7 @@ import { Download, FileJson, FileText, Save, ListFilter, Trash2, CheckCircle2, S
 import { type Movimiento, type Hucha, type Suscripcion } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
+import { cuentaEnEstadisticas } from '../../utils/movements';
 
 interface ExportViewProps {
   movimientos: Movimiento[];
@@ -118,10 +119,53 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
     });
   }, [movimientos, filters]);
 
-  // Calculations
-  const totalAmount = filteredMovimientos.reduce((sum, mov) => {
+  const movimientosExternos = useMemo(() => filteredMovimientos.filter(cuentaEnEstadisticas), [filteredMovimientos]);
+  const transferenciasInternas = useMemo(() => filteredMovimientos.filter(m => !cuentaEnEstadisticas(m)), [filteredMovimientos]);
+  const calculateBalance = (items: Movimiento[]) => items.reduce((sum, mov) => {
     return mov.tipo === 'ingreso' ? sum + mov.importe : sum - mov.importe;
   }, 0);
+  const totalAmount = calculateBalance(movimientosExternos);
+  const totalInterno = calculateBalance(transferenciasInternas);
+  const totalCarteras = huchas.reduce((sum, hucha) => sum + hucha.saldo_acumulado, 0);
+  const balanceHistorico = (userStats?.total_ingresos || 0) - (userStats?.total_gastos || 0);
+  const diferenciaConciliacion = totalCarteras - balanceHistorico;
+
+  const detalleOrigenDestino = (movimiento: Movimiento) => {
+    const cartera = huchas.find(h => h.id === movimiento.hucha_id)?.nombre;
+    if (cartera) return movimiento.tipo === 'gasto' ? `Extraído de ${cartera}` : `Ingresado en ${cartera}`;
+    return movimiento.tipo === 'ingreso' ? 'Repartido automáticamente en carteras' : 'Cartera no disponible';
+  };
+
+  const notaCompensacion = (movimiento: Movimiento) => {
+    if (movimiento.tipo === 'ingreso') {
+      const destinos = movimiento.compensaciones_destinos || [];
+      if (destinos.length) return `Compensa: ${destinos.map(d => `${movimientos.find(m => m.id === d.gasto_id)?.concepto || d.gasto_id} (${d.importe.toFixed(2)}€)`).join(', ')}`;
+      return movimiento.compensa_movimiento_id ? 'Reembolso/compensación de un gasto previo' : null;
+    }
+    const detalles = movimiento.compensado_por_detalles || [];
+    if (detalles.length) return `Compensado (${detalles.map(d => `${movimientos.find(m => m.id === d.ingreso_id)?.concepto || d.ingreso_id}: ${d.importe.toFixed(2)}€`).join(', ')}). Neto: ${(movimiento.importe_neto ?? movimiento.importe).toFixed(2)}€`;
+    if (movimiento.compensado_por?.length) return `Compensado. Neto: ${(movimiento.importe_neto ?? movimiento.importe).toFixed(2)}€`;
+    return null;
+  };
+
+  const exportMovimiento = (m: Movimiento) => {
+    const d = parseMovimientoDate(m.fecha_operacion);
+    return {
+      fecha: d ? d.toISOString().split('T')[0] : 'Desconocida',
+      concepto: m.concepto,
+      importe: m.importe,
+      tipo: m.tipo,
+      es_interno: !!m.es_interno,
+      transfer_id: m.transfer_id || null,
+      detalle_origen_destino: detalleOrigenDestino(m),
+      compensacion: {
+        destinos: m.compensaciones_destinos || [],
+        compensado_por: m.compensado_por_detalles || [],
+        importe_neto: m.importe_neto ?? null,
+        nota: notaCompensacion(m),
+      },
+    };
+  };
 
   // Formatting Logic
   const handleCopyJSON = async () => {
@@ -149,28 +193,17 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
         frecuencia: s.frecuencia,
         categoria: s.categoria
       })),
-      movimientos_filtrados: filteredMovimientos.map(m => {
-        const d = parseMovimientoDate(m.fecha_operacion);
-        
-        let destino_origen = '';
-        if (m.tipo === 'gasto') {
-          destino_origen = `Extraído de cartera: ${huchas.find(h => h.id === m.hucha_id)?.nombre || 'Desconocida'}`;
-        } else {
-          destino_origen = 'Repartido automáticamente según reglas de aportación de las carteras';
-        }
-
-        return {
-          fecha: d ? d.toISOString().split('T')[0] : 'Desconocida',
-          concepto: m.concepto,
-          importe: m.importe,
-          tipo: m.tipo,
-          detalle_origen_destino: destino_origen,
-          notas_compensacion: m.compensa_movimiento_id ? 'Es un reembolso/compensación de un gasto previo' : (m.compensado_por?.length ? `Gasto parcialmente compensado. Coste neto real: ${m.importe_neto}€` : null)
-        };
-      }),
+      movimientos_externos_filtrados: movimientosExternos.map(exportMovimiento),
+      transferencias_internas_filtradas: transferenciasInternas.map(exportMovimiento),
       resumen_filtro_actual: {
         total_movimientos: filteredMovimientos.length,
-        balance_periodo_filtrado: totalAmount
+        movimientos_externos: movimientosExternos.length,
+        balance_externo: totalAmount,
+        movimientos_internos: transferenciasInternas.length,
+        balance_transferencias_internas: totalInterno,
+        balance_externo_historico: balanceHistorico,
+        suma_carteras: totalCarteras,
+        diferencia_conciliacion_historica: diferenciaConciliacion,
       }
     };
 
@@ -215,13 +248,20 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
       mdString += `\n`;
     }
 
-    // 4. Movimientos Filtrados
+    // 4. Conciliación y movimientos externos
+    mdString += `## Conciliación del periodo\n`;
+    mdString += `- **Balance externo del periodo filtrado:** ${totalAmount >= 0 ? '+' : ''}${totalAmount.toFixed(2)}€\n`;
+    mdString += `- **Balance de transferencias internas:** ${totalInterno >= 0 ? '+' : ''}${totalInterno.toFixed(2)}€\n`;
+    mdString += `- **Balance externo histórico:** ${balanceHistorico >= 0 ? '+' : ''}${balanceHistorico.toFixed(2)}€\n`;
+    mdString += `- **Suma de carteras:** ${totalCarteras.toFixed(2)}€\n`;
+    mdString += `- **Diferencia de conciliación histórica:** ${diferenciaConciliacion.toFixed(2)}€\n\n`;
+
     mdString += `## 📋 Movimientos (Periodo Filtrado)\n`;
-    mdString += `**Total Seleccionado: ${filteredMovimientos.length} movimientos | Balance del periodo: ${totalAmount >= 0 ? '+' : ''}${totalAmount.toFixed(2)}€**\n\n`;
+    mdString += `**Movimientos externos: ${movimientosExternos.length} | Balance externo del periodo: ${totalAmount >= 0 ? '+' : ''}${totalAmount.toFixed(2)}€**\n\n`;
     
     mdString += `| Fecha | Concepto | Tipo | Origen/Destino | Importe | Notas |\n`;
     mdString += `|---|---|---|---|---|---|\n`;
-    filteredMovimientos.forEach(m => {
+    movimientosExternos.forEach(m => {
       const d = parseMovimientoDate(m.fecha_operacion);
       const fechaStr = d ? d.toLocaleDateString('es-ES') : 'Desconocida';
       const importeStr = `${m.tipo === 'gasto' ? '-' : '+'}${m.importe.toFixed(2)}€`;
@@ -233,12 +273,25 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
         destino_origen = 'Repartido en Carteras';
       }
 
-      let notas = '';
+      destino_origen = detalleOrigenDestino(m);
+      let notas = notaCompensacion(m) || '';
       if (m.compensa_movimiento_id) notas = 'Reembolso';
       if (m.compensado_por?.length) notas = `Compensado (Coste neto: ${m.importe_neto}€)`;
 
       mdString += `| ${fechaStr} | ${m.concepto} | ${m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'} | ${destino_origen} | ${importeStr} | ${notas} |\n`;
     });
+
+    if (transferenciasInternas.length > 0) {
+      mdString += `\n## Transferencias internas\n`;
+      mdString += `| Fecha | Concepto | Tipo | Origen/Destino | Importe | ID transferencia |\n`;
+      mdString += `|---|---|---|---|---|---|\n`;
+      transferenciasInternas.forEach(m => {
+        const d = parseMovimientoDate(m.fecha_operacion);
+        const fechaStr = d ? d.toLocaleDateString('es-ES') : 'Desconocida';
+        const importeStr = `${m.tipo === 'gasto' ? '-' : '+'}${m.importe.toFixed(2)}€`;
+        mdString += `| ${fechaStr} | ${m.concepto} | ${m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'} | ${detalleOrigenDestino(m)} | ${importeStr} | ${m.transfer_id || 'Sin vincular'} |\n`;
+      });
+    }
 
     try {
       await navigator.clipboard.writeText(mdString);
@@ -436,10 +489,10 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
             <div className="flex flex-col gap-4 mb-8">
               <div className="bg-white/50 dark:bg-slate-950/50 rounded-2xl p-4 flex flex-col items-center justify-center border border-white/20 dark:border-white/5">
                 <span className="text-4xl font-black text-slate-800 dark:text-white">
-                  {filteredMovimientos.length}
+                  {movimientosExternos.length}
                 </span>
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Movimientos
+                  Movimientos externos
                 </span>
               </div>
               <div className="bg-white/50 dark:bg-slate-950/50 rounded-2xl p-4 flex flex-col items-center justify-center border border-white/20 dark:border-white/5">
@@ -447,7 +500,7 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
                   {isLocked ? '***,**' : `${totalAmount >= 0 ? '+' : ''}${totalAmount.toFixed(2)}`}€
                 </span>
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Balance Total
+                  Balance externo
                 </span>
               </div>
             </div>

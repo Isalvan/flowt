@@ -3,6 +3,7 @@ import { CreditCard, Calendar, Sliders, Sparkles } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { type Suscripcion, type Hucha } from '../../types';
 import { SUBSCRIPTION_COLORS, CATEGORIA_OPTIONS, FRECUENCIA_OPTIONS } from '../../hooks/useFinanceData';
+import { getSubscriptionAnchorDate, parseSubscriptionDate, toLocalDateKey } from '../../utils/subscriptions';
 
 interface SuscripcionModalProps {
   isOpen: boolean;
@@ -22,7 +23,7 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
   const [nombre, setNombre] = useState('');
   const [importe, setImporte] = useState('');
   const [frecuencia, setFrecuencia] = useState<'mensual' | 'trimestral' | 'semestral' | 'anual'>('mensual');
-  const [diaPago, setDiaPago] = useState('1');
+  const [fechaInicio, setFechaInicio] = useState(toLocalDateKey(new Date()));
   const [categoria, setCategoria] = useState('otros');
   const [color, setColor] = useState(SUBSCRIPTION_COLORS[0]);
   const [activa, setActiva] = useState(true);
@@ -37,7 +38,7 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
       setNombre(editingSuscripcion.nombre);
       setImporte(editingSuscripcion.importe.toString());
       setFrecuencia(editingSuscripcion.frecuencia);
-      setDiaPago(editingSuscripcion.dia_pago.toString());
+      setFechaInicio(toLocalDateKey(getSubscriptionAnchorDate(editingSuscripcion)));
       setCategoria(editingSuscripcion.categoria);
       setColor(editingSuscripcion.color);
       setActiva(editingSuscripcion.activa);
@@ -48,7 +49,7 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
       setNombre('');
       setImporte('');
       setFrecuencia('mensual');
-      setDiaPago('1');
+      setFechaInicio(toLocalDateKey(new Date()));
       setCategoria('otros');
       setColor(SUBSCRIPTION_COLORS[0]);
       setActiva(true);
@@ -66,11 +67,13 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
 
     setIsLoading(true);
     try {
+      const chargeDate = parseSubscriptionDate(fechaInicio) ?? new Date();
       const data = {
         nombre: nombre.trim(),
         importe: Number(importe),
         frecuencia,
-        dia_pago: Number(diaPago),
+        fecha_inicio: toLocalDateKey(chargeDate),
+        dia_pago: chargeDate.getDate(),
         categoria,
         color,
         activa,
@@ -164,17 +167,15 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
           </div>
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-              Día de Cobro (1-31)
+              Primer / próximo cobro
             </label>
             <div className="relative">
               <Calendar className="absolute left-3.5 top-3.5 text-slate-400" size={14} />
               <input
-                type="number"
+                type="date"
                 required
-                min="1"
-                max="31"
-                value={diaPago}
-                onChange={(e) => setDiaPago(e.target.value)}
+                value={fechaInicio}
+                onChange={(e) => setFechaInicio(e.target.value)}
                 className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all"
               />
             </div>

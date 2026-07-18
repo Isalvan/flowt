@@ -13,6 +13,8 @@ interface ManualMovimientoModalProps {
     fecha_operacion: string;
     hucha_id?: string;
     es_metalico?: boolean;
+    es_retirada_efectivo?: boolean;
+    hucha_origen_id?: string;
   }) => Promise<void>;
   huchas: Hucha[];
 }
@@ -29,6 +31,8 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
   const [fechaOperacion, setFechaOperacion] = useState('');
   const [metodo, setMetodo] = useState<'banco' | 'efectivo'>('efectivo');
   const [huchaId, setHuchaId] = useState('');
+  const [esRetiradaEfectivo, setEsRetiradaEfectivo] = useState(false);
+  const [huchaOrigenId, setHuchaOrigenId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   // Initialize form when opening
@@ -40,6 +44,8 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
       setFechaOperacion(new Date().toISOString().slice(0, 10));
       setMetodo('efectivo');
       setHuchaId('');
+      setEsRetiradaEfectivo(false);
+      setHuchaOrigenId('');
       setIsLoading(false);
     }
   }, [isOpen]);
@@ -47,6 +53,11 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
   // Handle smart defaults when tipo or metodo changes
   useEffect(() => {
     if (!isOpen) return;
+
+    if (metodo !== 'efectivo' || tipo !== 'ingreso') {
+      setEsRetiradaEfectivo(false);
+      setHuchaOrigenId('');
+    }
 
     if (metodo === 'efectivo') {
       // Find existing cash pocket if any, otherwise it will auto-create
@@ -76,7 +87,7 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
     setIsLoading(true);
     try {
       const isMetalico = metodo === 'efectivo';
-      const actualHuchaId = isMetalico || huchaId === '' ? undefined : huchaId;
+    const actualHuchaId = isMetalico || huchaId === '' ? undefined : huchaId;
 
       await onSave({
         tipo,
@@ -85,6 +96,8 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
         fecha_operacion: fechaOperacion,
         hucha_id: actualHuchaId,
         es_metalico: isMetalico,
+        es_retirada_efectivo: esRetiradaEfectivo,
+        hucha_origen_id: esRetiradaEfectivo ? huchaOrigenId : undefined,
       });
       onClose();
     } catch (err) {
@@ -103,6 +116,7 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
           <Plus className="text-sky-500" size={24} />
           <span>Registrar Movimiento Manual</span>
         </div>
+
       }
       size="md"
     >
@@ -236,6 +250,37 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
           </div>
         </div>
 
+        {metodo === 'efectivo' && tipo === 'ingreso' && (
+          <div className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-4 dark:border-amber-500/20 dark:bg-amber-500/5">
+            <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-700 dark:text-slate-200">
+              <input
+                type="checkbox"
+                checked={esRetiradaEfectivo}
+                onChange={(e) => setEsRetiradaEfectivo(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+              />
+              <span>
+                <span className="block font-bold">Es una retirada de efectivo desde una cartera</span>
+                <span className="block text-xs text-slate-500 dark:text-slate-400">Se registrarán dos patas internas y no afectará a ingresos ni gastos.</span>
+              </span>
+            </label>
+
+            {esRetiradaEfectivo && (
+              <select
+                required
+                value={huchaOrigenId}
+                onChange={(e) => setHuchaOrigenId(e.target.value)}
+                className="mt-3 w-full rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 focus:outline-none dark:border-amber-500/20 dark:bg-slate-900 dark:text-white"
+              >
+                <option value="" disabled>Selecciona la cartera de origen...</option>
+                {huchas.filter(h => !h.es_metalico && !h.es_suscripciones && h.activa !== false).map(h => (
+                  <option key={h.id} value={h.id}>{h.nombre}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
+
         {/* 5. Dynamic Wallet Allocator */}
         <div className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/20 animate-in fade-in duration-300">
           {metodo === 'efectivo' ? (
@@ -246,7 +291,9 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
                 <p className="font-semibold text-slate-500 dark:text-slate-400">
                   {tipo === 'gasto'
                     ? 'Este gasto se restará directamente del saldo acumulado de tu cartera de Efectivo.'
-                    : 'Este ingreso se sumará al saldo acumulado de tu cartera de Efectivo.'}
+                    : esRetiradaEfectivo
+                      ? 'El importe se moverá desde la cartera seleccionada a Efectivo como transferencia interna.'
+                      : 'Este ingreso se sumará al saldo acumulado de tu cartera de Efectivo.'}
                 </p>
               </div>
             </div>
@@ -319,7 +366,7 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
           </button>
           <button
             type="submit"
-            disabled={isLoading || !concepto.trim() || !importe || parseFloat(importe) <= 0}
+            disabled={isLoading || !concepto.trim() || !importe || parseFloat(importe) <= 0 || (esRetiradaEfectivo && !huchaOrigenId)}
             className={`flex-1 py-3 rounded-xl text-white text-xs font-bold tracking-wide uppercase shadow-md flex items-center justify-center gap-2 disabled:opacity-50 ${
               tipo === 'gasto'
                 ? 'bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 shadow-rose-500/10 hover:shadow-rose-500/20'
