@@ -1,89 +1,113 @@
-# 🐖 Flowt - Financial Tracker
+# Flowt
 
-> Control financiero automatizado e inteligente con reparto automático en carteras y visualización premium.
+Gestor personal de finanzas que convierte notificaciones bancarias recibidas por Gmail en movimientos estructurados, los almacena en Firestore y los presenta en una aplicación web.
 
-**Flowt** es un gestor de finanzas personales automatizado. El sistema extrae en tiempo real los movimientos (ingresos y gastos) desde las notificaciones de correo electrónico de tu banco, procesa los textos mediante Inteligencia Artificial (**Google Gemini AI**) y los registra de forma segura en **Google Firebase Firestore**, distribuyendo automáticamente tus ahorros en diferentes "huchas" o carteras digitales según tus propias reglas.
+> [!WARNING]
+> Flowt está en desarrollo. La auditoría de seguridad mantiene hallazgos abiertos que deben resolverse antes de usarlo con terceros o tratarlo como un servicio público. Consulta los [issues abiertos](https://github.com/Isalvan/flowt/issues).
 
----
+## Qué incluye
 
-## 🎨 Características Clave
+- Frontend React, TypeScript y Vite con autenticación de Firebase.
+- Sincronizador Python con acceso de solo lectura a Gmail.
+- Extracción asistida por Gemini y revisión manual de movimientos ambiguos.
+- Reglas de reparto de ingresos entre carteras y objetivos.
+- Dashboard, calendario, suscripciones y exportación.
+- Modo de demostración local cuando Firebase no está configurado.
 
-* **🤖 Extracción Inteligente con IA**: Lector automático de Gmail que utiliza el modelo `gemini-3-flash-preview` para interpretar notificaciones bancarias en lenguaje natural (cargos, abonos, transferencias, Bizums) y convertirlas en JSON estructurado.
-* **📈 Lógica de Huchas Dinámica**: Reparto automático de ingresos basado en reglas personalizables:
-  * **Flat**: Asignación de cantidades fijas de dinero a huchas de suscripciones o gastos recurrentes.
-  * **Porcentaje**: Asignación porcentual del ingreso total (ej. 15% a Viajes, 20% a Inversiones).
-  * **Resto**: El remanente disponible va automáticamente a tu cartera principal o de fondo de emergencia.
-  * **Topes por Objetivo**: Si una hucha alcanza su meta de ahorro y tiene el tope activo, el excedente se redirige automáticamente para evitar sobre-financiación.
-* **💼 Revisión Manual Inteligente**: Si un correo es ambiguo o la IA duda del importe o tipo de transacción, el movimiento se envía a una bandeja de revisión en el frontend para que lo apruebes a mano con un solo clic.
-* **🔒 Privacidad y "Security First"**:
-  * **Modo Privado (Ocultar saldos)**: Un botón de privacidad con bloqueo de PIN numérico que oculta visualmente todos tus saldos con efecto difuminado.
-  * **Idempotencia Absoluta**: Evita duplicidad de movimientos mediante hashes únicos SHA-256 basados en el ID interno del correo de Gmail.
-* **✨ Interfaz Premium Glassmorphic**: Frontend moderno construido con React, Tailwind CSS y gráficos avanzados (tendencias lineales con Recharts y categorías circulares con Highcharts).
-* **📱 Modo Demo Symmetrical**: Si no tienes Firebase configurado, la aplicación te permite explorar la interfaz completa y todas sus acciones simulando la base de datos localmente en el `localStorage` del navegador.
+El PIN de la interfaz únicamente oculta información en pantalla. No sustituye la autenticación, el control de acceso de Firebase ni la seguridad del dispositivo.
 
----
+## Arquitectura
 
-## 🏗️ Arquitectura del Sistema
-
-El proyecto se compone de dos piezas independientes y perfectamente integradas:
-
-```
-├── tracker-backend/        # Motor en Python (Automatización)
-│   ├── main.py             # Script principal de lectura y procesamiento
-│   ├── README.md           # Guía de configuración paso a paso (Gmail + Firebase + Gemini)
-│   ├── start.bat           # Ejecutor automatizado local (Windows)
-│   └── requirements.txt    # Librerías de Python (Google API, Firebase Admin, Gemini SDK)
-│
-├── src/                    # Frontend en React + TypeScript + Vite
-│   ├── components/         # Componentes visuales (Dashboard, Suscripciones, Calendario, Manual)
-│   ├── hooks/              # Lógica de datos en tiempo real (useFinanceData)
-│   ├── firebase.ts         # Inicialización cliente de Firebase
-│   └── index.css           # Estilos globales y variables de diseño
+```text
+.
+├── src/                         # Aplicación web
+├── tracker-backend/             # Sincronizador Gmail → Gemini → Firestore
+├── .github/workflows/           # Automatización programada
+├── firestore.rules              # Reglas de acceso a Firestore
+├── firestore.indexes.json
+└── firebase.json                # Hosting y configuración de Firebase
 ```
 
----
+Flujo principal:
 
-## 🚀 Guía de Inicio Rápido
+```text
+Gmail → sincronizador Python → Gemini → Firestore → aplicación web
+```
 
-### 1. Desplegar el Frontend (Web PWA)
-El frontend está preparado para ser multiusuario y aislar los datos de cada persona utilizando su cuenta de Google.
+Los mensajes procesados pueden contener información financiera y se envían al proveedor de IA configurado. Revisa sus condiciones, la región de procesamiento y la política de retención antes de usar datos reales.
 
-1. Ve a la raíz del proyecto e instala las dependencias de Node.js:
+## Requisitos
+
+- Node.js compatible con las dependencias declaradas en `package.json`.
+- npm.
+- Para el sincronizador: Python 3.10 o posterior.
+- Un proyecto de Firebase.
+- Una aplicación OAuth de Google con Gmail API.
+- Una clave de API de Gemini.
+
+## Frontend
+
+1. Instala las dependencias:
+
    ```bash
    npm install
    ```
-2. Crea un archivo `.env` en la raíz del proyecto con las credenciales de cliente de tu proyecto de Firebase:
-   ```env
-   VITE_FIREBASE_API_KEY=tu_api_key
-   VITE_FIREBASE_AUTH_DOMAIN=tu_auth_domain
-   VITE_FIREBASE_PROJECT_ID=tu_project_id
-   VITE_FIREBASE_STORAGE_BUCKET=tu_storage_bucket
-   VITE_FIREBASE_MESSAGING_SENDER_ID=tu_sender_id
-   VITE_FIREBASE_APP_ID=tu_app_id
+
+2. Crea un archivo `.env` en la raíz:
+
+   ```dotenv
+   VITE_FIREBASE_API_KEY=...
+   VITE_FIREBASE_AUTH_DOMAIN=...
+   VITE_FIREBASE_PROJECT_ID=...
+   VITE_FIREBASE_STORAGE_BUCKET=...
+   VITE_FIREBASE_MESSAGING_SENDER_ID=...
+   VITE_FIREBASE_APP_ID=...
    ```
-3. Ejecuta la aplicación en modo desarrollo:
+
+3. Inicia el entorno local:
+
    ```bash
    npm run dev
    ```
-4. O compila y despliega en Firebase Hosting de forma gratuita:
-   ```bash
-   npm run build
-   firebase deploy
-   ```
 
-### 2. Configurar el Backend (Lector de Gmail y Gemini)
-El script de Python se encarga de sincronizar tu cuenta de Gmail con tu Firestore.
+La configuración web de Firebase identifica el proyecto, pero no concede acceso administrativo. La protección de los datos depende de Firebase Authentication, las reglas de Firestore y la configuración del proyecto.
 
-Para configurarlo:
-1. Entra en la carpeta `tracker-backend/`.
-2. Sigue las instrucciones paso a paso detalladas en el archivo [tracker-backend/README.md](file:///c:/Users/isalvan2/Documents/01_Proyectos_Desarrollo/Bots_y_Scripts/bank-movements/tracker-backend/README.md) para configurar las credenciales de Google Cloud, Firebase Admin SDK y Google Gemini.
-3. Ejecuta el script localmente con `start.bat` o automatízalo en la nube 24/7 de forma gratuita utilizando **GitHub Actions** (la guía de Actions está incluida al final del manual del backend).
+## Backend
 
----
+La configuración de Gmail, Firebase Admin, Gemini y GitHub Actions está en [tracker-backend/README.md](tracker-backend/README.md).
 
-## 📦 Cómo compartir el Backend de forma segura
+Los siguientes archivos son credenciales o configuración local y no deben añadirse a Git:
 
-Si deseas compartir únicamente la parte de automatización (el script extractor de Python) con algún familiar o amigo para que lo configure con su propio banco:
-1. Asegúrate de tener Git instalado y haber hecho commit de tus últimos cambios.
-2. En la raíz del proyecto, haz doble clic en el archivo **`crear_zip_release.bat`**.
-3. Esto generará un archivo comprimido limpio llamado `flowt-backend-release.zip` listo para enviar, el cual **excluye automáticamente** todos tus secretos, claves del banco, contraseñas y entornos virtuales locales.
+- `.env`
+- `credentials.json`
+- `token.json`
+- `serviceAccountKey.json`
+
+El `.gitignore` los excluye, pero esa exclusión no reemplaza una revisión del historial antes de publicar el repositorio.
+
+## Comprobaciones locales
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
+Para el backend:
+
+```bash
+python -m pip install -r tracker-backend/requirements.txt
+python -m pytest tracker-backend
+```
+
+## Seguridad y publicación
+
+- Lee [SECURITY.md](SECURITY.md) antes de informar de una vulnerabilidad.
+- Sigue el [checklist de publicación](docs/PUBLIC_RELEASE_CHECKLIST.md) antes de cambiar la visibilidad del repositorio.
+- Mantén todas las credenciales en el almacén de secretos del entorno de ejecución.
+- Si una credencial aparece en un commit, log, artefacto, issue o pull request, revócala y reemplázala; borrarla del último commit no basta.
+- No consideres el repositorio listo para producción mientras sigan abiertos los bloqueos de seguridad de la auditoría.
+
+## Licencia
+
+Este repositorio no declara actualmente una licencia. Hasta que se añada una, se mantienen los derechos de autor aplicables y no se conceden permisos de reutilización.
