@@ -13,7 +13,7 @@ Flowt se desarrolla de forma continua. Las correcciones de seguridad se aplican 
 
 No abras un issue público con detalles de una vulnerabilidad sin corregir.
 
-Utiliza la opción **Report a vulnerability** de la pestaña **Security** del repositorio. Si el reporte privado no está disponible, contacta con el mantenedor por un canal privado indicado en su perfil de GitHub.
+Cuando el repositorio público tenga habilitado **Private vulnerability reporting**, utiliza **Security → Advisories → Report a vulnerability**. Si el botón no aparece, el proyecto no tiene todavía un canal privado de seguridad publicado; no envíes detalles sensibles mediante issues o discusiones.
 
 Incluye:
 
