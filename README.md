@@ -121,4 +121,4 @@ Las contribuciones son bienvenidas. Lee [CONTRIBUTING.md](CONTRIBUTING.md) antes
 
 ## Licencia
 
-El proyecto todavía no incluye un archivo de licencia. La publicación del código no concede por sí sola derechos de uso, modificación o distribución.
+Flowt se distribuye bajo la [licencia MIT](LICENSE). Copyright (c) 2026 Isalvan.
