@@ -964,6 +964,7 @@ export const useFinanceData = (forceDemo = false) => {
       // Add mockup movements
       const movIdGasto = 'm-' + Math.random().toString(36).substr(2, 9);
       const movIdIngreso = 'm-' + Math.random().toString(36).substr(2, 9);
+      const transferId = `transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const newMovs: Movimiento[] = [
         {
           id: movIdGasto,
@@ -972,7 +973,8 @@ export const useFinanceData = (forceDemo = false) => {
           importe: amount,
           fecha_operacion: new Date(),
           hucha_id: lenderHuchaId,
-          es_interno: true
+          es_interno: true,
+          transfer_id: transferId
         },
         {
           id: movIdIngreso,
@@ -981,7 +983,8 @@ export const useFinanceData = (forceDemo = false) => {
           importe: amount,
           fecha_operacion: new Date(),
           hucha_id: hucha.id,
-          es_interno: true
+          es_interno: true,
+          transfer_id: transferId
         }
       ];
 
@@ -991,6 +994,7 @@ export const useFinanceData = (forceDemo = false) => {
     }
 
     try {
+      const transferId = `transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       await runTransaction(db, async (transaction) => {
         const fromRef = doc(db, 'huchas', lenderHuchaId!);
         const toRef = doc(db, 'huchas', hucha.id);
@@ -1019,6 +1023,7 @@ export const useFinanceData = (forceDemo = false) => {
           importe: amount,
           hucha_id: lenderHuchaId,
           es_interno: true,
+          transfer_id: transferId,
           fecha_operacion: serverTimestamp(),
           created_at: serverTimestamp()
         });
@@ -1031,6 +1036,7 @@ export const useFinanceData = (forceDemo = false) => {
           importe: amount,
           hucha_id: hucha.id,
           es_interno: true,
+          transfer_id: transferId,
           fecha_operacion: serverTimestamp(),
           created_at: serverTimestamp()
         });
@@ -1071,6 +1077,7 @@ export const useFinanceData = (forceDemo = false) => {
 
       const movIdGasto = 'm-' + Math.random().toString(36).substr(2, 9);
       const movIdIngreso = 'm-' + Math.random().toString(36).substr(2, 9);
+      const transferId = `transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const newMovs: Movimiento[] = [
         {
           id: movIdGasto,
@@ -1079,7 +1086,8 @@ export const useFinanceData = (forceDemo = false) => {
           importe: deuda,
           fecha_operacion: new Date(),
           hucha_id: hucha.id,
-          es_interno: true
+          es_interno: true,
+          transfer_id: transferId
         },
         {
           id: movIdIngreso,
@@ -1088,7 +1096,8 @@ export const useFinanceData = (forceDemo = false) => {
           importe: deuda,
           fecha_operacion: new Date(),
           hucha_id: lenderHuchaId,
-          es_interno: true
+          es_interno: true,
+          transfer_id: transferId
         }
       ];
 
@@ -1098,6 +1107,7 @@ export const useFinanceData = (forceDemo = false) => {
     }
 
     try {
+      const transferId = `transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       await runTransaction(db, async (transaction) => {
         const fromRef = doc(db, 'huchas', hucha.id);
         const toRef = doc(db, 'huchas', lenderHuchaId);
@@ -1126,6 +1136,7 @@ export const useFinanceData = (forceDemo = false) => {
           importe: deuda,
           hucha_id: hucha.id,
           es_interno: true,
+          transfer_id: transferId,
           fecha_operacion: serverTimestamp(),
           created_at: serverTimestamp()
         });
@@ -1138,6 +1149,7 @@ export const useFinanceData = (forceDemo = false) => {
           importe: deuda,
           hucha_id: lenderHuchaId,
           es_interno: true,
+          transfer_id: transferId,
           fecha_operacion: serverTimestamp(),
           created_at: serverTimestamp()
         });
