@@ -1,113 +1,124 @@
 # Flowt
 
-Gestor personal de finanzas que convierte notificaciones bancarias recibidas por Gmail en movimientos estructurados, los almacena en Firestore y los presenta en una aplicación web.
+Flowt es una aplicación de finanzas personales que transforma notificaciones bancarias recibidas por Gmail en movimientos estructurados, los organiza en Firestore y los presenta en un panel web.
 
-> [!WARNING]
-> Flowt está en desarrollo. La auditoría de seguridad mantiene hallazgos abiertos que deben resolverse antes de usarlo con terceros o tratarlo como un servicio público. Consulta los [issues abiertos](https://github.com/Isalvan/flowt/issues).
+## Características
 
-## Qué incluye
-
-- Frontend React, TypeScript y Vite con autenticación de Firebase.
-- Sincronizador Python con acceso de solo lectura a Gmail.
-- Extracción asistida por Gemini y revisión manual de movimientos ambiguos.
-- Reglas de reparto de ingresos entre carteras y objetivos.
-- Dashboard, calendario, suscripciones y exportación.
-- Modo de demostración local cuando Firebase no está configurado.
-
-El PIN de la interfaz únicamente oculta información en pantalla. No sustituye la autenticación, el control de acceso de Firebase ni la seguridad del dispositivo.
+- Sincronización automática de notificaciones bancarias desde Gmail.
+- Extracción estructurada de movimientos mediante Gemini.
+- Revisión manual de movimientos que requieren confirmación.
+- Carteras, objetivos, suscripciones y reglas de reparto de ingresos.
+- Dashboard, calendario, histórico y exportación de datos.
+- Autenticación con Firebase y aislamiento de datos por usuario.
+- Aplicación web instalable y modo de demostración local.
+- Tema claro y oscuro, privacidad visual y diseño adaptable.
 
 ## Arquitectura
 
-```text
-.
-├── src/                         # Aplicación web
-├── tracker-backend/             # Sincronizador Gmail → Gemini → Firestore
-├── .github/workflows/           # Automatización programada
-├── firestore.rules              # Reglas de acceso a Firestore
-├── firestore.indexes.json
-└── firebase.json                # Hosting y configuración de Firebase
-```
+Flowt se divide en dos aplicaciones:
 
-Flujo principal:
+- `src/`: frontend React, TypeScript y Vite.
+- `tracker-backend/`: sincronizador Python para Gmail, Gemini y Firestore.
 
 ```text
 Gmail → sincronizador Python → Gemini → Firestore → aplicación web
 ```
 
-Los mensajes procesados pueden contener información financiera y se envían al proveedor de IA configurado. Revisa sus condiciones, la región de procesamiento y la política de retención antes de usar datos reales.
+La descripción de componentes, flujos de datos y límites de responsabilidad está en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Requisitos
 
-- Node.js compatible con las dependencias declaradas en `package.json`.
-- npm.
-- Para el sincronizador: Python 3.10 o posterior.
-- Un proyecto de Firebase.
-- Una aplicación OAuth de Google con Gmail API.
+### Frontend
+
+- Node.js y npm.
+- Un proyecto de Firebase con Authentication y Firestore.
+
+### Sincronizador
+
+- Python 3.10 o posterior.
+- Gmail API y un cliente OAuth de escritorio.
+- Una cuenta de servicio de Firebase.
 - Una clave de API de Gemini.
 
-## Frontend
+## Desarrollo local
 
-1. Instala las dependencias:
-
-   ```bash
-   npm install
-   ```
-
-2. Crea un archivo `.env` en la raíz:
-
-   ```dotenv
-   VITE_FIREBASE_API_KEY=...
-   VITE_FIREBASE_AUTH_DOMAIN=...
-   VITE_FIREBASE_PROJECT_ID=...
-   VITE_FIREBASE_STORAGE_BUCKET=...
-   VITE_FIREBASE_MESSAGING_SENDER_ID=...
-   VITE_FIREBASE_APP_ID=...
-   ```
-
-3. Inicia el entorno local:
-
-   ```bash
-   npm run dev
-   ```
-
-La configuración web de Firebase identifica el proyecto, pero no concede acceso administrativo. La protección de los datos depende de Firebase Authentication, las reglas de Firestore y la configuración del proyecto.
-
-## Backend
-
-La configuración de Gmail, Firebase Admin, Gemini y GitHub Actions está en [tracker-backend/README.md](tracker-backend/README.md).
-
-Los siguientes archivos son credenciales o configuración local y no deben añadirse a Git:
-
-- `.env`
-- `credentials.json`
-- `token.json`
-- `serviceAccountKey.json`
-
-El `.gitignore` los excluye, pero esa exclusión no reemplaza una revisión del historial antes de publicar el repositorio.
-
-## Comprobaciones locales
+### Frontend
 
 ```bash
-npm run lint
-npm test
-npm run build
+npm install
+npm run dev
 ```
 
-Para el backend:
+Crea un archivo `.env` en la raíz con la configuración web de Firebase:
+
+```dotenv
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+```
+
+### Sincronizador
+
+La instalación, las credenciales OAuth y las variables de entorno se documentan en [tracker-backend/README.md](tracker-backend/README.md).
 
 ```bash
-python -m pip install -r tracker-backend/requirements.txt
+cd tracker-backend
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+cp .env.example .env
+python main.py
+```
+
+En Windows puede utilizarse `tracker-backend/start.bat`.
+
+## Scripts
+
+| Comando | Descripción |
+|---|---|
+| `npm run dev` | Inicia Vite en modo desarrollo |
+| `npm run build` | Comprueba TypeScript y genera la aplicación |
+| `npm run lint` | Ejecuta ESLint |
+| `npm test` | Ejecuta las pruebas con Vitest |
+| `npm run preview` | Sirve localmente la compilación |
+
+Pruebas del backend:
+
+```bash
 python -m pytest tracker-backend
 ```
 
-## Seguridad y publicación
+## Despliegue
 
-- Lee [SECURITY.md](SECURITY.md) antes de informar de una vulnerabilidad.
-- Sigue el [checklist de publicación](docs/PUBLIC_RELEASE_CHECKLIST.md) antes de cambiar la visibilidad del repositorio.
-- Mantén todas las credenciales en el almacén de secretos del entorno de ejecución.
-- Si una credencial aparece en un commit, log, artefacto, issue o pull request, revócala y reemplázala; borrarla del último commit no basta.
-- No consideres el repositorio listo para producción mientras sigan abiertos los bloqueos de seguridad de la auditoría.
+La aplicación web se despliega en Firebase Hosting y el sincronizador puede ejecutarse localmente o mediante GitHub Actions.
+
+Consulta [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) para la configuración completa de Firebase, secretos, compilación y automatización.
+
+## Seguridad y privacidad
+
+Flowt procesa correos y datos financieros. Las credenciales locales se mantienen fuera de Git y los secretos de automatización se almacenan en GitHub Actions Secrets.
+
+El PIN de privacidad oculta información en la interfaz; no sustituye la autenticación ni los controles de acceso.
+
+Para informar de una vulnerabilidad, consulta [SECURITY.md](SECURITY.md). No publiques tokens, correos ni datos financieros en issues.
+
+## Documentación
+
+- [Arquitectura](docs/ARCHITECTURE.md)
+- [Despliegue](docs/DEPLOYMENT.md)
+- [Backend](tracker-backend/README.md)
+- [Contribución](CONTRIBUTING.md)
+- [Soporte](SUPPORT.md)
+- [Política de seguridad](SECURITY.md)
+- [Código de conducta](CODE_OF_CONDUCT.md)
+
+## Contribuir
+
+Las contribuciones son bienvenidas. Lee [CONTRIBUTING.md](CONTRIBUTING.md) antes de abrir un issue o pull request.
 
 ## Licencia
 
-Este repositorio no declara actualmente una licencia. Hasta que se añada una, se mantienen los derechos de autor aplicables y no se conceden permisos de reutilización.
+El proyecto todavía no incluye un archivo de licencia. La publicación del código no concede por sí sola derechos de uso, modificación o distribución.
