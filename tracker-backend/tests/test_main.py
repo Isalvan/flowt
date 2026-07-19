@@ -292,3 +292,48 @@ def test_parse_amount():
     assert parse_amount("1.200") == 1200.0
     assert parse_amount("5.000") == 5000.0
     assert parse_amount("120") == 120.0
+
+def test_gmail_webhook_missing_env_vars(mock_config):
+    # Override environment variables for this test
+    with patch("main.BANK_SENDER", None), patch("main.UID_PROPIETARIO", None):
+        request = MagicMock()
+        request.method = "POST"
+        response, status = main.gmail_webhook(request)
+        assert status == 500
+        assert response == "Faltan variables de entorno"
+
+def test_gmail_webhook_missing_token(mock_config):
+    # Ensure WEBHOOK_TOKEN is missing
+    with patch.dict(os.environ, {}, clear=True), patch("main.BANK_SENDER", "x"), patch("main.UID_PROPIETARIO", "y"):
+        request = MagicMock()
+        request.method = "POST"
+        response, status = main.gmail_webhook(request)
+        assert status == 500
+        assert "Configuración" in response
+
+def test_gmail_webhook_invalid_method(mock_config):
+    request = MagicMock()
+    request.method = "GET"
+    response, status = main.gmail_webhook(request)
+    assert status == 405
+    assert response == "Método no permitido"
+
+def test_gmail_webhook_unauthorized(mock_config):
+    with patch.dict(os.environ, {"WEBHOOK_TOKEN": "my-secret-token"}), patch("main.BANK_SENDER", "x"), patch("main.UID_PROPIETARIO", "y"):
+        request = MagicMock()
+        request.method = "POST"
+        request.headers.get.return_value = "Bearer wrong-token"
+        response, status = main.gmail_webhook(request)
+        assert status == 401
+        assert response == "No autorizado"
+
+@patch("main.process_emails")
+def test_gmail_webhook_authorized(mock_process, mock_config):
+    with patch.dict(os.environ, {"WEBHOOK_TOKEN": "my-secret-token"}), patch("main.BANK_SENDER", "x"), patch("main.UID_PROPIETARIO", "y"):
+        request = MagicMock()
+        request.method = "POST"
+        request.headers.get.return_value = "Bearer my-secret-token"
+        response, status = main.gmail_webhook(request)
+        assert status == 200
+        mock_process.assert_called_once()
+

@@ -76,6 +76,9 @@ AI_MODEL=gemini-3-flash-preview
 
 # La clave de API que copiaste de Google AI Studio en el Paso 3
 GEMINI_API_KEY=pega_aquí_tu_api_key_de_gemini
+
+# Token secreto para validar llamadas al Webhook en despliegues en la nube (ej. Cloud Functions). ¡Debe ser complejo y seguro!
+WEBHOOK_TOKEN=generar_un_token_largo_y_seguro
 ```
 
 ---
@@ -192,4 +195,13 @@ jobs:
 ```
 
 Una vez guardado y subido a la rama principal de GitHub, tu extractor financiero de Flowt estará funcionando de forma totalmente autónoma en la nube cada hora.
+
+---
+
+### Opción C: Despliegue con Webhook (Google Cloud Functions / Run)
+Si decides usar el entrypoint `gmail_webhook` incluido, ten en cuenta las siguientes medidas de seguridad obligatorias implementadas:
+1. Solo se admiten peticiones **POST**.
+2. Debes configurar la variable `WEBHOOK_TOKEN`. Sin ella el servicio fallará por seguridad.
+3. El token debe enviarse por la cabecera `Authorization: Bearer TU_TOKEN`. (No se admite `?token=`).
+4. **Límites recomendados**: En la consola de Google Cloud, configura tu función con concurrencia limitada (ej. max 1), timeout (ej. 60s) e idealmente IAM para restringir quién puede invocarla.
 
