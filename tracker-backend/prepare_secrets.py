@@ -13,8 +13,9 @@ for secret_name, filename in files.items():
     if os.path.exists(filename):
         with open(filename, "rb") as f:
             encoded = base64.b64encode(f.read()).decode("utf-8")
+            obfuscated = f"{encoded[:10]}...{encoded[-10:]}" if len(encoded) > 20 else "***"
             print(f"NOMBRE: {secret_name}")
-            print(f"VALOR: {encoded}\n")
+            print(f"VALOR: {obfuscated}\n")
             print("-" * 40)
     else:
         print(f"ERROR: Archivo {filename} no encontrado.\n")
