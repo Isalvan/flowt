@@ -33,7 +33,7 @@ vi.mock('recharts', () => ({
 }));
 
 // Mock Firebase
-vi.mock('./firebase', () => ({
+vi.mock('../firebase', () => ({
   auth: {
     onAuthStateChanged: (cb: any) => {
       // Simulate unauthenticated user initially

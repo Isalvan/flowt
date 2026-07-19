@@ -1,0 +1,9 @@
+firebase-admin
+python-dotenv
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+beautifulsoup4==4.12.3
+google-genai>=0.1.0
+functions-framework
+pytest

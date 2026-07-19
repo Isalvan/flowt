@@ -3,7 +3,8 @@ import json
 import sys
 import re
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from bs4 import BeautifulSoup
 
 # Añadir el directorio padre al path para importar lógica común
@@ -14,8 +15,11 @@ load_dotenv()
 
 # Configurar Gemini
 API_KEY = os.getenv("GEMINI_API_KEY")
+API_KEY = os.getenv("GEMINI_API_KEY")
 if API_KEY:
-    genai.configure(api_key=API_KEY)
+    client = genai.Client(api_key=API_KEY)
+else:
+    client = None
 
 def clean_body(html_body):
     """
@@ -49,16 +53,14 @@ def extract_with_gemini(text, email_date):
     """
     Llama a Gemini 1.5 Flash usando el SDK oficial y esquema JSON.
     """
-    if not API_KEY:
+    if not API_KEY or not client:
         print("AVISO: GEMINI_API_KEY no configurada. Usando fallback.")
         return None
 
     # Usar el modelo del .env o uno por defecto
     model_name = os.getenv("AI_MODEL", "gemini-1.5-flash")
-    if not model_name.startswith("models/"):
-        model_name = f"models/{model_name}"
-        
-    model = genai.GenerativeModel(model_name)
+    if model_name.startswith("models/"):
+        model_name = model_name[7:]
     
     prompt = f"""
     Extrae los movimientos bancarios del siguiente texto de un correo de notificación.
@@ -89,9 +91,12 @@ def extract_with_gemini(text, email_date):
 
     try:
         # Usar generation_config para forzar JSON
-        response = model.generate_content(
-            prompt,
-            generation_config={"response_mime_type": "application/json"}
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json"
+            )
         )
         return json.loads(response.text)
     except Exception as e:
