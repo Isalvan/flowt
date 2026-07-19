@@ -2,84 +2,104 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Regla base: El usuario debe estar autenticado
+    // Helpers de Autenticación y Propiedad
     function isAuthenticated() {
       return request.auth != null;
     }
+    
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function isDocOwner() {
+      return isOwner(resource.data.id_propietario);
+    }
+    
+    function isReqOwner() {
+      return isOwner(request.resource.data.id_propietario);
+    }
+
+    // Helpers de Tipos y Rangos
+    function isNumber(field) {
+      return request.resource.data.get(field, null) is number;
+    }
+
+    function isString(field) {
+      return request.resource.data.get(field, null) is string;
+    }
+
+    function isStringWithLength(field, min, max) {
+      let val = request.resource.data.get(field, '');
+      return val is string && val.size() >= min && val.size() <= max;
+    }
+    
+    function isBool(field) {
+      return request.resource.data.get(field, null) is bool;
+    }
 
     match /movimientos/{movimiento} {
-      // Permitir crear si es el dueño
-      allow create: if isAuthenticated() && 
-                      request.resource.data.id_propietario == request.auth.uid;
+      allow create: if isReqOwner() && 
+                       request.resource.data.keys().hasAll(['id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'created_at']) &&
+                       (request.resource.data.tipo == 'ingreso' || request.resource.data.tipo == 'gasto') &&
+                       isNumber('importe') && request.resource.data.importe >= 0 &&
+                       isStringWithLength('concepto', 1, 150);
       
-      // Permitir leer y actualizar si el documento pertenece al usuario (impidiendo transferir la propiedad)
-      allow read: if isAuthenticated() && 
-                     resource.data.id_propietario == request.auth.uid;
-      allow update: if isAuthenticated() && 
-                       resource.data.id_propietario == request.auth.uid &&
-                       request.resource.data.id_propietario == resource.data.id_propietario;
-      allow delete: if isAuthenticated() && 
-                       resource.data.id_propietario == request.auth.uid;
+      allow read: if isDocOwner();
+      allow update: if isDocOwner() && isReqOwner() &&
+                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at']));
+      allow delete: if isDocOwner();
     }
 
     match /huchas/{hucha} {
-      allow create: if isAuthenticated() && 
-                      request.resource.data.id_propietario == request.auth.uid;
+      allow create: if isReqOwner() && 
+                       request.resource.data.keys().hasAll(['id_propietario', 'nombre', 'tipo_aportacion', 'saldo_acumulado', 'es_principal', 'activa', 'created_at']) &&
+                       isStringWithLength('nombre', 1, 100) &&
+                       isNumber('saldo_acumulado') && request.resource.data.saldo_acumulado >= 0 &&
+                       (request.resource.data.tipo_aportacion in ['flat', 'porcentaje', 'resto']) &&
+                       isBool('es_principal');
       
-      // En update, verificamos que el dueño actual sea el que hace la petición (impidiendo transferir la propiedad)
-      allow read: if isAuthenticated() && 
-                     resource.data.id_propietario == request.auth.uid;
-      allow update: if isAuthenticated() && 
-                       resource.data.id_propietario == request.auth.uid &&
-                       request.resource.data.id_propietario == resource.data.id_propietario;
+      allow read: if isDocOwner();
+      allow update: if isDocOwner() && isReqOwner() &&
+                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at'])) &&
+                       (isNumber('saldo_acumulado') ? request.resource.data.saldo_acumulado >= 0 : true) &&
+                       (!('es_suscripciones' in resource.data) || resource.data.es_suscripciones == false || request.resource.data.keys().hasAll(['saldo_acumulado'])); // Protege sistema
       
-      // Permitir borrar al dueño
-      allow delete: if isAuthenticated() && 
-                        resource.data.id_propietario == request.auth.uid;
+      allow delete: if isDocOwner() && (!('es_suscripciones' in resource.data) || resource.data.es_suscripciones == false);
     }
 
     match /stats/{userId} {
-      allow read, write: if isAuthenticated() && userId == request.auth.uid;
+      allow read: if isOwner(userId);
+      allow write: if false; // Solo el backend puede escribir (Criterio: Cliente no escribe totales históricos)
     }
 
     match /settings/{userId} {
-      allow read, write: if isAuthenticated() && userId == request.auth.uid;
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) &&
+                      request.resource.data.keys().hasOnly(['tema', 'notificaciones', 'updated_at', 'divisa']); // Campos explícitos permitidos
     }
 
     match /suscripciones/{suscripcion} {
-      allow create: if isAuthenticated() &&
-                      request.resource.data.id_propietario == request.auth.uid;
-
-      allow read: if isAuthenticated() &&
-                     resource.data.id_propietario == request.auth.uid;
-      allow update: if isAuthenticated() &&
-                       resource.data.id_propietario == request.auth.uid &&
-                       request.resource.data.id_propietario == resource.data.id_propietario;
-
-      allow delete: if isAuthenticated() &&
-                       resource.data.id_propietario == request.auth.uid;
+      allow create: if isReqOwner() &&
+                       request.resource.data.keys().hasAll(['id_propietario', 'nombre', 'importe', 'created_at']) &&
+                       isStringWithLength('nombre', 1, 100) &&
+                       isNumber('importe') && request.resource.data.importe >= 0;
+      allow read: if isDocOwner();
+      allow update: if isDocOwner() && isReqOwner() &&
+                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at'])) &&
+                       (isNumber('importe') ? request.resource.data.importe >= 0 : true);
+      allow delete: if isDocOwner();
     }
 
     match /correos_pendientes/{correo} {
-      allow create: if isAuthenticated() && 
-                      request.resource.data.id_propietario == request.auth.uid;
-      
-      allow read, delete: if isAuthenticated() && 
-                             resource.data.id_propietario == request.auth.uid;
-      allow update: if isAuthenticated() && 
-                       resource.data.id_propietario == request.auth.uid &&
-                       request.resource.data.id_propietario == resource.data.id_propietario;
+      // El cliente solo puede leer y borrar (aprobar/descartar)
+      allow read, delete: if isDocOwner();
+      allow create, update: if false;
     }
 
     match /correos_historico/{correo} {
-      allow create: if isAuthenticated() && 
-                      request.resource.data.id_propietario == request.auth.uid;
-      
-      allow read, delete: if isAuthenticated() && 
-                             resource.data.id_propietario == request.auth.uid;
-      allow update: if isAuthenticated() && 
-                       resource.data.id_propietario == request.auth.uid &&
-                       request.resource.data.id_propietario == resource.data.id_propietario;
+      // El cliente solo puede leer
+      allow read: if isDocOwner();
+      allow create, update, delete: if false; // Frontend no crea histórico con HTML arbitrario
     }
   }
 }

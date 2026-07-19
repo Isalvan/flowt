@@ -14,7 +14,6 @@ import {
   getDocs,
   setDoc,
   deleteField,
-  type DocumentSnapshot,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type CorreoHistorico } from '../types';
@@ -380,14 +379,7 @@ export const useFinanceData = (forceDemo = false) => {
         });
 
         if (Math.abs(userStats.total_ingresos - grossIngresos) > 0.05 || Math.abs(userStats.total_gastos - grossGastos) > 0.05) {
-          console.log('Restoring external historical stats...', { grossIngresos, grossGastos, userStats });
-          const statsRef = doc(db, 'stats', user.uid);
-          await setDoc(statsRef, {
-            total_ingresos: grossIngresos,
-            total_gastos: grossGastos,
-            updated_at: serverTimestamp()
-          }, { merge: true });
-          
+          console.log('Stats mismatch detected, updating locally...', { grossIngresos, grossGastos, userStats });
           setUserStats(prev => prev ? { ...prev, total_ingresos: grossIngresos, total_gastos: grossGastos } : null);
         }
       } catch (error) {
@@ -1329,37 +1321,13 @@ export const useFinanceData = (forceDemo = false) => {
 
         await runTransaction(db, async (transaction) => {
           const movRef = doc(db, 'movimientos', mov.id);
-          const statsRef = doc(db, 'stats', user!.uid);
-          const huchaRefs: Record<string, any> = {};
-          
-          for (const hid of Object.keys(deltas)) huchaRefs[hid] = doc(db, 'huchas', hid);
-          const huchaSnaps: Record<string, DocumentSnapshot> = {};
-          for (const hid of Object.keys(huchaRefs)) huchaSnaps[hid] = await transaction.get(huchaRefs[hid]);
-          const statsSnap = await transaction.get(statsRef);
-
-          for (const hid of Object.keys(huchaRefs)) {
-            const snap = huchaSnaps[hid];
-            if (!snap?.exists() || !deltas[hid]) continue;
-            const cur = snap.data().saldo_acumulado || 0;
-            transaction.update(huchaRefs[hid], { saldo_acumulado: cur + deltas[hid], updated_at: serverTimestamp() });
-          }
-          
           transaction.update(movRef, { tipo: 'ingreso', hucha_id: deleteField() });
-          const curStats = statsSnap.data() || {};
-          if (cuentaEnEstadisticas(mov)) {
-            transaction.set(statsRef, {
-              total_ingresos: (curStats.total_ingresos || 0) + amount,
-              total_gastos: Math.max(0, (curStats.total_gastos || 0) - amount),
-              updated_at: serverTimestamp(),
-            }, { merge: true });
-          }
         });
         showToast('Movimiento convertido a ingreso', 'success');
       } else {
         if (!targetHuchaId) return;
         await runTransaction(db, async (transaction) => {
           const movRef = doc(db, 'movimientos', mov.id);
-          const statsRef = doc(db, 'stats', user!.uid);
 
           // Fetch all huchas in transaction to read their rules and balances
           const huchasRefs = huchas.map(h => doc(db, 'huchas', h.id));
@@ -1367,7 +1335,6 @@ export const useFinanceData = (forceDemo = false) => {
           for (const ref of huchasRefs) {
             huchasSnaps.push(await transaction.get(ref));
           }
-          const statsSnap = await transaction.get(statsRef);
 
           // Calculate the original income distribution splits using the hucha rules to revert them
           const incomeDeltas: Record<string, number> = {};
@@ -1420,16 +1387,6 @@ export const useFinanceData = (forceDemo = false) => {
 
           // Update movement details
           transaction.update(movRef, { tipo: 'gasto', hucha_id: targetHuchaId });
-
-          // Update stats
-          const curStats = statsSnap.data() || {};
-          if (cuentaEnEstadisticas(mov)) {
-            transaction.set(statsRef, {
-              total_ingresos: Math.max(0, (curStats.total_ingresos || 0) - amount),
-              total_gastos: (curStats.total_gastos || 0) + amount,
-              updated_at: serverTimestamp(),
-            }, { merge: true });
-          }
         });
         showToast('Movimiento convertido a gasto', 'success');
       }
@@ -2047,13 +2004,6 @@ export const useFinanceData = (forceDemo = false) => {
       await runTransaction(db, async (transaction) => {
         const emailRef = doc(db, 'correos_pendientes', emailId);
         const movRef = doc(collection(db, 'movimientos'));
-        const statsRef = doc(db, 'stats', user!.uid);
-
-        // Reads
-        const statsSnap = await transaction.get(statsRef);
-        const currentStats = statsSnap.data() || { total_ingresos: 0, total_gastos: 0 };
-        const emailSnap = await transaction.get(emailRef);
-        const emailData = emailSnap.exists() ? emailSnap.data() : null;
 
         // Get selected hucha (or principal)
         let targetHuchaId = movData.hucha_id;
@@ -2143,28 +2093,6 @@ export const useFinanceData = (forceDemo = false) => {
           hucha_id: targetHuchaId || null,
           created_at: serverTimestamp()
         });
-
-        // Update stats
-        const nextStats = { ...currentStats };
-        if (isIngreso) {
-          nextStats.total_ingresos = (nextStats.total_ingresos || 0) + amt;
-        } else {
-          nextStats.total_gastos = (nextStats.total_gastos || 0) + amt;
-        }
-        transaction.set(statsRef, nextStats, { merge: true });
-
-        // Insert into correos_historico
-        if (emailData) {
-          const historicoRef = doc(db, 'correos_historico', emailId);
-          transaction.set(historicoRef, {
-            id: emailData.email_id || emailId,
-            id_propietario: user!.uid,
-            cuerpo: emailData.cuerpo || '',
-            fecha_envio: emailData.fecha_envio || new Date().toISOString(),
-            movimientos_generados: [movRef.id],
-            created_at: serverTimestamp()
-          });
-        }
 
         // Delete pending email from manual queue
         transaction.delete(emailRef);
@@ -2340,10 +2268,6 @@ export const useFinanceData = (forceDemo = false) => {
     if (!user) return;
     try {
       await runTransaction(db, async (transaction) => {
-        const statsRef = doc(db, 'stats', user.uid);
-        const statsSnap = await transaction.get(statsRef);
-        const currentStats = statsSnap.data() || { total_ingresos: 0, total_gastos: 0 };
-
         let targetHuchaId = movData.hucha_id;
         let createdCashHuchaId: string | null = null;
         let createdCashHuchaData: Record<string, unknown> | null = null;
@@ -2513,17 +2437,6 @@ export const useFinanceData = (forceDemo = false) => {
           es_interno: isInternal,
           created_at: serverTimestamp()
         });
-
-        // Actualizar estadísticas
-        const nextStats = { ...currentStats };
-        if (cuentaEnEstadisticas({ es_interno: isInternal })) {
-          if (isIngreso) {
-            nextStats.total_ingresos = (nextStats.total_ingresos || 0) + amt;
-          } else {
-            nextStats.total_gastos = (nextStats.total_gastos || 0) + amt;
-          }
-        }
-        transaction.set(statsRef, nextStats, { merge: true });
       });
 
       showToast('Movimiento registrado correctamente', 'success');
@@ -2662,9 +2575,6 @@ export const useFinanceData = (forceDemo = false) => {
     try {
       await runTransaction(db, async (transaction) => {
         const movRef = doc(db, 'movimientos', mov.id);
-        const statsRef = doc(db, 'stats', user.uid);
-        const statsSnap = await transaction.get(statsRef);
-        const currentStats = statsSnap.data() || { total_ingresos: 0, total_gastos: 0 };
 
         if (!isIngreso) {
           // Gasto: revertir sumando de vuelta
@@ -2740,17 +2650,6 @@ export const useFinanceData = (forceDemo = false) => {
 
         // Eliminar el documento del movimiento
         transaction.delete(movRef);
-
-        // Actualizar estadísticas
-        const nextStats = { ...currentStats };
-        if (cuentaEnEstadisticas(mov)) {
-          if (isIngreso) {
-            nextStats.total_ingresos = Math.max(0, (nextStats.total_ingresos || 0) - amt);
-          } else {
-            nextStats.total_gastos = Math.max(0, (nextStats.total_gastos || 0) - amt);
-          }
-        }
-        transaction.set(statsRef, nextStats, { merge: true });
       });
 
       showToast('Movimiento eliminado', 'success');
