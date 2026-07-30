@@ -19,6 +19,8 @@ export interface Movimiento {
   compensado_por_detalles?: { ingreso_id: string; importe: number }[] | null; // solo en gastos
   
   importe_neto?: number | null;           // solo en gastos compensados: importe efectivo restante
+  banco?: string;                         // Ej. 'Unicaja', 'Revolut', 'BBVA'
+  cuenta_origen?: string;
   created_at?: any;
   updated_at?: any;
 }
@@ -77,6 +79,7 @@ export interface PendingEmail {
   fecha_envio: string;
   motivo: string;
   procesado: boolean;
+  banco?: string;
   id_propietario?: string;
   created_at?: any;
 }
@@ -87,5 +90,6 @@ export interface CorreoHistorico {
   cuerpo: string;
   fecha_envio: string;
   movimientos_generados: string[]; // array of movement IDs
+  banco?: string;
   created_at?: any;
 }

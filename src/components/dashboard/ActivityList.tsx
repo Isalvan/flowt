@@ -15,7 +15,8 @@ import {
   Calendar,
   Search,
   SlidersHorizontal,
-  Trash2
+  Trash2,
+  Landmark
 } from 'lucide-react';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
 import { Card } from '../common/Card';
@@ -62,6 +63,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   const [dateRange, setDateRange] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [selectedBanco, setSelectedBanco] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
 
   const { formatCurrency } = usePrivacy();
@@ -98,6 +100,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
     setDateRange('all');
     setCustomStartDate('');
     setCustomEndDate('');
+    setSelectedBanco('all');
   };
 
   // Filter Algorithm
@@ -106,6 +109,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
       searchTerm !== '' || 
       selectedHucha !== 'all' || 
       selectedTipo !== 'all' || 
+      selectedBanco !== 'all' ||
       minAmount !== '' || 
       maxAmount !== '' || 
       dateRange !== 'all';
@@ -122,14 +126,21 @@ export const ActivityList: React.FC<ActivityListProps> = ({
         }
       }
 
-      // 2. Hucha Destination Filter
+      // 2. Bank Filter
+      if (selectedBanco !== 'all') {
+        if ((m.banco || '').toLowerCase() !== selectedBanco.toLowerCase()) {
+          return false;
+        }
+      }
+
+      // 3. Hucha Destination Filter
       if (selectedHucha !== 'all') {
         if (m.hucha_id !== selectedHucha) {
           return false;
         }
       }
 
-      // 3. Operation Type Filter
+      // 4. Operation Type Filter
       if (selectedTipo !== 'all') {
         if (m.tipo !== selectedTipo) {
           return false;
@@ -318,6 +329,24 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                 {huchas.filter(h => h.activa !== false).map(h => (
                   <option key={h.id} value={h.id}>{h.nombre}</option>
                 ))}
+              </select>
+            </div>
+
+            {/* Bank Filter */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Banco</label>
+              <select
+                value={selectedBanco}
+                onChange={(e) => setSelectedBanco(e.target.value)}
+                className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none cursor-pointer"
+              >
+                <option value="all">Todos los bancos</option>
+                <option value="Unicaja">Unicaja</option>
+                <option value="Revolut">Revolut</option>
+                <option value="BBVA">BBVA</option>
+                <option value="Santander">Santander</option>
+                <option value="CaixaBank">CaixaBank</option>
+                <option value="ING">ING</option>
               </select>
             </div>
 
@@ -530,6 +559,12 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">
                         {formatDate(m.fecha_operacion)}
                       </span>
+                      {m.banco && (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 uppercase tracking-wider">
+                          <Landmark size={10} />
+                          {m.banco}
+                        </span>
+                      )}
                       {m.hucha_id && (
                         <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">
                           • {huchas.find(h => h.id === m.hucha_id)?.nombre || 'Cartera'}

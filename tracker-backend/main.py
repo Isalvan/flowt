@@ -38,6 +38,32 @@ PROMPT_VERSION = "v1"
 args = None
 logger = logging.getLogger(__name__)
 
+
+def infer_bank_from_sender(sender_str: str) -> str:
+    """
+    Infiere la entidad bancaria según el remitente del correo.
+    """
+    if not sender_str:
+        return "Banco"
+    s = sender_str.lower()
+    if "revolut" in s:
+        return "Revolut"
+    if "unicaja" in s:
+        return "Unicaja"
+    if "bbva" in s:
+        return "BBVA"
+    if "santander" in s:
+        return "Santander"
+    if "caixa" in s:
+        return "CaixaBank"
+    if "ing" in s:
+        return "ING"
+    if "sabadell" in s:
+        return "Sabadell"
+    if "n26" in s:
+        return "N26"
+    return "Banco"
+
 def setup_config(cli_args=None):
     global BANK_SENDER, UID_PROPIETARIO, MAX_EMAILS_PER_RUN, AI_MODEL, args, logger
     
@@ -582,6 +608,7 @@ def save_to_pending_review(email: Dict[str, Any], motivo: str) -> bool:
             "fecha_envio": email["date_sent"],
             "motivo": motivo,
             "procesado": False,
+            "banco": infer_bank_from_sender(email.get("from", "")),
             "created_at": firestore.SERVER_TIMESTAMP
         })
         logger.info(f"Email {email['id']} saved to manual review queue. Reason: {motivo}")
