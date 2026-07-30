@@ -36,14 +36,14 @@ service cloud.firestore {
     match /movimientos/{movimiento} {
       allow create: if isReqOwner() && 
                        request.resource.data.keys().hasAll(['id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion']) &&
-                       request.resource.data.keys().hasOnly(['id', 'id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'created_at', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id']) &&
+                       request.resource.data.keys().hasOnly(['id', 'id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'created_at', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
                        (request.resource.data.tipo == 'ingreso' || request.resource.data.tipo == 'gasto') &&
                        isNumber('importe') && request.resource.data.importe >= 0 &&
                        isStringWithLength('concepto', 1, 200);
       
       allow read: if isDocOwner();
       allow update: if isDocOwner() && isReqOwner() &&
-                       request.resource.data.keys().hasOnly(['id', 'id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'created_at', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id']) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['id', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at'])) &&
                        isNumber('importe') && request.resource.data.importe >= 0 &&
                        (request.resource.data.tipo == 'ingreso' || request.resource.data.tipo == 'gasto') &&
@@ -54,17 +54,17 @@ service cloud.firestore {
     match /huchas/{hucha} {
       allow create: if isReqOwner() && 
                        request.resource.data.keys().hasAll(['id_propietario', 'nombre', 'tipo_aportacion', 'saldo_acumulado', 'es_principal', 'activa']) &&
-                       request.resource.data.keys().hasOnly(['id', 'id_propietario', 'nombre', 'tipo_aportacion', 'valor_aportacion', 'saldo_acumulado', 'es_principal', 'es_suscripciones', 'activa', 'created_at', 'updated_at']) &&
+                       request.resource.data.keys().hasOnly(['id', 'id_propietario', 'nombre', 'tipo_aportacion', 'valor_aportacion', 'saldo_acumulado', 'objetivo', 'orden', 'es_principal', 'es_suscripciones', 'es_metalico', 'es_interno', 'activa', 'tope_objetivo', 'subsanar_con', 'subsanar_hasta', 'deuda_pendiente', 'deuda_con', 'created_at', 'updated_at']) &&
                        isStringWithLength('nombre', 1, 100) &&
-                       isNumber('saldo_acumulado') && request.resource.data.saldo_acumulado >= 0 &&
+                       isNumber('saldo_acumulado') &&
                        (request.resource.data.tipo_aportacion in ['flat', 'porcentaje', 'resto']) &&
                        isBool('es_principal');
       
       allow read: if isDocOwner();
       allow update: if isDocOwner() && isReqOwner() &&
-                       request.resource.data.keys().hasOnly(['id', 'id_propietario', 'nombre', 'tipo_aportacion', 'valor_aportacion', 'saldo_acumulado', 'es_principal', 'es_suscripciones', 'activa', 'created_at', 'updated_at']) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['id', 'nombre', 'tipo_aportacion', 'valor_aportacion', 'saldo_acumulado', 'objetivo', 'orden', 'es_principal', 'es_suscripciones', 'es_metalico', 'es_interno', 'activa', 'tope_objetivo', 'subsanar_con', 'subsanar_hasta', 'deuda_pendiente', 'deuda_con', 'updated_at']) &&
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at'])) &&
-                       isNumber('saldo_acumulado') && request.resource.data.saldo_acumulado >= 0 &&
+                       isNumber('saldo_acumulado') &&
                        (request.resource.data.tipo_aportacion in ['flat', 'porcentaje', 'resto']) &&
                        (!('es_suscripciones' in resource.data) || resource.data.es_suscripciones == false || request.resource.data.keys().hasAll(['saldo_acumulado']));
       
@@ -73,24 +73,31 @@ service cloud.firestore {
 
     match /stats/{userId} {
       allow read: if isOwner(userId);
-      allow write: if false; // Solo el backend en la nube o Cloud Functions puede escribir totales históricos
+      allow create: if isOwner(userId) &&
+                       request.resource.data.keys().hasOnly(['total_ingresos', 'total_gastos', 'updated_at']);
+      allow update: if isOwner(userId) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['total_ingresos', 'total_gastos', 'updated_at']);
+      allow delete: if false;
     }
 
     match /settings/{userId} {
       allow read: if isOwner(userId);
-      allow write: if isOwner(userId) &&
-                      request.resource.data.keys().hasOnly(['tema', 'notificaciones', 'updated_at', 'divisa']);
+      allow create: if isOwner(userId) &&
+                       request.resource.data.keys().hasOnly(['tema', 'notificaciones', 'updated_at', 'divisa', 'pin_hash', 'pin_salt']);
+      allow update: if isOwner(userId) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tema', 'notificaciones', 'updated_at', 'divisa', 'pin_hash', 'pin_salt']);
+      allow delete: if false;
     }
 
     match /suscripciones/{suscripcion} {
       allow create: if isReqOwner() &&
                        request.resource.data.keys().hasAll(['id_propietario', 'nombre', 'importe']) &&
-                       request.resource.data.keys().hasOnly(['id', 'id_propietario', 'nombre', 'importe', 'frecuencia', 'fecha_proximo_pago', 'categoria', 'activa', 'es_compartido', 'precio_original', 'participantes_count', 'mi_pago_calculado', 'hucha_id', 'created_at', 'updated_at', 'cancelada_en_servicio', 'fecha_cancelacion', 'banco']) &&
+                       request.resource.data.keys().hasOnly(['id', 'id_propietario', 'nombre', 'importe', 'frecuencia', 'fecha_inicio', 'dia_pago', 'fecha_proximo_pago', 'categoria', 'color', 'activa', 'cancelando', 'cancel_at', 'es_compartido', 'precio_original', 'participantes_count', 'mi_pago_calculado', 'mi_parte', 'hucha_id', 'created_at', 'updated_at', 'cancelada_en_servicio', 'fecha_cancelacion', 'banco']) &&
                        isStringWithLength('nombre', 1, 100) &&
                        isNumber('importe') && request.resource.data.importe >= 0;
       allow read: if isDocOwner();
       allow update: if isDocOwner() && isReqOwner() &&
-                       request.resource.data.keys().hasOnly(['id', 'id_propietario', 'nombre', 'importe', 'frecuencia', 'fecha_proximo_pago', 'categoria', 'activa', 'es_compartido', 'precio_original', 'participantes_count', 'mi_pago_calculado', 'hucha_id', 'created_at', 'updated_at', 'cancelada_en_servicio', 'fecha_cancelacion', 'banco']) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['id', 'nombre', 'importe', 'frecuencia', 'fecha_inicio', 'dia_pago', 'fecha_proximo_pago', 'categoria', 'color', 'activa', 'cancelando', 'cancel_at', 'es_compartido', 'precio_original', 'participantes_count', 'mi_pago_calculado', 'mi_parte', 'hucha_id', 'updated_at', 'cancelada_en_servicio', 'fecha_cancelacion', 'banco']) &&
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at'])) &&
                        isNumber('importe') && request.resource.data.importe >= 0;
       allow delete: if isDocOwner();

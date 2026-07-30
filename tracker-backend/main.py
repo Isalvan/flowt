@@ -31,6 +31,7 @@ def parse_args():
 
 # Global config variables (will be initialized in setup_config)
 BANK_SENDER = None
+ALLOWED_BANK_SENDERS = frozenset()
 UID_PROPIETARIO = None
 MAX_EMAILS_PER_RUN = None
 AI_MODEL = None
@@ -65,7 +66,7 @@ def infer_bank_from_sender(sender_str: str) -> str:
     return "Banco"
 
 def setup_config(cli_args=None):
-    global BANK_SENDER, UID_PROPIETARIO, MAX_EMAILS_PER_RUN, AI_MODEL, args, logger
+    global BANK_SENDER, ALLOWED_BANK_SENDERS, UID_PROPIETARIO, MAX_EMAILS_PER_RUN, AI_MODEL, args, logger
     
     args = cli_args or argparse.Namespace(verbose=False)
     
@@ -73,6 +74,11 @@ def setup_config(cli_args=None):
     load_dotenv()
 
     BANK_SENDER = os.getenv("BANK_SENDER")
+    ALLOWED_BANK_SENDERS = frozenset(
+        extract_email(sender)
+        for sender in (BANK_SENDER or "").split(",")
+        if sender.strip()
+    )
     UID_PROPIETARIO = os.getenv("UID_PROPIETARIO")
     MAX_EMAILS_PER_RUN = int(os.getenv("MAX_EMAILS_PER_RUN", "10"))
     AI_MODEL = os.getenv("AI_MODEL", "gemini-3-flash-preview")
@@ -629,9 +635,11 @@ def process_emails():
         email_id = email["id"]
         
         sender_normalized = extract_email(email["from"])
-        expected_sender = extract_email(BANK_SENDER) if BANK_SENDER else ""
-        if expected_sender and expected_sender not in sender_normalized:
-            logger.warning(f"Sender mismatch for {email_id}. Expected {expected_sender}, got {sender_normalized}")
+        if ALLOWED_BANK_SENDERS and sender_normalized not in ALLOWED_BANK_SENDERS:
+            logger.warning(
+                f"Sender mismatch for {email_id}. "
+                f"Expected one of {sorted(ALLOWED_BANK_SENDERS)}, got {sender_normalized}"
+            )
             continue
             
         auth_results = email.get("auth_results", "").lower()
