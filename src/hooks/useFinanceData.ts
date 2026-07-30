@@ -23,6 +23,7 @@ import { auth, db } from '../firebase';
 import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type CorreoHistorico } from '../types';
 import { usePrivacy } from '../context/PrivacyContext';
 import { crearRetiradaEfectivo, cuentaEnEstadisticas } from '../utils/movements';
+import { sanitizeConcepto } from '../utils/sanitize';
 import {
   getMonthlySubscriptionAmount,
   getNextSubscriptionChargeDate,
@@ -1158,10 +1159,11 @@ export const useFinanceData = (forceDemo = false) => {
   };
 
   const handleUpdateMovimientoConcepto = async (movId: string, newConcepto: string) => {
-    if (!newConcepto.trim()) return;
+    const cleanConcepto = sanitizeConcepto(newConcepto, 200);
+    if (!cleanConcepto) return;
     
     if (!isFirebaseConfigured) {
-      const updated = movimientos.map(m => m.id === movId ? { ...m, concepto: newConcepto.trim() } : m);
+      const updated = movimientos.map(m => m.id === movId ? { ...m, concepto: cleanConcepto } : m);
       saveDemoState(updated, huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
       showToast('Concepto actualizado', 'success');
       return;
@@ -1170,7 +1172,7 @@ export const useFinanceData = (forceDemo = false) => {
     try {
       const movRef = doc(db, 'movimientos', movId);
       await runTransaction(db, async (transaction) => {
-        transaction.update(movRef, { concepto: newConcepto.trim() });
+        transaction.update(movRef, { concepto: cleanConcepto, updated_at: serverTimestamp() });
       });
       showToast('Concepto actualizado', 'success');
     } catch (error) {
@@ -2139,7 +2141,7 @@ export const useFinanceData = (forceDemo = false) => {
         transaction.set(movRef, {
           id_propietario: user!.uid,
           tipo: movData.tipo,
-          concepto: movData.concepto.trim(),
+          concepto: sanitizeConcepto(movData.concepto, 200),
           importe: amt,
           fecha_operacion: new Date(movData.fecha_operacion),
           hucha_id: targetHuchaId || null,

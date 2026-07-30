@@ -42,11 +42,12 @@ service cloud.firestore {
                        request.resource.data.keys().hasAll(['id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'created_at']) &&
                        (request.resource.data.tipo == 'ingreso' || request.resource.data.tipo == 'gasto') &&
                        isNumber('importe') && request.resource.data.importe >= 0 &&
-                       isStringWithLength('concepto', 1, 150);
+                       isStringWithLength('concepto', 1, 200);
       
       allow read: if isDocOwner();
       allow update: if isDocOwner() && isReqOwner() &&
-                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at']));
+                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at'])) &&
+                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['concepto']) || isStringWithLength('concepto', 1, 200));
       allow delete: if isDocOwner();
     }
 
