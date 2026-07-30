@@ -23,6 +23,7 @@ import { type Movimiento, type Hucha } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { EmptyIllustration } from '../common/EmptyIllustration';
 import { ExpenseImpactBadge } from './BurnRateVisuals';
+import { generateCsv } from '../../utils/csv';
 
 interface ActivityListProps {
   movimientos: Movimiento[];
@@ -194,17 +195,14 @@ export const ActivityList: React.FC<ActivityListProps> = ({
         m.id,
         dateStr,
         m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto',
-        m.concepto.replace(/"/g, '""'),
+        m.concepto,
         m.importe,
         m.tipo === 'gasto' && m.compensado_por ? (m.importe_neto ?? m.importe) : m.importe,
         huchaName
       ];
     });
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(e => e.map(val => `"${val}"`).join(','))
-    ].join('\n');
+    const csvContent = generateCsv(headers, rows);
 
     // Create file and download
     const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });

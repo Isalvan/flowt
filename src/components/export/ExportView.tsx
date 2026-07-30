@@ -4,6 +4,7 @@ import { type Movimiento, type Hucha, type Suscripcion } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
 import { cuentaEnEstadisticas } from '../../utils/movements';
+import { generateCsv } from '../../utils/csv';
 
 interface ExportViewProps {
   movimientos: Movimiento[];
@@ -302,6 +303,36 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
     }
   };
 
+  const handleExportCSV = () => {
+    const headers = ['ID', 'Fecha', 'Tipo', 'Concepto', 'Importe', 'Importe Neto', 'Origen/Destino', 'Notas'];
+    const rows = filteredMovimientos.map(m => {
+      const d = parseMovimientoDate(m.fecha_operacion);
+      const fechaStr = d ? d.toISOString().split('T')[0] : 'Desconocida';
+      const origenDestino = detalleOrigenDestino(m);
+      const notas = notaCompensacion(m) || '';
+      return [
+        m.id,
+        fechaStr,
+        m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto',
+        m.concepto,
+        m.importe,
+        m.importe_neto ?? m.importe,
+        origenDestino,
+        notas
+      ];
+    });
+
+    const csvContent = generateCsv(headers, rows);
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `flowt_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col gap-6 animate-in slide-in-from-bottom-4 duration-500 pb-12">
       {/* Header */}
@@ -549,6 +580,19 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
                     <span>Copiar como Markdown</span>
                   </>
                 )}
+              </button>
+
+              <button
+                onClick={handleExportCSV}
+                disabled={filteredMovimientos.length === 0 || isLocked}
+                className={`w-full relative py-3.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all overflow-hidden group border ${
+                  (filteredMovimientos.length === 0 || isLocked)
+                    ? 'border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed'
+                    : 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:scale-[1.02] active:scale-95 shadow-sm'
+                }`}
+              >
+                <Download size={18} />
+                <span>Descargar CSV Sanitizado</span>
               </button>
             </div>
             
