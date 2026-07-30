@@ -501,7 +501,7 @@ const AppContent: React.FC = () => {
                   : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
               }`}
             >
-              <HeartPulse size={14} className="text-emerald-500" />
+              <HeartPulse size={14} />
               Salud
             </button>
             <button

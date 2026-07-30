@@ -4,7 +4,8 @@ import {
   TrendingUp, 
   PiggyBank, 
   CreditCard, 
-  Sparkles, 
+  Lightbulb,
+  Target, 
   CheckCircle2, 
   AlertCircle,
   ShieldCheck,
@@ -59,7 +60,7 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
             Salud Financiera
           </h2>
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400 pl-14">
-            Evaluación inteligente en tiempo real de tu tasa de ahorro, estabilidad y balance.
+            Evaluación continua de tu tasa de ahorro, estabilidad y balance financiero.
           </p>
         </div>
       </div>
@@ -115,8 +116,8 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
 
         {/* Right: Summary Message */}
         <div className="flex-1 space-y-4 text-center md:text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold">
-            <Sparkles size={14} />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200/50 dark:border-white/5">
+            <Target size={14} className="text-emerald-500" />
             Diagnóstico Financiero en Tiempo Real
           </div>
           <h3 className="text-2xl font-bold text-slate-800 dark:text-white">
@@ -166,18 +167,18 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
         })}
       </div>
 
-      {/* AI Actionable Recommendations */}
-      <div className="rounded-[2rem] border border-indigo-500/20 bg-indigo-500/5 dark:bg-indigo-500/10 backdrop-blur-xl p-8 shadow-lg space-y-6">
+      {/* Actionable Recommendations */}
+      <div className="rounded-[2rem] border border-slate-200/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-8 shadow-lg space-y-6">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-indigo-500 text-white shadow-md">
-            <Sparkles size={20} />
+          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+            <Lightbulb size={20} />
           </div>
           <div>
             <h4 className="text-lg font-bold text-slate-800 dark:text-white">
-              Recomendaciones Personalizadas
+              Acciones Recomendadas
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Acciones sugeridas para elevar tu score de salud financiera este mes.
+              Sugerencias prácticas para optimizar tu presupuesto este mes.
             </p>
           </div>
         </div>
@@ -186,7 +187,7 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
           {recommendations.map((rec, index) => (
             <div
               key={index}
-              className="flex items-start gap-4 p-4 rounded-2xl bg-white/70 dark:bg-slate-900/70 border border-slate-200/50 dark:border-white/5 shadow-sm"
+              className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50/50 dark:bg-slate-800/40 border border-slate-200/40 dark:border-white/5 shadow-sm"
             >
               <div className="mt-0.5 p-1 rounded-full bg-emerald-500/10 text-emerald-500 shrink-0">
                 <CheckCircle2 size={18} />
