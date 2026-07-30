@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { 
-  HeartPulse, 
+  Activity, 
   TrendingUp, 
   PiggyBank, 
   CreditCard, 
@@ -54,8 +54,8 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
           <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-              <HeartPulse size={28} className="drop-shadow-sm animate-pulse" />
+            <div className="p-2.5 rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+              <Activity size={24} />
             </div>
             Salud Financiera
           </h2>
