@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
 import { 
   CheckCircle2, 
-  ShieldCheck
+  ShieldCheck,
+  Lock
 } from 'lucide-react';
 import type { Hucha, Movimiento, Suscripcion } from '../../types';
 import { calculateFinancialHealthScore } from '../../utils/healthScore';
+import { usePrivacy } from '../../context/PrivacyContext';
 
 interface SaludFinancieraViewProps {
   movimientos: Movimiento[];
@@ -19,6 +21,8 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
   suscripciones,
   userStats
 }) => {
+  const { isLocked, openUnlockModal } = usePrivacy();
+
   const healthData = useMemo(() => {
     const totalIngresos = userStats?.total_ingresos || 0;
     const totalGastos = userStats?.total_gastos || 0;
@@ -30,9 +34,12 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
   // Circular gauge calculations
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (totalScore / 100) * circumference;
+  const strokeDashoffset = isLocked 
+    ? circumference 
+    : circumference - (totalScore / 100) * circumference;
 
   const getScoreColor = (score: number) => {
+    if (isLocked) return '#94a3b8'; // Slate locked color
     if (score < 45) return '#ef4444'; // Red
     if (score < 75) return '#f59e0b'; // Amber
     return '#10b981'; // Emerald
@@ -52,6 +59,16 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
             Evaluación continua de tu tasa de ahorro, estabilidad y balance financiero.
           </p>
         </div>
+
+        {isLocked && (
+          <button
+            onClick={() => openUnlockModal()}
+            className="self-start md:self-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-extrabold text-xs tracking-wider uppercase transition-all active:scale-95 cursor-pointer"
+          >
+            <Lock size={14} />
+            Desbloquear vista
+          </button>
+        )}
       </div>
 
       {/* Main Score Hero Card */}
@@ -87,7 +104,7 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-5xl font-black tracking-tight text-slate-800 dark:text-white">
-                {totalScore}
+                {isLocked ? '••' : totalScore}
               </span>
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 de 100
@@ -96,9 +113,9 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
           </div>
 
           <div className="mt-4 flex items-center gap-2">
-            <span className={`px-4 py-1.5 rounded-full text-sm font-bold border shadow-sm flex items-center gap-2 ${healthData.colorClass}`}>
+            <span className={`px-4 py-1.5 rounded-full text-sm font-bold border shadow-sm flex items-center gap-2 ${isLocked ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700' : healthData.colorClass}`}>
               <ShieldCheck size={16} />
-              {category}
+              {isLocked ? 'Bloqueado' : category}
             </span>
           </div>
         </div>
@@ -106,12 +123,18 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
         {/* Right: Summary Message */}
         <div className="flex-1 space-y-3 text-center md:text-left">
           <h3 className="text-2xl font-bold text-slate-800 dark:text-white">
-            {totalScore >= 75 && '¡Tus finanzas están en un excelente estado de equilibrio!'}
-            {totalScore >= 45 && totalScore < 75 && 'Tu salud financiera es estable, con margen de optimización.'}
-            {totalScore < 45 && 'Tus finanzas requieren atención prioritaria para frenar desbalances.'}
+            {isLocked
+              ? 'Información financiera protegida por modo privacidad'
+              : totalScore >= 75
+              ? '¡Tus finanzas están en un excelente estado de equilibrio!'
+              : totalScore >= 45
+              ? 'Tu salud financiera es estable, con margen de optimización.'
+              : 'Tus finanzas requieren atención prioritaria para frenar desbalances.'}
           </h3>
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
-            El Score de Salud Financiera evalúa continuamente 4 pilares: tu ratio de ahorro mensual, la estabilidad de tus huchas, la tendencia de flujo de caja y la presión de tus suscripciones activas.
+            {isLocked
+              ? 'Desbloquea la aplicación utilizando tu PIN de seguridad para consultar las métricas detalladas y recomendaciones dinámicas de salud financiera.'
+              : 'El Score de Salud Financiera evalúa continuamente 4 pilares: tu ratio de ahorro mensual, la estabilidad de tus huchas, la tendencia de flujo de caja y la presión de tus suscripciones activas.'}
           </p>
         </div>
       </div>
@@ -131,7 +154,7 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
                   {metric.label}
                 </span>
                 <span className="text-sm font-black px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white">
-                  {metric.score} / 100
+                  {isLocked ? '••' : metric.score} / 100
                 </span>
               </div>
 
@@ -139,13 +162,15 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
               <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-3">
                 <div
                   className="h-full rounded-full transition-all duration-700 ease-out"
-                  style={{ width: `${metric.score}%`, backgroundColor: color }}
+                  style={{ width: isLocked ? '0%' : `${metric.score}%`, backgroundColor: color }}
                 />
               </div>
 
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <span>{metric.description}</span>
-                <span className="font-bold text-slate-700 dark:text-slate-300">{metric.valueFormatted}</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300">
+                  {isLocked ? '••••' : metric.valueFormatted}
+                </span>
               </div>
             </div>
           );
@@ -173,7 +198,7 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
                 <CheckCircle2 size={18} />
               </div>
               <p className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
-                {rec}
+                {isLocked ? '••••••••••••••••••••••••••••••••••••••••••••••••' : rec}
               </p>
             </div>
           ))}
