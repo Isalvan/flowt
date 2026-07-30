@@ -226,6 +226,43 @@ describe('Firestore Rules - Huchas Protegidas', () => {
 });
 
 describe('Firestore Rules - Frontend fields', () => {
+  it('Should allow the automatic subscriptions wallet creation', async () => {
+    if (!testEnv) return;
+    const context = testEnv.authenticatedContext('user_123');
+
+    await assertSucceeds(setDoc(doc(context.firestore(), 'huchas', 'subscriptions_wallet'), {
+      id_propietario: 'user_123',
+      nombre: 'Suscripciones',
+      tipo_aportacion: 'flat',
+      valor_aportacion: 15,
+      objetivo: 15,
+      saldo_acumulado: 0,
+      orden: 1,
+      es_principal: false,
+      es_suscripciones: true,
+      activa: true,
+      tope_objetivo: false,
+    }));
+  });
+
+  it('Should allow the automatic cash wallet creation', async () => {
+    if (!testEnv) return;
+    const context = testEnv.authenticatedContext('user_123');
+
+    await assertSucceeds(setDoc(doc(context.firestore(), 'huchas', 'cash_wallet'), {
+      id_propietario: 'user_123',
+      nombre: 'Efectivo',
+      tipo_aportacion: 'flat',
+      valor_aportacion: 0,
+      objetivo: null,
+      saldo_acumulado: 0,
+      orden: 2,
+      es_metalico: true,
+      es_principal: false,
+      activa: true,
+    }));
+  });
+
   it('Should allow internal cash movements', async () => {
     if (!testEnv) return;
     const context = testEnv.authenticatedContext('user_123');

@@ -1756,6 +1756,7 @@ export const useFinanceData = (forceDemo = false) => {
         orden: currentHuchas.length + 1,
         es_principal: false,
         es_suscripciones: true,
+        activa: true,
         tope_objetivo: false,
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
@@ -2355,6 +2356,7 @@ export const useFinanceData = (forceDemo = false) => {
               orden: nextHuchasState.length + 1,
               es_metalico: true,
               es_principal: false,
+              activa: true,
               created_at: serverTimestamp(),
               updated_at: serverTimestamp()
             };
