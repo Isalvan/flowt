@@ -1,5 +1,6 @@
 # -*- coding: cp1252 -*-
 import os
+import subprocess
 import hashlib
 import logging
 import argparse
