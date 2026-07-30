@@ -464,11 +464,11 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                 subs_hucha_id,
             )
             if not target_hucha_id:
-            target_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("es_principal")), None)
-            if not target_hucha_id:
-                target_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("tipo_aportacion") == "resto"), None)
-            if not target_hucha_id and huchas_state:
-                target_hucha_id = list(huchas_state.keys())[0]
+                target_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("es_principal")), None)
+                if not target_hucha_id:
+                    target_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("tipo_aportacion") == "resto"), None)
+                if not target_hucha_id and huchas_state:
+                    target_hucha_id = list(huchas_state.keys())[0]
                 
             target_gasto_hucha_id = target_hucha_id
             if target_gasto_hucha_id:
