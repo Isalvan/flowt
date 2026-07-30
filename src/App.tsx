@@ -8,6 +8,7 @@ import { type Hucha, type Suscripcion, type Movimiento } from './types';
 
 // Tab subviews
 import { DashboardView } from './components/dashboard/DashboardView';
+import { SaludFinancieraView } from './components/salud/SaludFinancieraView';
 import { CalendarioView } from './components/calendario/CalendarioView';
 import { CorreosOrchestrator } from './components/correos/CorreosOrchestrator';
 import { AjustesOrchestrator } from './components/ajustes/AjustesOrchestrator';
@@ -42,7 +43,8 @@ import {
   Mail,
   Eye,
   EyeOff,
-  User
+  User,
+  HeartPulse
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { PinModal } from './components/common/PinModal';
@@ -110,7 +112,7 @@ const AppContent: React.FC = () => {
   } = useFinanceData(forceDemo);
 
   // Tab switching state
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'calendario' | 'correos' | 'ajustes'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'salud' | 'calendario' | 'correos' | 'ajustes'>('dashboard');
 
   // Form modals state overlays
   const [isHuchaModalOpen, setIsHuchaModalOpen] = useState(false);
@@ -492,6 +494,17 @@ const AppContent: React.FC = () => {
               Dashboard
             </button>
             <button
+              onClick={() => setActiveTab('salud')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
+                activeTab === 'salud'
+                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
+              }`}
+            >
+              <HeartPulse size={14} className="text-emerald-500" />
+              Salud
+            </button>
+            <button
               onClick={() => setActiveTab('calendario')}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
                 activeTab === 'calendario'
@@ -644,6 +657,15 @@ const AppContent: React.FC = () => {
             huchas={huchas}
             onApprove={handleApprovePendingEmail}
             onDiscard={handleDiscardPendingEmail}
+          />
+        )}
+
+        {activeTab === 'salud' && (
+          <SaludFinancieraView
+            movimientos={movimientos}
+            huchas={huchas}
+            suscripciones={suscripciones}
+            userStats={userStats}
           />
         )}
 
