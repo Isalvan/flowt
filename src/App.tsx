@@ -146,7 +146,7 @@ const AppContent: React.FC = () => {
   // Reset pagination
   const initHistoryPagination = useCallback(async () => {
     setHistoryLoading(true);
-    if (isFirebaseConfigured && user) {
+    if (isFirebaseConfigured && user && !isLocked) {
       try {
         const q = query(
           collection(db, 'movimientos'),
@@ -178,7 +178,7 @@ const AppContent: React.FC = () => {
     if (historyLoading) return;
     setHistoryLoading(true);
 
-    if (isFirebaseConfigured && user) {
+    if (isFirebaseConfigured && user && !isLocked) {
       if (!lastVisibleDoc) {
         setHistoryHasMore(false);
         setHistoryLoading(false);
@@ -584,11 +584,11 @@ const AppContent: React.FC = () => {
                   className="flex items-center gap-2.5 pl-2.5 pr-1.5 py-1 rounded-2xl bg-slate-150/40 dark:bg-slate-900 border border-slate-200/30 dark:border-white/5 hover:border-indigo-500/30 hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer group active:scale-95"
                 >
                   <div className="flex flex-col text-right shrink-0">
-                     <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                      {user.displayName || 'Usuario'}
+                    <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                      {isLocked ? 'Usuario Privado' : (user.displayName || 'Usuario')}
                     </span>
                     <span className="text-[8px] font-semibold text-slate-400 leading-none">
-                      {user.email || 'Conectado'}
+                      {isLocked ? '••••@••••.••' : (user.email || 'Conectado')}
                     </span>
                   </div>
                   

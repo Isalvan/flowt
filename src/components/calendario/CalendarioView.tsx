@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { type Suscripcion } from '../../types';
+import { getSubscriptionChargeForMonth } from '../../utils/subscriptions';
 import { Card } from '../common/Card';
 import { 
   Calendar, 
@@ -72,7 +73,10 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
 
   // Get subscriptions triggering on a specific day number
   const getSubsForDay = (day: number): Suscripcion[] => {
-    return activeSubs.filter(s => s.dia_pago === day);
+    return activeSubs.filter(s => {
+      const charge = getSubscriptionChargeForMonth(s, year, month);
+      return charge?.getDate() === day;
+    });
   };
 
   // Select day handler
@@ -84,7 +88,12 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
   const selectedDaySubs = selectedDay ? getSubsForDay(selectedDay) : [];
 
   // Monthly Agenda sorted listing
-  const sortedAgenda = [...activeSubs].sort((a, b) => a.dia_pago - b.dia_pago);
+  const sortedAgenda = activeSubs
+    .filter(s => getSubscriptionChargeForMonth(s, year, month) !== null)
+    .sort((a, b) => a.dia_pago - b.dia_pago);
+  const getChargeDay = (subscription: Suscripcion): number => (
+    getSubscriptionChargeForMonth(subscription, year, month)?.getDate() ?? subscription.dia_pago
+  );
 
   const daysOfWeek = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
@@ -273,16 +282,16 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
                   sortedAgenda.map(sub => (
                     <div 
                       key={sub.id}
-                      onClick={() => setSelectedDay(sub.dia_pago)}
+                      onClick={() => setSelectedDay(getChargeDay(sub))}
                       className={`flex items-center justify-between p-2.5 rounded-2xl border transition-all duration-200 cursor-pointer ${
-                        selectedDay === sub.dia_pago 
+                        selectedDay === getChargeDay(sub)
                           ? 'border-indigo-500/40 bg-indigo-500/5' 
                           : 'border-transparent hover:bg-white/50 dark:hover:bg-slate-950/20 hover:scale-[1.01]'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span className="text-[11px] font-black text-indigo-500/80 dark:text-indigo-400/80 bg-indigo-500/5 px-2 py-0.5 rounded-lg border border-indigo-500/10 tabular-nums shrink-0">
-                          D{sub.dia_pago}
+                          D{getChargeDay(sub)}
                         </span>
                         <span 
                           className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/10" 
