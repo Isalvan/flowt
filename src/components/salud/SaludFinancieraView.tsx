@@ -55,7 +55,7 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
         <div className="flex flex-col gap-2">
           <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
             <div className="p-2.5 rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
-              <Activity size={24} />
+              <Activity size={28} className="drop-shadow-sm" />
             </div>
             Salud Financiera
           </h2>
