@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Layers, Download, Archive, RefreshCw } from 'lucide-react';
 import { SuscripcionesView } from '../suscripciones/SuscripcionesView';
 import { ExportView } from '../export/ExportView';
+import { usePrivacy } from '../../context/PrivacyContext';
 import type { Suscripcion, Hucha, Movimiento } from '../../types';
 
 interface AjustesOrchestratorProps {
@@ -35,6 +36,7 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
   onRestoreHucha
 }) => {
   const [subTab, setSubTab] = useState<'suscripciones' | 'exportar' | 'carteras_inactivas'>('suscripciones');
+  const { formatCurrency } = usePrivacy();
 
   return (
     <div className="w-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -110,7 +112,7 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
                   <div key={h.id} className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
                     <div className="flex flex-col">
                       <span className="font-bold text-slate-800 dark:text-white">{h.nombre}</span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Saldo oculto: {h.saldo_acumulado.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Saldo oculto: {formatCurrency(h.saldo_acumulado)}</span>
                     </div>
                     <button
                       onClick={() => onRestoreHucha(h.id)}

@@ -79,6 +79,7 @@ def get_unread_emails_from_bank(bank_sender: str, max_results: int = 10) -> List
             subject = next((header['value'] for header in headers if header['name'].lower() == 'subject'), '')
             sender = next((header['value'] for header in headers if header['name'].lower() == 'from'), '')
             date_sent = next((header['value'] for header in headers if header['name'].lower() == 'date'), '')
+            auth_results = next((header['value'] for header in headers if header['name'].lower() == 'authentication-results'), '')
             message_id = next((header['value'] for header in headers if header['name'].lower() == 'message-id'), message['id'])
 
             # Extract body
@@ -98,6 +99,7 @@ def get_unread_emails_from_bank(bank_sender: str, max_results: int = 10) -> List
                 "from": sender,
                 "subject": subject,
                 "date_sent": date_sent,
+                "auth_results": auth_results,
                 "body": body
             })
 

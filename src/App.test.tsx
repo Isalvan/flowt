@@ -2,7 +2,27 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from './App';
 
+vi.mock('firebase/app', () => ({
+  initializeApp: vi.fn(() => ({})),
+}));
 
+vi.mock('firebase/auth', () => ({
+  getAuth: vi.fn(() => ({})),
+  onAuthStateChanged: vi.fn((_auth, cb) => {
+    cb(null);
+    return () => {};
+  })
+}));
+
+vi.mock('firebase/firestore', () => ({
+  getFirestore: vi.fn(() => ({})),
+  collection: vi.fn(),
+  query: vi.fn(),
+  where: vi.fn(),
+  orderBy: vi.fn(),
+  limit: vi.fn(),
+  onSnapshot: vi.fn(),
+}));
 
 // Mock usePrivacy context to be permanently unlocked during dashboard tests
 vi.mock('./context/PrivacyContext', () => ({
@@ -30,6 +50,7 @@ describe('App Dashboard', () => {
     localStorage.clear();
     vi.resetAllMocks();
   });
+
   it('renders the login screen when not authenticated', async () => {
     vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
     render(<App />);
@@ -42,14 +63,26 @@ describe('App Dashboard', () => {
     vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
     render(<App />);
     
-    // Click on Demo mode button instead of stubbing env, as Vite statically replaces import.meta.env
     const demoBtn = await screen.findByText(/Explorar en modo Demo/i);
     fireEvent.click(demoBtn);
     
-    // Check for Demo Mode warning (or Navbar to confirm dashboard loaded)
     expect(await screen.findByText(/Dashboard/i)).toBeInTheDocument();
     
     vi.unstubAllEnvs();
   });
 
+  it('opens history modal when clicking Historial button', async () => {
+    vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
+    render(<App />);
+    
+    const demoBtn = await screen.findByText(/Explorar en modo Demo/i);
+    fireEvent.click(demoBtn);
+
+    const historyBtn = await screen.findByText(/Historial Completo/i);
+    fireEvent.click(historyBtn);
+    
+    expect(await screen.findByPlaceholderText(/Buscar por concepto o importe/i)).toBeInTheDocument();
+    
+    vi.unstubAllEnvs();
+  });
 });

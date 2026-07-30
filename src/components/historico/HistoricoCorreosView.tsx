@@ -106,10 +106,12 @@ export const HistoricoCorreosView: React.FC<HistoricoCorreosViewProps> = ({ hist
                       </h4>
                       
                       {/* Premium Glass Container for Email Body */}
-                      <div className="relative rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 shadow-inner overflow-hidden max-h-[600px] overflow-y-auto custom-scrollbar">
-                        <div 
-                          className="p-6 prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:font-bold break-words"
-                          dangerouslySetInnerHTML={{ __html: correo.cuerpo }}
+                      <div className="relative rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 shadow-inner overflow-hidden h-[600px] custom-scrollbar">
+                        <iframe
+                          srcDoc={`<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: cid:"><style>body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:1.5rem;color:#334155;}@media(prefers-color-scheme:dark){body{color:#cbd5e1;}}</style></head><body>${correo.cuerpo}</body></html>`}
+                          title={`Correo ${correo.id}`}
+                          sandbox=""
+                          className="w-full h-full bg-transparent border-0"
                         />
                       </div>
                     </div>
