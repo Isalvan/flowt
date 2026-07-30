@@ -88,6 +88,61 @@ def test_process_emails_success(mock_config, mock_gmail_client, mock_gemini):
     mock_collection.document.assert_any_call("msg-123")
     mock_mark.assert_called_once_with("msg-123")
 
+def test_setup_config_normalizes_multiple_bank_senders(mock_config):
+    with patch.dict(os.environ, {
+        "BANK_SENDER": " Alertas@Unicaja.es, info@Revolut.com ",
+        "UID_PROPIETARIO": "test_user_123",
+        "AI_MODEL": "test-model",
+    }):
+        main.setup_config()
+
+    assert main.ALLOWED_BANK_SENDERS == frozenset({
+        "alertas@unicaja.es",
+        "info@revolut.com",
+    })
+
+def test_process_emails_rejects_sender_outside_exact_allowlist(
+    mock_config, mock_gmail_client, mock_gemini
+):
+    mock_get, mock_mark = mock_gmail_client
+    mock_get.return_value = [{
+        "id": "spoofed",
+        "from": "info@revolut.com.attacker.test",
+        "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200",
+        "body": "Ingreso 100 EUR",
+    }]
+
+    with patch.object(main, "BANK_SENDER", "alertas@unicaja.es,info@revolut.com"), \
+         patch.object(main, "ALLOWED_BANK_SENDERS", frozenset({
+             "alertas@unicaja.es",
+             "info@revolut.com",
+         })):
+        main.process_emails()
+
+    mock_gemini.assert_not_called()
+    mock_mark.assert_not_called()
+
+def test_process_emails_accepts_second_sender_in_allowlist(
+    mock_config, mock_gmail_client, mock_gemini
+):
+    mock_get, _ = mock_gmail_client
+    mock_get.return_value = [{
+        "id": "revolut-message",
+        "from": "Revolut <INFO@REVOLUT.COM>",
+        "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200",
+        "body": "Aviso sin movimientos",
+    }]
+    mock_gemini.return_value = []
+
+    with patch.object(main, "BANK_SENDER", "alertas@unicaja.es,info@revolut.com"), \
+         patch.object(main, "ALLOWED_BANK_SENDERS", frozenset({
+             "alertas@unicaja.es",
+             "info@revolut.com",
+         })):
+        main.process_emails()
+
+    mock_gemini.assert_called_once()
+
 def test_process_multiple_movements_success(mock_config, mock_gmail_client, mock_gemini):
     mock_get, mock_mark = mock_gmail_client
     mock_firestore, mock_collection = mock_config
