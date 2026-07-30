@@ -1,15 +1,7 @@
 import React, { useMemo } from 'react';
 import { 
-  Activity, 
-  TrendingUp, 
-  PiggyBank, 
-  CreditCard, 
-  Lightbulb,
-  Target, 
   CheckCircle2, 
-  AlertCircle,
-  ShieldCheck,
-  RefreshCw
+  ShieldCheck
 } from 'lucide-react';
 import type { Hucha, Movimiento, Suscripcion } from '../../types';
 import { calculateFinancialHealthScore } from '../../utils/healthScore';
@@ -50,16 +42,13 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Header */}
+      {/* Clean Header without icon clutter */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
-              <Activity size={28} className="drop-shadow-sm" />
-            </div>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
             Salud Financiera
           </h2>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 pl-14">
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
             Evaluación continua de tu tasa de ahorro, estabilidad y balance financiero.
           </p>
         </div>
@@ -115,11 +104,7 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
         </div>
 
         {/* Right: Summary Message */}
-        <div className="flex-1 space-y-4 text-center md:text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200/50 dark:border-white/5">
-            <Target size={14} className="text-emerald-500" />
-            Diagnóstico Financiero en Tiempo Real
-          </div>
+        <div className="flex-1 space-y-3 text-center md:text-left">
           <h3 className="text-2xl font-bold text-slate-800 dark:text-white">
             {totalScore >= 75 && '¡Tus finanzas están en un excelente estado de equilibrio!'}
             {totalScore >= 45 && totalScore < 75 && 'Tu salud financiera es estable, con margen de optimización.'}
@@ -167,20 +152,15 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
         })}
       </div>
 
-      {/* Actionable Recommendations */}
+      {/* Clean Actionable Recommendations */}
       <div className="rounded-[2rem] border border-slate-200/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-8 shadow-lg space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
-            <Lightbulb size={20} />
-          </div>
-          <div>
-            <h4 className="text-lg font-bold text-slate-800 dark:text-white">
-              Acciones Recomendadas
-            </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Sugerencias prácticas para optimizar tu presupuesto este mes.
-            </p>
-          </div>
+        <div>
+          <h4 className="text-lg font-bold text-slate-800 dark:text-white">
+            Acciones Recomendadas
+          </h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Sugerencias prácticas para optimizar tu presupuesto este mes.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-4">
