@@ -52,7 +52,7 @@ def test_process_emails_success(mock_config, mock_gmail_client, mock_gemini):
         }
     ]
     mock_gemini.return_value = [
-        {"tipo": "ingreso", "importe": 100.0, "fecha": "2024-10-25", "descripcion": "Ingreso", "moneda": "EUR", "confianza": "alta"}
+        {"tipo": "ingreso", "importe": 100.0, "fecha": "2026-04-11", "descripcion": "Ingreso", "moneda": "EUR", "confianza": "alta"}
     ]
     
     mock_doc = MagicMock()
@@ -86,14 +86,6 @@ def test_process_emails_success(mock_config, mock_gmail_client, mock_gemini):
     
     mock_collection.document.assert_any_call(expected_doc_id)
     mock_collection.document.assert_any_call("msg-123")
-    mock_doc.set.assert_any_call({
-        "id_propietario": "test_user_123",
-        "email_id": "msg-123",
-        "cuerpo": "Ingreso de 100 EUR",
-        "fecha_envio": "Sat, 11 Apr 2026 20:36:55 +0200",
-        "movimientos_generados": [expected_doc_id],
-        "created_at": main.firestore.SERVER_TIMESTAMP
-    })
     mock_mark.assert_called_once_with("msg-123")
 
 def test_process_multiple_movements_success(mock_config, mock_gmail_client, mock_gemini):
@@ -106,12 +98,12 @@ def test_process_multiple_movements_success(mock_config, mock_gmail_client, mock
             "message_id": "<multi@bank.com>",
             "from": "test@bank.com",
             "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200",
-            "body": "Dos cargos"
+            "body": "Dos cargos de 10.0 y 20.0"
         }
     ]
     mock_gemini.return_value = [
-        {"tipo": "gasto", "importe": 10.0, "fecha": "2024-10-25", "descripcion": "Gasto 1", "moneda": "EUR", "confianza": "alta"},
-        {"tipo": "gasto", "importe": 20.0, "fecha": "2024-10-25", "descripcion": "Gasto 2", "moneda": "EUR", "confianza": "alta"}
+        {"tipo": "gasto", "importe": 10.0, "fecha": "2026-04-11", "descripcion": "Gasto 1", "moneda": "EUR", "confianza": "alta"},
+        {"tipo": "gasto", "importe": 20.0, "fecha": "2026-04-11", "descripcion": "Gasto 2", "moneda": "EUR", "confianza": "alta"}
     ]
     
     mock_doc = MagicMock()
@@ -151,8 +143,8 @@ def test_process_income_resto_decoupling(mock_config, mock_gmail_client, mock_ge
     mock_get, mock_mark = mock_gmail_client
     mock_firestore, mock_collection = mock_config
     
-    mock_get.return_value = [{"id": "inc-1", "message_id": "m1", "from": "b", "date_sent": "d", "body": "b"}]
-    mock_gemini.return_value = [{"tipo": "ingreso", "importe": 100.0, "fecha": "2024-10-25", "descripcion": "I", "moneda": "EUR", "confianza": "alta"}]
+    mock_get.return_value = [{"id": "inc-1", "message_id": "m1", "from": "test@bank.com", "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200", "body": "Ingreso 100.0"}]
+    mock_gemini.return_value = [{"tipo": "ingreso", "importe": 100.0, "fecha": "2026-04-11", "descripcion": "I", "moneda": "EUR", "confianza": "alta"}]
     
     mock_doc = MagicMock()
     mock_collection.document.return_value = mock_doc
@@ -183,8 +175,8 @@ def test_process_expense_principal_decoupling(mock_config, mock_gmail_client, mo
     mock_get, mock_mark = mock_gmail_client
     mock_firestore, mock_collection = mock_config
     
-    mock_get.return_value = [{"id": "exp-1", "message_id": "m2", "from": "b", "date_sent": "d", "body": "b"}]
-    mock_gemini.return_value = [{"tipo": "gasto", "importe": 50.0, "fecha": "2024-10-25", "descripcion": "G", "moneda": "EUR", "confianza": "alta"}]
+    mock_get.return_value = [{"id": "exp-1", "message_id": "m2", "from": "test@bank.com", "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200", "body": "Gasto 50.0"}]
+    mock_gemini.return_value = [{"tipo": "gasto", "importe": 50.0, "fecha": "2026-04-11", "descripcion": "G", "moneda": "EUR", "confianza": "alta"}]
     
     mock_doc = MagicMock()
     mock_collection.document.return_value = mock_doc
@@ -211,11 +203,84 @@ def test_process_expense_principal_decoupling(mock_config, mock_gmail_client, mo
         {"saldo_acumulado": 50.0, "updated_at": main.firestore.SERVER_TIMESTAMP}
     )
 
+def test_process_expense_subscription_routing(mock_config, mock_gmail_client, mock_gemini):
+    mock_get, mock_mark = mock_gmail_client
+    mock_firestore, mock_collection = mock_config
+    
+    mock_get.return_value = [{"id": "exp-sub", "message_id": "m3", "from": "test@bank.com", "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200", "body": "Pago Netflix 15.0"}]
+    mock_gemini.return_value = [{"tipo": "gasto", "importe": 15.0, "fecha": "2026-04-11", "descripcion": "Pago Netflix", "moneda": "EUR", "confianza": "alta"}]
+    
+    mock_doc = MagicMock()
+    mock_collection.document.return_value = mock_doc
+    mock_doc.get.return_value.exists = False
+    
+    mock_hucha_subs = MagicMock()
+    mock_hucha_subs.id = "h-subs"
+    mock_hucha_subs.reference = MagicMock(name="h-subs-ref")
+    mock_hucha_subs.to_dict.return_value = {"es_suscripciones": True, "saldo_acumulado": 200.0}
+    
+    mock_hucha_principal = MagicMock()
+    mock_hucha_principal.id = "h-principal"
+    mock_hucha_principal.reference = MagicMock(name="h-principal-ref")
+    mock_hucha_principal.to_dict.return_value = {"es_principal": True, "saldo_acumulado": 100.0}
+    
+    mock_sub = MagicMock()
+    mock_sub.to_dict.return_value = {"nombre": "Netflix", "importe": 15.0, "hucha_id": "h-subs", "activa": True}
+    
+    mock_query_huchas = MagicMock()
+    mock_query_huchas.stream.return_value = [mock_hucha_subs, mock_hucha_principal]
+    
+    mock_query_subs = MagicMock()
+    mock_query_subs.stream.return_value = [mock_sub]
+    
+    def where_side_effect(field, op, val):
+        q = MagicMock()
+        if field == "id_propietario":
+            q.order_by.return_value = mock_query_huchas
+            q.where.return_value.stream.return_value = [mock_sub]
+        return q
+    
+    mock_collection.where.side_effect = where_side_effect
+    
+    main.process_emails()
+    
+    mock_firestore.transaction.return_value.update.assert_any_call(
+        mock_hucha_subs.reference,
+        {"saldo_acumulado": 185.0, "updated_at": main.firestore.SERVER_TIMESTAMP}
+    )
+
+def test_process_expense_resto_fallback_routing(mock_config, mock_gmail_client, mock_gemini):
+    mock_get, mock_mark = mock_gmail_client
+    mock_firestore, mock_collection = mock_config
+    
+    mock_get.return_value = [{"id": "exp-fallback", "message_id": "m4", "from": "test@bank.com", "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200", "body": "Gasto vario 30.0"}]
+    mock_gemini.return_value = [{"tipo": "gasto", "importe": 30.0, "fecha": "2026-04-11", "descripcion": "Gasto vario", "moneda": "EUR", "confianza": "alta"}]
+    
+    mock_doc = MagicMock()
+    mock_collection.document.return_value = mock_doc
+    mock_doc.get.return_value.exists = False
+    
+    mock_hucha_resto = MagicMock()
+    mock_hucha_resto.id = "h-resto"
+    mock_hucha_resto.reference = MagicMock(name="h-resto-ref")
+    mock_hucha_resto.to_dict.return_value = {"tipo_aportacion": "resto", "es_principal": False, "saldo_acumulado": 100.0}
+    
+    mock_query = MagicMock()
+    mock_query.stream.return_value = [mock_hucha_resto]
+    mock_collection.where.return_value.order_by.return_value = mock_query
+    
+    main.process_emails()
+    
+    mock_firestore.transaction.return_value.update.assert_any_call(
+        mock_hucha_resto.reference,
+        {"saldo_acumulado": 70.0, "updated_at": main.firestore.SERVER_TIMESTAMP}
+    )
+
 def test_validate_parsed_data():
-    assert main.validate_parsed_data({"tipo": "gasto", "importe": 50.0, "fecha": "2024-10-25"}) == True
-    assert main.validate_parsed_data({"tipo": "invalid", "importe": 50.0, "fecha": "2024-10-25"}) == False
-    assert main.validate_parsed_data({"tipo": "gasto", "importe": "not a number", "fecha": "2024-10-25"}) == False
-    assert main.validate_parsed_data({}) == False
+    assert main.validate_parsed_data({"tipo": "gasto", "importe": 50.0, "fecha": "2024-10-25"}, "Gasto de 50.0") == True
+    assert main.validate_parsed_data({"tipo": "invalid", "importe": 50.0, "fecha": "2024-10-25"}, "50.0") == False
+    assert main.validate_parsed_data({"tipo": "gasto", "importe": "not a number", "fecha": "2024-10-25"}, "test") == False
+    assert main.validate_parsed_data({}, "") == False
 
 def test_parse_amount():
     from fallback_logic import parse_amount

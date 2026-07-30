@@ -21,6 +21,9 @@ export const PinModal: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   
+  const [failedAttempts, setFailedAttempts] = useState<number>(0);
+  const [isWaiting, setIsWaiting] = useState<boolean>(false);
+  
   const [isRecoveryMode, setIsRecoveryMode] = useState<boolean>(false);
   const [isRecovering, setIsRecovering] = useState<boolean>(false);
 
@@ -54,25 +57,25 @@ export const PinModal: React.FC = () => {
 
   // Handle keypresses (0-9)
   const handleKeyPress = useCallback((digit: string) => {
-    if (pin.length >= 4 || isSuccess || isRecoveryMode) return;
+    if (pin.length >= 4 || isSuccess || isRecoveryMode || isWaiting) return;
     const nextPin = pin + digit;
     setPinState(nextPin);
     setErrorMessage('');
-  }, [pin, isSuccess]);
+  }, [pin, isSuccess, isRecoveryMode, isWaiting]);
 
   // Handle backspace
   const handleBackspace = useCallback(() => {
-    if (isSuccess) return;
+    if (isSuccess || isWaiting) return;
     setPinState(prev => prev.slice(0, -1));
     setErrorMessage('');
-  }, [isSuccess]);
+  }, [isSuccess, isWaiting]);
 
   // Handle clear
   const handleClear = useCallback(() => {
-    if (isSuccess) return;
+    if (isSuccess || isWaiting) return;
     setPinState('');
     setErrorMessage('');
-  }, [isSuccess]);
+  }, [isSuccess, isWaiting]);
 
   // Auto trigger check when PIN length reaches 4
   useEffect(() => {
@@ -83,17 +86,29 @@ export const PinModal: React.FC = () => {
         const ok = await verifyAndUnlock(pin);
         if (ok) {
           setIsSuccess(true);
+          setFailedAttempts(0);
           setTimeout(() => {
             closePinModal();
           }, 600);
         } else {
-          // Trigger shake and clear
+          // Trigger shake and progressive delay
+          const newFailed = failedAttempts + 1;
+          setFailedAttempts(newFailed);
           setIsShaking(true);
-          setErrorMessage('PIN Incorrecto');
+          setIsWaiting(true);
+          
+          const delayTime = Math.min(Math.pow(2, newFailed - 1) * 1000, 30000); // 1s, 2s, 4s... max 30s
+          setErrorMessage(`PIN Incorrecto. Espera ${delayTime / 1000}s`);
+          
           setTimeout(() => {
             setIsShaking(false);
-            setPinState('');
           }, 500);
+          
+          setTimeout(() => {
+            setPinState('');
+            setErrorMessage('');
+            setIsWaiting(false);
+          }, delayTime);
         }
       } else if (pinModalMode === 'create') {
         setTempNewPin(pin);
@@ -121,7 +136,7 @@ export const PinModal: React.FC = () => {
     // Delay slightly to let the last dot animate to filled
     const timer = setTimeout(processPin, 150);
     return () => clearTimeout(timer);
-  }, [pin, pinModalMode, tempNewPin, verifyAndUnlock, setPin, setTempNewPin, setPinModalMode, closePinModal]);
+  }, [pin, pinModalMode, tempNewPin, verifyAndUnlock, setPin, setTempNewPin, setPinModalMode, closePinModal, failedAttempts]);
 
   const handleRecoverClick = () => {
     setIsRecoveryMode(true);

@@ -278,9 +278,9 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
                   <div className="flex-1 min-h-[420px] max-h-[420px] flex">
                     {viewMode === 'html' ? (
                       <iframe
-                        srcDoc={selectedEmail.cuerpo}
+                        srcDoc={`<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: cid:"><style>body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:1.5rem;color:#334155;}@media(prefers-color-scheme:dark){body{color:#cbd5e1;}}</style></head><body>${selectedEmail.cuerpo}</body></html>`}
                         title="Formatted Email Preview"
-                        sandbox="allow-popups"
+                        sandbox=""
                         className="w-full h-full bg-white rounded-2xl border border-slate-200/50 dark:border-slate-800 shadow-inner overflow-hidden select-text"
                       />
                     ) : (

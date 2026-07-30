@@ -101,7 +101,7 @@ db = None
 
 
 
-def validate_parsed_data(data: Dict[str, Any]) -> bool:
+def validate_parsed_data(data: Dict[str, Any], email_body: str) -> bool:
     """
     Validates the JSON returned by Gemini.
     """
@@ -120,6 +120,24 @@ def validate_parsed_data(data: Dict[str, Any]) -> bool:
         if not (0 < importe < 100000):
             return False
     except (ValueError, TypeError):
+        return False
+        
+    if data.get("moneda", "EUR") != "EUR":
+        return False
+        
+    concepto = data.get("descripcion") or data.get("concepto") or ""
+    if len(concepto) > 100:
+        return False
+        
+    if data.get("confianza", "alta") not in ["alta", "media", "baja"]:
+        return False
+        
+    # Check if amount digits are somewhat in the text
+    importe_str = str(importe)
+    if importe_str.endswith(".0"):
+        importe_str = importe_str[:-2]
+    digits = re.sub(r'\D', '', importe_str)
+    if digits and digits not in re.sub(r'\D', '', email_body):
         return False
     
     return True
@@ -536,7 +554,7 @@ def extract_email(header_value: str) -> str:
         return match.group(1).strip().lower()
     return header_value.strip().lower()
 
-MIN_CONFIDENCE_THRESHOLD = os.getenv("MIN_CONFIDENCE", "baja").lower()
+MIN_CONFIDENCE_THRESHOLD = os.getenv("MIN_CONFIDENCE", "alta").lower()
 
 def get_confidence_score(level: str) -> int:
     return {"alta": 3, "media": 2, "baja": 1}.get(level.lower(), 0)
@@ -582,6 +600,21 @@ def process_emails():
     
     for email in emails:
         email_id = email["id"]
+        
+        sender_normalized = extract_email(email["from"])
+        expected_sender = extract_email(BANK_SENDER) if BANK_SENDER else ""
+        if expected_sender and expected_sender not in sender_normalized:
+            logger.warning(f"Sender mismatch for {email_id}. Expected {expected_sender}, got {sender_normalized}")
+            continue
+            
+        auth_results = email.get("auth_results", "").lower()
+        if auth_results:
+            if "spf=pass" not in auth_results and "dkim=pass" not in auth_results and "dmarc=pass" not in auth_results:
+                logger.warning(f"Auth failed for {email_id}: {auth_results}")
+                if save_to_pending_review(email, f"Fallo de autenticación: {auth_results}"):
+                    mark_email_as_read(email_id)
+                continue
+
         email_date = email["date_sent"]
         
         # Skip emails that failed in this session to avoid infinite loops until restart
@@ -599,15 +632,21 @@ def process_emails():
             raw_movements = fallback_extract_movement(email["body"], email_date)
         if not raw_movements:
             # Movimiento ignorado o fallido
-            save_to_pending_review(email, "Fallo total en extracción automática")
-            if mark_email_as_read(email_id):
-                logger.info(f"Email {email_id} marked as read.")
-            else:
-                logger.error(f"Failed to mark email {email_id} as read.")
+            if save_to_pending_review(email, "Fallo total en extracción automática"):
+                if mark_email_as_read(email_id):
+                    logger.info(f"Email {email_id} marked as read.")
+                else:
+                    logger.error(f"Failed to mark email {email_id} as read.")
             continue
 
         # Ensure we have a list of movements
         movements_list = raw_movements if isinstance(raw_movements, list) else [raw_movements]
+        
+        if len(movements_list) > 10:
+            logger.warning(f"Too many movements ({len(movements_list)}) in email {email_id}.")
+            if save_to_pending_review(email, "Excede máximo de movimientos por correo"):
+                mark_email_as_read(email_id)
+            continue
         
         has_recorded_any = False
         has_low_confidence = False
@@ -615,7 +654,7 @@ def process_emails():
         movements_to_process = []
         
         for index, parsed_data in enumerate(movements_list):
-            if not validate_parsed_data(parsed_data):
+            if not validate_parsed_data(parsed_data, body_clean):
                 logger.warning(f"Movement {index} from email {email_id} discarded: Invalid data.")
                 has_low_confidence = True
                 continue
@@ -667,6 +706,16 @@ def process_emails():
                     fecha_dt = parsedate_to_datetime(email_date)
                 except:
                     fecha_dt = datetime.now(timezone.utc)
+
+            if fecha_dt:
+                try:
+                    email_date_dt = parsedate_to_datetime(email_date)
+                    if abs((fecha_dt - email_date_dt).days) > 7:
+                        logger.warning(f"Date {fecha_dt} is too far from email date {email_date_dt}.")
+                        has_low_confidence = True
+                        continue
+                except Exception:
+                    pass
 
             # Construct movement document
             movimiento = {
@@ -721,13 +770,17 @@ def process_emails():
                 has_low_confidence = True
 
         if has_low_confidence and not has_recorded_any:
-            save_to_pending_review(email, "Movimiento descartado por baja confianza o datos inválidos")
-
-        # Mark email as read only after processing all its movements
-        if mark_email_as_read(email_id):
-            logger.info(f"Email {email_id} marked as processed.")
+            if save_to_pending_review(email, "Movimiento descartado por baja confianza o datos inválidos"):
+                if mark_email_as_read(email_id):
+                    logger.info(f"Email {email_id} marked as processed.")
+                else:
+                    logger.error(f"Failed to mark email {email_id} as read.")
         else:
-            logger.error(f"Failed to mark email {email_id} as read.")
+            # Mark email as read only after processing all its movements
+            if mark_email_as_read(email_id):
+                logger.info(f"Email {email_id} marked as processed.")
+            else:
+                logger.error(f"Failed to mark email {email_id} as read.")
 
 @functions_framework.http
 def gmail_webhook(request):
