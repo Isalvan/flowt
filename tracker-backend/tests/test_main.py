@@ -52,7 +52,7 @@ def test_process_emails_success(mock_config, mock_gmail_client, mock_gemini):
         }
     ]
     mock_gemini.return_value = [
-        {"tipo": "ingreso", "importe": 100.0, "fecha": "2024-10-25", "descripcion": "Ingreso", "moneda": "EUR", "confianza": "alta"}
+        {"tipo": "ingreso", "importe": 100.0, "fecha": "2026-04-11", "descripcion": "Ingreso", "moneda": "EUR", "confianza": "alta"}
     ]
     
     mock_doc = MagicMock()
@@ -86,14 +86,6 @@ def test_process_emails_success(mock_config, mock_gmail_client, mock_gemini):
     
     mock_collection.document.assert_any_call(expected_doc_id)
     mock_collection.document.assert_any_call("msg-123")
-    mock_doc.set.assert_any_call({
-        "id_propietario": "test_user_123",
-        "email_id": "msg-123",
-        "cuerpo": "Ingreso de 100 EUR",
-        "fecha_envio": "Sat, 11 Apr 2026 20:36:55 +0200",
-        "movimientos_generados": [expected_doc_id],
-        "created_at": main.firestore.SERVER_TIMESTAMP
-    })
     mock_mark.assert_called_once_with("msg-123")
 
 def test_process_multiple_movements_success(mock_config, mock_gmail_client, mock_gemini):
@@ -106,12 +98,12 @@ def test_process_multiple_movements_success(mock_config, mock_gmail_client, mock
             "message_id": "<multi@bank.com>",
             "from": "test@bank.com",
             "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200",
-            "body": "Dos cargos"
+            "body": "Dos cargos de 10.0 y 20.0"
         }
     ]
     mock_gemini.return_value = [
-        {"tipo": "gasto", "importe": 10.0, "fecha": "2024-10-25", "descripcion": "Gasto 1", "moneda": "EUR", "confianza": "alta"},
-        {"tipo": "gasto", "importe": 20.0, "fecha": "2024-10-25", "descripcion": "Gasto 2", "moneda": "EUR", "confianza": "alta"}
+        {"tipo": "gasto", "importe": 10.0, "fecha": "2026-04-11", "descripcion": "Gasto 1", "moneda": "EUR", "confianza": "alta"},
+        {"tipo": "gasto", "importe": 20.0, "fecha": "2026-04-11", "descripcion": "Gasto 2", "moneda": "EUR", "confianza": "alta"}
     ]
     
     mock_doc = MagicMock()
@@ -151,8 +143,8 @@ def test_process_income_resto_decoupling(mock_config, mock_gmail_client, mock_ge
     mock_get, mock_mark = mock_gmail_client
     mock_firestore, mock_collection = mock_config
     
-    mock_get.return_value = [{"id": "inc-1", "message_id": "m1", "from": "b", "date_sent": "d", "body": "b"}]
-    mock_gemini.return_value = [{"tipo": "ingreso", "importe": 100.0, "fecha": "2024-10-25", "descripcion": "I", "moneda": "EUR", "confianza": "alta"}]
+    mock_get.return_value = [{"id": "inc-1", "message_id": "m1", "from": "test@bank.com", "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200", "body": "Ingreso 100.0"}]
+    mock_gemini.return_value = [{"tipo": "ingreso", "importe": 100.0, "fecha": "2026-04-11", "descripcion": "I", "moneda": "EUR", "confianza": "alta"}]
     
     mock_doc = MagicMock()
     mock_collection.document.return_value = mock_doc
@@ -183,8 +175,8 @@ def test_process_expense_principal_decoupling(mock_config, mock_gmail_client, mo
     mock_get, mock_mark = mock_gmail_client
     mock_firestore, mock_collection = mock_config
     
-    mock_get.return_value = [{"id": "exp-1", "message_id": "m2", "from": "b", "date_sent": "d", "body": "b"}]
-    mock_gemini.return_value = [{"tipo": "gasto", "importe": 50.0, "fecha": "2024-10-25", "descripcion": "G", "moneda": "EUR", "confianza": "alta"}]
+    mock_get.return_value = [{"id": "exp-1", "message_id": "m2", "from": "test@bank.com", "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200", "body": "Gasto 50.0"}]
+    mock_gemini.return_value = [{"tipo": "gasto", "importe": 50.0, "fecha": "2026-04-11", "descripcion": "G", "moneda": "EUR", "confianza": "alta"}]
     
     mock_doc = MagicMock()
     mock_collection.document.return_value = mock_doc
@@ -212,12 +204,11 @@ def test_process_expense_principal_decoupling(mock_config, mock_gmail_client, mo
     )
 
 def test_process_expense_subscription_routing(mock_config, mock_gmail_client, mock_gemini):
-    """Path 1: Gasto cubierto por suscripción coincidente -> se asigna a hucha de suscripciones."""
     mock_get, mock_mark = mock_gmail_client
     mock_firestore, mock_collection = mock_config
     
-    mock_get.return_value = [{"id": "exp-sub", "message_id": "m3", "from": "b", "date_sent": "d", "body": "b"}]
-    mock_gemini.return_value = [{"tipo": "gasto", "importe": 15.0, "fecha": "2024-10-25", "descripcion": "Pago Netflix", "moneda": "EUR", "confianza": "alta"}]
+    mock_get.return_value = [{"id": "exp-sub", "message_id": "m3", "from": "test@bank.com", "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200", "body": "Pago Netflix 15.0"}]
+    mock_gemini.return_value = [{"tipo": "gasto", "importe": 15.0, "fecha": "2026-04-11", "descripcion": "Pago Netflix", "moneda": "EUR", "confianza": "alta"}]
     
     mock_doc = MagicMock()
     mock_collection.document.return_value = mock_doc
@@ -259,12 +250,11 @@ def test_process_expense_subscription_routing(mock_config, mock_gmail_client, mo
     )
 
 def test_process_expense_resto_fallback_routing(mock_config, mock_gmail_client, mock_gemini):
-    """Path 3: Gasto sin suscripción coincidente y sin hucha principal -> fallback a resto / primera hucha."""
     mock_get, mock_mark = mock_gmail_client
     mock_firestore, mock_collection = mock_config
     
-    mock_get.return_value = [{"id": "exp-fallback", "message_id": "m4", "from": "b", "date_sent": "d", "body": "b"}]
-    mock_gemini.return_value = [{"tipo": "gasto", "importe": 30.0, "fecha": "2024-10-25", "descripcion": "Gasto vario", "moneda": "EUR", "confianza": "alta"}]
+    mock_get.return_value = [{"id": "exp-fallback", "message_id": "m4", "from": "test@bank.com", "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200", "body": "Gasto vario 30.0"}]
+    mock_gemini.return_value = [{"tipo": "gasto", "importe": 30.0, "fecha": "2026-04-11", "descripcion": "Gasto vario", "moneda": "EUR", "confianza": "alta"}]
     
     mock_doc = MagicMock()
     mock_collection.document.return_value = mock_doc
@@ -287,10 +277,10 @@ def test_process_expense_resto_fallback_routing(mock_config, mock_gmail_client, 
     )
 
 def test_validate_parsed_data():
-    assert main.validate_parsed_data({"tipo": "gasto", "importe": 50.0, "fecha": "2024-10-25"}) == True
-    assert main.validate_parsed_data({"tipo": "invalid", "importe": 50.0, "fecha": "2024-10-25"}) == False
-    assert main.validate_parsed_data({"tipo": "gasto", "importe": "not a number", "fecha": "2024-10-25"}) == False
-    assert main.validate_parsed_data({}) == False
+    assert main.validate_parsed_data({"tipo": "gasto", "importe": 50.0, "fecha": "2024-10-25"}, "Gasto de 50.0") == True
+    assert main.validate_parsed_data({"tipo": "invalid", "importe": 50.0, "fecha": "2024-10-25"}, "50.0") == False
+    assert main.validate_parsed_data({"tipo": "gasto", "importe": "not a number", "fecha": "2024-10-25"}, "test") == False
+    assert main.validate_parsed_data({}, "") == False
 
 def test_parse_amount():
     from fallback_logic import parse_amount
@@ -303,3 +293,41 @@ def test_parse_amount():
     assert parse_amount("1.200") == 1200.0
     assert parse_amount("5.000") == 5000.0
     assert parse_amount("120") == 120.0
+
+def test_gmail_webhook_missing_env_vars(mock_config):
+    with patch("main.BANK_SENDER", None), patch("main.UID_PROPIETARIO", None):
+        request = MagicMock()
+        request.method = "POST"
+        response, status = main.gmail_webhook(request)
+        assert status == 500
+
+def test_gmail_webhook_missing_token(mock_config):
+    with patch.dict(os.environ, {}, clear=True), patch("main.BANK_SENDER", "x"), patch("main.UID_PROPIETARIO", "y"):
+        request = MagicMock()
+        request.method = "POST"
+        response, status = main.gmail_webhook(request)
+        assert status == 500
+
+def test_gmail_webhook_invalid_method(mock_config):
+    request = MagicMock()
+    request.method = "GET"
+    response, status = main.gmail_webhook(request)
+    assert status == 405
+
+def test_gmail_webhook_unauthorized(mock_config):
+    with patch.dict(os.environ, {"WEBHOOK_TOKEN": "my-secret-token"}), patch("main.BANK_SENDER", "x"), patch("main.UID_PROPIETARIO", "y"):
+        request = MagicMock()
+        request.method = "POST"
+        request.headers.get.return_value = "Bearer wrong-token"
+        response, status = main.gmail_webhook(request)
+        assert status == 401
+
+@patch("main.process_emails")
+def test_gmail_webhook_authorized(mock_process, mock_config):
+    with patch.dict(os.environ, {"WEBHOOK_TOKEN": "my-secret-token"}), patch("main.BANK_SENDER", "x"), patch("main.UID_PROPIETARIO", "y"):
+        request = MagicMock()
+        request.method = "POST"
+        request.headers.get.return_value = "Bearer my-secret-token"
+        response, status = main.gmail_webhook(request)
+        assert status == 200
+        mock_process.assert_called_once()

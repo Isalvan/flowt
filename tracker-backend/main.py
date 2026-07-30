@@ -2,6 +2,7 @@
 import os
 import subprocess
 import hashlib
+import hmac
 import logging
 import argparse
 import re
@@ -787,6 +788,9 @@ def gmail_webhook(request):
     Entrypoint para Google Cloud Functions.
     Se ejecuta cuando Pub/Sub detecta un correo nuevo o se llama a la URL directamente.
     """
+    if request.method != "POST":
+        return ("Método no permitido", 405)
+
     setup_config()
 
     if not BANK_SENDER or not UID_PROPIETARIO:
@@ -794,21 +798,21 @@ def gmail_webhook(request):
 
     # Check for authentication token
     webhook_token = os.getenv("WEBHOOK_TOKEN")
-    if webhook_token:
-        auth_header = request.headers.get("Authorization")
-        auth_query = request.args.get("token")
-        
-        token_valid = False
-        if auth_header:
-            if auth_header == webhook_token or auth_header == f"Bearer {webhook_token}":
-                token_valid = True
-        elif auth_query:
-            if auth_query == webhook_token:
-                token_valid = True
-                
-        if not token_valid:
-            logger.warning("Intento de acceso no autorizado al Webhook.")
-            return ("No autorizado", 401)
+    if not webhook_token:
+        logger.error("El webhook requiere autenticación (WEBHOOK_TOKEN no configurado).")
+        return ("Configuración de servidor incompleta", 500)
+
+    auth_header = request.headers.get("Authorization")
+    
+    token_valid = False
+    if auth_header:
+        expected_bearer = f"Bearer {webhook_token}"
+        if hmac.compare_digest(auth_header, expected_bearer):
+            token_valid = True
+            
+    if not token_valid:
+        logger.warning("Intento de acceso no autorizado al Webhook.")
+        return ("No autorizado", 401)
 
     try:
         logger.info("Webhook recibido. Comprobando correos nuevos...")
