@@ -1,0 +1,26 @@
+Fixes #22
+
+## Resumen de Cambios
+
+Se ha implementado el soporte para **Múltiples Cuentas Bancarias y Entidades (Unicaja, Revolut, BBVA, Santander, CaixaBank, ING, N26, etc.)** tanto en el motor backend de procesamiento como en la interfaz frontend.
+
+### 🌟 Funcionalidades Implementadas
+
+1. **Inferencia y Detección Multibanco (`tracker-backend/main.py`)**:
+   - `infer_bank_from_sender`: Infiere y etiqueta automáticamente la entidad bancaria del correo entrante (Unicaja, Revolut, BBVA, Santander, ING, etc.) guardando la propiedad `banco` en movimientos, colas de revisión y correos históricos.
+
+2. **Modelo de Datos Extendido (`src/types/index.ts`)**:
+   - Añadidas propiedades opcionales `banco` y `cuenta_origen` a `Movimiento`, `PendingEmail` y `CorreoHistorico`.
+
+3. **Distintivos y Filtro por Banco en UI (`src/components/dashboard/ActivityList.tsx`)**:
+   - **Etiqueta con Icono de Entidad**: Cada movimiento muestra una insignia distintiva con el nombre del banco de origen.
+   - **Filtro Avanzado por Banco**: Selector interactivo en la vista de actividad para filtrar movimientos por entidad específica (*Todos los bancos*, *Unicaja*, *Revolut*, *BBVA*, etc.).
+
+4. **Pruebas Unitarias (`tests/multibank.test.ts`)**:
+   - Test unitario validando el filtrado por entidad bancaria.
+
+---
+
+### Estado de Verificación
+- 🟢 **25/25** pruebas de Vitest en frontend superadas.
+- 🟢 **18/18** pruebas de Pytest en backend superadas.

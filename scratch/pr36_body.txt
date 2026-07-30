@@ -1,0 +1,30 @@
+Fixes #36
+
+## Resumen de Cambios
+
+Se ha configurado una política estricta de **Content Security Policy (CSP)** y cabeceras de seguridad HTTP en `firebase.json` (para Firebase Hosting) e `index.html` (para desarrollo estático y fallback).
+
+### 🛡️ Cabeceras de Seguridad Añadidas
+
+1. **`Content-Security-Policy`**:
+   - `default-src 'self'`: Restringe la carga de recursos a la propia aplicación por defecto.
+   - `script-src`: Carga scripts únicamente desde `'self'`, `apis.google.com`, `accounts.google.com` y `gstatic.com`.
+   - `connect-src`: Habilita de forma precisa WebSockets y peticiones HTTPS hacia Firestore, Firebase Auth y Google Cloud API.
+   - `frame-ancestors 'none'`: Impide de forma absoluta que la aplicación sea embebida en `<iframe>` externos (protección anti-clickjacking).
+   - `object-src 'none'`: Deshabilita la ejecución de plugins legacy (`<object>`, `<embed>`).
+
+2. **Cabeceras Adicionales HTTP (`firebase.json`)**:
+   - `X-Frame-Options: DENY`
+   - `X-Content-Type-Options: nosniff`
+   - `X-XSS-Protection: 1; mode=block`
+   - `Referrer-Policy: strict-origin-when-cross-origin`
+   - `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()`
+
+3. **Pruebas Unitarias Integradas (`tests/security-headers.test.ts`)**:
+   - Batería de pruebas que verifica automáticamente el parseo y validez de las cabeceras en `firebase.json` e `index.html`.
+
+---
+
+### Estado de Verificación
+- 🟢 **26/26** pruebas de Vitest en frontend superadas (incluyendo la nueva suite `tests/security-headers.test.ts`).
+- 🟢 **18/18** pruebas de Pytest en backend superadas.

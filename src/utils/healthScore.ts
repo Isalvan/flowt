@@ -18,7 +18,7 @@ export interface HealthScoreResult {
 }
 
 export function calculateFinancialHealthScore(
-  movimientos: Movimiento[],
+  _movimientos: Movimiento[],
   huchas: Hucha[],
   suscripciones: Suscripcion[],
   totalIngresos: number,

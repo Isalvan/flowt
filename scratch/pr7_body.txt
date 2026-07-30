@@ -1,0 +1,25 @@
+Fixes #7
+
+## Resumen de Cambios
+
+Se ha implementado una capa de sanitización y límites de longitud máxima (200 caracteres) para el campo `concepto` en todos los flujos de creación y actualización de movimientos.
+
+### 🛡️ Medidas de Seguridad e Higiene
+
+1. **Sanitización de Texto (`src/utils/sanitize.ts`)**:
+   - `sanitizeConcepto`: Elimina automáticamente caracteres de control ASCII/Unicode no imprimibles y trunca cualquier cadena a un máximo de 200 caracteres.
+
+2. **Integración en Hooks (`src/hooks/useFinanceData.ts`)**:
+   - Aplicado en la actualización rápida de conceptos (`handleUpdateMovimientoConcepto`) y la aprobación de correos (`handleApprovePendingEmail`).
+
+3. **Validación en Firestore Rules (`firestore.rules`)**:
+   - Añadida regla de validación en `allow create` y `allow update` requiriendo `isStringWithLength('concepto', 1, 200)`.
+
+4. **Pruebas Unitarias (`tests/concepto-sanitization.test.ts`)**:
+   - Pruebas unitarias de truncado a 200 caracteres y filtrado de caracteres de control.
+
+---
+
+### Estado de Verificación
+- 🟢 **27/27** pruebas de Vitest en frontend superadas.
+- 🟢 **18/18** pruebas de Pytest en backend superadas.

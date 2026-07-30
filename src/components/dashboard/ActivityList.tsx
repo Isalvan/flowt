@@ -194,7 +194,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
 
       return true;
     });
-  }, [movimientos, allMovimientos, searchTerm, selectedHucha, selectedTipo, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
+  }, [movimientos, allMovimientos, searchTerm, selectedHucha, selectedTipo, selectedBanco, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
 
   // CSV Exporter using currently filtered items
   const exportToCSV = () => {
@@ -345,6 +345,8 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                 <option value="Santander">Santander</option>
                 <option value="CaixaBank">CaixaBank</option>
                 <option value="ING">ING</option>
+                <option value="Sabadell">Sabadell</option>
+                <option value="N26">N26</option>
               </select>
             </div>
 

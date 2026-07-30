@@ -57,16 +57,39 @@ def get_gmail_service():
         logger.error(f'An error occurred: {error}')
         return None
 
-def get_unread_emails_from_bank(bank_sender: str, max_results: int = 10) -> List[Dict[str, str]]:
+def get_unread_emails_from_bank(bank_sender: Any, max_results: int = 10) -> List[Dict[str, str]]:
     """
-    Fetches unread emails from the specified bank sender.
+    Fetches unread emails from the specified bank sender(s).
+    Supports single email string, comma-separated string, or list of emails.
     """
     service = get_gmail_service()
     if not service:
         return []
 
     try:
-        query = f"is:unread from:{bank_sender}"
+        if isinstance(bank_sender, list):
+            senders = [s.strip() for s in bank_sender if s.strip()]
+        elif isinstance(bank_sender, str):
+            import json
+            if bank_sender.strip().startswith('['):
+                try:
+                    senders = json.loads(bank_sender)
+                except Exception:
+                    senders = [s.strip() for s in bank_sender.split(',') if s.strip()]
+            else:
+                senders = [s.strip() for s in bank_sender.split(',') if s.strip()]
+        else:
+            senders = [str(bank_sender)]
+
+        if not senders:
+            query = "is:unread"
+        elif len(senders) == 1:
+            query = f"is:unread from:{senders[0]}"
+        else:
+            from_clauses = " OR ".join([f"from:{s}" for s in senders])
+            query = f"is:unread ({from_clauses})"
+
+        logger.info(f"Executing Gmail search query: {query}")
         results = service.users().messages().list(userId='me', q=query, maxResults=max_results).execute()
         messages = results.get('messages', [])
 

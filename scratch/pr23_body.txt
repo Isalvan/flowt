@@ -1,0 +1,30 @@
+Fixes #23
+
+## Resumen de Cambios
+
+Se ha desarrollado la nueva pantalla de **Salud Financiera con Score Dinámico (0-100)** y diagnóstico con recomendaciones accionables en tiempo real.
+
+### 🌟 Características Desarrolladas
+
+1. **Cálculo Ponderado en Tiempo Real (`src/utils/healthScore.ts`)**:
+   - **Ratio de Ahorro Mensual (30%)**: Pondera el porcentaje de ingresos reservados frente a gastos.
+   - **Cumplimiento de Huchas y Fondos (25%)**: Mide la salud y saldos acumulados positivos de las carteras.
+   - **Tendencia de Flujo de Caja (25%)**: Analiza la evolución del balance neto del usuario.
+   - **Control de Suscripciones (20%)**: Evalúa el impacto de los pagos recurrentes frente al total de ingresos.
+
+2. **Dashboard Visual e Interactivo (`src/components/salud/SaludFinancieraView.tsx`)**:
+   - **Gauge Circular Animado**: Anillo SVG animado con graduación de color dinámica (Verde/Ámbar/Rojo).
+   - **Desglose de Métricas**: Tarjetas individuales con barras de progreso y valores numéricos en vivo.
+   - **Recomendaciones Inteligentes**: Bloque de 3 acciones concretas sugeridas para optimizar el ahorro del usuario.
+
+3. **Navegación e Integración (`src/App.tsx`)**:
+   - Nueva pestaña **"Salud"** integrada en la barra superior desktop e interfaz responsive.
+
+4. **Pruebas Unitarias (`tests/financial-health.test.ts`)**:
+   - Test unitario validando el cálculo ponderado del Score y la asignación de categorías sin división por cero.
+
+---
+
+### Estado de Verificación
+- 🟢 **26/26** pruebas de Vitest en frontend superadas.
+- 🟢 **18/18** pruebas de Pytest en backend superadas.

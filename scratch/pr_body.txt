@@ -1,0 +1,28 @@
+Fixes #37
+
+## Resumen de Cambios
+
+Se ha implementado una capa de sanitización y formateo seguro siguiendo el estándar RFC 4180 que mitiga ataques de **CSV Formula Injection** en la exportación de datos financieros.
+
+### 🛡️ Medidas de Seguridad Aplicadas
+
+1. **Módulo de Utilería Centralizado (`src/utils/csv.ts`)**:
+   - Se creó la función `escapeCsvCell(value)` que evalúa valores nulos, números y textos.
+   - Detecta si un campo (incluso tras espacios iniciales) comienza con caracteres desencadenantes de fórmulas en Excel / LibreOffice / Sheets (`=`, `+`, `-`, `@`, `\t`, `\r`, `\n`, `|`).
+   - Antepone una comilla simple (`'`) a campos con prefijo de fórmula para forzar su interpretación estricta como texto.
+   - Escapa comillas dobles internas (`""`) y envuelve celdas entre comillas dobles.
+
+2. **Integración en Componentes UI**:
+   - **`ActivityList.tsx`**: Actualizada la exportación de actividad filtrada utilizando la nueva utilidad.
+   - **`ExportView.tsx`**: Añadido el botón de **Descargar CSV Sanitizado** utilizando la misma función de escape.
+
+3. **Pruebas Unitarias (`tests/csv-export.test.ts`)**:
+   - Pruebas para todos los prefijos de fórmulas peligrosas.
+   - Comprobación con espacios en blanco iniciales.
+   - Validación de caracteres en español y emojis.
+
+---
+
+### Estado de Verificación
+- 🟢 **31/31** pruebas de Vitest en frontend superadas.
+- 🟢 **18/18** pruebas de Pytest en backend superadas.

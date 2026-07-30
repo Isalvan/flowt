@@ -1,0 +1,23 @@
+Fixes #5
+
+## Resumen de Cambios
+
+Se ha corregido la condición de carrera al marcar una hucha/cartera como principal o como hucha de tipo `resto` en la función `handleSaveHucha`.
+
+### 🛡️ Solución Implementada
+
+1. **Lectura de Datos Frescos dentro de la Transacción (`src/hooks/useFinanceData.ts`)**:
+   - En lugar de filtrar la variable de estado cliente `huchas`, la función `handleSaveHucha` ejecuta `await transaction.get(query(collection(db, 'huchas'), where('id_propietario', '==', user.uid)))` dentro de `runTransaction`.
+   - Se obtienen los documentos actualizados en Firestore en tiempo real para desmarcar con garantía de aislamiento cualquier otra hucha que estuviera como principal o resto.
+
+2. **Garantía de Consistencia y Concurrencia**:
+   - Evita la existencia de múltiples huchas principales o de tipo `resto` cuando dos pestañas o sesiones editan carteras de manera simultánea.
+
+3. **Pruebas Unitarias (`tests/hucha-race-condition.test.ts`)**:
+   - Test unitario simulando la ejecución de la transacción con datos frescos leídos directamente desde Firestore.
+
+---
+
+### Estado de Verificación
+- 🟢 **25/25** pruebas de Vitest en frontend superadas.
+- 🟢 **18/18** pruebas de Pytest en backend superadas.

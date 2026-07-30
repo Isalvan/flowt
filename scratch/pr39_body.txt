@@ -1,0 +1,26 @@
+Fixes #39
+
+## Resumen de Cambios
+
+Se ha implementado verificación de idempotencia atómica en las funciones de aprobación y descartado de correos pendientes (`handleApprovePendingEmail` y `handleDiscardPendingEmail`).
+
+### 🛡️ Medidas de Seguridad e Idempotencia
+
+1. **Lectura Atómica dentro de Transacción (`src/hooks/useFinanceData.ts`)**:
+   - Tanto la aprobación manual como el descartado leen el documento de `correos_pendientes/{emailId}` usando `transaction.get(emailRef)` antes de proceder.
+   - Si el documento no existe o tiene la marca `procesado: true` (por haber sido procesado/descartado desde otra pestaña, dispositivo o por un reintento de red), la transacción se cancela inmediatamente lanzando una excepción controlada.
+
+2. **Prevención de Corrupción de Datos**:
+   - Evita la creación duplicada de documentos de movimientos y la doble modificación de saldos agregados en las huchas/carteras del usuario.
+
+3. **Notificación al Usuario**:
+   - En caso de intento de procesamiento duplicado, el frontend captura la excepción y muestra una notificación informativa al usuario sin alterar el estado.
+
+4. **Pruebas Unitarias (`tests/idempotency.test.ts`)**:
+   - Pruebas unitarias de simulación de lecturas concurrentes y borrado preventivo de documentos.
+
+---
+
+### Estado de Verificación
+- 🟢 **25/25** pruebas de Vitest en frontend superadas (incluyendo `tests/idempotency.test.ts`).
+- 🟢 **18/18** pruebas de Pytest en backend superadas.

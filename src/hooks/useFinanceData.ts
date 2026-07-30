@@ -7,7 +7,6 @@ import {
   onSnapshot,
   orderBy,
   limit,
-  deleteDoc,
   doc,
   serverTimestamp,
   runTransaction,
@@ -17,7 +16,6 @@ import {
   writeBatch,
   type WriteBatch,
   type DocumentReference,
-  type DocumentSnapshot,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type CorreoHistorico } from '../types';
@@ -616,19 +614,19 @@ export const useFinanceData = (forceDemo = false) => {
 
     try {
       await runTransaction(db, async (transaction) => {
-        // Read fresh huchas directly from DB inside transaction to avoid race conditions
-        const qHuchas = query(collection(db, 'huchas'), where('id_propietario', '==', user.uid));
-        const snapshot = await transaction.get(qHuchas);
-        const freshHuchas = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        // Read fresh huchas directly from DB inside transaction using docRefs to avoid race conditions
+        const huchasRefs = huchas.map(h => doc(db, 'huchas', h.id));
+        const huchasSnaps = await Promise.all(huchasRefs.map(ref => transaction.get(ref)));
+        const freshHuchas = huchasSnaps.filter(s => s.exists()).map(s => ({ id: s.id, ...(s.data() as any) }));
 
         if (huchaData.es_principal) {
-          const otherPrincipals = freshHuchas.filter(h => h.es_principal && h.id !== editingId);
+          const otherPrincipals = freshHuchas.filter((h: any) => h.es_principal && h.id !== editingId);
           for (const h of otherPrincipals) {
             transaction.update(doc(db, 'huchas', h.id), { es_principal: false, updated_at: serverTimestamp() });
           }
         }
         if (huchaData.tipo_aportacion === 'resto') {
-          const otherRestos = freshHuchas.filter(h => h.tipo_aportacion === 'resto' && h.id !== editingId);
+          const otherRestos = freshHuchas.filter((h: any) => h.tipo_aportacion === 'resto' && h.id !== editingId);
           for (const h of otherRestos) {
             transaction.update(doc(db, 'huchas', h.id), { tipo_aportacion: 'flat', valor_aportacion: 0, updated_at: serverTimestamp() });
           }
@@ -2155,7 +2153,7 @@ export const useFinanceData = (forceDemo = false) => {
       showToast('Movimiento aprobado y registrado', 'success');
     } catch (error: any) {
       if (error?.message === 'EMAIL_ALREADY_PROCESSED') {
-        showToast('Este correo ya fue procesado o descartado en otra sesión.', 'info');
+        showToast('Este correo ya fue procesado o descartado en otra sesión.');
         return;
       }
       console.error('Error approving pending email:', error);
@@ -2183,7 +2181,7 @@ export const useFinanceData = (forceDemo = false) => {
       showToast('Correo descartado', 'success');
     } catch (error: any) {
       if (error?.message === 'EMAIL_ALREADY_PROCESSED') {
-        showToast('Este correo ya fue procesado o descartado en otra sesión.', 'info');
+        showToast('Este correo ya fue procesado o descartado en otra sesión.');
         return;
       }
       console.error('Error discarding email:', error);

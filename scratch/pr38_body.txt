@@ -1,0 +1,25 @@
+Fixes #38
+
+## Resumen de Cambios
+
+Se ha implementado una capa de privacidad, minimización de datos y política de retención temporal (TTL) para notificaciones financieras enviadas a Gemini AI y almacenadas en Firestore.
+
+### 🛡️ Medidas de Privacidad Implementadas
+
+1. **Redacción Automática de PII para Gemini (`tracker-backend/ai_parser.py`)**:
+   - `sanitize_body_for_ai`: Detecta y redacta automáticamente números de cuenta e IBANs (`[CUENTA_REDACTADA]`), tarjetas de crédito/débito enmascaradas o completas (`[TARJETA_REDACTADA]`) e identificadores personales DNI/NIE (`[ID_REDACTADO]`).
+   - Restringe la longitud máxima del texto a 2000 caracteres antes de pasarlo a la API de Gemini AI.
+
+2. **Política de Retención TTL de 90 Días (`tracker-backend/main.py`)**:
+   - En el guardado de correos en `correos_historico`, se almacena únicamente el texto minimizado/sanitizado.
+   - Se añade el campo `expires_at` con fecha de caducidad calculada a 90 días para habilitar la política automática de borrado por TTL en Firestore.
+
+3. **Pruebas Unitarias Backend y Frontend**:
+   - **`tracker-backend/tests/test_privacy_redaction.py`**: Pruebas unitarias de redacción de IBAN, tarjetas, DNI y truncado.
+   - **`tests/privacy-retention.test.ts`**: Pruebas en el cliente frontend para comprobar la presencia del TTL.
+
+---
+
+### Estado de Verificación
+- 🟢 **22/22** pruebas de Pytest en backend pasadas (incluyendo `test_privacy_redaction.py`).
+- 🟢 **25/25** pruebas de Vitest en frontend pasadas.
