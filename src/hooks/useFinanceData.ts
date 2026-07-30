@@ -615,14 +615,19 @@ export const useFinanceData = (forceDemo = false) => {
 
     try {
       await runTransaction(db, async (transaction) => {
+        // Read fresh huchas directly from DB inside transaction to avoid race conditions
+        const qHuchas = query(collection(db, 'huchas'), where('id_propietario', '==', user.uid));
+        const snapshot = await transaction.get(qHuchas);
+        const freshHuchas = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+
         if (huchaData.es_principal) {
-          const otherPrincipals = huchas.filter(h => h.es_principal && h.id !== editingId);
+          const otherPrincipals = freshHuchas.filter(h => h.es_principal && h.id !== editingId);
           for (const h of otherPrincipals) {
             transaction.update(doc(db, 'huchas', h.id), { es_principal: false, updated_at: serverTimestamp() });
           }
         }
         if (huchaData.tipo_aportacion === 'resto') {
-          const otherRestos = huchas.filter(h => h.tipo_aportacion === 'resto' && h.id !== editingId);
+          const otherRestos = freshHuchas.filter(h => h.tipo_aportacion === 'resto' && h.id !== editingId);
           for (const h of otherRestos) {
             transaction.update(doc(db, 'huchas', h.id), { tipo_aportacion: 'flat', valor_aportacion: 0, updated_at: serverTimestamp() });
           }
