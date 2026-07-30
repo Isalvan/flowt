@@ -2043,6 +2043,13 @@ export const useFinanceData = (forceDemo = false) => {
     try {
       await runTransaction(db, async (transaction) => {
         const emailRef = doc(db, 'correos_pendientes', emailId);
+
+        // 1. Idempotency Check: Fetch pending email doc inside transaction
+        const emailSnap = await transaction.get(emailRef);
+        if (!emailSnap.exists() || emailSnap.data()?.procesado === true) {
+          throw new Error('EMAIL_ALREADY_PROCESSED');
+        }
+
         const movRef = doc(collection(db, 'movimientos'));
 
         // Get selected hucha (or principal)
@@ -2139,7 +2146,11 @@ export const useFinanceData = (forceDemo = false) => {
       });
 
       showToast('Movimiento aprobado y registrado', 'success');
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message === 'EMAIL_ALREADY_PROCESSED') {
+        showToast('Este correo ya fue procesado o descartado en otra sesión.', 'info');
+        return;
+      }
       console.error('Error approving pending email:', error);
       showToast('Error al registrar el movimiento.');
     }
@@ -2154,9 +2165,20 @@ export const useFinanceData = (forceDemo = false) => {
     }
 
     try {
-      await deleteDoc(doc(db, 'correos_pendientes', emailId));
+      await runTransaction(db, async (transaction) => {
+        const emailRef = doc(db, 'correos_pendientes', emailId);
+        const emailSnap = await transaction.get(emailRef);
+        if (!emailSnap.exists()) {
+          throw new Error('EMAIL_ALREADY_PROCESSED');
+        }
+        transaction.delete(emailRef);
+      });
       showToast('Correo descartado', 'success');
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message === 'EMAIL_ALREADY_PROCESSED') {
+        showToast('Este correo ya fue procesado o descartado en otra sesión.', 'info');
+        return;
+      }
       console.error('Error discarding email:', error);
       showToast('Error al descartar el correo.');
     }
