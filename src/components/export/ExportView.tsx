@@ -508,9 +508,9 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
             <div className="flex flex-col gap-3">
               <button
                 onClick={handleCopyJSON}
-                disabled={filteredMovimientos.length === 0}
+                disabled={filteredMovimientos.length === 0 || isLocked}
                 className={`w-full relative py-3.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all overflow-hidden group ${
-                  filteredMovimientos.length === 0 
+                  (filteredMovimientos.length === 0 || isLocked)
                     ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
                     : 'bg-slate-800 dark:bg-white text-white dark:text-slate-900 hover:scale-[1.02] active:scale-95 shadow-lg'
                 }`}
@@ -531,9 +531,9 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
 
               <button
                 onClick={handleCopyMD}
-                disabled={filteredMovimientos.length === 0}
+                disabled={filteredMovimientos.length === 0 || isLocked}
                 className={`w-full relative py-3.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all overflow-hidden group border ${
-                  filteredMovimientos.length === 0 
+                  (filteredMovimientos.length === 0 || isLocked)
                     ? 'border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed'
                     : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 hover:scale-[1.02] active:scale-95 shadow-sm'
                 }`}
