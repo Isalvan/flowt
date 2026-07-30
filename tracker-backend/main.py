@@ -788,29 +788,23 @@ def gmail_webhook(request):
     Entrypoint para Google Cloud Functions.
     Se ejecuta cuando Pub/Sub detecta un correo nuevo o se llama a la URL directamente.
     """
-    if request.method != "POST":
-        return ("Método no permitido", 405)
-
     setup_config()
 
     if not BANK_SENDER or not UID_PROPIETARIO:
-        return ("Faltan variables de entorno", 500)
+        return ("Configuración de servidor incompleta", 500)
 
-    # Check for authentication token
     webhook_token = os.getenv("WEBHOOK_TOKEN")
     if not webhook_token:
         logger.error("El webhook requiere autenticación (WEBHOOK_TOKEN no configurado).")
         return ("Configuración de servidor incompleta", 500)
 
-    auth_header = request.headers.get("Authorization")
-    
-    token_valid = False
-    if auth_header:
-        expected_bearer = f"Bearer {webhook_token}"
-        if hmac.compare_digest(auth_header, expected_bearer):
-            token_valid = True
-            
-    if not token_valid:
+    if request.method != "POST":
+        logger.warning(f"Método no permitido en Webhook: {request.method}")
+        return ("Método no permitido", 405)
+
+    auth_header = request.headers.get("Authorization", "")
+    expected_header = f"Bearer {webhook_token}"
+    if not auth_header or not hmac.compare_digest(auth_header, expected_header):
         logger.warning("Intento de acceso no autorizado al Webhook.")
         return ("No autorizado", 401)
 

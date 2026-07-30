@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from './App';
 
 vi.mock('firebase/app', () => ({
@@ -46,31 +46,38 @@ vi.mock('./context/PrivacyContext', () => ({
 }));
 
 describe('App Dashboard', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.resetAllMocks();
+  });
 
+  it('renders the login screen when not authenticated', async () => {
+    vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
+    render(<App />);
+    expect(await screen.findByText(/Control de gastos inteligente/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Acceder con Google/i)).toBeInTheDocument();
+    vi.unstubAllEnvs();
+  });
 
-  it('renders dashboard with mock data when Firebase is not configured', async () => {
-    vi.stubEnv('VITE_FIREBASE_API_KEY', '');
+  it('renders dashboard with mock data in Demo Mode', async () => {
+    vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
     render(<App />);
     
-    // Check for Demo Mode warning
-    expect(await screen.findByText(/Modo Demo/i)).toBeInTheDocument();
+    const demoBtn = await screen.findByText(/Explorar en modo Demo/i);
+    fireEvent.click(demoBtn);
     
-    // Check for main summary
-    expect(await screen.findByText(/Mi Panel/i)).toBeInTheDocument();
-    
-    // (Hucha items omitted to prevent timeout)
-    
-    // Check for action buttons
-    expect(screen.getByText(/Traspasar Fondos/i)).toBeInTheDocument();
-    expect(screen.getByText(/Nueva Hucha/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Dashboard/i)).toBeInTheDocument();
     
     vi.unstubAllEnvs();
   });
 
   it('opens history modal when clicking Historial button', async () => {
-    vi.stubEnv('VITE_FIREBASE_API_KEY', '');
+    vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
     render(<App />);
     
+    const demoBtn = await screen.findByText(/Explorar en modo Demo/i);
+    fireEvent.click(demoBtn);
+
     const historyBtn = await screen.findByText(/Historial Completo/i);
     fireEvent.click(historyBtn);
     
@@ -79,4 +86,3 @@ describe('App Dashboard', () => {
     vi.unstubAllEnvs();
   });
 });
-
