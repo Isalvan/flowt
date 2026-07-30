@@ -9,7 +9,7 @@ import re
 import unicodedata
 from calendar import monthrange
 from email.utils import parsedate_to_datetime
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 
 from dotenv import load_dotenv
@@ -752,15 +752,20 @@ def process_emails():
                             logger.info(f"Movement {m['doc_id']} (index {m['index']}) already exists. Skipping.")
                     
                     try:
+                        # Data minimization and 90-day retention TTL
+                        clean_cuerpo = clean_body(email["body"])
+                        ttl_expiration = datetime.now(timezone.utc) + timedelta(days=90)
+
                         db.collection("correos_historico").document(email_id).set({
                             "id_propietario": UID_PROPIETARIO,
                             "email_id": email_id,
-                            "cuerpo": email["body"],
+                            "cuerpo": clean_cuerpo,
                             "fecha_envio": email_date,
                             "movimientos_generados": recorded_ids,
+                            "expires_at": ttl_expiration,
                             "created_at": firestore.SERVER_TIMESTAMP
                         })
-                        logger.info(f"Email {email_id} saved to correos_historico.")
+                        logger.info(f"Email {email_id} saved to correos_historico with 90-day TTL.")
                     except Exception as e:
                         logger.error(f"Failed to save email {email_id} to correos_historico: {e}")
                 else:
