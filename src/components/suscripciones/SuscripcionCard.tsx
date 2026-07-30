@@ -11,7 +11,7 @@ import {
   AlertCircle,
   RotateCcw
 } from 'lucide-react';
-import { getNextPaymentDate } from '../../hooks/useFinanceData';
+import { getCancellationDate, getNextSubscriptionChargeDate } from '../../utils/subscriptions';
 import { usePrivacy } from '../../context/PrivacyContext';
 
 interface SuscripcionCardProps {
@@ -33,9 +33,16 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
 }) => {
   const { formatCurrency } = usePrivacy();
 
-  const nextPayment = getNextPaymentDate(suscripcion.dia_pago);
+  const nextPayment = suscripcion.cancelando
+    ? getCancellationDate(suscripcion) ?? getNextSubscriptionChargeDate(suscripcion)
+    : getNextSubscriptionChargeDate(suscripcion);
   const nextPaymentStr = nextPayment.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-  const divisor = suscripcion.frecuencia === 'anual' ? 'anual' : 'mes';
+  const divisor = {
+    mensual: 'mes',
+    trimestral: 'trimestre',
+    semestral: 'semestre',
+    anual: 'año',
+  }[suscripcion.frecuencia];
 
   // Shared bill calculation
   const isShared = suscripcion.mi_parte != null && suscripcion.mi_parte < suscripcion.importe;

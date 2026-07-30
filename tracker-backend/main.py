@@ -1,12 +1,15 @@
 # -*- coding: cp1252 -*-
 import os
+import subprocess
 import hashlib
 import hmac
 import logging
 import argparse
 import re
+import unicodedata
+from calendar import monthrange
 from email.utils import parsedate_to_datetime
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import List, Dict, Any, Optional
 
 from dotenv import load_dotenv
@@ -121,6 +124,145 @@ def validate_parsed_data(data: Dict[str, Any]) -> bool:
     
     return True
 
+
+FREQUENCY_DIVISORS = {"mensual": 1, "trimestral": 3, "semestral": 6, "anual": 12}
+
+
+def normalize_subscription_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value or "")
+    without_accents = "".join(char for char in normalized if not unicodedata.combining(char))
+    return re.sub(r"[^a-z0-9]+", " ", without_accents.lower()).strip()
+
+
+def subscription_monthly_amount(subscription: Dict[str, Any]) -> float:
+    effective = subscription.get("mi_parte")
+    if effective is None:
+        effective = subscription.get("importe", 0)
+    divisor = FREQUENCY_DIVISORS.get(subscription.get("frecuencia", "mensual"), 1)
+    return float(effective or 0) / divisor
+
+
+def find_subscription_hucha(
+    movimiento: Dict[str, Any],
+    subscriptions: List[Dict[str, Any]],
+    huchas_state: Dict[str, Dict[str, Any]],
+    default_hucha_id: Optional[str],
+) -> Optional[str]:
+    """Resolve a real bank charge to its configured subscription wallet."""
+    concept = normalize_subscription_text(movimiento.get("concepto", ""))
+    amount = float(movimiento.get("importe", 0) or 0)
+    scored = []
+
+    for subscription in subscriptions:
+        name = normalize_subscription_text(subscription.get("nombre", ""))
+        full_amount = float(subscription.get("importe", 0) or 0)
+        name_match = len(name) >= 3 and bool(concept) and (name in concept or concept in name)
+        amount_match = abs(full_amount - amount) <= 0.02
+        if not name_match and not amount_match:
+            continue
+        score = (100 + len(name) if name_match else 0) + (20 if amount_match else 0)
+        scored.append((score, subscription))
+
+    if not scored:
+        return None
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    if scored[0][0] < 100 and len([item for item in scored if item[0] == scored[0][0]]) > 1:
+        return None
+
+    configured = scored[0][1].get("hucha_id")
+    if configured in huchas_state:
+        return configured
+    return default_hucha_id if default_hucha_id in huchas_state else None
+
+
+def as_local_date(value: Any) -> Optional[date]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value[:10])
+        except ValueError:
+            return None
+    return None
+
+
+def subscription_cancellation_date(subscription: Dict[str, Any], today: Optional[date] = None) -> Optional[date]:
+    explicit = as_local_date(subscription.get("cancel_at"))
+    if explicit:
+        return explicit
+    if not subscription.get("cancelando"):
+        return None
+
+    requested = as_local_date(subscription.get("updated_at")) or today or datetime.now(timezone.utc).date()
+    anchor = (
+        as_local_date(subscription.get("fecha_inicio"))
+        or as_local_date(subscription.get("created_at"))
+        or requested
+    )
+    cadence = FREQUENCY_DIVISORS.get(subscription.get("frecuencia", "mensual"), 1)
+    payment_day = int(subscription.get("dia_pago") or anchor.day)
+
+    for offset in range(121):
+        absolute_month = requested.year * 12 + requested.month - 1 + offset
+        year, zero_based_month = divmod(absolute_month, 12)
+        month = zero_based_month + 1
+        month_distance = (year - anchor.year) * 12 + month - anchor.month
+        if month_distance < 0 or month_distance % cadence != 0:
+            continue
+        candidate = date(year, month, min(payment_day, monthrange(year, month)[1]))
+        if candidate > requested:
+            return candidate
+    return None
+
+
+def process_expired_subscriptions(owner_id: str, today: Optional[date] = None) -> int:
+    """Delete due cancellations and keep the automatic wallet target in sync."""
+    today = today or datetime.now(timezone.utc).date()
+    subscriptions_ref = db.collection("suscripciones")
+    subscription_docs = list(subscriptions_ref.where("id_propietario", "==", owner_id).stream())
+    expired = [
+        doc for doc in subscription_docs
+        if subscription_cancellation_date(doc.to_dict(), today)
+        and subscription_cancellation_date(doc.to_dict(), today) <= today
+    ]
+    if not expired:
+        return 0
+
+    expired_ids = {doc.id for doc in expired}
+    remaining = [doc.to_dict() for doc in subscription_docs if doc.id not in expired_ids]
+    hucha_docs = list(db.collection("huchas").where("id_propietario", "==", owner_id).stream())
+    subscriptions_hucha = next((doc for doc in hucha_docs if doc.to_dict().get("es_suscripciones")), None)
+    monthly_total = round(sum(
+        subscription_monthly_amount(subscription)
+        for subscription in remaining
+        if subscription.get("activa", False)
+        and (
+            not subscriptions_hucha
+            or not subscription.get("hucha_id")
+            or subscription.get("hucha_id") == subscriptions_hucha.id
+        )
+    ), 2)
+
+    batch = db.batch()
+    for subscription_doc in expired:
+        batch.delete(subscription_doc.reference)
+    if subscriptions_hucha:
+        batch.update(subscriptions_hucha.reference, {
+            "objetivo": monthly_total if monthly_total > 0 else None,
+            "valor_aportacion": monthly_total,
+            "tipo_aportacion": "flat",
+            "tope_objetivo": False,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        })
+    batch.commit()
+    logger.info("Deleted %s expired subscription(s).", len(expired))
+    return len(expired)
+
 @firestore.transactional
 def process_email_movements_transaction(transaction, movements_to_process: List[Dict], owner_id: str):
     """
@@ -151,9 +293,8 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
     mov_snapshots = db.get_all(mov_refs, transaction=transaction)
     existing_ids = {snap.id for snap in mov_snapshots if snap.exists}
 
-    # Group active subscriptions by linked hucha
-    freq_divisors = {"mensual": 1, "trimestral": 3, "semestral": 6, "anual": 12}
-    linked_provisions = {} # hucha_id -> total_mensual
+    # Active subscriptions are used to route matching bank charges.
+    active_subscriptions = [doc.to_dict() for doc in subs_docs]
     subs_hucha_id = None
     
     # We will accumulate the state of huchas in memory
@@ -169,16 +310,6 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
         }
         if data.get("es_suscripciones"):
             subs_hucha_id = h_doc.id
-
-    for s_doc in subs_docs:
-        s_data = s_doc.to_dict()
-        divisor = freq_divisors.get(s_data.get("frecuencia", "mensual"), 1)
-        mi_parte = s_data.get("mi_parte")
-        importe_efectivo = float(mi_parte) if mi_parte is not None else float(s_data.get("importe", 0))
-        mensual = importe_efectivo / divisor
-        h_id = s_data.get("hucha_id")
-        if h_id:
-            linked_provisions[h_id] = linked_provisions.get(h_id, 0) + mensual
 
     stats_changes = {"ingresos": 0.0, "gastos": 0.0}
     
@@ -246,26 +377,14 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                         planned_total = float(data.get("valor_aportacion", 0))
                         
                         # Apply tope_objetivo if exists
-                        if data.get("tope_objetivo") and data.get("objetivo"):
+                        if data.get("tope_objetivo") and not data.get("es_suscripciones") and data.get("objetivo"):
                             objetivo = float(data.get("objetivo"))
                             if objetivo > 0:
                                 current_balance = h_info["saldo_actual"]
                                 hueco_libre = max(0, objetivo - current_balance)
                                 planned_total = min(planned_total, hueco_libre)
                         
-                        # Apply provisions subtraction logic
-                        if h_id == subs_hucha_id:
-                            provision_from_others = sum(linked_provisions.values())
-                            effective_target = max(0, planned_total - provision_from_others)
-                        else:
-                            provision_for_subs = linked_provisions.get(h_id, 0)
-                            effective_target = max(0, planned_total - provision_for_subs)
-                            
-                            # Add provision to Subs hucha instead of this hucha
-                            if provision_for_subs > 0 and subs_hucha_id and remaining_amount > 0:
-                                to_subs = min(provision_for_subs, remaining_amount)
-                                huchas_state[subs_hucha_id]["saldo_actual"] += to_subs
-                                remaining_amount -= to_subs
+                        effective_target = planned_total
                         
                         to_add = min(effective_target, remaining_amount)
                         if to_add > 0:
@@ -298,14 +417,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                                 hueco_libre = max(0, objetivo - current_balance)
                                 planned_total = min(planned_total, hueco_libre)
                         
-                        provision_for_subs = linked_provisions.get(h_id, 0)
-                        effective_target = max(0, planned_total - provision_for_subs)
-                        
-                        # Add provision to Subs hucha
-                        if provision_for_subs > 0 and subs_hucha_id and remaining_amount > 0:
-                            to_subs = min(provision_for_subs, remaining_amount)
-                            huchas_state[subs_hucha_id]["saldo_actual"] += to_subs
-                            remaining_amount -= to_subs
+                        effective_target = planned_total
 
                         to_add = min(effective_target, remaining_amount)
                         if to_add > 0:
@@ -347,11 +459,18 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                     resto_info["saldo_actual"] += to_add
         else:
             # Es gasto
-            target_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("es_principal")), None)
+            target_hucha_id = find_subscription_hucha(
+                movimiento,
+                active_subscriptions,
+                huchas_state,
+                subs_hucha_id,
+            )
             if not target_hucha_id:
-                target_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("tipo_aportacion") == "resto"), None)
-            if not target_hucha_id and huchas_state:
-                target_hucha_id = list(huchas_state.keys())[0]
+                target_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("es_principal")), None)
+                if not target_hucha_id:
+                    target_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("tipo_aportacion") == "resto"), None)
+                if not target_hucha_id and huchas_state:
+                    target_hucha_id = list(huchas_state.keys())[0]
                 
             target_gasto_hucha_id = target_hucha_id
             if target_gasto_hucha_id:
@@ -457,6 +576,8 @@ def process_emails():
     """
     Main processing loop.
     """
+    if UID_PROPIETARIO:
+        process_expired_subscriptions(UID_PROPIETARIO)
     emails = get_unread_emails_from_bank(BANK_SENDER, MAX_EMAILS_PER_RUN)
     
     for email in emails:

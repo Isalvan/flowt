@@ -14,12 +14,21 @@ import {
   getDocs,
   setDoc,
   deleteField,
+  writeBatch,
+  type WriteBatch,
+  type DocumentReference,
   type DocumentSnapshot,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type CorreoHistorico } from '../types';
 import { usePrivacy } from '../context/PrivacyContext';
 import { crearRetiradaEfectivo, cuentaEnEstadisticas } from '../utils/movements';
+import {
+  getMonthlySubscriptionAmount,
+  getNextSubscriptionChargeDate,
+  isCancellationExpired,
+  toLocalDateKey,
+} from '../utils/subscriptions';
 
 // Standard fallback configurations and options
 export const SUBSCRIPTION_COLORS = [
@@ -45,18 +54,7 @@ export const CATEGORIA_OPTIONS = [
 ];
 
 export const calcMensual = (s: Suscripcion): number => {
-  const opt = FRECUENCIA_OPTIONS.find(o => o.value === s.frecuencia);
-  const importeEfectivo = s.mi_parte != null ? s.mi_parte : s.importe;
-  return importeEfectivo / (opt?.divisor ?? 1);
-};
-
-export const getNextPaymentDate = (diaPago: number): Date => {
-  const today = new Date();
-  const candidate = new Date(today.getFullYear(), today.getMonth(), diaPago);
-  if (candidate <= today) {
-    return new Date(today.getFullYear(), today.getMonth() + 1, diaPago);
-  }
-  return candidate;
+  return getMonthlySubscriptionAmount(s);
 };
 
 export const parseMovimientoDate = (dateValue: any): Date | null => {
@@ -1755,21 +1753,65 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
-  const syncSuscripcionesHucha = async (updatedList: Suscripcion[], localHuchasState?: Hucha[]): Promise<Hucha[] | undefined> => {
+  const getRoundedSubscriptionTotal = (updatedList: Suscripcion[], systemHuchaId?: string): number => {
     const totalMensual = updatedList
-      .filter(s => s.activa)
+      .filter(s => s.activa && (!systemHuchaId || !s.hucha_id || s.hucha_id === systemHuchaId))
       .reduce((sum, s) => sum + calcMensual(s), 0);
-    const rounded = Math.round(totalMensual * 100) / 100;
+    return Math.round(totalMensual * 100) / 100;
+  };
 
+  const queueSuscripcionesHuchaSync = (
+    batch: WriteBatch,
+    updatedList: Suscripcion[],
+    currentHuchas: Hucha[],
+    preferredRef?: DocumentReference,
+  ): DocumentReference | null => {
+    if (!user) return null;
+    const current = currentHuchas.find(h => h.es_suscripciones);
+    const targetRef = current
+      ? doc(db, 'huchas', current.id)
+      : preferredRef ?? (updatedList.some(s => s.activa) ? doc(collection(db, 'huchas')) : null);
+
+    if (!targetRef) return null;
+    const rounded = getRoundedSubscriptionTotal(updatedList, targetRef.id);
+    if (current) {
+      batch.update(targetRef, {
+        objetivo: rounded > 0 ? rounded : null,
+        valor_aportacion: rounded,
+        tipo_aportacion: 'flat',
+        tope_objetivo: false,
+        updated_at: serverTimestamp(),
+      });
+    } else {
+      batch.set(targetRef, {
+        id_propietario: user.uid,
+        nombre: 'Suscripciones',
+        tipo_aportacion: 'flat',
+        valor_aportacion: rounded,
+        objetivo: rounded > 0 ? rounded : null,
+        saldo_acumulado: 0,
+        orden: currentHuchas.length + 1,
+        es_principal: false,
+        es_suscripciones: true,
+        tope_objetivo: false,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      });
+    }
+    return targetRef;
+  };
+
+  const syncSuscripcionesHucha = async (updatedList: Suscripcion[], localHuchasState?: Hucha[]): Promise<Hucha[] | undefined> => {
     const currentHuchas = localHuchasState || huchas;
     const suscripcionesHucha = currentHuchas.find(h => h.es_suscripciones);
+    const rounded = getRoundedSubscriptionTotal(updatedList, suscripcionesHucha?.id || 'h-susc');
 
     if (!isFirebaseConfigured) {
       let nextHuchas = [...currentHuchas];
       if (suscripcionesHucha) {
         nextHuchas = currentHuchas.map(h => {
           if (h.es_suscripciones) {
-            return { ...h, objetivo: rounded > 0 ? rounded : null, valor_aportacion: rounded };
+            return { ...h, objetivo: rounded > 0 ? rounded : null, valor_aportacion: rounded, tope_objetivo: false };
           }
           return h;
         });
@@ -1782,49 +1824,33 @@ export const useFinanceData = (forceDemo = false) => {
           tipo_aportacion: 'flat',
           valor_aportacion: rounded,
           orden: currentHuchas.length + 1,
-          es_suscripciones: true
+          es_suscripciones: true,
+          tope_objetivo: false,
         });
       }
       return nextHuchas;
     }
 
     if (!user) return;
-    if (suscripcionesHucha) {
-      await runTransaction(db, async (transaction) => {
-        transaction.update(doc(db, 'huchas', suscripcionesHucha.id), {
-          objetivo: rounded > 0 ? rounded : null,
-          valor_aportacion: rounded,
-          updated_at: serverTimestamp(),
-        });
-      });
-    } else if (rounded > 0) {
-      const newDocRef = doc(collection(db, 'huchas'));
-      await runTransaction(db, async (transaction) => {
-        transaction.set(newDocRef, {
-          id_propietario: user.uid,
-          nombre: 'Suscripciones',
-          tipo_aportacion: 'flat',
-          valor_aportacion: rounded,
-          objetivo: rounded,
-          saldo_acumulado: 0,
-          orden: currentHuchas.length + 1,
-          es_principal: false,
-          es_suscripciones: true,
-          created_at: serverTimestamp(),
-          updated_at: serverTimestamp(),
-        });
-      });
-    }
+    const batch = writeBatch(db);
+    const queued = queueSuscripcionesHuchaSync(batch, updatedList, currentHuchas);
+    if (queued) await batch.commit();
   };
 
   const handleCreateOrUpdateSuscripcion = async (newSub: Omit<Suscripcion, 'id' | 'created_at'>, editingSubId: string | null) => {
     if (!isFirebaseConfigured) {
       let updatedSubs = [...suscripciones];
+      const fallbackHuchaId = huchas.find(h => h.es_suscripciones)?.id || 'h-susc';
+      const demoSub = {
+        ...newSub,
+        fecha_inicio: newSub.fecha_inicio || toLocalDateKey(new Date()),
+        hucha_id: newSub.hucha_id || fallbackHuchaId,
+      };
       if (editingSubId) {
-        updatedSubs = suscripciones.map(s => s.id === editingSubId ? { ...s, ...newSub } : s);
+        updatedSubs = suscripciones.map(s => s.id === editingSubId ? { ...s, ...demoSub } : s);
       } else {
         const id = 's-' + Math.random().toString(36).substr(2, 9);
-        updatedSubs.push({ id, ...newSub });
+        updatedSubs.push({ id, ...demoSub });
       }
       const nextHuchas = await syncSuscripcionesHucha(updatedSubs);
       saveDemoState(movimientos, nextHuchas || huchas, updatedSubs, userStats || { total_ingresos: 0, total_gastos: 0 });
@@ -1833,36 +1859,38 @@ export const useFinanceData = (forceDemo = false) => {
     }
 
     if (!user) return;
+    const existingSystemHucha = huchas.find(h => h.es_suscripciones);
+    const newSystemHuchaRef = existingSystemHucha ? undefined : doc(collection(db, 'huchas'));
+    const resolvedHuchaId = newSub.hucha_id || existingSystemHucha?.id || newSystemHuchaRef?.id || null;
     const data = {
       id_propietario: user.uid,
       nombre: newSub.nombre.trim(),
       importe: Number(newSub.importe),
       frecuencia: newSub.frecuencia,
+      fecha_inicio: newSub.fecha_inicio || toLocalDateKey(new Date()),
       dia_pago: Number(newSub.dia_pago),
       categoria: newSub.categoria,
       color: newSub.color,
       activa: newSub.activa,
-      hucha_id: newSub.hucha_id || null,
+      hucha_id: resolvedHuchaId,
       mi_parte: newSub.mi_parte ?? null,
       updated_at: serverTimestamp(),
     };
 
     try {
       let updatedList: Suscripcion[];
+      const batch = writeBatch(db);
       if (editingSubId) {
-        await runTransaction(db, async (transaction) => {
-          transaction.update(doc(db, 'suscripciones', editingSubId), data);
-        });
+        batch.update(doc(db, 'suscripciones', editingSubId), data);
         updatedList = suscripciones.map(s => s.id === editingSubId ? { ...s, ...data } : s);
       } else {
         const newDocRef = doc(collection(db, 'suscripciones'));
-        await runTransaction(db, async (transaction) => {
-          transaction.set(newDocRef, { ...data, created_at: serverTimestamp() });
-        });
+        batch.set(newDocRef, { ...data, created_at: serverTimestamp() });
         updatedList = [...suscripciones, { id: newDocRef.id, ...data } as unknown as Suscripcion];
       }
 
-      await syncSuscripcionesHucha(updatedList);
+      queueSuscripcionesHuchaSync(batch, updatedList, huchas, newSystemHuchaRef);
+      await batch.commit();
       showToast(editingSubId ? 'Suscripción actualizada' : 'Suscripción creada', 'success');
     } catch (error) {
       console.error('Error al guardar suscripción:', error);
@@ -1884,9 +1912,11 @@ export const useFinanceData = (forceDemo = false) => {
           return;
         }
         try {
-          await deleteDoc(doc(db, 'suscripciones', s.id));
           const updatedList = suscripciones.filter(sub => sub.id !== s.id);
-          await syncSuscripcionesHucha(updatedList);
+          const batch = writeBatch(db);
+          batch.delete(doc(db, 'suscripciones', s.id));
+          queueSuscripcionesHuchaSync(batch, updatedList, huchas);
+          await batch.commit();
           showToast('Suscripción eliminada', 'success');
         } catch (error) {
           console.error('Error al eliminar suscripción:', error);
@@ -1907,11 +1937,11 @@ export const useFinanceData = (forceDemo = false) => {
 
     if (!user) return;
     try {
-      await runTransaction(db, async (transaction) => {
-        transaction.update(doc(db, 'suscripciones', s.id), { activa: !s.activa, updated_at: serverTimestamp() });
-      });
       const updatedList = suscripciones.map(sub => sub.id === s.id ? { ...sub, activa: !sub.activa } : sub);
-      await syncSuscripcionesHucha(updatedList);
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'suscripciones', s.id), { activa: !s.activa, updated_at: serverTimestamp() });
+      queueSuscripcionesHuchaSync(batch, updatedList, huchas);
+      await batch.commit();
     } catch (error) {
       console.error('Error al cambiar estado suscripción:', error);
       showToast('Error al actualizar la suscripción');
@@ -1919,7 +1949,8 @@ export const useFinanceData = (forceDemo = false) => {
   };
 
   const handleCancelSuscripcion = (s: Suscripcion) => {
-    const nextDate = getNextPaymentDate(s.dia_pago);
+    const nextDate = getNextSubscriptionChargeDate(s, new Date(), false);
+    const cancelAt = toLocalDateKey(nextDate);
     const label = nextDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
     setConfirmModal({
       title: 'Cancelar Suscripción',
@@ -1927,7 +1958,7 @@ export const useFinanceData = (forceDemo = false) => {
       confirmLabel: 'Cancelar',
       onConfirm: async () => {
         if (!isFirebaseConfigured) {
-          const updated = suscripciones.map(sub => sub.id === s.id ? { ...sub, cancelando: true } : sub);
+          const updated = suscripciones.map(sub => sub.id === s.id ? { ...sub, cancelando: true, cancel_at: cancelAt } : sub);
           saveDemoState(movimientos, huchas, updated, userStats || { total_ingresos: 0, total_gastos: 0 });
           showToast(`${s.nombre} se cancelará el ${label}`, 'success');
           setConfirmModal(null);
@@ -1935,7 +1966,11 @@ export const useFinanceData = (forceDemo = false) => {
         }
         try {
           await runTransaction(db, async (transaction) => {
-            transaction.update(doc(db, 'suscripciones', s.id), { cancelando: true, updated_at: serverTimestamp() });
+            transaction.update(doc(db, 'suscripciones', s.id), {
+              cancelando: true,
+              cancel_at: cancelAt,
+              updated_at: serverTimestamp(),
+            });
           });
           showToast(`${s.nombre} se cancelará el ${label}`, 'success');
         } catch (error) {
@@ -1949,7 +1984,7 @@ export const useFinanceData = (forceDemo = false) => {
 
   const handleUndoCancelSuscripcion = async (s: Suscripcion) => {
     if (!isFirebaseConfigured) {
-      const updated = suscripciones.map(sub => sub.id === s.id ? { ...sub, cancelando: false } : sub);
+      const updated = suscripciones.map(sub => sub.id === s.id ? { ...sub, cancelando: false, cancel_at: null } : sub);
       saveDemoState(movimientos, huchas, updated, userStats || { total_ingresos: 0, total_gastos: 0 });
       showToast(`${s.nombre} reactivada`, 'success');
       return;
@@ -1958,7 +1993,11 @@ export const useFinanceData = (forceDemo = false) => {
     if (!user) return;
     try {
       await runTransaction(db, async (transaction) => {
-        transaction.update(doc(db, 'suscripciones', s.id), { cancelando: false, updated_at: serverTimestamp() });
+        transaction.update(doc(db, 'suscripciones', s.id), {
+          cancelando: false,
+          cancel_at: null,
+          updated_at: serverTimestamp(),
+        });
       });
       showToast(`${s.nombre} reactivada`, 'success');
     } catch (error) {
@@ -2763,14 +2802,7 @@ export const useFinanceData = (forceDemo = false) => {
   // Auto-delete cancel-pending expired subscriptions
   useEffect(() => {
     if (suscripciones.length === 0) return;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const expired = suscripciones.filter(s => {
-      if (!s.cancelando) return false;
-      const next = getNextPaymentDate(s.dia_pago);
-      return today >= next;
-    });
+    const expired = suscripciones.filter(s => isCancellationExpired(s));
     if (expired.length === 0) return;
 
     const processAutoDeletion = async () => {
@@ -2781,15 +2813,15 @@ export const useFinanceData = (forceDemo = false) => {
         return;
       }
       if (!user) return;
-      for (const s of expired) {
         try {
-          await deleteDoc(doc(db, 'suscripciones', s.id));
+        const remaining = suscripciones.filter(s => !expired.some(e => e.id === s.id));
+        const batch = writeBatch(db);
+        expired.forEach(s => batch.delete(doc(db, 'suscripciones', s.id)));
+        queueSuscripcionesHuchaSync(batch, remaining, huchas);
+        await batch.commit();
         } catch (e) {
-          console.error('Error deleting expired subscription:', e);
+        console.error('Error deleting expired subscriptions:', e);
         }
-      }
-      const remaining = suscripciones.filter(s => !expired.find(e => e.id === s.id));
-      await syncSuscripcionesHucha(remaining);
     };
     processAutoDeletion();
   }, [suscripciones, user, isFirebaseConfigured]);

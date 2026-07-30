@@ -1,19 +1,27 @@
-# 🚀 Flowt Backend - Extractor Automático de Movimientos Bancarios
+# Flowt Backend
 
-Este es el script de automatización en Python que se encarga de leer las notificaciones de tu banco desde Gmail, extraer la información de tus gastos e ingresos utilizando la Inteligencia Artificial de Google Gemini, y registrar los datos en tiempo real en tu base de datos de Firestore.
+Servicio de sincronización de Flowt. Consulta notificaciones bancarias en Gmail, extrae movimientos mediante Gemini y guarda el resultado en Firestore.
 
----
+## Responsabilidades
 
-## 📋 Requisitos Previos
+- Autenticar el acceso de solo lectura a Gmail.
+- Buscar mensajes del remitente configurado.
+- Normalizar el contenido de los mensajes.
+- Extraer y validar movimientos financieros.
+- Enviar casos ambiguos a revisión manual.
+- Persistir movimientos e información de procesamiento en Firestore.
+- Evitar el reprocesamiento de mensajes ya gestionados.
 
-Antes de configurar el script, asegúrate de tener instalado en tu ordenador:
-1. **Python 3.10 o superior** (al instalar en Windows, asegúrate de marcar la casilla *"Add Python to PATH"*).
-2. Una cuenta de **Google Gmail** donde recibas las notificaciones del banco.
-3. Un proyecto creado en **Google Firebase**.
+## Requisitos
 
----
+- Python 3.10 o posterior.
+- Proyecto de Firebase con Firestore.
+- Cuenta de servicio de Firebase.
+- Proyecto de Google Cloud con Gmail API.
+- Cliente OAuth de escritorio con el alcance `gmail.readonly`.
+- Clave de API de Gemini.
 
-## 🛠️ Guía de Configuración Paso a Paso
+## Instalación
 
 Para que el script funcione bajo tu propia cuenta o la de otra persona, se deben configurar **3 llaves de acceso** y **1 archivo de configuración**.
 
@@ -81,121 +89,83 @@ GEMINI_API_KEY=pega_aquí_tu_api_key_de_gemini
 WEBHOOK_TOKEN=generar_un_token_largo_y_seguro
 ```
 
----
+```bash
+cd tracker-backend
+python -m venv .venv
+```
+```
 
-## 🏃‍♂️ Cómo arrancar el Script por primera vez
+Activa el entorno e instala las dependencias:
 
-Una vez que tengas los siguientes **3 archivos** en tu carpeta `tracker-backend/`:
-1. `serviceAccountKey.json` ➔ (Firebase)
-2. `credentials.json` ➔ (Google Cloud)
-3. `.env` ➔ (Configuración personal con tus claves)
+```bash
+# Linux y macOS
+source .venv/bin/activate
 
-Simplemente haz doble clic en el archivo **`start.bat`** (en Windows) o ejecuta en tu terminal:
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+
+python -m pip install -r requirements.txt
+```
+
+En Windows también puede utilizarse `start.bat`.
+
+## Configuración
+
+### Firebase
+
+1. Habilita Authentication y Firestore en Firebase Console.
+2. Crea una cuenta de servicio dedicada.
+3. Descarga la clave como `tracker-backend/serviceAccountKey.json`.
+
+### Gmail
+
+1. Habilita Gmail API en Google Cloud.
+2. Configura la pantalla de consentimiento OAuth.
+3. Añade el alcance `gmail.readonly`.
+4. Crea un cliente OAuth de tipo aplicación de escritorio.
+5. Descarga el cliente como `tracker-backend/credentials.json`.
+
+La primera ejecución abre el consentimiento de Google y genera `token.json`.
+
+### Variables de entorno
+
+```bash
+cp .env.example .env
+```
+
+```dotenv
+BANK_SENDER=alertas@tu-banco.example
+UID_PROPIETARIO=uid_de_firebase
+MAX_EMAILS_PER_RUN=10
+MIN_CONFIDENCE=alta
+AI_MODEL=gemini-3-flash-preview
+GEMINI_API_KEY=...
+```
+
+| Variable | Descripción |
+|---|---|
+| `BANK_SENDER` | Remitente de las notificaciones que se procesarán |
+| `UID_PROPIETARIO` | UID de Firebase propietario de los datos |
+| `MAX_EMAILS_PER_RUN` | Máximo de mensajes procesados por ejecución |
+| `MIN_CONFIDENCE` | Umbral para aceptar o enviar a revisión |
+| `AI_MODEL` | Modelo de Gemini utilizado |
+| `GEMINI_API_KEY` | Credencial de acceso a Gemini |
+
+## Ejecución
+
 ```bash
 python main.py
 ```
 
-### 🔴 ¿Qué ocurrirá en la primera ejecución?
-1. El script creará automáticamente una carpeta `.venv/` de Python e instalará todas las librerías necesarias de forma totalmente aislada.
-2. Se pausará y **abrirá una pestaña en tu navegador web de forma automática**.
-3. Te pedirá iniciar sesión con tu cuenta de Gmail.
-4. Verás una pantalla de advertencia ("Google no ha verificado esta aplicación") debido a que es una app privada en desarrollo. Haz clic en **Configuración avanzada** (o *Advanced*) ➔ **Ir a Flowt (inseguro)**.
-5. Concede los permisos y haz clic en Permitir.
-6. El navegador mostrará el mensaje *"The authentication flow has completed..."*. Ya puedes cerrar la pestaña.
-7. El script creará un archivo llamado `token.json` en la carpeta. **A partir de este momento, nunca más te volverá a pedir iniciar sesión en el navegador.** Las futuras ejecuciones serán 100% silenciosas y automáticas.
+## Pruebas
 
----
-
-## 🔒 Seguridad e Idempotencia
-
-* **Principio de seguridad**: El script nunca almacena tus contraseñas del banco ni datos personales sensibles fuera de tu base de datos privada de Firebase.
-* **Idempotencia (Sin duplicados)**: Cada movimiento bancario se registra en Firestore con un ID generado mediante un hash SHA-256 de su identificador de correo único en Gmail. Si ejecutas el script 10 veces seguidas, los registros nunca se duplicarán en tu dashboard financiero.
-* **Aislamiento**: Recuerda **nunca subir al repositorio de Git ni compartir con nadie** los archivos `.env`, `credentials.json`, `token.json` ni `serviceAccountKey.json`.
-
----
-
-## 📅 Sincronización Automática
-
-Para no tener que ejecutar el script a mano, tienes dos opciones: ejecutarlo localmente en tu ordenador o desplegarlo de forma gratuita en la nube con **GitHub Actions**.
-
-### Opción A: Programación Local (Tu ordenador)
-* **Windows**: Abre el *"Programador de Tareas"*, crea una tarea básica que apunte a ejecutar el archivo `start.bat` todos los días a la hora que prefieras (por ejemplo, al iniciar sesión).
-* **Mac/Linux**: Configura un `cron job` de sistema que apunte a ejecutar el script `main.py` utilizando el Python de la carpeta `.venv/`.
-
----
-
-### Opción B: Ejecución en la Nube con GitHub Actions (Servidor 24/7 Gratis) 🤖
-Puedes subir el backend a un repositorio **privado** de GitHub y programar un flujo automatizado para que se ejecute solo (por ejemplo, cada hora) sin consumir recursos de tu ordenador.
-
-> [!CAUTION]
-> **SEGURIDAD CRÍTICA**: El repositorio de GitHub **DEBE ser 100% privado**. Si compartes o publicas este repositorio con tus secretos, cualquiera podría acceder a tu base de datos de Firebase o a la lectura de tu correo Gmail.
-
-#### Paso 1: Generar el token inicial en local
-Debes iniciar el script en tu ordenador al menos una vez siguiendo la sección *"Cómo arrancar el Script por primera vez"*. Esto generará el archivo `token.json` en tu carpeta local. **Este archivo es obligatorio** para que el servidor de GitHub pueda saltarse el inicio de sesión del navegador.
-
-#### Paso 2: Crear los Secretos de GitHub
-Ve a tu repositorio privado en GitHub ➔ pestaña **Settings** ➔ menú izquierdo **Secrets and variables** ➔ **Actions** ➔ botón **New repository secret**.
-
-Crea los siguientes secretos introduciendo los valores correspondientes:
-
-1. `BANK_SENDER`: El correo remitente del banco (ej. `alertas@tu-banco.com`).
-2. `UID_PROPIETARIO`: Tu UID único de usuario de Firebase.
-3. `GEMINI_API_KEY`: Tu clave de Google Gemini API.
-4. `FIREBASE_KEY_JSON`: Abre tu archivo `serviceAccountKey.json` con el bloc de notas, copia todo su texto y pégalo aquí.
-5. `GMAIL_CREDENTIALS_JSON`: Abre tu archivo `credentials.json`, copia todo su texto y pégalo aquí.
-6. `GMAIL_TOKEN_JSON`: Abre tu archivo `token.json` recién generado en local, copia todo su texto y pégalo aquí.
-
-#### Paso 3: Crear el archivo Workflow
-En la raíz de tu repositorio de GitHub, crea la estructura de carpetas `.github/workflows/` y dentro crea un archivo llamado `flowt-sync.yml` con el siguiente contenido:
-
-```yaml
-name: Sincronizador Financiero Flowt
-
-on:
-  schedule:
-    - cron: '0 * * * *' # Se ejecuta automáticamente cada hora
-  workflow_dispatch: # Permite pulsar un botón en GitHub para forzar la ejecución manual
-
-jobs:
-  run-tracker:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Descargar Código
-      uses: actions/checkout@v4
-
-    - name: Configurar Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-        cache: 'pip'
-
-    - name: Instalar Dependencias
-      run: |
-        pip install -r requirements.txt
-
-    - name: Reconstruir Archivos de Configuración y Claves
-      run: |
-        # Generar archivo .env temporal
-        echo "BANK_SENDER=${{ secrets.BANK_SENDER }}" >> .env
-        echo "UID_PROPIETARIO=${{ secrets.UID_PROPIETARIO }}" >> .env
-        echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
-        echo "MAX_EMAILS_PER_RUN=15" >> .env
-        echo "MIN_CONFIDENCE=alta" >> .env
-        echo "AI_MODEL=gemini-3-flash-preview" >> .env
-        
-        # Reconstruir las llaves de seguridad JSON
-        echo '${{ secrets.FIREBASE_KEY_JSON }}' > serviceAccountKey.json
-        echo '${{ secrets.GMAIL_CREDENTIALS_JSON }}' > credentials.json
-        echo '${{ secrets.GMAIL_TOKEN_JSON }}' > token.json
-
-    - name: Ejecutar Extractor
-      run: |
-        python main.py
+```bash
+python -m pytest
 ```
 
-Una vez guardado y subido a la rama principal de GitHub, tu extractor financiero de Flowt estará funcionando de forma totalmente autónoma en la nube cada hora.
+## Automatización con GitHub Actions
 
+<<<<<<< HEAD
 ---
 
 ### Opción C: Despliegue con Webhook (Google Cloud Functions / Run)
@@ -205,3 +175,53 @@ Si decides usar el entrypoint `gmail_webhook` incluido, ten en cuenta las siguie
 3. El token debe enviarse por la cabecera `Authorization: Bearer TU_TOKEN`. (No se admite `?token=`).
 4. **Límites recomendados**: En la consola de Google Cloud, configura tu función con concurrencia limitada (ej. max 1), timeout (ej. 60s) e idealmente IAM para restringir quién puede invocarla.
 
+=======
+El workflow [`.github/workflows/run_tracker.yml`](../.github/workflows/run_tracker.yml) ejecuta el sincronizador de forma programada y permite ejecuciones manuales.
+
+Configura estos secretos en **Settings → Secrets and variables → Actions**:
+
+| Secreto | Contenido |
+|---|---|
+| `BANK_SENDER` | Remitente bancario |
+| `UID_PROPIETARIO` | UID de Firebase |
+| `GEMINI_API_KEY` | Clave de Gemini |
+| `AI_MODEL` | Modelo configurado |
+| `GMAIL_CREDENTIALS_BASE64` | `credentials.json` en base64 |
+| `GMAIL_TOKEN_BASE64` | `token.json` en base64 |
+| `FIREBASE_SERVICE_ACCOUNT_BASE64` | `serviceAccountKey.json` en base64 |
+
+Codificación en Linux:
+
+```bash
+base64 -w 0 credentials.json
+base64 -w 0 token.json
+base64 -w 0 serviceAccountKey.json
+```
+
+Codificación en macOS:
+
+```bash
+base64 < credentials.json | tr -d '\n'
+```
+
+Base64 no cifra el contenido. Conserva estos valores exclusivamente en el almacén de secretos.
+
+## Archivos locales
+
+Los siguientes archivos contienen configuración o credenciales y están excluidos de Git:
+
+- `.env`
+- `credentials.json`
+- `token.json`
+- `serviceAccountKey.json`
+- `.venv/`
+
+## Operación
+
+- El workflow se ejecuta cada 30 minutos según su expresión cron.
+- `workflow_dispatch` permite una ejecución manual desde GitHub.
+- Los mensajes que no alcanzan el umbral configurado quedan disponibles para revisión.
+- Cambiar el modelo de Gemini no requiere modificar el código si se configura mediante `AI_MODEL`.
+
+La guía de despliegue del sistema completo está en [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md).
+>>>>>>> main

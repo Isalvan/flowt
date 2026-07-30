@@ -1,0 +1,57 @@
+name: Propuesta de funcionalidad
+description: Sugiere una mejora para Flowt.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe el problema de usuario antes de proponer una implementación.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Comprobaciones previas
+      options:
+        - label: He buscado propuestas similares.
+          required: true
+        - label: La propuesta no contiene datos personales ni credenciales.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema
+      description: ¿Qué necesidad o limitación quieres resolver?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Solución propuesta
+      description: Describe el comportamiento esperado desde el punto de vista del usuario.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+  - type: dropdown
+    id: component
+    attributes:
+      label: Área
+      options:
+        - Dashboard
+        - Movimientos
+        - Carteras
+        - Suscripciones
+        - Sincronización
+        - Exportación
+        - Infraestructura
+        - Documentación
+        - Otro
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto adicional

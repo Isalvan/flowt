@@ -51,11 +51,15 @@ export interface Suscripcion {
   nombre: string;
   importe: number;
   frecuencia: 'mensual' | 'trimestral' | 'semestral' | 'anual';
+  /** Fecha que ancla el ciclo de cobro (YYYY-MM-DD). */
+  fecha_inicio?: string;
   dia_pago: number;
   categoria: string;
   color: string;
   activa: boolean;
   cancelando?: boolean;
+  /** Fecha efectiva de baja (YYYY-MM-DD). */
+  cancel_at?: string | null;
   hucha_id?: string | null;
   // Si la suscripción es compartida con otras personas, "mi_parte" es la cuota
   // real del usuario en € (el resto lo reembolsan los demás vía bizum, etc.).
