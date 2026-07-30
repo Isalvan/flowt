@@ -2,6 +2,7 @@
 import os
 import subprocess
 import hashlib
+import hmac
 import logging
 import argparse
 import re
@@ -790,25 +791,22 @@ def gmail_webhook(request):
     setup_config()
 
     if not BANK_SENDER or not UID_PROPIETARIO:
-        return ("Faltan variables de entorno", 500)
+        return ("Configuración de servidor incompleta", 500)
 
-    # Check for authentication token
     webhook_token = os.getenv("WEBHOOK_TOKEN")
-    if webhook_token:
-        auth_header = request.headers.get("Authorization")
-        auth_query = request.args.get("token")
-        
-        token_valid = False
-        if auth_header:
-            if auth_header == webhook_token or auth_header == f"Bearer {webhook_token}":
-                token_valid = True
-        elif auth_query:
-            if auth_query == webhook_token:
-                token_valid = True
-                
-        if not token_valid:
-            logger.warning("Intento de acceso no autorizado al Webhook.")
-            return ("No autorizado", 401)
+    if not webhook_token:
+        logger.error("El webhook requiere autenticación (WEBHOOK_TOKEN no configurado).")
+        return ("Configuración de servidor incompleta", 500)
+
+    if request.method != "POST":
+        logger.warning(f"Método no permitido en Webhook: {request.method}")
+        return ("Método no permitido", 405)
+
+    auth_header = request.headers.get("Authorization", "")
+    expected_header = f"Bearer {webhook_token}"
+    if not auth_header or not hmac.compare_digest(auth_header, expected_header):
+        logger.warning("Intento de acceso no autorizado al Webhook.")
+        return ("No autorizado", 401)
 
     try:
         logger.info("Webhook recibido. Comprobando correos nuevos...")

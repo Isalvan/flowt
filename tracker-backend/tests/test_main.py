@@ -309,10 +309,11 @@ def test_gmail_webhook_missing_token(mock_config):
         assert status == 500
 
 def test_gmail_webhook_invalid_method(mock_config):
-    request = MagicMock()
-    request.method = "GET"
-    response, status = main.gmail_webhook(request)
-    assert status == 405
+    with patch.dict(os.environ, {"WEBHOOK_TOKEN": "my-secret-token"}), patch("main.BANK_SENDER", "x"), patch("main.UID_PROPIETARIO", "y"):
+        request = MagicMock()
+        request.method = "GET"
+        response, status = main.gmail_webhook(request)
+        assert status == 405
 
 def test_gmail_webhook_unauthorized(mock_config):
     with patch.dict(os.environ, {"WEBHOOK_TOKEN": "my-secret-token"}), patch("main.BANK_SENDER", "x"), patch("main.UID_PROPIETARIO", "y"):
