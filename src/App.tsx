@@ -705,16 +705,14 @@ const AppContent: React.FC = () => {
           <div className="md:hidden fixed bottom-6 left-3.5 right-3.5 z-50">
             <div className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[2.2rem] p-1 flex items-center h-16 shadow-[0_12px_45px_rgba(0,0,0,0.18)] dark:shadow-[0_12px_45px_rgba(0,0,0,0.6)] overflow-hidden">
               
-              {/* Liquid Animated Sliding Indicator ("Bola/Píldora Líquida") */}
+              {/* Perfect Centered Sliding Indicator Wrapper */}
               <div
-                className="absolute top-1 bottom-1 w-[calc(20%-0.5rem)] left-1 rounded-[1.8rem] bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 dark:from-indigo-500 dark:via-indigo-600 dark:to-violet-600 shadow-md shadow-indigo-500/30 dark:shadow-[0_0_22px_rgba(99,102,241,0.45)] border border-white/30 dark:border-white/20 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] pointer-events-none"
+                className="absolute top-0 bottom-0 left-0 w-1/5 h-full p-1.5 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] pointer-events-none z-0"
                 style={{
-                  transform: `translateX(${activeMobileIndex * 100}%) translateX(${activeMobileIndex * 0.4}rem)`,
+                  transform: `translateX(${activeMobileIndex * 100}%)`,
                 }}
               >
-                {/* Inner liquid glossy top shine */}
-                <div className="absolute inset-0 rounded-[1.8rem] bg-gradient-to-b from-white/30 via-white/5 to-transparent pointer-events-none" />
-                <div className="absolute top-0.5 left-1/2 -translate-x-1/2 w-7 h-1.5 bg-white/40 rounded-full blur-[1px]" />
+                <div className="w-full h-full rounded-[1.7rem] bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 dark:from-indigo-500 dark:via-indigo-600 dark:to-violet-500 shadow-md shadow-indigo-500/30 dark:shadow-[0_0_20px_rgba(99,102,241,0.45)] border border-white/25 dark:border-white/15" />
               </div>
 
               {/* Navigation Items */}
