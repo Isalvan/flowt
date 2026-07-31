@@ -703,7 +703,7 @@ const AppContent: React.FC = () => {
 
         return (
           <div className="md:hidden fixed bottom-6 left-3.5 right-3.5 z-50">
-            <div className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[2.2rem] p-1 flex items-center h-16 shadow-[0_12px_45px_rgba(0,0,0,0.18)] dark:shadow-[0_12px_45px_rgba(0,0,0,0.6)] overflow-hidden">
+            <div className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[2.2rem] flex items-center h-16 shadow-[0_12px_45px_rgba(0,0,0,0.18)] dark:shadow-[0_12px_45px_rgba(0,0,0,0.6)] overflow-hidden">
               
               {/* Perfect Centered Sliding Indicator Wrapper */}
               <div
