@@ -456,7 +456,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
               >
                 {/* Visual Connector Popover */}
                 {hoveredMovId === m.id && hasCompensaciones && linkedMovs.length > 0 && (
-                  <div className="absolute left-4 top-[-10px] sm:top-auto sm:bottom-full sm:left-1/2 sm:-translate-x-1/2 z-50 mb-3 w-80 animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none">
+                  <div className="absolute left-4 top-[-10px] sm:top-auto sm:bottom-full sm:left-1/2 sm:-translate-x-1/2 z-50 mb-3 w-80 max-w-[calc(100vw-3rem)] animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none">
                     <div className="glass-panel rounded-2xl p-4 border border-emerald-500/20 shadow-2xl bg-slate-950/95 text-left text-slate-100">
                       <div className="flex items-center gap-1.5 text-emerald-400 font-extrabold text-xs uppercase tracking-wider mb-2.5">
                         <Info className="w-3.5 h-3.5" />
@@ -626,7 +626,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                     {/* Convert Type (Ingreso <-> Gasto) */}
                     <button
                       onClick={() => onConvert(m)}
-                      className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-slate-100 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-600 dark:bg-slate-800 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
+                      className="flex items-center justify-center w-7 h-7 rounded-xl bg-slate-100 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-600 dark:bg-slate-800 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
                       title="Convertir tipo de movimiento"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
@@ -635,7 +635,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                     {/* Link / Unlink Button */}
                     <button
                       onClick={() => onLink(m)}
-                      className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-slate-100 hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-600 dark:bg-slate-800 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
+                      className="flex items-center justify-center w-7 h-7 rounded-xl bg-slate-100 hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-600 dark:bg-slate-800 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
                       title={m.tipo === 'gasto' ? "Vincular/Compensar con Bizum" : "Repartir este ingreso en gastos"}
                     >
                       <Link className="w-3.5 h-3.5" />
@@ -643,7 +643,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                     {((m.tipo === 'gasto' && ((m.compensado_por?.length ?? 0) > 0 || (m.compensado_por_detalles?.length ?? 0) > 0)) || (m.tipo === 'ingreso' && (m.compensa_movimiento_id || (m.compensaciones_destinos?.length ?? 0) > 0))) && (
                       <button
                         onClick={() => onUnlink(m)}
-                        className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 border border-rose-500/10 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
+                        className="flex items-center justify-center w-7 h-7 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 border border-rose-500/10 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
                         title="Deshacer vínculo de compensación"
                       >
                         <Link2Off className="w-3.5 h-3.5" />
@@ -653,7 +653,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                     {/* Delete Movement Button */}
                     <button
                       onClick={() => onDeleteMovimiento(m)}
-                      className="flex items-center justify-center w-7.5 h-7.5 rounded-xl bg-slate-100 hover:bg-rose-500/10 text-slate-400 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm cursor-pointer"
+                      className="flex items-center justify-center w-7 h-7 rounded-xl bg-slate-100 hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 dark:bg-slate-800 dark:hover:bg-rose-950/40 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
                       title="Eliminar movimiento"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

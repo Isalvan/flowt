@@ -177,22 +177,22 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
         </div>
 
         {/* Predictive Metrics Row */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="p-3 rounded-2xl bg-white/40 dark:bg-slate-950/10 border border-white/5 text-center">
-            <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-1">Mínimo Proyectado</span>
-            <span className={`text-xs sm:text-sm font-black tabular-nums ${stats.min < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-3 mb-6">
+          <div className="p-2 sm:p-3 rounded-2xl bg-white/40 dark:bg-slate-950/10 border border-white/5 text-center min-w-0">
+            <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-1 truncate">Mínimo Proyectado</span>
+            <span className={`text-[11px] sm:text-sm font-black tabular-nums truncate block ${stats.min < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>
               {formatCurrency(stats.min)}
             </span>
           </div>
-          <div className="p-3 rounded-2xl bg-white/40 dark:bg-slate-950/10 border border-white/5 text-center">
-            <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-1">Máximo Proyectado</span>
-            <span className="text-xs sm:text-sm font-black text-slate-700 dark:text-slate-200 tabular-nums">
+          <div className="p-2 sm:p-3 rounded-2xl bg-white/40 dark:bg-slate-950/10 border border-white/5 text-center min-w-0">
+            <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-1 truncate">Máximo Proyectado</span>
+            <span className="text-[11px] sm:text-sm font-black text-slate-700 dark:text-slate-200 tabular-nums truncate block">
               {formatCurrency(stats.max)}
             </span>
           </div>
-          <div className="p-3 rounded-2xl bg-white/40 dark:bg-slate-950/10 border border-white/5 text-center">
-            <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-1">Crecimiento Neto</span>
-            <span className={`text-xs sm:text-sm font-black tabular-nums flex items-center justify-center gap-0.5 ${stats.diff >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+          <div className="p-2 sm:p-3 rounded-2xl bg-white/40 dark:bg-slate-950/10 border border-white/5 text-center min-w-0">
+            <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-1 truncate">Crecimiento Neto</span>
+            <span className={`text-[11px] sm:text-sm font-black tabular-nums flex items-center justify-center gap-0.5 truncate block ${stats.diff >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
               {stats.diff >= 0 ? '+' : ''}{formatCurrency(stats.diff)}
             </span>
           </div>

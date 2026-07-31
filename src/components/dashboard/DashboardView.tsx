@@ -422,9 +422,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             </p>
                           </div>
                           
-                          <div className="flex items-center gap-2 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            <span>Vence en: <strong className={`${daysLeft <= 3 ? 'text-amber-600 dark:text-amber-400 font-extrabold' : 'text-slate-500'}`}>{daysLeft} {daysLeft === 1 ? 'día' : 'días'}</strong></span>
-                            <span>• {date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            <span className="shrink-0">Vence en: <strong className={`${daysLeft <= 3 ? 'text-amber-600 dark:text-amber-400 font-extrabold' : 'text-slate-500'}`}>{daysLeft} {daysLeft === 1 ? 'día' : 'días'}</strong></span>
+                            <span className="shrink-0">• {date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
                           </div>
                         </div>
 
