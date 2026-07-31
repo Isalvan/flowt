@@ -113,6 +113,8 @@ const AppContent: React.FC = () => {
 
   // Tab switching state
   const [activeTab, setActiveTab] = useState<'dashboard' | 'salud' | 'calendario' | 'correos' | 'ajustes'>('dashboard');
+  const [prevMobileIndex, setPrevMobileIndex] = useState(0);
+  const [isSliding, setIsSliding] = useState(false);
 
   // Form modals state overlays
   const [isHuchaModalOpen, setIsHuchaModalOpen] = useState(false);
@@ -700,19 +702,41 @@ const AppContent: React.FC = () => {
         ] as const;
 
         const activeMobileIndex = Math.max(0, mobileNavTabs.findIndex(t => t.id === activeTab));
+        const distance = Math.abs(activeMobileIndex - prevMobileIndex);
+        const slideDuration = Math.min(500, Math.max(280, distance * 110));
+
+        const handleMobileTabClick = (tabId: typeof activeTab) => {
+          const nextIndex = Math.max(0, mobileNavTabs.findIndex(t => t.id === tabId));
+          if (nextIndex !== activeMobileIndex) {
+            setIsSliding(true);
+            setActiveTab(tabId);
+            setTimeout(() => {
+              setIsSliding(false);
+              setPrevMobileIndex(nextIndex);
+            }, slideDuration);
+          }
+        };
 
         return (
           <div className="md:hidden fixed bottom-6 left-3.5 right-3.5 z-50">
             <div className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[2.2rem] flex items-center h-16 shadow-[0_12px_45px_rgba(0,0,0,0.18)] dark:shadow-[0_12px_45px_rgba(0,0,0,0.6)] overflow-hidden">
               
-              {/* Perfect Centered Sliding Indicator Wrapper */}
+              {/* Perfect Centered Sliding Liquid Indicator Wrapper */}
               <div
-                className="absolute top-0 bottom-0 left-0 w-1/5 h-full p-1.5 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] pointer-events-none z-0"
+                className="absolute top-0 bottom-0 left-0 w-1/5 h-full p-1.5 pointer-events-none z-0"
                 style={{
                   transform: `translateX(${activeMobileIndex * 100}%)`,
+                  transitionProperty: 'transform',
+                  transitionDuration: `${slideDuration}ms`,
+                  transitionTimingFunction: 'cubic-bezier(0.34, 1.4, 0.64, 1)',
+                  willChange: 'transform',
                 }}
               >
-                <div className="w-full h-full rounded-[1.7rem] bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 dark:from-indigo-500 dark:via-indigo-600 dark:to-violet-500 shadow-md shadow-indigo-500/30 dark:shadow-[0_0_20px_rgba(99,102,241,0.45)] border border-white/25 dark:border-white/15" />
+                <div
+                  className={`w-full h-full rounded-[1.7rem] bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 dark:from-indigo-500 dark:via-indigo-600 dark:to-violet-500 shadow-md shadow-indigo-500/35 dark:shadow-[0_0_20px_rgba(99,102,241,0.5)] border border-white/25 dark:border-white/15 transition-transform duration-200 ${
+                    isSliding ? 'scale-x-125 scale-y-90' : 'scale-x-100 scale-y-100'
+                  }`}
+                />
               </div>
 
               {/* Navigation Items */}
@@ -722,7 +746,7 @@ const AppContent: React.FC = () => {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => handleMobileTabClick(tab.id as any)}
                     className={`relative z-10 flex flex-col items-center justify-center w-1/5 h-full transition-colors duration-300 cursor-pointer ${
                       isActive
                         ? 'text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]'
