@@ -703,7 +703,7 @@ const AppContent: React.FC = () => {
 
         const activeMobileIndex = Math.max(0, mobileNavTabs.findIndex(t => t.id === activeTab));
         const distance = Math.abs(activeMobileIndex - prevMobileIndex);
-        const slideDuration = Math.min(500, Math.max(280, distance * 110));
+        const slideDuration = Math.min(420, Math.max(250, distance * 85));
 
         const handleMobileTabClick = (tabId: typeof activeTab) => {
           const nextIndex = Math.max(0, mobileNavTabs.findIndex(t => t.id === tabId));
@@ -728,13 +728,13 @@ const AppContent: React.FC = () => {
                   transform: `translateX(${activeMobileIndex * 100}%)`,
                   transitionProperty: 'transform',
                   transitionDuration: `${slideDuration}ms`,
-                  transitionTimingFunction: 'cubic-bezier(0.34, 1.4, 0.64, 1)',
+                  transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
                   willChange: 'transform',
                 }}
               >
                 <div
                   className={`w-full h-full rounded-[1.7rem] bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 dark:from-indigo-500 dark:via-indigo-600 dark:to-violet-500 shadow-md shadow-indigo-500/35 dark:shadow-[0_0_20px_rgba(99,102,241,0.5)] border border-white/25 dark:border-white/15 transition-transform duration-200 ${
-                    isSliding ? 'scale-x-125 scale-y-90' : 'scale-x-100 scale-y-100'
+                    isSliding ? 'scale-x-105 scale-y-97' : 'scale-x-100 scale-y-100'
                   }`}
                 />
               </div>
