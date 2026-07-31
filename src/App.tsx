@@ -707,14 +707,14 @@ const AppContent: React.FC = () => {
               
               {/* Liquid Animated Sliding Indicator ("Bola/Píldora Líquida") */}
               <div
-                className="absolute top-1 bottom-1 w-[calc(20%-0.5rem)] left-1 rounded-[1.8rem] bg-gradient-to-r from-indigo-600 via-sky-500 to-indigo-600 shadow-[0_0_20px_rgba(99,102,241,0.6)] border border-white/30 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] pointer-events-none"
+                className="absolute top-1 bottom-1 w-[calc(20%-0.5rem)] left-1 rounded-[1.8rem] bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 dark:from-indigo-500 dark:via-indigo-600 dark:to-violet-600 shadow-md shadow-indigo-500/30 dark:shadow-[0_0_22px_rgba(99,102,241,0.45)] border border-white/30 dark:border-white/20 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] pointer-events-none"
                 style={{
                   transform: `translateX(${activeMobileIndex * 100}%) translateX(${activeMobileIndex * 0.4}rem)`,
                 }}
               >
-                {/* Inner liquid glossy glow & pulse */}
-                <div className="absolute inset-0 rounded-[1.8rem] bg-white/20 blur-[1px] animate-pulse" />
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-2 bg-sky-300/40 rounded-full blur-[3px]" />
+                {/* Inner liquid glossy top shine */}
+                <div className="absolute inset-0 rounded-[1.8rem] bg-gradient-to-b from-white/30 via-white/5 to-transparent pointer-events-none" />
+                <div className="absolute top-0.5 left-1/2 -translate-x-1/2 w-7 h-1.5 bg-white/40 rounded-full blur-[1px]" />
               </div>
 
               {/* Navigation Items */}
