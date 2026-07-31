@@ -39,7 +39,7 @@ service cloud.firestore {
                        request.resource.data.keys().hasOnly(['id', 'id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'created_at', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
                        (request.resource.data.tipo == 'ingreso' || request.resource.data.tipo == 'gasto') &&
                        isNumber('importe') && request.resource.data.importe >= 0 &&
-                       isStringWithLength('concepto', 1, 200);
+                       isStringWithLength('concepto', 0, 500);
       
       allow read: if isDocOwner();
       allow update: if isDocOwner() && isReqOwner() &&
@@ -47,7 +47,7 @@ service cloud.firestore {
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at'])) &&
                        isNumber('importe') && request.resource.data.importe >= 0 &&
                        (request.resource.data.tipo == 'ingreso' || request.resource.data.tipo == 'gasto') &&
-                       isStringWithLength('concepto', 1, 200);
+                       (!('concepto' in request.resource.data) || isStringWithLength('concepto', 0, 500));
       allow delete: if isDocOwner();
     }
 
@@ -65,7 +65,7 @@ service cloud.firestore {
                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['id', 'nombre', 'tipo_aportacion', 'valor_aportacion', 'saldo_acumulado', 'objetivo', 'orden', 'es_principal', 'es_suscripciones', 'es_metalico', 'es_interno', 'activa', 'tope_objetivo', 'subsanar_con', 'subsanar_hasta', 'deuda_pendiente', 'deuda_con', 'updated_at']) &&
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at'])) &&
                        isNumber('saldo_acumulado') &&
-                       (request.resource.data.tipo_aportacion in ['flat', 'porcentaje', 'resto']) &&
+                       (!('tipo_aportacion' in request.resource.data) || request.resource.data.tipo_aportacion == null || request.resource.data.tipo_aportacion in ['flat', 'porcentaje', 'resto']) &&
                        (!('es_suscripciones' in resource.data) || resource.data.es_suscripciones == false || request.resource.data.keys().hasAll(['saldo_acumulado']));
       
       allow delete: if isDocOwner() && (!('es_suscripciones' in resource.data) || resource.data.es_suscripciones == false);

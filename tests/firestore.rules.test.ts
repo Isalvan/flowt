@@ -1,7 +1,7 @@
 import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
 import { initializeTestEnvironment, RulesTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
-import { doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
 
 let testEnv: RulesTestEnvironment | null = null;
 
@@ -222,6 +222,104 @@ describe('Firestore Rules - Huchas Protegidas', () => {
     await assertFails(updateDoc(doc(db, 'movimientos', 'mov1'), {
       id_propietario: 'hacker_999'
     }));
+  });
+
+  it('Should allow reassigning a movement hucha_id and updating hucha balances in a transaction/batch', async () => {
+    if (!testEnv) return;
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'huchas', 'hYpEkvuC37GXzCaomVPX'), {
+        id_propietario: 'user_123',
+        nombre: 'Hucha A',
+        tipo_aportacion: 'flat',
+        saldo_acumulado: 100,
+        es_principal: false,
+        activa: true,
+      });
+      await setDoc(doc(db, 'huchas', 'L7nVAw8fP9NPdWtKSn5U'), {
+        id_propietario: 'user_123',
+        nombre: 'Hucha B',
+        tipo_aportacion: 'flat',
+        saldo_acumulado: 500,
+        es_principal: false,
+        activa: true,
+      });
+      await setDoc(doc(db, 'movimientos', 'e553ae9cdef9e8dc4295bf2900d36d24a775e1f2b54848bad22c673d6d75433a'), {
+        id_propietario: 'user_123',
+        tipo: 'gasto',
+        concepto: 'Supermercado',
+        importe: 50,
+        fecha_operacion: new Date(),
+        hucha_id: 'hYpEkvuC37GXzCaomVPX',
+      });
+    });
+
+    const userContext = testEnv.authenticatedContext('user_123');
+    const db = userContext.firestore();
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'huchas', 'hYpEkvuC37GXzCaomVPX'), { saldo_acumulado: 150 });
+    batch.update(doc(db, 'huchas', 'L7nVAw8fP9NPdWtKSn5U'), { saldo_acumulado: 450 });
+    batch.update(doc(db, 'movimientos', 'e553ae9cdef9e8dc4295bf2900d36d24a775e1f2b54848bad22c673d6d75433a'), { hucha_id: 'L7nVAw8fP9NPdWtKSn5U' });
+
+    await assertSucceeds(batch.commit());
+  });
+
+  it('Should allow reassigning a movement when a hucha has no tipo_aportacion or optional fields', async () => {
+    if (!testEnv) return;
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'huchas', 'hucha_no_tipo'), {
+        id_propietario: 'user_123',
+        nombre: 'Legacy/System Hucha',
+        saldo_acumulado: 100,
+        es_principal: false,
+        activa: true,
+      });
+      await setDoc(doc(db, 'huchas', 'hucha_normal'), {
+        id_propietario: 'user_123',
+        nombre: 'Normal Hucha',
+        tipo_aportacion: 'flat',
+        saldo_acumulado: 500,
+        es_principal: false,
+        activa: true,
+      });
+      await setDoc(doc(db, 'movimientos', 'mov_test'), {
+        id_propietario: 'user_123',
+        tipo: 'gasto',
+        concepto: 'Gasto Test',
+        importe: 50,
+        fecha_operacion: new Date(),
+        hucha_id: 'hucha_no_tipo',
+      });
+    });
+
+    const userContext = testEnv.authenticatedContext('user_123');
+    const db = userContext.firestore();
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'huchas', 'hucha_no_tipo'), { saldo_acumulado: 150 });
+    batch.update(doc(db, 'huchas', 'hucha_normal'), { saldo_acumulado: 450 });
+    batch.update(doc(db, 'movimientos', 'mov_test'), { hucha_id: 'hucha_normal' });
+
+    await assertSucceeds(batch.commit());
+  });
+
+  it('Should allow updating hucha_id on a movement that has long or sanitized concept or missing concept', async () => {
+    if (!testEnv) return;
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'movimientos', 'mov_long_concepto'), {
+        id_propietario: 'user_123',
+        tipo: 'gasto',
+        concepto: 'a'.repeat(250), // long concept imported from email
+        importe: 50,
+        fecha_operacion: new Date(),
+        hucha_id: 'hYpEkvuC37GXzCaomVPX',
+      });
+    });
+
+    const userContext = testEnv.authenticatedContext('user_123');
+    const db = userContext.firestore();
+    await assertSucceeds(updateDoc(doc(db, 'movimientos', 'mov_long_concepto'), { hucha_id: 'L7nVAw8fP9NPdWtKSn5U' }));
   });
 });
 
