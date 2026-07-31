@@ -1683,14 +1683,16 @@ export const useFinanceData = (forceDemo = false) => {
           const oldDelta = oldHuchaId ? (changeDeltas[oldHuchaId] ?? 0) : 0;
           if (oldDelta !== 0) {
             transaction.update(oldHuchaRef, {
-              saldo_acumulado: (oldHuchaDoc.data().saldo_acumulado || 0) + oldDelta
+              saldo_acumulado: (oldHuchaDoc.data().saldo_acumulado || 0) + oldDelta,
+              updated_at: serverTimestamp(),
             });
           }
         }
 
         if (newHuchaDoc.exists()) {
           transaction.update(newHuchaRef, {
-            saldo_acumulado: (newHuchaDoc.data().saldo_acumulado || 0) - mov.importe
+            saldo_acumulado: (newHuchaDoc.data().saldo_acumulado || 0) - mov.importe,
+            updated_at: serverTimestamp(),
           });
         }
 
@@ -1704,7 +1706,10 @@ export const useFinanceData = (forceDemo = false) => {
           }
         }
 
-        transaction.update(movRef, { hucha_id: newHuchaId });
+        transaction.update(movRef, {
+          hucha_id: newHuchaId,
+          updated_at: serverTimestamp(),
+        });
       });
       if (changeOverflow > 0.01) {
         showToast(`${changeOverflow.toFixed(2)} € sin asignar: todas las huchas están llenas`);
