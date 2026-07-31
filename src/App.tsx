@@ -689,60 +689,70 @@ const AppContent: React.FC = () => {
         )}
       </main>
 
-      {/* 3. Mobile Bottom navigation tabs bar - FLOATING PREMIUM */}
-      <div className="md:hidden fixed bottom-6 left-4 right-4 z-50">
-        <div className="relative bg-white/80 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[2rem] flex items-center h-16 shadow-[0_10px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden">
-        <button
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex flex-col items-center justify-center w-1/4 h-full relative cursor-pointer ${
-            activeTab === 'dashboard' ? 'text-indigo-500' : 'text-slate-400 hover:text-slate-300'
-          }`}
-        >
-          <div className="relative">
-            <TrendingUp size={20} className={`mb-1 transition-transform duration-300 ${activeTab === 'dashboard' ? 'scale-110' : ''}`} />
+      {/* 3. Mobile Bottom navigation tabs bar - FLOATING PREMIUM WITH LIQUID SLIDER */}
+      {(() => {
+        const mobileNavTabs = [
+          { id: 'dashboard', label: 'Inicio', icon: TrendingUp },
+          { id: 'salud', label: 'Salud', icon: HeartPulse },
+          { id: 'calendario', label: 'Calendario', icon: Calendar },
+          { id: 'correos', label: 'Correos', icon: Mail, badge: pendingEmails.length },
+          { id: 'ajustes', label: 'Ajustes', icon: Settings },
+        ] as const;
+
+        const activeMobileIndex = Math.max(0, mobileNavTabs.findIndex(t => t.id === activeTab));
+
+        return (
+          <div className="md:hidden fixed bottom-6 left-3.5 right-3.5 z-50">
+            <div className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[2.2rem] p-1 flex items-center h-16 shadow-[0_12px_45px_rgba(0,0,0,0.18)] dark:shadow-[0_12px_45px_rgba(0,0,0,0.6)] overflow-hidden">
+              
+              {/* Liquid Animated Sliding Indicator ("Bola/Píldora Líquida") */}
+              <div
+                className="absolute top-1 bottom-1 w-[calc(20%-0.5rem)] left-1 rounded-[1.8rem] bg-gradient-to-r from-indigo-600 via-sky-500 to-indigo-600 shadow-[0_0_20px_rgba(99,102,241,0.6)] border border-white/30 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] pointer-events-none"
+                style={{
+                  transform: `translateX(${activeMobileIndex * 100}%) translateX(${activeMobileIndex * 0.4}rem)`,
+                }}
+              >
+                {/* Inner liquid glossy glow & pulse */}
+                <div className="absolute inset-0 rounded-[1.8rem] bg-white/20 blur-[1px] animate-pulse" />
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-2 bg-sky-300/40 rounded-full blur-[3px]" />
+              </div>
+
+              {/* Navigation Items */}
+              {mobileNavTabs.map((tab) => {
+                const IconComponent = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`relative z-10 flex flex-col items-center justify-center w-1/5 h-full transition-colors duration-300 cursor-pointer ${
+                      isActive
+                        ? 'text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="relative">
+                      <IconComponent size={19} className={`transition-transform duration-300 ${isActive ? 'scale-110 -translate-y-0.5' : ''}`} />
+                      {'badge' in tab && tab.badge !== undefined && tab.badge > 0 && (
+                        <span className={`absolute -top-1.5 -right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-black border-2 ${
+                          isActive ? 'bg-white text-indigo-700 border-indigo-600 shadow-sm' : 'bg-red-500 text-white border-slate-900'
+                        }`}>
+                          {tab.badge}
+                        </span>
+                      )}
+                    </div>
+                    <span className={`text-[8.5px] font-black uppercase tracking-tight transition-all duration-300 mt-0.5 ${
+                      isActive ? 'opacity-100 scale-105 font-black' : 'opacity-80'
+                    }`}>
+                      {tab.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <span className="text-[9px] font-bold uppercase tracking-wider">Inicio</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('calendario')}
-          className={`flex flex-col items-center justify-center w-1/4 h-full relative cursor-pointer ${
-            activeTab === 'calendario' ? 'text-indigo-500' : 'text-slate-400 hover:text-slate-300'
-          }`}
-        >
-          <div className="relative">
-            <Calendar size={20} className={`mb-1 transition-transform duration-300 ${activeTab === 'calendario' ? 'scale-110' : ''}`} />
-          </div>
-          <span className="text-[9px] font-bold uppercase tracking-wider">Calendario</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('correos')}
-          className={`flex flex-col items-center justify-center w-1/4 h-full relative cursor-pointer ${
-            activeTab === 'correos' ? 'text-indigo-500' : 'text-slate-400 hover:text-slate-300'
-          }`}
-        >
-          <div className="relative">
-            <Mail size={20} className={`mb-1 transition-transform duration-300 ${activeTab === 'correos' ? 'scale-110' : ''}`} />
-            {pendingEmails.length > 0 && (
-              <span className="absolute -top-1.5 -right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-white text-[8px] font-black border-2 border-slate-900">
-                {pendingEmails.length}
-              </span>
-            )}
-          </div>
-          <span className="text-[9px] font-bold uppercase tracking-wider">Correos</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('ajustes')}
-          className={`flex flex-col items-center justify-center w-1/4 h-full relative cursor-pointer ${
-            activeTab === 'ajustes' ? 'text-indigo-500' : 'text-slate-400 hover:text-slate-300'
-          }`}
-        >
-          <div className="relative">
-            <Settings size={20} className={`mb-1 transition-transform duration-300 ${activeTab === 'ajustes' ? 'scale-110' : ''}`} />
-          </div>
-          <span className="text-[9px] font-bold uppercase tracking-wider">Ajustes</span>
-        </button>
-        </div>
-      </div>
+        );
+      })()}
 
       <ProfilePanel 
         isOpen={isProfilePanelOpen} 
