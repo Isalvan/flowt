@@ -4,7 +4,9 @@ service cloud.firestore {
 
     // Helpers de Autenticación y Propiedad
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null && request.auth.uid in [
+        'Oq53e0vHd1X6w9zEFPtd2NcwEaf2'
+      ];
     }
     
     function isOwner(uid) {
