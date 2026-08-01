@@ -30,6 +30,8 @@ import {
 } from '../utils/subscriptions';
 
 // Standard fallback configurations and options
+export const ALLOWED_UIDS = ['Oq53e0vHd1X6w9zEFPtd2NcwEaf2'];
+
 export const SUBSCRIPTION_COLORS = [
   '#8b5cf6', '#ec4899', '#3b82f6', '#0ea5e9', '#14b8a6',
   '#22c55e', '#f59e0b', '#f97316', '#ef4444', '#6366f1',
@@ -198,8 +200,29 @@ export const useFinanceData = (forceDemo = false) => {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        if (!ALLOWED_UIDS.includes(currentUser.uid)) {
+          console.error('Unauthorized user in Flowt');
+          try {
+            const { deleteUser, signOut } = await import('firebase/auth');
+            await deleteUser(currentUser);
+            await signOut(auth);
+          } catch (err) {
+            console.error('Error deleting unauthorized user in Flowt:', err);
+            const { signOut } = await import('firebase/auth');
+            await signOut(auth);
+          } finally {
+            setUser(null);
+            setLoading(false);
+            showToast('Aplicación privada. Este usuario no está autorizado.', 'error');
+          }
+          return;
+        }
+        setUser(currentUser);
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
@@ -208,7 +231,7 @@ export const useFinanceData = (forceDemo = false) => {
 
   // Firebase Real-time subscriptions
   useEffect(() => {
-    if (!user || !isFirebaseConfigured) return;
+    if (!user || !ALLOWED_UIDS.includes(user.uid) || !isFirebaseConfigured) return;
 
     if (isLocked) {
       // Clear data states when locked to prevent network & memory exposure

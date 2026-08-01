@@ -237,7 +237,20 @@ const AppContent: React.FC = () => {
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      const { ALLOWED_UIDS } = await import('./hooks/useFinanceData');
+      if (result.user && !ALLOWED_UIDS.includes(result.user.uid)) {
+        try {
+          const { deleteUser } = await import('firebase/auth');
+          await deleteUser(result.user);
+        } catch (delErr) {
+          console.error('Error deleting unauthorized user:', delErr);
+        } finally {
+          await signOut(auth);
+          showToast('Aplicación privada. Este usuario no está autorizado.', 'error');
+        }
+        return;
+      }
       showToast('Sesión iniciada correctamente', 'success');
     } catch (error) {
       console.error('Login failed:', error);
@@ -425,8 +438,12 @@ const AppContent: React.FC = () => {
             Financial Tracker
           </p>
 
-          <p className="text-slate-400 text-xs sm:text-sm leading-relaxed mb-8">
+          <p className="text-slate-400 text-xs sm:text-sm leading-relaxed mb-4">
             Control de gastos inteligente con reparto automático en carteras y gestión integral de tus suscripciones recurrentes.
+          </p>
+
+          <p className="text-xs text-amber-400 font-semibold mb-8 px-3 py-1.5 bg-amber-500/10 rounded-xl border border-amber-500/20">
+            Aplicación privada. Acceso restringido a usuarios autorizados.
           </p>
 
           {/* Login Action Button */}
