@@ -24,6 +24,10 @@ Flowt se divide en dos aplicaciones:
 Gmail → Sincronizador Python → Gemini AI → Firestore → Aplicación Web
 ```
 
+## Demo
+
+![Demo de Flowt](media/flowt-demo.gif)
+
 La descripción de componentes, flujos de datos y límites de responsabilidad está en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Requisitos
