@@ -1,59 +1,48 @@
 # Flowt
 
-Flowt es una aplicación de finanzas personales que transforma notificaciones bancarias recibidas por Gmail en movimientos estructurados, los organiza en Firestore y los presenta en un panel web moderno y responsivo.
+[English](README.md) · [Español](README.es.md)
 
-## Características Principal
+Flowt is a personal finance application that turns bank notifications received through Gmail into structured transactions, stores them in Firestore, and presents them in a modern, responsive dashboard.
 
-- **Sincronización Automática Multibanco**: Consulta notificaciones desde Gmail para múltiples entidades (Unicaja, Revolut, BBVA, Santander, CaixaBank, ING, Sabadell, N26) utilizando el alcance `gmail.modify`.
-- **Extracción Inteligente de Movimientos**: Redacción previa de PII y procesamiento con Gemini 1.5 Flash.
-- **Dashboard de Salud Financiera**: Calificación continua de salud financiera (Score 0-100) evaluando el ratio de ahorro, la estabilidad de las carteras, el flujo de caja y la presión de suscripciones.
-- **Filtrado Avanzado por Entidad**: Visualización y filtrado interactivo de movimientos según el banco de origen.
-- **Revisión Manual Idempotente**: Cola de correos ambiguos con aprobación/descarte seguro en una única transacción.
-- **Carteras, Objetivos y Suscripciones**: Reglas de reparto automático y gestión de suscripciones compartidas.
-- **Exportación Segura**: Exportación a CSV sanitizada contra inyección de fórmulas (`CSV Formula Injection`).
-- **Seguridad y Privacidad Avanzada**: Reglas estrictas en Firestore, retención TTL de 90 días para datos de correo y cabeceras de seguridad HTTP (CSP, HSTS).
+## Features
 
-## Arquitectura
+- **Automatic multi-bank synchronization** for Unicaja, Revolut, BBVA, Santander, CaixaBank, ING, Sabadell, and N26 using the `gmail.modify` scope.
+- **Intelligent transaction extraction** with PII redaction before Gemini processing.
+- **Financial health dashboard** scoring savings, portfolios, cash flow, and subscriptions from 0 to 100.
+- **Bank filtering**, idempotent manual review, pockets, goals, and shared subscriptions.
+- **Safe CSV export** protected against formula injection.
+- **Security and privacy controls** with strict Firestore rules, 90-day email-data TTL retention, CSP, and HSTS.
 
-Flowt se divide en dos aplicaciones:
+## Architecture
 
-- `src/`: frontend React, TypeScript y Vite.
-- `tracker-backend/`: sincronizador Python para Gmail, Gemini y Firestore.
+Flowt consists of a React frontend in `src/` and a Python synchronizer in `tracker-backend/`:
 
 ```text
-Gmail → Sincronizador Python → Gemini AI → Firestore → Aplicación Web
+Gmail → Python synchronizer → Gemini AI → Firestore → Web application
 ```
+
+See the [architecture guide](docs/ARCHITECTURE.md) for component boundaries and data flows.
 
 ## Demo
 
-![Demo de Flowt](media/flowt-demo.gif)
+![Flowt demo](media/flowt-demo.gif)
 
-La descripción de componentes, flujos de datos y límites de responsabilidad está en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+## Requirements
 
-## Requisitos
+- Node.js and npm.
+- Python 3.10 or later.
+- A Firebase project with Authentication and Firestore.
+- Gmail API desktop OAuth credentials with the `gmail.modify` scope.
+- A Firebase service account (`serviceAccountKey.json`) and Gemini API key (`GEMINI_API_KEY`).
 
-### Frontend
-
-- Node.js y npm.
-- Un proyecto de Firebase con Authentication y Firestore.
-
-### Sincronizador Backend
-
-- Python 3.10 o posterior.
-- Gmail API y cliente OAuth de escritorio con alcance `gmail.modify`.
-- Cuenta de servicio de Firebase (`serviceAccountKey.json`).
-- Clave de API de Gemini (`GEMINI_API_KEY`).
-
-## Desarrollo local
-
-### Frontend
+## Local development
 
 ```bash
 npm install
 npm run dev
 ```
 
-Crea un archivo `.env` en la raíz con la configuración web de Firebase:
+Create a `.env` file in the repository root with the Firebase web configuration:
 
 ```dotenv
 VITE_FIREBASE_API_KEY=...
@@ -64,9 +53,7 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
 ```
 
-### Sincronizador Backend
-
-La instalación y las variables de entorno se documentan en [tracker-backend/README.md](tracker-backend/README.md).
+For the synchronizer, see the [backend guide](tracker-backend/README.md):
 
 ```bash
 cd tracker-backend
@@ -79,26 +66,30 @@ python main.py
 
 ## Scripts
 
-| Comando | Descripción |
+| Command | Description |
 |---|---|
-| `npm run dev` | Inicia Vite en modo desarrollo |
-| `npm run build` | Comprueba TypeScript y genera la aplicación |
-| `npm run lint` | Ejecuta ESLint |
-| `npm test` | Ejecuta las pruebas con Vitest |
-| `npm run preview` | Sirve localmente la compilación |
+| `npm run dev` | Start Vite in development mode |
+| `npm run build` | Type-check and build the application |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run Vitest tests |
+| `npm run preview` | Serve the production build locally |
 
-Pruebas del backend:
+Run backend tests with `python -m pytest tracker-backend`.
 
-```bash
-python -m pytest tracker-backend
-```
+## Deployment
 
-## Despliegue
+The web application is deployed to Firebase Hosting and the synchronizer runs through GitHub Actions or Google Cloud Functions. See the [deployment guide](docs/DEPLOYMENT.md).
 
-La aplicación web se despliega en Firebase Hosting y el sincronizador se ejecuta mediante GitHub Actions o Google Cloud Functions.
+## Documentation
 
-Consulta [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) para la configuración completa de Firebase y secretos.
+- [Architecture](docs/ARCHITECTURE.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Backend](tracker-backend/README.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Support](SUPPORT.md)
+- [Español](README.es.md)
 
-## Licencia
+## License
 
-Flowt se distribuye bajo la [licencia MIT](LICENSE). Copyright (c) 2026 Isalvan.
+Flowt is distributed under the [MIT License](LICENSE). Copyright (c) 2026 Isalvan.
