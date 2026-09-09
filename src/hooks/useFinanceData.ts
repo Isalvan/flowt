@@ -1846,6 +1846,13 @@ export const useFinanceData = (forceDemo = false) => {
       updated_at: serverTimestamp(),
     };
 
+    if (!Number.isFinite(data.importe) || data.importe <= 0 ||
+        (data.mi_parte !== null &&
+         (!Number.isFinite(Number(data.mi_parte)) || Number(data.mi_parte) <= 0 || Number(data.mi_parte) > data.importe))) {
+      showToast('La parte propia debe estar entre 0 y el importe total.');
+      return;
+    }
+
     try {
       let updatedList: Suscripcion[];
       const batch = writeBatch(db);
@@ -2062,6 +2069,8 @@ export const useFinanceData = (forceDemo = false) => {
         }
 
         const movRef = doc(collection(db, 'movimientos'));
+        const statsRef = doc(db, 'stats', user!.uid);
+        const statsSnap = await transaction.get(statsRef);
 
         // Get selected hucha (or principal)
         let targetHuchaId = movData.hucha_id;
@@ -2151,6 +2160,13 @@ export const useFinanceData = (forceDemo = false) => {
           hucha_id: targetHuchaId || null,
           created_at: serverTimestamp()
         });
+
+        const currentStats = statsSnap.exists() ? statsSnap.data() : {};
+        transaction.set(statsRef, {
+          total_ingresos: Number(currentStats.total_ingresos || 0) + (isIngreso ? amt : 0),
+          total_gastos: Number(currentStats.total_gastos || 0) + (isIngreso ? 0 : amt),
+          updated_at: serverTimestamp(),
+        }, { merge: true });
 
         // Delete pending email from manual queue
         transaction.delete(emailRef);

@@ -63,14 +63,17 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre.trim() || !importe) return;
+    const total = Number(importe);
+    const share = compartida && miParte ? Number(miParte) : null;
+    if (!nombre.trim() || !Number.isFinite(total) || total <= 0) return;
+    if (share !== null && (!Number.isFinite(share) || share <= 0 || share > total)) return;
 
     setIsLoading(true);
     try {
       const chargeDate = parseSubscriptionDate(fechaInicio) ?? new Date();
       const data = {
         nombre: nombre.trim(),
-        importe: Number(importe),
+        importe: total,
         frecuencia,
         fecha_inicio: toLocalDateKey(chargeDate),
         dia_pago: chargeDate.getDate(),
@@ -78,7 +81,7 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
         color,
         activa,
         hucha_id: huchaId || null,
-        mi_parte: compartida && miParte ? Number(miParte) : null,
+        mi_parte: share,
       };
       await onSave(data, editingSuscripcion?.id || null);
       onClose();

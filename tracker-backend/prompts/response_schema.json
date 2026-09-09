@@ -1,0 +1,16 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "propertyOrdering": ["tipo", "importe", "moneda", "fecha", "descripcion", "confianza"],
+    "properties": {
+      "tipo": {"type": "string", "enum": ["gasto", "ingreso"]},
+      "importe": {"type": "number", "minimum": 0.01},
+      "moneda": {"type": "string", "enum": ["EUR"]},
+      "fecha": {"type": "string"},
+      "descripcion": {"type": "string", "maxLength": 100},
+      "confianza": {"type": "string", "enum": ["alta", "media", "baja"]}
+    },
+    "required": ["tipo", "importe", "moneda", "fecha", "descripcion", "confianza"]
+  }
+}
