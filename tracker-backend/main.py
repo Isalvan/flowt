@@ -81,7 +81,7 @@ def setup_config(cli_args=None):
     )
     UID_PROPIETARIO = os.getenv("UID_PROPIETARIO")
     MAX_EMAILS_PER_RUN = int(os.getenv("MAX_EMAILS_PER_RUN", "10"))
-    AI_MODEL = os.getenv("AI_MODEL", "gemini-3-flash-preview")
+    AI_MODEL = os.getenv("AI_MODEL", "gemini-3.5-flash")
 
     # Setup Logging
     log_level = logging.DEBUG if args.verbose else logging.INFO

@@ -70,7 +70,8 @@ MAX_EMAILS_PER_RUN=10
 MIN_CONFIDENCE=alta
 
 # Modelo de Gemini
-AI_MODEL=gemini-1.5-flash
+AI_MODEL=gemini-3.5-flash
+AI_TEMPERATURE=0
 
 # Clave de API de Gemini
 GEMINI_API_KEY=tu_api_key_de_gemini
