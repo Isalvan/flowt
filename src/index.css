@@ -118,7 +118,7 @@ body::before {
 .dashboard-icon-button { display: grid; height: 1.8rem; width: 1.8rem; place-items: center; border-radius: .5rem; color: #94a3b8; }
 .dashboard-icon-button:hover { background: #eef2ff; color: #4f46e5; }
 .dashboard-label { font-size: .7rem; font-weight: 700; color: #64748b; }
-.dashboard-value { font-size: .9rem; font-weight: 900; color: #172554; }
+.dashboard-value { font-size: .9rem; font-weight: 900; }
 .dark .dashboard-value { color: #f8fafc; }
 .dashboard-heading { font-size: .95rem; font-weight: 900; color: #172554; }
 .dark .dashboard-heading { color: #f8fafc; }

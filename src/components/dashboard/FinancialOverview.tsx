@@ -6,7 +6,7 @@ import { usePrivacy } from '../../context/PrivacyContext';
 interface FinancialOverviewProps { balance: number; ingresos: number; gastos: number; }
 
 export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ balance, ingresos, gastos }) => {
-  const { isLocked, formatCurrency } = usePrivacy();
+  const { isLocked } = usePrivacy();
   const spent = ingresos > 0 ? Math.round((gastos / ingresos) * 100) : 0;
   const visible = (value: number) => isLocked ? '•••• €' : <CountUp end={value} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.1} />;
   return <section className="dashboard-surface grid gap-5 p-5 sm:grid-cols-[1.35fr_1fr_1fr_1fr] sm:items-center sm:p-6" aria-label="Resumen financiero">

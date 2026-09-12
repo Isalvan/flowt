@@ -642,6 +642,7 @@ const AppContent: React.FC = () => {
             onOpenTransferModal={() => secureAction(() => setIsTransferModalOpen(true))}
             onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
             onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
+            onOpenCalendar={() => setActiveTab('calendario')}
             onDeleteMovimiento={onDeleteMovimientoWrapper}
             onSubsanar={handleSubsanarHucha}
             onRevertirDeuda={handleRevertirDeuda}

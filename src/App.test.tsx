@@ -71,18 +71,33 @@ describe('App Dashboard', () => {
     vi.unstubAllEnvs();
   });
 
-  it('opens history modal when clicking Historial button', async () => {
+  it('opens history modal through Más acciones', async () => {
     vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
     render(<App />);
     
     const demoBtn = await screen.findByText(/Explorar en modo Demo/i);
     fireEvent.click(demoBtn);
 
-    const historyBtn = await screen.findByText(/Historial Completo/i);
+    const moreActions = await screen.findByRole('button', { name: /Más acciones/i });
+    fireEvent.click(moreActions);
+    expect(await screen.findByRole('menuitem', { name: /Historial completo/i })).toBeInTheDocument();
+    const historyBtn = await screen.findByRole('menuitem', { name: /Historial completo/i });
     fireEvent.click(historyBtn);
     
     expect(await screen.findByPlaceholderText(/Buscar por concepto o importe/i)).toBeInTheDocument();
     
+    vi.unstubAllEnvs();
+  });
+
+  it('opens and closes the Más acciones menu', async () => {
+    vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
+    render(<App />);
+    fireEvent.click(await screen.findByText(/Explorar en modo Demo/i));
+    const trigger = await screen.findByRole('button', { name: /Más acciones/i });
+    fireEvent.click(trigger);
+    expect(await screen.findByRole('menu')).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     vi.unstubAllEnvs();
   });
 });

@@ -7,6 +7,8 @@ import {
 import type { Hucha, Movimiento, Suscripcion } from '../../types';
 import { calculateFinancialHealthScore } from '../../utils/healthScore';
 import { usePrivacy } from '../../context/PrivacyContext';
+import { PredictiveChart } from '../dashboard/PredictiveChart';
+import { parseMovimientoDate } from '../../hooks/useFinanceData';
 
 interface SaludFinancieraViewProps {
   movimientos: Movimiento[];
@@ -21,7 +23,7 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
   suscripciones,
   userStats
 }) => {
-  const { isLocked, openUnlockModal } = usePrivacy();
+  const { isLocked, openUnlockModal, formatCurrency } = usePrivacy();
 
   const healthData = useMemo(() => {
     const totalIngresos = userStats?.total_ingresos || 0;
@@ -46,6 +48,7 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
   };
 
   const scoreColor = getScoreColor(totalScore);
+  const hasProjectionData = useMemo(() => { const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 2); const recent = movimientos.filter(m => { const date = parseMovimientoDate(m.fecha_operacion); return date && date >= cutoff; }); return recent.some(m => m.tipo === 'ingreso') && recent.some(m => m.tipo === 'gasto'); }, [movimientos]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -204,6 +207,12 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
           ))}
         </div>
       </div>
+
+      <section className="space-y-4" aria-labelledby="advanced-analysis-title">
+        <div><h3 id="advanced-analysis-title" className="text-xl font-bold text-slate-800 dark:text-white">Análisis avanzado</h3><p className="text-sm text-slate-500 dark:text-slate-400">Consulta la proyección y el reparto sin recargar tu panel diario.</p></div>
+        {hasProjectionData ? <PredictiveChart huchas={huchas} suscripciones={suscripciones} allMovimientos={movimientos} /> : <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">Aún no hay suficientes ingresos y gastos recientes para calcular una proyección fiable.</div>}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900"><h4 className="font-bold text-slate-800 dark:text-white">Reparto de fondos</h4><div className="mt-3 grid gap-2 sm:grid-cols-2">{huchas.filter(h => h.saldo_acumulado > 0).map(h => <div key={h.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-xs dark:bg-slate-800"><span className="font-semibold text-slate-600 dark:text-slate-300">{h.nombre}</span><span className="font-black tabular-nums text-slate-900 dark:text-white">{isLocked ? '•••• €' : formatCurrency(h.saldo_acumulado)}</span></div>)}</div></div>
+      </section>
     </div>
   );
 };

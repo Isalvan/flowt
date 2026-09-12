@@ -25,6 +25,7 @@ import { usePrivacy } from '../../context/PrivacyContext';
 import { EmptyIllustration } from '../common/EmptyIllustration';
 import { ExpenseImpactBadge } from './BurnRateVisuals';
 import { generateCsv } from '../../utils/csv';
+import { ServiceIcon, resolveServiceKey } from './ServiceIcon';
 
 interface ActivityListProps {
   movimientos: Movimiento[];
@@ -508,6 +509,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                       <ArrowDownRight className="w-5 h-5" />
                     )}
                   </div>
+                  {resolveServiceKey(m.concepto) && <ServiceIcon name={m.concepto} />}
 
                   {/* Concept and Info */}
                   <div className="min-w-0 flex-1">
