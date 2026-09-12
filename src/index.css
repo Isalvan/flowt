@@ -30,6 +30,37 @@ html {
   }
 }
 
+@media (min-width: 1536px) {
+  html { font-size: 17.5px; }
+}
+
+.flowt-container {
+  width: 100%;
+  padding-inline: 1rem;
+}
+
+@media (min-width: 640px) {
+  .flowt-container { padding-inline: 1.5rem; }
+}
+
+@media (min-width: 1024px) {
+  .flowt-container { padding-inline: 2rem; }
+}
+
+@media (min-width: 1536px) {
+  .flowt-container {
+    max-width: 1760px;
+    padding-inline: 3rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .flowt-wallets-grid {
+    scrollbar-width: none;
+  }
+  .flowt-wallets-grid::-webkit-scrollbar { display: none; }
+}
+
 * {
   box-sizing: border-box;
 }
