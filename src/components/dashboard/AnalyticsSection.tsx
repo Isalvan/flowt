@@ -1,11 +1,204 @@
-import React, { useState } from 'react';
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { BarChart3, TrendingUp } from 'lucide-react';
-import type { Hucha, Movimiento, Suscripcion } from '../../types';
-import { Card } from '../common/Card';
-import { usePrivacy } from '../../context/PrivacyContext';
+import React, { useState } from "react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  type TooltipContentProps,
+  type TooltipValueType,
+} from "recharts";
+import { BarChart3, TrendingUp } from "lucide-react";
+import type { Hucha, Movimiento, Suscripcion } from "../../types";
+import { Card } from "../common/Card";
+import { usePrivacy } from "../../context/PrivacyContext";
 
-interface AnalyticsSectionProps { chartData: Array<{ name: string; ingresos: number; gastos: number }>; huchas: Hucha[]; suscripciones: Suscripcion[]; allMovimientos: Movimiento[]; }
-interface TooltipItem { dataKey?: string; value?: number; }
-interface ChartTooltipProps { active?: boolean; payload?: ReadonlyArray<TooltipItem>; label?: string | number; }
-export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ chartData }) => { const [chartType, setChartType] = useState<'area' | 'bar'>('area'); const { isLocked, formatCurrency } = usePrivacy(); const tooltip = ({ active, payload, label }: ChartTooltipProps) => active && payload?.length ? <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-xl dark:border-slate-700 dark:bg-slate-900"><p className="mb-2 font-bold text-slate-500">{label}</p>{payload.map((item) => <p key={item.dataKey} className={item.dataKey === 'ingresos' ? 'text-emerald-600' : 'text-rose-500'}>{item.dataKey === 'ingresos' ? 'Ingresos' : 'Gastos'}: {formatCurrency(item.value || 0)}</p>)}</div> : null; return <Card className="dashboard-surface !p-5"><div className="mb-3 flex items-center justify-between gap-3"><div className="flex items-center gap-3"><span className="dashboard-icon bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10"><TrendingUp size={18} /></span><div><h3 className="dashboard-heading">Evolución de finanzas</h3><p className="dashboard-subtitle">Tus ingresos y gastos mes a mes</p></div></div><div className="flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-700"><button type="button" aria-label="Ver gráfico de área" onClick={() => setChartType('area')} className={`rounded-md p-1.5 ${chartType === 'area' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10' : 'text-slate-400'}`}><TrendingUp size={14} /></button><button type="button" aria-label="Ver gráfico de barras" onClick={() => setChartType('bar')} className={`rounded-md p-1.5 ${chartType === 'bar' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10' : 'text-slate-400'}`}><BarChart3 size={14} /></button></div></div><div className="h-64 w-full">{isLocked ? <div className="grid h-full place-items-center rounded-xl bg-slate-50 text-sm font-bold text-slate-400 dark:bg-slate-800/50">Gráfica protegida por privacidad</div> : <ResponsiveContainer width="100%" height="100%">{chartType === 'area' ? <AreaChart data={chartData} margin={{ top: 10, right: 8, left: -22, bottom: 0 }}><defs><linearGradient id="flowtIncomeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.22} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient><linearGradient id="flowtExpenseFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#fb7185" stopOpacity={0.16} /><stop offset="100%" stopColor="#fb7185" stopOpacity={0} /></linearGradient></defs><CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} /><Tooltip content={tooltip} /><Area type="monotone" dataKey="ingresos" stroke="#10b981" strokeWidth={2} fill="url(#flowtIncomeFill)" /><Area type="monotone" dataKey="gastos" stroke="#fb7185" strokeWidth={2} fill="url(#flowtExpenseFill)" /></AreaChart> : <BarChart data={chartData} margin={{ top: 10, right: 8, left: -22, bottom: 0 }}><CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} /><Tooltip content={tooltip} /><Bar dataKey="ingresos" fill="#10b981" radius={[4, 4, 0, 0]} /><Bar dataKey="gastos" fill="#fb7185" radius={[4, 4, 0, 0]} /></BarChart>}</ResponsiveContainer>}</div><div className="mt-2 flex justify-center gap-5 text-[11px] font-bold text-slate-500"><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />Ingresos</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-rose-400" />Gastos</span></div></Card>; };
+interface AnalyticsSectionProps {
+  chartData: Array<{ name: string; ingresos: number; gastos: number }>;
+  huchas: Hucha[];
+  suscripciones: Suscripcion[];
+  allMovimientos: Movimiento[];
+}
+const toNumericValue = (value: TooltipValueType | undefined): number => {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
+  chartData,
+}) => {
+  const [chartType, setChartType] = useState<"area" | "bar">("area");
+  const { isLocked, formatCurrency } = usePrivacy();
+  const tooltip = ({
+    active,
+    payload,
+    label,
+  }: TooltipContentProps<TooltipValueType, string | number>) =>
+    active && payload?.length ? (
+      <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-xl dark:border-slate-700 dark:bg-slate-900">
+        <p className="mb-2 font-bold text-slate-500">{String(label ?? "")}</p>
+        {payload.map((item, index) => {
+          const dataKey = String(item.dataKey ?? "");
+          const isIncome = dataKey === "ingresos";
+          return (
+            <p
+              key={`${dataKey}-${index}`}
+              className={isIncome ? "text-emerald-600" : "text-rose-500"}
+            >
+              {isIncome ? "Ingresos" : "Gastos"}:{" "}
+              {formatCurrency(toNumericValue(item.value))}
+            </p>
+          );
+        })}
+      </div>
+    ) : null;
+
+  return (
+    <Card className="dashboard-surface !p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="dashboard-icon bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10">
+            <TrendingUp size={18} />
+          </span>
+          <div>
+            <h3 className="dashboard-heading">Evolución de finanzas</h3>
+            <p className="dashboard-subtitle">
+              Tus ingresos y gastos mes a mes
+            </p>
+          </div>
+        </div>
+        <div className="flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-700">
+          <button
+            type="button"
+            aria-label="Ver gráfico de área"
+            onClick={() => setChartType("area")}
+            className={`rounded-md p-1.5 ${chartType === "area" ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-slate-400"}`}
+          >
+            <TrendingUp size={14} />
+          </button>
+          <button
+            type="button"
+            aria-label="Ver gráfico de barras"
+            onClick={() => setChartType("bar")}
+            className={`rounded-md p-1.5 ${chartType === "bar" ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-slate-400"}`}
+          >
+            <BarChart3 size={14} />
+          </button>
+        </div>
+      </div>
+      <div className="h-64 w-full">
+        {isLocked ? (
+          <div className="grid h-full place-items-center rounded-xl bg-slate-50 text-sm font-bold text-slate-400 dark:bg-slate-800/50">
+            Gráfica protegida por privacidad
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            {chartType === "area" ? (
+              <AreaChart
+                data={chartData}
+                margin={{ top: 10, right: 8, left: -22, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient
+                    id="flowtIncomeFill"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.22} />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient
+                    id="flowtExpenseFill"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="0%" stopColor="#fb7185" stopOpacity={0.16} />
+                    <stop offset="100%" stopColor="#fb7185" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  vertical={false}
+                  stroke="#e2e8f0"
+                  strokeDasharray="3 3"
+                />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#64748b", fontSize: 10 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#64748b", fontSize: 10 }}
+                />
+                <Tooltip content={tooltip} />
+                <Area
+                  type="monotone"
+                  dataKey="ingresos"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  fill="url(#flowtIncomeFill)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="gastos"
+                  stroke="#fb7185"
+                  strokeWidth={2}
+                  fill="url(#flowtExpenseFill)"
+                />
+              </AreaChart>
+            ) : (
+              <BarChart
+                data={chartData}
+                margin={{ top: 10, right: 8, left: -22, bottom: 0 }}
+              >
+                <CartesianGrid
+                  vertical={false}
+                  stroke="#e2e8f0"
+                  strokeDasharray="3 3"
+                />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#64748b", fontSize: 10 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#64748b", fontSize: 10 }}
+                />
+                <Tooltip content={tooltip} />
+                <Bar dataKey="ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="gastos" fill="#fb7185" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        )}
+      </div>
+      <div className="mt-2 flex justify-center gap-5 text-[11px] font-bold text-slate-500">
+        <span>
+          <i className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />
+          Ingresos
+        </span>
+        <span>
+          <i className="mr-1 inline-block h-2 w-2 rounded-full bg-rose-400" />
+          Gastos
+        </span>
+      </div>
+    </Card>
+  );
+};
