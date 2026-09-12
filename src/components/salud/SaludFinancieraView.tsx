@@ -1,12 +1,11 @@
-import React, { useMemo } from 'react';
-import { 
-  CheckCircle2, 
-  ShieldCheck,
-  Lock
-} from 'lucide-react';
-import type { Hucha, Movimiento, Suscripcion } from '../../types';
-import { calculateFinancialHealthScore } from '../../utils/healthScore';
-import { usePrivacy } from '../../context/PrivacyContext';
+import React, { useMemo } from "react";
+import { CheckCircle2, ShieldCheck, Lock } from "lucide-react";
+import type { Hucha, Movimiento, Suscripcion } from "../../types";
+import { calculateFinancialHealthScore } from "../../utils/healthScore";
+import { usePrivacy } from "../../context/PrivacyContext";
+import { PredictiveChart } from "../dashboard/PredictiveChart";
+import { hasProjectionData } from "../../utils/predictive";
+import { calculateAdvancedFinancialMetrics } from "../../utils/financialMetrics";
 
 interface SaludFinancieraViewProps {
   movimientos: Movimiento[];
@@ -19,14 +18,20 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
   movimientos,
   huchas,
   suscripciones,
-  userStats
+  userStats,
 }) => {
-  const { isLocked, openUnlockModal } = usePrivacy();
+  const { isLocked, openUnlockModal, formatCurrency } = usePrivacy();
 
   const healthData = useMemo(() => {
     const totalIngresos = userStats?.total_ingresos || 0;
     const totalGastos = userStats?.total_gastos || 0;
-    return calculateFinancialHealthScore(movimientos, huchas, suscripciones, totalIngresos, totalGastos);
+    return calculateFinancialHealthScore(
+      movimientos,
+      huchas,
+      suscripciones,
+      totalIngresos,
+      totalGastos,
+    );
   }, [movimientos, huchas, suscripciones, userStats]);
 
   const { totalScore, category, metrics, recommendations } = healthData;
@@ -34,18 +39,31 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
   // Circular gauge calculations
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = isLocked 
-    ? circumference 
+  const strokeDashoffset = isLocked
+    ? circumference
     : circumference - (totalScore / 100) * circumference;
 
   const getScoreColor = (score: number) => {
-    if (isLocked) return '#94a3b8'; // Slate locked color
-    if (score < 45) return '#ef4444'; // Red
-    if (score < 75) return '#f59e0b'; // Amber
-    return '#10b981'; // Emerald
+    if (isLocked) return "#94a3b8"; // Slate locked color
+    if (score < 45) return "#ef4444"; // Red
+    if (score < 75) return "#f59e0b"; // Amber
+    return "#10b981"; // Emerald
   };
 
   const scoreColor = getScoreColor(totalScore);
+  const projectionAvailable = useMemo(
+    () => hasProjectionData(movimientos, suscripciones),
+    [movimientos, suscripciones],
+  );
+  const advancedMetrics = useMemo(
+    () =>
+      calculateAdvancedFinancialMetrics(
+        movimientos,
+        huchas.reduce((sum, hucha) => sum + hucha.saldo_acumulado, 0),
+        suscripciones,
+      ),
+    [movimientos, huchas, suscripciones],
+  );
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -56,7 +74,8 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
             Salud Financiera
           </h2>
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-            Evaluación continua de tu tasa de ahorro, estabilidad y balance financiero.
+            Evaluación continua de tu tasa de ahorro, estabilidad y balance
+            financiero.
           </p>
         </div>
 
@@ -73,11 +92,13 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
 
       {/* Main Score Hero Card */}
       <div className="relative overflow-hidden rounded-[2.5rem] border border-slate-200/50 dark:border-white/10 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl p-8 md:p-12 shadow-xl flex flex-col md:flex-row items-center justify-between gap-8">
-        
         {/* Left: Gauge & Score */}
         <div className="flex flex-col items-center text-center">
           <div className="relative w-48 h-48 flex items-center justify-center">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
+            <svg
+              className="w-full h-full transform -rotate-90"
+              viewBox="0 0 160 160"
+            >
               {/* Background Ring */}
               <circle
                 cx="80"
@@ -104,7 +125,7 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-5xl font-black tracking-tight text-slate-800 dark:text-white">
-                {isLocked ? '••' : totalScore}
+                {isLocked ? "••" : totalScore}
               </span>
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 de 100
@@ -113,9 +134,11 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
           </div>
 
           <div className="mt-4 flex items-center gap-2">
-            <span className={`px-4 py-1.5 rounded-full text-sm font-bold border shadow-sm flex items-center gap-2 ${isLocked ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700' : healthData.colorClass}`}>
+            <span
+              className={`px-4 py-1.5 rounded-full text-sm font-bold border shadow-sm flex items-center gap-2 ${isLocked ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700" : healthData.colorClass}`}
+            >
               <ShieldCheck size={16} />
-              {isLocked ? 'Bloqueado' : category}
+              {isLocked ? "Bloqueado" : category}
             </span>
           </div>
         </div>
@@ -124,17 +147,17 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
         <div className="flex-1 space-y-3 text-center md:text-left">
           <h3 className="text-2xl font-bold text-slate-800 dark:text-white">
             {isLocked
-              ? 'Información financiera protegida por modo privacidad'
+              ? "Información financiera protegida por modo privacidad"
               : totalScore >= 75
-              ? '¡Tus finanzas están en un excelente estado de equilibrio!'
-              : totalScore >= 45
-              ? 'Tu salud financiera es estable, con margen de optimización.'
-              : 'Tus finanzas requieren atención prioritaria para frenar desbalances.'}
+                ? "¡Tus finanzas están en un excelente estado de equilibrio!"
+                : totalScore >= 45
+                  ? "Tu salud financiera es estable, con margen de optimización."
+                  : "Tus finanzas requieren atención prioritaria para frenar desbalances."}
           </h3>
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
             {isLocked
-              ? 'Desbloquea la aplicación utilizando tu PIN de seguridad para consultar las métricas detalladas y recomendaciones dinámicas de salud financiera.'
-              : 'El Score de Salud Financiera evalúa continuamente 4 pilares: tu ratio de ahorro mensual, la estabilidad de tus huchas, la tendencia de flujo de caja y la presión de tus suscripciones activas.'}
+              ? "Desbloquea la aplicación utilizando tu PIN de seguridad para consultar las métricas detalladas y recomendaciones dinámicas de salud financiera."
+              : "El Score de Salud Financiera evalúa continuamente 4 pilares: tu ratio de ahorro mensual, la estabilidad de tus huchas, la tendencia de flujo de caja y la presión de tus suscripciones activas."}
           </p>
         </div>
       </div>
@@ -154,7 +177,7 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
                   {metric.label}
                 </span>
                 <span className="text-sm font-black px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white">
-                  {isLocked ? '••' : metric.score} / 100
+                  {isLocked ? "••" : metric.score} / 100
                 </span>
               </div>
 
@@ -162,14 +185,17 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
               <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-3">
                 <div
                   className="h-full rounded-full transition-all duration-700 ease-out"
-                  style={{ width: isLocked ? '0%' : `${metric.score}%`, backgroundColor: color }}
+                  style={{
+                    width: isLocked ? "0%" : `${metric.score}%`,
+                    backgroundColor: color,
+                  }}
                 />
               </div>
 
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <span>{metric.description}</span>
                 <span className="font-bold text-slate-700 dark:text-slate-300">
-                  {isLocked ? '••••' : metric.valueFormatted}
+                  {isLocked ? "••••" : metric.valueFormatted}
                 </span>
               </div>
             </div>
@@ -198,12 +224,101 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
                 <CheckCircle2 size={18} />
               </div>
               <p className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
-                {isLocked ? '••••••••••••••••••••••••••••••••••••••••••••••••' : rec}
+                {isLocked
+                  ? "••••••••••••••••••••••••••••••••••••••••••••••••"
+                  : rec}
               </p>
             </div>
           ))}
         </div>
       </div>
+
+      <section className="space-y-4" aria-labelledby="advanced-analysis-title">
+        <div>
+          <h3
+            id="advanced-analysis-title"
+            className="text-xl font-bold text-slate-800 dark:text-white"
+          >
+            Análisis avanzado
+          </h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Consulta la proyección y el reparto sin recargar tu panel diario.
+          </p>
+        </div>
+        {advancedMetrics ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              [
+                "Pista de libertad",
+                `${advancedMetrics.runwayMonths.toFixed(1)} meses`,
+              ],
+              [
+                "Tasa de consumo diario",
+                formatCurrency(advancedMetrics.dailyBurnRate),
+              ],
+              [
+                "Presión de suscripciones",
+                `${advancedMetrics.subscriptionPressure.toFixed(1)}%`,
+              ],
+              [
+                "Tasa de ahorro neto",
+                `${advancedMetrics.savingsRate.toFixed(1)}%`,
+              ],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
+              >
+                <p className="text-xs font-bold text-slate-500">{label}</p>
+                <p className="mt-1 text-lg font-black text-slate-800 dark:text-white">
+                  {isLocked ? "••••" : value}
+                </p>
+                <p className="mt-1 text-[10px] text-slate-400">
+                  Basado en {advancedMetrics.observedDays} días reales
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            Datos insuficientes para las métricas avanzadas.
+          </div>
+        )}
+        {projectionAvailable ? (
+          <PredictiveChart
+            huchas={huchas}
+            suscripciones={suscripciones}
+            allMovimientos={movimientos}
+          />
+        ) : (
+          <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            Aún no hay suficientes ingresos y gastos recientes para calcular una
+            proyección fiable.
+          </div>
+        )}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+          <h4 className="font-bold text-slate-800 dark:text-white">
+            Reparto de fondos
+          </h4>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {huchas
+              .filter((h) => h.saldo_acumulado > 0)
+              .map((h) => (
+                <div
+                  key={h.id}
+                  className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-xs dark:bg-slate-800"
+                >
+                  <span className="font-semibold text-slate-600 dark:text-slate-300">
+                    {h.nombre}
+                  </span>
+                  <span className="font-black tabular-nums text-slate-900 dark:text-white">
+                    {isLocked ? "•••• €" : formatCurrency(h.saldo_acumulado)}
+                  </span>
+                </div>
+              ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

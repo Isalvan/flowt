@@ -222,14 +222,14 @@ const AppContent: React.FC = () => {
   // Launch pagination init when modal opens
   useEffect(() => {
     if (isHistoryModalOpen) {
-      initHistoryPagination();
+      queueMicrotask(() => void initHistoryPagination());
     }
   }, [isHistoryModalOpen]);
 
   // Update history items live if local updates happen in Demo Mode
   useEffect(() => {
     if (isHistoryModalOpen && !isFirebaseConfigured) {
-      setHistoryMovements(chartMovements.slice(0, demoOffset));
+      queueMicrotask(() => setHistoryMovements(chartMovements.slice(0, demoOffset)));
     }
   }, [chartMovements, isHistoryModalOpen, isFirebaseConfigured, demoOffset]);
 
@@ -295,7 +295,10 @@ const AppContent: React.FC = () => {
       
       if (key === 'N') {
         e.preventDefault();
-        handleOpenHuchaModal(null);
+        secureAction(() => {
+          setEditingHucha(null);
+          setIsHuchaModalOpen(true);
+        });
       } else if (key === 'M') {
         e.preventDefault();
         secureAction(() => setIsManualMovimientoModalOpen(true));
@@ -352,7 +355,15 @@ const AppContent: React.FC = () => {
   };
 
   // Safe wrapper for conversion
-  const onSafeConvert = async (mov: Movimiento, rows?: any[], targetHuchaId?: string) => {
+  const onSafeConvert = async (
+    mov: Movimiento,
+    rows?: Array<{
+      huchaId: string;
+      tipoAportacion: 'flat' | 'porcentaje' | 'resto';
+      value: number;
+    }>,
+    targetHuchaId?: string
+  ) => {
     await handleConvertMovimiento(mov, rows, targetHuchaId);
   };
 
@@ -642,6 +653,7 @@ const AppContent: React.FC = () => {
             onOpenTransferModal={() => secureAction(() => setIsTransferModalOpen(true))}
             onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
             onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
+            onOpenCalendar={() => setActiveTab('calendario')}
             onDeleteMovimiento={onDeleteMovimientoWrapper}
             onSubsanar={handleSubsanarHucha}
             onRevertirDeuda={handleRevertirDeuda}
@@ -664,7 +676,7 @@ const AppContent: React.FC = () => {
 
         {activeTab === 'salud' && (
           <SaludFinancieraView
-            movimientos={movimientos}
+            movimientos={chartMovements}
             huchas={huchas}
             suscripciones={suscripciones}
             userStats={userStats}
@@ -746,7 +758,7 @@ const AppContent: React.FC = () => {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => handleMobileTabClick(tab.id as any)}
+                    onClick={() => handleMobileTabClick(tab.id)}
                     className={`relative z-10 flex flex-col items-center justify-center w-1/5 h-full transition-colors duration-300 cursor-pointer ${
                       isActive
                         ? 'text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]'

@@ -25,6 +25,8 @@ import { usePrivacy } from '../../context/PrivacyContext';
 import { EmptyIllustration } from '../common/EmptyIllustration';
 import { ExpenseImpactBadge } from './BurnRateVisuals';
 import { generateCsv } from '../../utils/csv';
+import { ServiceIcon } from './ServiceIcon';
+import { resolveServiceKey } from '../../utils/serviceNames';
 
 interface ActivityListProps {
   movimientos: Movimiento[];
@@ -69,7 +71,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
 
   const { formatCurrency } = usePrivacy();
 
-  const formatDate = (dateValue: any) => {
+  const formatDate = (dateValue: unknown) => {
     const d = parseMovimientoDate(dateValue);
     if (!d) return 'Sin fecha';
     return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -504,6 +506,8 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                       <Banknote className="w-5 h-5" />
                     ) : m.tipo === 'ingreso' ? (
                       <ArrowUpRight className="w-5 h-5" />
+                    ) : resolveServiceKey(m.concepto) ? (
+                      <ServiceIcon name={m.concepto} />
                     ) : (
                       <ArrowDownRight className="w-5 h-5" />
                     )}
