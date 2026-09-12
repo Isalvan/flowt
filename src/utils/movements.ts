@@ -3,8 +3,18 @@ import { type Movimiento } from '../types';
 export const esMovimientoInterno = (movimiento: Pick<Movimiento, 'es_interno'>): boolean =>
   movimiento.es_interno === true;
 
-export const cuentaEnEstadisticas = (movimiento: Pick<Movimiento, 'es_interno'>): boolean =>
-  !esMovimientoInterno(movimiento);
+export const cuentaEnEstadisticas = (
+  movimiento: Pick<Movimiento, 'tipo' | 'es_interno' | 'transfer_id' | 'compensa_movimiento_id' | 'compensado_por' | 'compensaciones_destinos' | 'compensado_por_detalles'>,
+): boolean =>
+  !esMovimientoInterno(movimiento) &&
+  !movimiento.transfer_id &&
+  !(movimiento.tipo === 'ingreso' && (movimiento.compensa_movimiento_id || movimiento.compensaciones_destinos?.length));
+
+/** Importe que debe reflejarse como gasto real tras reembolsos. */
+export const importeEnEstadisticas = (movimiento: Movimiento): number =>
+  movimiento.tipo === 'gasto' && (movimiento.compensado_por?.length || movimiento.compensado_por_detalles?.length)
+    ? movimiento.importe_neto ?? movimiento.importe
+    : movimiento.importe;
 
 export interface RetiradaEfectivoInput {
   gasto_id: string;

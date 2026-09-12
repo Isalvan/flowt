@@ -254,7 +254,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
           )}
         </div>
       </section>
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid items-start gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <AnalyticsSection
             chartData={periodChartData}
@@ -330,7 +330,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
           )}
         </section>
       </div>
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid items-start gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <ActivityList
             movimientos={props.movimientos}
