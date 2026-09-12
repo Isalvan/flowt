@@ -141,8 +141,8 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
           ? "Este año"
           : "Histórico";
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
+      <header className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="flex items-center gap-3">
             <h2 className="font-title text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -231,19 +231,20 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             {props.huchas.filter((h) => h.activa !== false).length} activas
           </span>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="flowt-wallets-grid -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3 xl:grid-cols-5">
           {props.huchas.filter((h) => h.activa !== false).length ? (
             props.huchas
               .filter((h) => h.activa !== false)
               .map((h) => (
-                <HuchaCard
-                  key={h.id}
+                  <div key={h.id} className="min-w-[82vw] snap-start sm:min-w-0">
+                  <HuchaCard
                   hucha={h}
                   onEdit={props.onOpenHuchaModal}
                   onDelete={props.onDeleteHucha}
                   onSubsanar={props.onSubsanar}
                   onRevertirDeuda={props.onRevertirDeuda}
-                />
+                  />
+                  </div>
               ))
           ) : (
             <div className="dashboard-empty sm:col-span-2 lg:col-span-3 xl:col-span-5">

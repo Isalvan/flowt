@@ -431,7 +431,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
         )}
       </div>
 
-      <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
+      <div className="space-y-3.5 max-h-[420px] overflow-y-auto pr-1 sm:max-h-[500px]">
         {filteredMovimientos.length > 0 ? (
           filteredMovimientos.map((m) => {
           const hasCompensaciones = 
