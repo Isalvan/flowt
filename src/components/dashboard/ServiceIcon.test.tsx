@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeServiceName, resolveServiceKey } from './ServiceIcon';
+import { normalizeServiceName, resolveServiceKey } from './serviceIcon.utils';
 
 describe('ServiceIcon', () => {
   it('normalizes punctuation, accents and repeated whitespace', () => {

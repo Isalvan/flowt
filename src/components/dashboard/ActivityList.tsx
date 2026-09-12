@@ -505,11 +505,12 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                       <Banknote className="w-5 h-5" />
                     ) : m.tipo === 'ingreso' ? (
                       <ArrowUpRight className="w-5 h-5" />
+                    ) : resolveServiceKey(m.concepto) ? (
+                      <ServiceIcon name={m.concepto} />
                     ) : (
                       <ArrowDownRight className="w-5 h-5" />
                     )}
                   </div>
-                  {resolveServiceKey(m.concepto) && <ServiceIcon name={m.concepto} />}
 
                   {/* Concept and Info */}
                   <div className="min-w-0 flex-1">

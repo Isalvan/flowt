@@ -15,6 +15,6 @@ describe('MonthlySummary', () => {
 
   it('ignores invalid and absent dates without inventing values', () => {
     render(<MonthlySummary movimientos={[{ id: 'a', tipo: 'ingreso', concepto: 'A', importe: 100, fecha_operacion: 'not-a-date' }, { id: 'b', tipo: 'gasto', concepto: 'B', importe: 25, fecha_operacion: null }]} />);
-    expect(screen.getByText('0.00 €')).toBeInTheDocument();
+    expect(screen.getAllByText('0.00 €')).toHaveLength(3);
   });
 });

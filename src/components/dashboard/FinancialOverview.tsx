@@ -11,7 +11,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ balance, i
   const visible = (value: number) => isLocked ? '•••• €' : <CountUp end={value} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.1} />;
   return <section className="dashboard-surface grid gap-5 p-5 sm:grid-cols-[1.35fr_1fr_1fr_1fr] sm:items-center sm:p-6" aria-label="Resumen financiero">
     <div className="border-b border-slate-200 pb-4 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-6 dark:border-slate-700">
-      <div className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400">Saldo total <Info size={14} /></div>
+      <div className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400">Saldo actual <Info size={14} /></div>
       <div className="mt-1 text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl tabular-nums">{visible(balance)}</div>
     </div>
     <div className="flex items-center gap-3"><span className="dashboard-icon bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10"><TrendingUp size={19} /></span><div><p className="dashboard-label">Ingresos</p><p className="dashboard-value text-emerald-600 dark:text-emerald-400">{visible(ingresos)}</p></div></div>
