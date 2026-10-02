@@ -1,7 +1,7 @@
 import type { Movimiento, Suscripcion } from "../types";
 import { parseMovimientoDate } from "../hooks/useFinanceData";
 import { getObservedCalendarDays } from "./financialDates";
-import { cuentaEnEstadisticas } from "./movements";
+import { cuentaEnEstadisticas, importeEnEstadisticas } from "./movements";
 import { getMonthlySubscriptionAmount } from "./subscriptions";
 
 export interface AdvancedFinancialMetrics {
@@ -36,10 +36,10 @@ export const calculateAdvancedFinancialMetrics = (
 
   const income = dated
     .filter(({ movement }) => movement.tipo === "ingreso")
-    .reduce((sum, { movement }) => sum + movement.importe, 0);
+    .reduce((sum, { movement }) => sum + importeEnEstadisticas(movement), 0);
   const expense = dated
     .filter(({ movement }) => movement.tipo === "gasto")
-    .reduce((sum, { movement }) => sum + movement.importe, 0);
+    .reduce((sum, { movement }) => sum + importeEnEstadisticas(movement), 0);
   if (income <= 0) return null;
 
   const dailyBurnRate = expense / observedDays;

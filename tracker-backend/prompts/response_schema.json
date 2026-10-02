@@ -2,15 +2,87 @@
   "type": "array",
   "items": {
     "type": "object",
-    "propertyOrdering": ["tipo", "importe", "moneda", "fecha", "descripcion", "confianza"],
+    "propertyOrdering": [
+      "tipo",
+      "importe",
+      "moneda",
+      "fecha",
+      "descripcion",
+      "confianza"
+    ],
     "properties": {
-      "tipo": {"type": "string", "enum": ["gasto", "ingreso"]},
-      "importe": {"type": "number", "minimum": 0.01},
-      "moneda": {"type": "string", "enum": ["EUR"]},
-      "fecha": {"type": "string"},
-      "descripcion": {"type": "string", "maxLength": 100},
-      "confianza": {"type": "string", "enum": ["alta", "media", "baja"]}
+      "tipo": {
+        "type": "string",
+        "enum": [
+          "gasto",
+          "ingreso"
+        ]
+      },
+      "importe": {
+        "type": "number",
+        "minimum": 0.01
+      },
+      "moneda": {
+        "type": "string",
+        "enum": [
+          "EUR"
+        ]
+      },
+      "fecha": {
+        "type": "string"
+      },
+      "descripcion": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "confianza": {
+        "type": "string",
+        "enum": [
+          "alta",
+          "media",
+          "baja"
+        ]
+      },
+      "categoria_sugerida": {
+        "type": "string",
+        "enum": [
+          "alimentacion",
+          "vivienda",
+          "transporte",
+          "restaurantes",
+          "ocio",
+          "salud",
+          "compras",
+          "tecnologia",
+          "formacion",
+          "inversion",
+          "otros_gastos",
+          "nomina",
+          "trabajos",
+          "ventas",
+          "intereses",
+          "regalos",
+          "reembolsos",
+          "otros_ingresos",
+          "sin_categorizar"
+        ]
+      },
+      "categoria_confianza": {
+        "type": "string",
+        "enum": [
+          "alta",
+          "media",
+          "baja"
+        ]
+      }
     },
-    "required": ["tipo", "importe", "moneda", "fecha", "descripcion", "confianza"]
+    "required": [
+      "tipo",
+      "importe",
+      "moneda",
+      "fecha",
+      "descripcion",
+      "confianza"
+    ]
   }
 }

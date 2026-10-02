@@ -20,8 +20,9 @@ import {
 import { auth, db } from '../firebase';
 import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type CorreoHistorico } from '../types';
 import { usePrivacy } from '../context/PrivacyContext';
-import { crearRetiradaEfectivo, cuentaEnEstadisticas } from '../utils/movements';
+import { crearRetiradaEfectivo, cuentaEnEstadisticas, importeEnEstadisticas } from '../utils/movements';
 import { sanitizeConcepto } from '../utils/sanitize';
+import { validCategory, compensationUpdates, unlinkCompensationUpdates } from '../utils/movementSuggestions';
 import {
   getMonthlySubscriptionAmount,
   getNextSubscriptionChargeDate,
@@ -288,7 +289,7 @@ export const useFinanceData = (forceDemo = false) => {
         
         for (const d of allMovSnapshot.docs) {
           const m = d.data() as Movimiento;
-          if (!cuentaEnEstadisticas(m)) continue;
+          if (m.es_interno || m.transfer_id) continue;
           const importe = m.importe ?? 0;
           if (m.tipo === 'ingreso') total_ingresos += importe;
           else total_gastos += importe;
@@ -368,7 +369,7 @@ export const useFinanceData = (forceDemo = false) => {
 
         allMovSnapshot.docs.forEach(d => {
           const m = d.data() as Movimiento;
-          if (!cuentaEnEstadisticas(m)) return;
+          if (m.es_interno || m.transfer_id) return;
           if (m.tipo === 'gasto') {
             grossGastos += m.importe;
           } else if (m.tipo === 'ingreso') {
@@ -1281,9 +1282,9 @@ export const useFinanceData = (forceDemo = false) => {
       const updatedMovs = movimientos.map(m => {
         if (m.id === mov.id) {
           if (mov.tipo === 'gasto') {
-            return { ...m, tipo: 'ingreso' as const, hucha_id: undefined };
+            return { ...m, tipo: 'ingreso' as const, hucha_id: undefined, categoria: undefined, categoria_sugerida: undefined, categoria_confianza: undefined };
           } else {
-            return { ...m, tipo: 'gasto' as const, hucha_id: targetHuchaId };
+            return { ...m, tipo: 'gasto' as const, hucha_id: targetHuchaId, categoria: undefined, categoria_sugerida: undefined, categoria_confianza: undefined };
           }
         }
         return m;
@@ -1325,7 +1326,7 @@ export const useFinanceData = (forceDemo = false) => {
 
         await runTransaction(db, async (transaction) => {
           const movRef = doc(db, 'movimientos', mov.id);
-          transaction.update(movRef, { tipo: 'ingreso', hucha_id: deleteField() });
+          transaction.update(movRef, { tipo: 'ingreso', hucha_id: deleteField(), categoria: deleteField(), categoria_sugerida: deleteField(), categoria_confianza: deleteField() });
         });
         showToast('Movimiento convertido a ingreso', 'success');
       } else {
@@ -1390,7 +1391,7 @@ export const useFinanceData = (forceDemo = false) => {
           });
 
           // Update movement details
-          transaction.update(movRef, { tipo: 'gasto', hucha_id: targetHuchaId });
+          transaction.update(movRef, { tipo: 'gasto', hucha_id: targetHuchaId, categoria: deleteField(), categoria_sugerida: deleteField(), categoria_confianza: deleteField() });
         });
         showToast('Movimiento convertido a gasto', 'success');
       }
@@ -1400,239 +1401,110 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
-  const handleLinkMovimiento = async (baseMov: Movimiento, allocations: { mov: Movimiento; importe: number }[]) => {
-    if (!isFirebaseConfigured) {
-      showToast('Funcionalidad no disponible en modo Demo', 'error');
-      return;
-    }
-
+  const handleUpdateMovimientoCategoria = async (movId: string, categoria: string) => {
     try {
-      await runTransaction(db, async (transaction) => {
-        const baseRef = doc(db, 'movimientos', baseMov.id);
-        const targetRefs = allocations.map(a => doc(db, 'movimientos', a.mov.id));
-
-        const baseSnap = await transaction.get(baseRef);
-        if (!baseSnap.exists()) throw new Error('El movimiento base no existe');
-        const baseData = { id: baseSnap.id, ...baseSnap.data() } as Movimiento;
-
-        const targetsSnaps = await Promise.all(targetRefs.map(ref => transaction.get(ref)));
-        const targetsData = targetsSnaps.map(snap => {
-          if (!snap.exists()) throw new Error('Un movimiento objetivo no existe');
-          return { id: snap.id, ...snap.data() } as Movimiento;
+      if (!isFirebaseConfigured) {
+        const movimiento = movimientos.find(m => m.id === movId);
+        if (!movimiento || !validCategory(categoria, movimiento.tipo)) throw new Error('Categoría no válida');
+        saveDemoState(movimientos.map(m => m.id === movId ? { ...m, categoria } : m), huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      } else {
+        if (!user) throw new Error('Inicia sesión para guardar');
+        await runTransaction(db, async transaction => {
+          const ref = doc(db, 'movimientos', movId);
+          const snap = await transaction.get(ref);
+          if (!snap.exists() || snap.data().id_propietario !== user.uid || !validCategory(categoria, snap.data().tipo)) throw new Error('Movimiento o categoría no válidos');
+          transaction.update(ref, { categoria, updated_at: serverTimestamp() });
         });
-
-        // Helper to update a Gasto
-        const updateGasto = (gastoData: Movimiento, ingresoId: string, amount: number): Partial<Movimiento> => {
-          const compPorDetalles = [...(gastoData.compensado_por_detalles || [])];
-          const existingIdx = compPorDetalles.findIndex(d => d.ingreso_id === ingresoId);
-          if (existingIdx >= 0) {
-            compPorDetalles[existingIdx].importe += amount;
-          } else {
-            compPorDetalles.push({ ingreso_id: ingresoId, importe: amount });
-          }
-          
-          const currentNeto = gastoData.importe_neto ?? gastoData.importe;
-          const neto = Math.max(0, currentNeto - amount);
-          
-          return {
-            compensado_por_detalles: compPorDetalles,
-            importe_neto: Number(neto.toFixed(2))
-          };
-        };
-
-        // Helper to update an Ingreso
-        const updateIngreso = (ingresoData: Movimiento, gastoId: string, amount: number): Partial<Movimiento> => {
-          const compDestinos = [...(ingresoData.compensaciones_destinos || [])];
-          const existingIdx = compDestinos.findIndex(d => d.gasto_id === gastoId);
-          if (existingIdx >= 0) {
-            compDestinos[existingIdx].importe += amount;
-          } else {
-            compDestinos.push({ gasto_id: gastoId, importe: amount });
-          }
-          return { compensaciones_destinos: compDestinos };
-        };
-
-        let baseUpdate: Partial<Movimiento> = {};
-        const targetUpdates: { ref: any; data: Partial<Movimiento> }[] = [];
-
-        if (baseData.tipo === 'ingreso') {
-          // Base = Ingreso, Targets = Gastos
-          let currentIngresoData = { ...baseData };
-          for (let i = 0; i < allocations.length; i++) {
-            const alloc = allocations[i];
-            const targetData = targetsData[i];
-            
-            // Update Base (Ingreso)
-            const partialBase = updateIngreso(currentIngresoData, targetData.id, alloc.importe);
-            currentIngresoData = { ...currentIngresoData, ...partialBase };
-            
-            // Update Target (Gasto)
-            const partialTarget = updateGasto(targetData, baseData.id, alloc.importe);
-            targetUpdates.push({ ref: targetRefs[i], data: partialTarget });
-          }
-          baseUpdate = { compensaciones_destinos: currentIngresoData.compensaciones_destinos };
-
-        } else {
-          // Base = Gasto, Targets = Ingresos
-          let currentGastoData = { ...baseData };
-          for (let i = 0; i < allocations.length; i++) {
-            const alloc = allocations[i];
-            const targetData = targetsData[i];
-            
-            // Update Base (Gasto)
-            const partialBase = updateGasto(currentGastoData, targetData.id, alloc.importe);
-            currentGastoData = { ...currentGastoData, ...partialBase };
-            
-            // Update Target (Ingreso)
-            const partialTarget = updateIngreso(targetData, baseData.id, alloc.importe);
-            targetUpdates.push({ ref: targetRefs[i], data: partialTarget });
-          }
-          baseUpdate = {
-            compensado_por_detalles: currentGastoData.compensado_por_detalles,
-            importe_neto: currentGastoData.importe_neto
-          };
-        }
-
-        // Apply all updates
-        transaction.update(baseRef, { ...baseUpdate, updated_at: serverTimestamp() });
-        for (const update of targetUpdates) {
-          transaction.update(update.ref, { ...update.data, updated_at: serverTimestamp() });
-        }
-      });
-      showToast('Compensación registrada correctamente', 'success');
-    } catch (error: any) {
-      console.error('Error vinculando:', error);
-      showToast(error.message || 'Error al vincular');
+      }
+      showToast('Categoría confirmada', 'success');
+    } catch (error) {
+      showToast('No se ha podido guardar la categoría', 'error');
+      throw error;
     }
   };
 
-  const handleUnlinkMovimiento = async (mov1: Movimiento, mov2?: Movimiento) => {
-    // We only support unlinking specific M:N links if mov2 is provided.
-    // If only mov1 is provided, it might be the legacy behavior. We will handle both cases.
+  const handleDismissCompensation = async (ingresoId: string, gastoId: string) => {
     if (!isFirebaseConfigured) {
-      showToast('Funcionalidad no disponible en modo Demo', 'error');
+      const updated = movimientos.map(m => m.id === ingresoId ? { ...m, compensaciones_descartadas: Array.from(new Set([...(m.compensaciones_descartadas || []), gastoId])) } : m);
+      saveDemoState(updated, huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
       return;
     }
+    if (!user) throw new Error('Inicia sesión para guardar');
+    await runTransaction(db, async transaction => {
+      const ref = doc(db, 'movimientos', ingresoId);
+      const snap = await transaction.get(ref);
+      if (!snap.exists() || snap.data().id_propietario !== user.uid) throw new Error('El ingreso no está disponible');
+      const descartadas = snap.data().compensaciones_descartadas || [];
+      if (descartadas.length >= 200 && !descartadas.includes(gastoId)) throw new Error('Se ha alcanzado el límite de propuestas descartadas para este ingreso');
+      transaction.update(ref, { compensaciones_descartadas: Array.from(new Set([...descartadas, gastoId])), updated_at: serverTimestamp() });
+    });
+  };
 
+  const handleLinkMovimiento = async (baseMov: Movimiento, allocations: { mov: Movimiento; importe: number }[]) => {
     try {
-      await runTransaction(db, async (transaction) => {
-        // Find which is Gasto and which is Ingreso
-        let gasto: Movimiento | null = null;
-        let ingreso: Movimiento | null = null;
+      if (!isFirebaseConfigured) {
+        const base = movimientos.find(m => m.id === baseMov.id);
+        if (!base) throw new Error('El movimiento no está disponible');
+        const currentAllocations = allocations.map(a => {
+          const mov = movimientos.find(m => m.id === a.mov.id);
+          if (!mov) throw new Error('Un movimiento no está disponible');
+          return { mov, importe: a.importe };
+        });
+        const updates = compensationUpdates(base, currentAllocations);
+        saveDemoState(movimientos.map(m => updates.has(m.id) ? { ...m, ...updates.get(m.id) } : m), huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      } else {
+        if (!user) throw new Error('Inicia sesión para guardar');
+        await runTransaction(db, async transaction => {
+          const refs = [doc(db, 'movimientos', baseMov.id), ...allocations.map(a => doc(db, 'movimientos', a.mov.id))];
+          const snaps = await Promise.all(refs.map(ref => transaction.get(ref)));
+          const current = snaps.map(snap => {
+            if (!snap.exists() || snap.data().id_propietario !== user.uid) throw new Error('Un movimiento no está disponible');
+            return { ...snap.data(), id: snap.id } as Movimiento;
+          });
+          const updates = compensationUpdates(current[0], allocations.map((a, i) => ({ mov: current[i + 1], importe: a.importe })));
+          for (const [id, update] of updates) transaction.update(doc(db, 'movimientos', id), { ...update, updated_at: serverTimestamp() });
+        });
+      }
+      showToast('Compensación registrada correctamente', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Error al vincular', 'error');
+      throw error;
+    }
+  };
 
-        if (mov2) {
-          gasto = mov1.tipo === 'gasto' ? mov1 : mov2.tipo === 'gasto' ? mov2 : null;
-          ingreso = mov1.tipo === 'ingreso' ? mov1 : mov2.tipo === 'ingreso' ? mov2 : null;
-        } else {
-          // Only one movement provided. Unlink ALL its connections.
-          const movRef = doc(db, 'movimientos', mov1.id);
-          const movSnap = await transaction.get(movRef);
-          if (!movSnap.exists()) return;
-          const movData = movSnap.data() as Movimiento;
-
-          if (movData.tipo === 'gasto') {
-            const connectedIngresoIds = (movData.compensado_por_detalles || []).map(d => d.ingreso_id);
-            if (movData.compensado_por) connectedIngresoIds.push(...movData.compensado_por); // legacy
-            
-            for (const ingId of new Set(connectedIngresoIds)) {
-              const ingRef = doc(db, 'movimientos', ingId);
-              const ingSnap = await transaction.get(ingRef);
-              if (ingSnap.exists()) {
-                const ingData = ingSnap.data() as Movimiento;
-                const newDestinos = (ingData.compensaciones_destinos || []).filter(d => d.gasto_id !== mov1.id);
-                transaction.update(ingRef, {
-                  compensaciones_destinos: newDestinos.length > 0 ? newDestinos : deleteField(),
-                  compensa_movimiento_id: ingData.compensa_movimiento_id === mov1.id ? deleteField() : ingData.compensa_movimiento_id,
-                  updated_at: serverTimestamp()
-                });
-              }
-            }
-            transaction.update(movRef, {
-              compensado_por_detalles: deleteField(),
-              compensado_por: deleteField(),
-              importe_neto: deleteField(),
-              updated_at: serverTimestamp()
-            });
-
-          } else {
-            // It's an ingreso
-            const connectedGastoIds = (movData.compensaciones_destinos || []).map(d => d.gasto_id);
-            if (movData.compensa_movimiento_id) connectedGastoIds.push(movData.compensa_movimiento_id); // legacy
-
-            for (const gastId of new Set(connectedGastoIds)) {
-              const gasRef = doc(db, 'movimientos', gastId);
-              const gasSnap = await transaction.get(gasRef);
-              if (gasSnap.exists()) {
-                const gasData = gasSnap.data() as Movimiento;
-                const removedDetalle = (gasData.compensado_por_detalles || []).find(d => d.ingreso_id === mov1.id);
-                const newDetalles = (gasData.compensado_por_detalles || []).filter(d => d.ingreso_id !== mov1.id);
-                const newCompPor = (gasData.compensado_por || []).filter(id => id !== mov1.id);
-                
-                const restoredAmount = removedDetalle ? removedDetalle.importe : mov1.importe;
-                const currentNeto = gasData.importe_neto ?? gasData.importe;
-                const neto = Math.min(gasData.importe, currentNeto + restoredAmount);
-
-                transaction.update(gasRef, {
-                  compensado_por_detalles: newDetalles.length > 0 ? newDetalles : deleteField(),
-                  compensado_por: newCompPor.length > 0 ? newCompPor : deleteField(),
-                  importe_neto: (newDetalles.length > 0 || newCompPor.length > 0) ? Number(neto.toFixed(2)) : deleteField(),
-                  updated_at: serverTimestamp()
-                });
-              }
-            }
-            transaction.update(movRef, {
-              compensaciones_destinos: deleteField(),
-              compensa_movimiento_id: deleteField(),
-              updated_at: serverTimestamp()
-            });
+  const handleUnlinkMovimiento = async (base: Movimiento, target?: Movimiento) => {
+    const relatedIds = (m: Movimiento) => target ? [target.id] : Array.from(new Set(m.tipo === 'gasto'
+      ? [...(m.compensado_por || []), ...(m.compensado_por_detalles || []).map(d => d.ingreso_id)]
+      : [...(m.compensa_movimiento_id ? [m.compensa_movimiento_id] : []), ...(m.compensaciones_destinos || []).map(d => d.gasto_id)]));
+    try {
+      if (!isFirebaseConfigured) {
+        const current = movimientos.find(m => m.id === base.id);
+        if (!current) throw new Error('El movimiento no está disponible');
+        const ids = relatedIds(current);
+        const updates = unlinkCompensationUpdates(current, movimientos.filter(m => ids.includes(m.id)));
+        saveDemoState(movimientos.map(m => updates.has(m.id) ? { ...m, ...updates.get(m.id) } : m), huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      } else {
+        if (!user) throw new Error('Inicia sesión para guardar');
+        await runTransaction(db, async transaction => {
+          const ref = doc(db, 'movimientos', base.id);
+          const snap = await transaction.get(ref);
+          if (!snap.exists() || snap.data().id_propietario !== user.uid) throw new Error('El movimiento no está disponible');
+          const current = { ...snap.data(), id: snap.id } as Movimiento;
+          const relatedSnaps = await Promise.all(relatedIds(current).map(id => transaction.get(doc(db, 'movimientos', id))));
+          const related = relatedSnaps.filter(s => s.exists()).map(s => {
+            if (s.data().id_propietario !== user.uid) throw new Error('Un movimiento no está disponible');
+            return { ...s.data(), id: s.id } as Movimiento;
+          });
+          const updates = unlinkCompensationUpdates(current, related);
+          for (const [id, update] of updates) {
+            const fields = Object.fromEntries(Object.entries(update).map(([key, value]) => [key, value === undefined ? deleteField() : value]));
+            transaction.update(doc(db, 'movimientos', id), { ...fields, updated_at: serverTimestamp() });
           }
-          return; // Early return for single unlinking
-        }
-
-        if (!gasto || !ingreso) throw new Error('Debes proporcionar un gasto y un ingreso');
-
-        const gastoRef = doc(db, 'movimientos', gasto.id);
-        const ingresoRef = doc(db, 'movimientos', ingreso.id);
-
-        const [gastoSnap, ingresoSnap] = await Promise.all([
-          transaction.get(gastoRef),
-          transaction.get(ingresoRef)
-        ]);
-
-        if (gastoSnap.exists()) {
-          const gastoData = gastoSnap.data() as Movimiento;
-          const removedDetalle = (gastoData.compensado_por_detalles || []).find(d => d.ingreso_id === ingreso!.id);
-          const newDetalles = (gastoData.compensado_por_detalles || []).filter(d => d.ingreso_id !== ingreso!.id);
-          const newCompPor = (gastoData.compensado_por || []).filter(id => id !== ingreso!.id);
-          
-          const restoredAmount = removedDetalle ? removedDetalle.importe : ingreso!.importe;
-          const currentNeto = gastoData.importe_neto ?? gastoData.importe;
-          const neto = Math.min(gastoData.importe, currentNeto + restoredAmount);
-
-          transaction.update(gastoRef, {
-            compensado_por_detalles: newDetalles.length > 0 ? newDetalles : deleteField(),
-            compensado_por: newCompPor.length > 0 ? newCompPor : deleteField(),
-            importe_neto: (newDetalles.length > 0 || newCompPor.length > 0) ? Number(neto.toFixed(2)) : deleteField(),
-            updated_at: serverTimestamp()
-          });
-        }
-
-        if (ingresoSnap.exists()) {
-          const ingresoData = ingresoSnap.data() as Movimiento;
-          const newDestinos = (ingresoData.compensaciones_destinos || []).filter(d => d.gasto_id !== gasto!.id);
-          
-          transaction.update(ingresoRef, {
-            compensaciones_destinos: newDestinos.length > 0 ? newDestinos : deleteField(),
-            compensa_movimiento_id: ingresoData.compensa_movimiento_id === gasto.id ? deleteField() : ingresoData.compensa_movimiento_id,
-            updated_at: serverTimestamp()
-          });
-        }
-
-      });
-      showToast('Desvinculación completada', 'success');
-    } catch (error: any) {
-      console.error('Error desvinculando:', error);
-      showToast('Error al desvincular');
+        });
+      }
+      showToast('Compensación deshecha', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Error al desvincular', 'error');
     }
   };
 
@@ -2891,8 +2763,8 @@ export const useFinanceData = (forceDemo = false) => {
       const date = parseMovimientoDate(m.fecha_operacion) || new Date();
       const key = `${date.getFullYear()}-${date.getMonth()}`;
       if (months[key]) {
-        if (m.tipo === 'ingreso') months[key].ingresos += m.importe;
-        else months[key].gastos += m.importe;
+        if (m.tipo === 'ingreso') months[key].ingresos += importeEnEstadisticas(m);
+        else months[key].gastos += importeEnEstadisticas(m);
       }
     });
     return Object.values(months);
@@ -2927,6 +2799,8 @@ export const useFinanceData = (forceDemo = false) => {
     handleRestoreHucha,
     handleTransfer,
     handleUpdateMovimientoConcepto,
+    handleUpdateMovimientoCategoria,
+    handleDismissCompensation,
     handleConvertMovimiento,
     handleLinkMovimiento,
     handleUnlinkMovimiento,

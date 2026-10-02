@@ -80,6 +80,7 @@ describe('useFinanceData M:N Linking', () => {
       'gas-2': { id: 'gas-2', tipo: 'gasto', importe: 50, importe_neto: 50 } as Movimiento,
     };
 
+    Object.values(mockDbData).forEach(m => { m.id_propietario = 'test-user'; });
     const { result } = renderHook(() => useFinanceData(false));
 
     await act(async () => {
@@ -122,6 +123,7 @@ describe('useFinanceData M:N Linking', () => {
       } as Movimiento,
     };
 
+    Object.values(mockDbData).forEach(m => { m.id_propietario = 'test-user'; });
     const { result } = renderHook(() => useFinanceData(false));
 
     await act(async () => {
@@ -139,33 +141,28 @@ describe('useFinanceData M:N Linking', () => {
     expect(gas1.importe_neto).toBe(40);
   });
 
-  it('handles negative values and respects math max/min limits', async () => {
-    // Tests what happens when the delta exceeds the boundaries
+  it('rejects allocations above the available expense without changing either movement', async () => {
     mockDbData = {
-      'ing-1': { id: 'ing-1', tipo: 'ingreso', importe: 100 } as Movimiento,
-      'gas-1': { id: 'gas-1', tipo: 'gasto', importe: 20, importe_neto: 20 } as Movimiento,
+      'ing-1': { id: 'ing-1', tipo: 'ingreso', importe: 100, id_propietario: 'test-user' } as Movimiento,
+      'gas-1': { id: 'gas-1', tipo: 'gasto', importe: 20, importe_neto: 20, id_propietario: 'test-user' } as Movimiento,
     };
-
     const { result } = renderHook(() => useFinanceData(false));
-
     await act(async () => {
-      // Over-compensate
-      await result.current.handleLinkMovimiento(mockDbData['ing-1'], [
-        { mov: mockDbData['gas-1'], importe: 30 },
-      ]);
+      await expect(result.current.handleLinkMovimiento(mockDbData['ing-1'], [{ mov: mockDbData['gas-1'], importe: 30 }])).rejects.toThrow(/saldo disponible/);
     });
+    expect(mockDbData['gas-1'].importe_neto).toBe(20);
+    expect(mockDbData['ing-1'].compensaciones_destinos).toBeUndefined();
+  });
 
-    const gas1 = mockDbData['gas-1'];
-    // Neto cannot be less than 0
-    expect(gas1.importe_neto).toBe(0);
-
-    // Now unlink
+  it('rejects a movement belonging to another user', async () => {
+    mockDbData = {
+      'ing-1': { id: 'ing-1', tipo: 'ingreso', importe: 30, id_propietario: 'test-user' } as Movimiento,
+      'gas-1': { id: 'gas-1', tipo: 'gasto', importe: 60, id_propietario: 'another-user' } as Movimiento,
+    };
+    const { result } = renderHook(() => useFinanceData(false));
     await act(async () => {
-      await result.current.handleUnlinkMovimiento(mockDbData['ing-1'], mockDbData['gas-1']);
+      await expect(result.current.handleLinkMovimiento(mockDbData['ing-1'], [{ mov: mockDbData['gas-1'], importe: 30 }])).rejects.toThrow(/no está disponible/);
     });
-
-    const gas1After = mockDbData['gas-1'];
-    // After unlink, the movement is no longer compensated by anything, so importe_neto is deleted.
-    expect(gas1After.importe_neto).toBeUndefined();
+    expect(mockDbData['gas-1'].importe_neto).toBeUndefined();
   });
 });

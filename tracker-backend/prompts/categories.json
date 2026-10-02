@@ -1,0 +1,21 @@
+[
+  { "id": "alimentacion", "label": "Alimentación", "tipo": "gasto" },
+  { "id": "vivienda", "label": "Vivienda y suministros", "tipo": "gasto" },
+  { "id": "transporte", "label": "Transporte", "tipo": "gasto" },
+  { "id": "restaurantes", "label": "Restaurantes", "tipo": "gasto" },
+  { "id": "ocio", "label": "Ocio", "tipo": "gasto" },
+  { "id": "salud", "label": "Salud", "tipo": "gasto" },
+  { "id": "compras", "label": "Compras", "tipo": "gasto" },
+  { "id": "tecnologia", "label": "Tecnología y servicios digitales", "tipo": "gasto" },
+  { "id": "formacion", "label": "Formación", "tipo": "gasto" },
+  { "id": "inversion", "label": "Inversión", "tipo": "gasto" },
+  { "id": "otros_gastos", "label": "Otros gastos", "tipo": "gasto" },
+  { "id": "nomina", "label": "Nómina", "tipo": "ingreso" },
+  { "id": "trabajos", "label": "Trabajos extra", "tipo": "ingreso" },
+  { "id": "ventas", "label": "Ventas", "tipo": "ingreso" },
+  { "id": "intereses", "label": "Intereses", "tipo": "ingreso" },
+  { "id": "regalos", "label": "Regalos", "tipo": "ingreso" },
+  { "id": "reembolsos", "label": "Reembolsos", "tipo": "ingreso" },
+  { "id": "otros_ingresos", "label": "Otros ingresos", "tipo": "ingreso" },
+  { "id": "sin_categorizar", "label": "Sin categorizar", "tipo": "ambos" }
+]

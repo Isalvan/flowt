@@ -15,7 +15,8 @@ beforeAll(async () => {
         port: 8080,
       },
     });
-  } catch {
+  } catch (error) {
+    if (process.env.FIRESTORE_EMULATOR_HOST) throw error;
     testEnv = null;
   }
 });
@@ -24,7 +25,8 @@ beforeEach(async () => {
   if (testEnv) {
     try {
       await testEnv.clearFirestore();
-    } catch {
+    } catch (error) {
+      if (process.env.FIRESTORE_EMULATOR_HOST) throw error;
       testEnv = null;
     }
   }
@@ -41,6 +43,20 @@ afterAll(async () => {
 });
 
 describe('Firestore Rules - Movimientos', () => {
+  it('permite revisar categorías y rechazar parejas solo al propietario', async () => {
+    if (!testEnv) return;
+    const db = testEnv.authenticatedContext('user_123').firestore();
+    const ref = doc(db, 'movimientos', 'category-review');
+    await assertSucceeds(setDoc(ref, { id_propietario: 'user_123', tipo: 'gasto', concepto: 'Comercio de ejemplo', importe: 40, fecha_operacion: new Date(), categoria_sugerida: 'compras', categoria_confianza: 'baja' }));
+    await assertSucceeds(updateDoc(ref, { categoria: 'tecnologia', compensaciones_descartadas: ['example-income'] }));
+    await assertFails(updateDoc(ref, { categoria: 'nomina' }));
+    await assertFails(updateDoc(ref, { categoria_sugerida: 'inventada' }));
+    await assertFails(updateDoc(ref, { categoria_confianza: 'segurisimo' }));
+    await assertFails(updateDoc(ref, { compensaciones_descartadas: 'wrong-type' }));
+    await assertFails(updateDoc(ref, { compensaciones_descartadas: Array.from({ length: 201 }, (_, i) => String(i)) }));
+    const otherDb = testEnv.authenticatedContext('other_user').firestore();
+    await assertFails(updateDoc(doc(otherDb, 'movimientos', 'category-review'), { categoria: 'compras' }));
+  });
   it('Should allow authenticated user to create a valid movement', async () => {
     if (!testEnv) return;
     const context = testEnv.authenticatedContext('user_123');

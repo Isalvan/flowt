@@ -27,6 +27,9 @@ import { ExpenseImpactBadge } from './BurnRateVisuals';
 import { generateCsv } from '../../utils/csv';
 import { ServiceIcon } from './ServiceIcon';
 import { resolveServiceKey } from '../../utils/serviceNames';
+import { CategoryPicker } from './CategoryPicker';
+import { importeEnEstadisticas } from '../../utils/movements';
+import { MOVEMENT_CATEGORIES, categoryLabel, suggestCategory } from '../../utils/movementSuggestions';
 
 interface ActivityListProps {
   movimientos: Movimiento[];
@@ -34,6 +37,7 @@ interface ActivityListProps {
   huchas: Hucha[];
   huchaMonthlyBudgets: Record<string, number>;
   onUpdateConcepto: (movId: string, newConcepto: string) => void;
+  onUpdateCategoria?: (id: string, categoria: string) => Promise<void>;
   onConvert: (mov: Movimiento) => void;
   onLink: (mov: Movimiento) => void;
   onUnlink: (ingreso: Movimiento) => void;
@@ -47,6 +51,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   huchas,
   huchaMonthlyBudgets,
   onUpdateConcepto,
+  onUpdateCategoria,
   onConvert,
   onLink,
   onUnlink,
@@ -61,6 +66,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedHucha, setSelectedHucha] = useState('all');
   const [selectedTipo, setSelectedTipo] = useState('all');
+  const [selectedCategoria, setSelectedCategoria] = useState('all');
   const [minAmount, setMinAmount] = useState('');
   const [maxAmount, setMaxAmount] = useState('');
   const [dateRange, setDateRange] = useState('all');
@@ -98,6 +104,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
     setSearchTerm('');
     setSelectedHucha('all');
     setSelectedTipo('all');
+    setSelectedCategoria('all');
     setMinAmount('');
     setMaxAmount('');
     setDateRange('all');
@@ -115,12 +122,14 @@ export const ActivityList: React.FC<ActivityListProps> = ({
       selectedBanco !== 'all' ||
       minAmount !== '' || 
       maxAmount !== '' || 
-      dateRange !== 'all';
+      dateRange !== 'all' || selectedCategoria !== 'all';
 
     // Search across ALL movements if a filter is active; otherwise show default recent list
     const baseList = isFilterActive ? allMovimientos : movimientos;
 
     return baseList.filter(m => {
+      if (selectedCategoria === 'pending' && !suggestCategory(m)) return false;
+      if (selectedCategoria !== 'all' && selectedCategoria !== 'pending' && (m.categoria || suggestCategory(m)?.categoria || 'sin_categorizar') !== selectedCategoria) return false;
       // 1. Text Search
       if (searchTerm) {
         const term = searchTerm.toLowerCase().trim();
@@ -196,11 +205,11 @@ export const ActivityList: React.FC<ActivityListProps> = ({
 
       return true;
     });
-  }, [movimientos, allMovimientos, searchTerm, selectedHucha, selectedTipo, selectedBanco, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
+  }, [movimientos, allMovimientos, searchTerm, selectedHucha, selectedTipo, selectedCategoria, selectedBanco, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
 
   // CSV Exporter using currently filtered items
   const exportToCSV = () => {
-    const headers = ['ID', 'Fecha', 'Tipo', 'Concepto', 'Importe', 'Importe Neto', 'Hucha Receptora'];
+    const headers = ['ID', 'Fecha', 'Tipo', 'Concepto', 'Categoría', 'Estado categoría', 'Importe', 'Importe Neto', 'Hucha Receptora'];
     const rows = filteredMovimientos.map(m => {
       const huchaName = m.hucha_id ? (huchas.find(h => h.id === m.hucha_id)?.nombre || '') : '';
       const dateStr = formatDate(m.fecha_operacion);
@@ -209,8 +218,10 @@ export const ActivityList: React.FC<ActivityListProps> = ({
         dateStr,
         m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto',
         m.concepto,
+        categoryLabel(m.categoria || suggestCategory(m)?.categoria),
+        m.categoria ? 'Confirmada' : 'Pendiente',
         m.importe,
-        m.tipo === 'gasto' && m.compensado_por ? (m.importe_neto ?? m.importe) : m.importe,
+        importeEnEstadisticas(m),
         huchaName
       ];
     });
@@ -264,6 +275,14 @@ export const ActivityList: React.FC<ActivityListProps> = ({
       </div>
 
       {/* Advanced Filter Bar Controls */}
+      {onUpdateCategoria && <label className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        Categoría
+        <select aria-label="Filtrar por categoría" value={selectedCategoria} onChange={e => setSelectedCategoria(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+          <option value="all">Todas las categorías</option>
+          <option value="pending">Pendientes de confirmar</option>
+          {MOVEMENT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+        </select>
+      </label>}
       <div className="space-y-4 mb-6">
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Concept Search Input */}
@@ -559,6 +578,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                       </div>
                     )}
 
+                    {onUpdateCategoria && <CategoryPicker movimiento={m} onSave={onUpdateCategoria} />}
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">
                         {formatDate(m.fecha_operacion)}

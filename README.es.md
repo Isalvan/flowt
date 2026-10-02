@@ -38,6 +38,7 @@ La configuración del backend está documentada en la [guía del backend](tracke
 
 ## Documentación
 
+- [Propuestas de categorías y compensaciones](docs/movement-suggestions.md)
 - [Arquitectura](docs/ARCHITECTURE.md)
 - [Despliegue](docs/DEPLOYMENT.md)
 - [Backend](tracker-backend/README.md)

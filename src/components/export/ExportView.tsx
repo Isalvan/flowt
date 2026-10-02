@@ -3,8 +3,9 @@ import { Download, FileJson, FileText, Save, ListFilter, Trash2, CheckCircle2, S
 import { type Movimiento, type Hucha, type Suscripcion } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
-import { cuentaEnEstadisticas } from '../../utils/movements';
+import { cuentaEnEstadisticas, importeEnEstadisticas } from '../../utils/movements';
 import { generateCsv } from '../../utils/csv';
+import { categoryLabel, suggestCategory } from '../../utils/movementSuggestions';
 
 interface ExportViewProps {
   movimientos: Movimiento[];
@@ -304,7 +305,7 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
   };
 
   const handleExportCSV = () => {
-    const headers = ['ID', 'Fecha', 'Tipo', 'Concepto', 'Importe', 'Importe Neto', 'Origen/Destino', 'Notas'];
+    const headers = ['ID', 'Fecha', 'Tipo', 'Concepto', 'Categoría', 'Estado categoría', 'Importe', 'Importe Neto', 'Origen/Destino', 'Notas'];
     const rows = filteredMovimientos.map(m => {
       const d = parseMovimientoDate(m.fecha_operacion);
       const fechaStr = d ? d.toISOString().split('T')[0] : 'Desconocida';
@@ -315,8 +316,10 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
         fechaStr,
         m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto',
         m.concepto,
+        categoryLabel(m.categoria || suggestCategory(m)?.categoria),
+        m.categoria ? 'Confirmada' : 'Pendiente',
         m.importe,
-        m.importe_neto ?? m.importe,
+        importeEnEstadisticas(m),
         origenDestino,
         notas
       ];

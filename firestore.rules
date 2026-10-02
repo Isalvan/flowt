@@ -33,21 +33,34 @@ service cloud.firestore {
       return request.resource.data.get(field, null) is bool;
     }
 
+    function validCategoryValue(value) {
+      return value is string && (request.resource.data.tipo == 'gasto'
+        ? value in ['alimentacion', 'vivienda', 'transporte', 'restaurantes', 'ocio', 'salud', 'compras', 'tecnologia', 'formacion', 'inversion', 'otros_gastos', 'sin_categorizar']
+        : value in ['nomina', 'trabajos', 'ventas', 'intereses', 'regalos', 'reembolsos', 'otros_ingresos', 'sin_categorizar']);
+    }
+
+    function validMovementCategories() {
+      return (!('categoria' in request.resource.data) || validCategoryValue(request.resource.data.categoria)) &&
+        (!('categoria_sugerida' in request.resource.data) || validCategoryValue(request.resource.data.categoria_sugerida)) &&
+        (!('categoria_confianza' in request.resource.data) || request.resource.data.categoria_confianza in ['alta', 'media', 'baja']) &&
+        (!('compensaciones_descartadas' in request.resource.data) || (request.resource.data.compensaciones_descartadas is list && request.resource.data.compensaciones_descartadas.size() <= 200));
+    }
+
     match /movimientos/{movimiento} {
       allow create: if isReqOwner() && 
                        request.resource.data.keys().hasAll(['id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion']) &&
-                       request.resource.data.keys().hasOnly(['id', 'id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'created_at', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
+                       request.resource.data.keys().hasOnly(['categoria', 'categoria_sugerida', 'categoria_confianza', 'compensaciones_descartadas', 'id', 'id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'created_at', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
                        (request.resource.data.tipo == 'ingreso' || request.resource.data.tipo == 'gasto') &&
                        isNumber('importe') && request.resource.data.importe >= 0 &&
-                       isStringWithLength('concepto', 0, 500);
+                       isStringWithLength('concepto', 0, 500) && validMovementCategories();
       
       allow read: if isDocOwner();
       allow update: if isDocOwner() && isReqOwner() &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['id', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['categoria', 'categoria_sugerida', 'categoria_confianza', 'compensaciones_descartadas', 'id', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at'])) &&
                        isNumber('importe') && request.resource.data.importe >= 0 &&
                        (request.resource.data.tipo == 'ingreso' || request.resource.data.tipo == 'gasto') &&
-                       (!('concepto' in request.resource.data) || isStringWithLength('concepto', 0, 500));
+                       (!('concepto' in request.resource.data) || isStringWithLength('concepto', 0, 500)) && validMovementCategories();
       allow delete: if isDocOwner();
     }
 

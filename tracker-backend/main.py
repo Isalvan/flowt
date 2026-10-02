@@ -21,6 +21,7 @@ import functions_framework
 from gmail_client import get_unread_emails_from_bank, mark_email_as_read
 from fallback_logic import fallback_extract_movement
 from ai_parser import clean_body, extract_with_gemini
+from category_suggestions import category_fields
 
 # --- Configuration & Initialization ---
 
@@ -766,6 +767,7 @@ def process_emails():
                 "created_at": firestore.SERVER_TIMESTAMP,
                 "email_id": email_id
             }
+            movimiento.update(category_fields(parsed_data))
             
             movements_to_process.append({
                 "doc_id": doc_id,

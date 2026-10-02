@@ -4,17 +4,20 @@ export const esMovimientoInterno = (movimiento: Pick<Movimiento, 'es_interno'>):
   movimiento.es_interno === true;
 
 export const cuentaEnEstadisticas = (
-  movimiento: Pick<Movimiento, 'tipo' | 'es_interno' | 'transfer_id' | 'compensa_movimiento_id' | 'compensado_por' | 'compensaciones_destinos' | 'compensado_por_detalles'>,
+  movimiento: Partial<Pick<Movimiento, 'importe' | 'tipo' | 'es_interno' | 'transfer_id' | 'compensa_movimiento_id' | 'compensado_por' | 'compensaciones_destinos' | 'compensado_por_detalles'>>,
 ): boolean =>
   !esMovimientoInterno(movimiento) &&
   !movimiento.transfer_id &&
-  !(movimiento.tipo === 'ingreso' && (movimiento.compensa_movimiento_id || movimiento.compensaciones_destinos?.length));
+  !(movimiento.tipo === 'ingreso' && (movimiento.compensa_movimiento_id || (movimiento.compensaciones_destinos?.length && (movimiento.importe ?? 0) <= movimiento.compensaciones_destinos.reduce((s, d) => s + d.importe, 0) + 0.00001)));
 
-/** Importe que debe reflejarse como gasto real tras reembolsos. */
-export const importeEnEstadisticas = (movimiento: Movimiento): number =>
-  movimiento.tipo === 'gasto' && (movimiento.compensado_por?.length || movimiento.compensado_por_detalles?.length)
-    ? movimiento.importe_neto ?? movimiento.importe
-    : movimiento.importe;
+/** Un reembolso reduce el gasto; solo el ingreso no asignado cuenta como ingreso. */
+export const importeEnEstadisticas = (m: Movimiento): number => {
+  if (m.tipo === 'ingreso') {
+    if (m.compensa_movimiento_id) return 0;
+    return Math.max(0, Math.round((m.importe - (m.compensaciones_destinos ?? []).reduce((s, d) => s + d.importe, 0)) * 100) / 100);
+  }
+  return m.importe_neto ?? Math.max(0, Math.round((m.importe - (m.compensado_por_detalles ?? []).reduce((s, d) => s + d.importe, 0)) * 100) / 100);
+};
 
 export interface RetiradaEfectivoInput {
   gasto_id: string;

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { History, Search, ArrowUpRight, ArrowDownRight, Edit, Check, X, ShieldCheck, RefreshCw, Calendar, Banknote, Trash2 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { type Movimiento } from '../../types';
+import { CategoryPicker } from '../dashboard/CategoryPicker';
 
 interface HistoryModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface HistoryModalProps {
   hasMore: boolean;
   isLoading: boolean;
   onUpdateConcepto: (movId: string, newConcepto: string) => Promise<void>;
+  onUpdateCategoria?: (id: string, categoria: string) => Promise<void>;
   onUnlink: (mov: Movimiento) => Promise<void>;
   onDeleteMovimiento: (mov: Movimiento) => void;
 }
@@ -23,6 +25,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   hasMore,
   isLoading,
   onUpdateConcepto,
+  onUpdateCategoria,
   onUnlink,
   onDeleteMovimiento,
 }) => {
@@ -223,6 +226,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                         </div>
                       )}
 
+                      {onUpdateCategoria && <CategoryPicker movimiento={m} onSave={onUpdateCategoria} />}
                       {/* Info badges/Dates */}
                       <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
                         <span className="text-[10px] text-slate-400 flex items-center gap-1">

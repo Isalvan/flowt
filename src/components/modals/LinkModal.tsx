@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ShieldCheck, Check, Search, Calendar } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { type Movimiento } from '../../types';
+import { availableAmount } from '../../utils/movementSuggestions';
 
 interface LinkModalProps {
   isOpen: boolean;
@@ -21,11 +22,13 @@ export const LinkModal: React.FC<LinkModalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [allocations, setAllocations] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
       setSearchTerm('');
+      setError('');
       setAllocations({});
     }
   }, [isOpen, baseMov]);
@@ -36,28 +39,8 @@ export const LinkModal: React.FC<LinkModalProps> = ({
   const eligibleTargets = useMemo(() => {
     if (!baseMov) return [];
     
-    return allMovimientos.filter(m => {
-      // Must be opposite type
-      if (m.tipo === baseMov.tipo) return false;
-      if (m.id === baseMov.id) return false;
-      
-      if (isBaseIngreso) {
-        // Base is Ingreso. Target is Gasto. Gasto can be partially compensated.
-        // Solo mostrar gastos que no estén totalmente compensados
-        const neto = m.importe_neto ?? m.importe;
-        if (neto <= 0) return false;
-        return true;
-      } else {
-        // Base is Gasto. Target is Ingreso.
-        // Mostrar ingresos que tengan saldo disponible para compensar
-        const totalAsignado = (m.compensaciones_destinos || []).reduce((acc, curr) => acc + curr.importe, 0);
-        // Si no tiene compensaciones_destinos, usamos compensa_movimiento_id legacy
-        if (!m.compensaciones_destinos && m.compensa_movimiento_id) return false; // ya asignado
-        if (m.importe - totalAsignado <= 0) return false;
-        return true;
-      }
-    });
-  }, [allMovimientos, baseMov, isBaseIngreso]);
+    return allMovimientos.filter(m => m.tipo !== baseMov.tipo && m.id !== baseMov.id && !m.es_interno && !m.transfer_id && availableAmount(m) > 0);
+  }, [allMovimientos, baseMov]);
 
   // Search filtered
   const filteredTargets = useMemo(() => {
@@ -69,28 +52,8 @@ export const LinkModal: React.FC<LinkModalProps> = ({
     );
   }, [eligibleTargets, searchTerm]);
 
-  // Max amount you can extract from a specific target
-  const getAvailableFromTarget = (m: Movimiento) => {
-    if (m.tipo === 'gasto') {
-      return m.importe_neto ?? m.importe;
-    } else {
-      const totalAsignado = (m.compensaciones_destinos || []).reduce((acc, curr) => acc + curr.importe, 0);
-      return m.importe - totalAsignado;
-    }
-  };
-
-  // Base movement unallocated amount
-  const getBaseAvailableAmount = () => {
-    if (!baseMov) return 0;
-    if (isBaseIngreso) {
-      const totalAsignado = (baseMov.compensaciones_destinos || []).reduce((acc, curr) => acc + curr.importe, 0);
-      return baseMov.importe - totalAsignado;
-    } else {
-      return baseMov.importe_neto ?? baseMov.importe;
-    }
-  };
-
-  const baseAvailableAmount = getBaseAvailableAmount();
+  const getAvailableFromTarget = availableAmount;
+  const baseAvailableAmount = baseMov ? availableAmount(baseMov) : 0;
   const totalAllocatedAmount = Object.values(allocations).reduce((sum, val) => sum + val, 0);
   const remainingToAllocate = Math.max(0, baseAvailableAmount - totalAllocatedAmount);
 
@@ -137,6 +100,7 @@ export const LinkModal: React.FC<LinkModalProps> = ({
   const handleLink = async () => {
     if (!baseMov || Object.keys(allocations).length === 0) return;
     setIsLoading(true);
+    setError('');
     try {
       const allocsArray = Object.entries(allocations).map(([id, amount]) => {
         const targetMov = allMovimientos.find(m => m.id === id)!;
@@ -145,7 +109,7 @@ export const LinkModal: React.FC<LinkModalProps> = ({
       await onLink(baseMov, allocsArray);
       onClose();
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'No se ha podido guardar la compensación');
     } finally {
       setIsLoading(false);
     }
@@ -364,6 +328,7 @@ export const LinkModal: React.FC<LinkModalProps> = ({
             )}
           </button>
         </div>
+        {error && <p role="alert" className="text-xs text-rose-600">{error}</p>}
       </div>
     </Modal>
   );

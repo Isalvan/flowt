@@ -4,10 +4,11 @@ import type { Hucha, Movimiento, Suscripcion } from "../../types";
 import { usePrivacy } from "../../context/PrivacyContext";
 import { parseMovimientoDate } from "../../hooks/useFinanceData";
 import { getNextSubscriptionChargeDate } from "../../utils/subscriptions";
-import { cuentaEnEstadisticas } from "../../utils/movements";
+import { cuentaEnEstadisticas, importeEnEstadisticas } from "../../utils/movements";
 import { EmptyIllustration } from "../common/EmptyIllustration";
 import { HuchaCard } from "./HuchaCard";
 import { ActivityList } from "./ActivityList";
+import { MovementReview } from "./MovementReview";
 import { AnalyticsSection } from "./AnalyticsSection";
 import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
@@ -29,6 +30,9 @@ interface DashboardViewProps {
   huchaMonthlyBudgets: Record<string, number>;
   chartData: ChartDatum[];
   onUpdateConcepto: (id: string, concepto: string) => void;
+  onUpdateCategoria?: (id: string, categoria: string) => Promise<void>;
+  onAcceptCompensation?: (base: Movimiento, allocations: { mov: Movimiento; importe: number }[]) => Promise<void>;
+  onDismissCompensation?: (ingresoId: string, gastoId: string) => Promise<void>;
   onConvert: (m: Movimiento) => void;
   onLink: (m: Movimiento) => void;
   onUnlink: (m: Movimiento) => void;
@@ -89,10 +93,10 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
   }, [props.chartMovements, period]);
   const ingresos = filtered
     .filter((m) => m.tipo === "ingreso")
-    .reduce((sum, m) => sum + m.importe, 0);
+    .reduce((sum, m) => sum + importeEnEstadisticas(m), 0);
   const gastos = filtered
     .filter((m) => m.tipo === "gasto")
-    .reduce((sum, m) => sum + m.importe, 0);
+    .reduce((sum, m) => sum + importeEnEstadisticas(m), 0);
   const periodChartData = useMemo<ChartDatum[]>(() => {
     const grouped = new Map<string, ChartDatum>();
     filtered.forEach((movement) => {
@@ -105,7 +109,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         gastos: 0,
       };
       entry[movement.tipo === "ingreso" ? "ingresos" : "gastos"] +=
-        movement.importe;
+        importeEnEstadisticas(movement);
       grouped.set(key, entry);
     });
     return Array.from(grouped.entries())
@@ -332,12 +336,16 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
       </div>
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
+          {props.onUpdateCategoria && props.onAcceptCompensation && props.onDismissCompensation && (
+            <MovementReview movimientos={props.chartMovements} onCategory={props.onUpdateCategoria} onAccept={props.onAcceptCompensation} onDismiss={props.onDismissCompensation} onAdjust={props.onLink} />
+          )}
           <ActivityList
             movimientos={props.movimientos}
             allMovimientos={props.chartMovements}
             huchas={props.huchas}
             huchaMonthlyBudgets={props.huchaMonthlyBudgets}
             onUpdateConcepto={props.onUpdateConcepto}
+            onUpdateCategoria={props.onUpdateCategoria}
             onConvert={props.onConvert}
             onLink={props.onLink}
             onUnlink={props.onUnlink}

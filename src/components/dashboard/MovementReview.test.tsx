@@ -1,0 +1,60 @@
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import type { Movimiento } from '../../types';
+import { MovementReview } from './MovementReview';
+
+const privacy = vi.hoisted(() => ({ locked: false }));
+vi.mock('../../context/PrivacyContext', () => ({ usePrivacy: () => ({ isLocked: privacy.locked, formatCurrency: (n: number) => `${n} €` }) }));
+const movements: Movimiento[] = [
+  { id: 'i', tipo: 'ingreso', concepto: 'Persona de ejemplo', importe: 30, fecha_operacion: '2026-05-12T12:00:00+02:00' },
+  { id: 'g', tipo: 'gasto', concepto: 'Restaurante de ejemplo', importe: 60, fecha_operacion: '2026-05-12T13:00:00+02:00' },
+];
+const setup = (onAccept = vi.fn().mockResolvedValue(undefined)) => {
+  const onCategory = vi.fn().mockResolvedValue(undefined), onDismiss = vi.fn().mockResolvedValue(undefined), onAdjust = vi.fn();
+  render(<MovementReview movimientos={movements} onCategory={onCategory} onAccept={onAccept} onDismiss={onDismiss} onAdjust={onAdjust} />);
+  return { onCategory, onAccept, onDismiss, onAdjust };
+};
+
+describe('revisión rápida de propuestas', () => {
+  it('muestra incertidumbre sin guardar ni vincular hasta que se confirme', async () => {
+    const handlers = setup();
+    expect(handlers.onCategory).not.toHaveBeenCalled();
+    expect(handlers.onAccept).not.toHaveBeenCalled();
+    expect(screen.getByText(/Posible compensación · Revisar/)).toBeInTheDocument();
+    const income = within(screen.getByTestId('category-i'));
+    expect(income.getByRole('combobox')).toHaveValue('otros_ingresos');
+    fireEvent.click(income.getByRole('button', { name: /Confirmar Otros ingresos/ }));
+    await waitFor(() => expect(handlers.onCategory).toHaveBeenCalledWith('i', 'otros_ingresos'));
+  });
+  it('guarda un cambio de categoría directamente desde el selector', async () => {
+    const handlers = setup();
+    fireEvent.change(within(screen.getByTestId('category-i')).getByRole('combobox'), { target: { value: 'regalos' } });
+    await waitFor(() => expect(handlers.onCategory).toHaveBeenCalledWith('i', 'regalos'));
+    expect(handlers.onAccept).not.toHaveBeenCalled();
+  });
+  it('acepta la pareja y el importe propuestos con un clic', async () => {
+    const handlers = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Aceptar 30 €' }));
+    await waitFor(() => expect(handlers.onAccept).toHaveBeenCalledWith(movements[0], [{ mov: movements[1], importe: 30 }]));
+  });
+  it('permite ajustar o descartar sin crear la compensación', async () => {
+    const handlers = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Cambiar pareja o importe' }));
+    expect(handlers.onAdjust).toHaveBeenCalledWith(movements[0]);
+    fireEvent.click(screen.getByRole('button', { name: /Descartar compensación/ }));
+    await waitFor(() => expect(handlers.onDismiss).toHaveBeenCalledWith('i', 'g'));
+    expect(handlers.onAccept).not.toHaveBeenCalled();
+  });
+  it('muestra un error de persistencia y permite reintentar', async () => {
+    setup(vi.fn().mockRejectedValue(new Error('El saldo ha cambiado')));
+    fireEvent.click(screen.getByRole('button', { name: 'Aceptar 30 €' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('El saldo ha cambiado');
+    expect(screen.getByRole('button', { name: 'Aceptar 30 €' })).not.toBeDisabled();
+  });
+  it('oculta propuestas y controles mientras la privacidad está bloqueada', () => {
+    privacy.locked = true;
+    setup();
+    expect(screen.queryByRole('region', { name: 'Propuestas de movimientos' })).not.toBeInTheDocument();
+    privacy.locked = false;
+  });
+});
