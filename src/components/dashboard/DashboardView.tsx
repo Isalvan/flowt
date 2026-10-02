@@ -8,7 +8,6 @@ import { cuentaEnEstadisticas, importeEnEstadisticas } from "../../utils/movemen
 import { EmptyIllustration } from "../common/EmptyIllustration";
 import { HuchaCard } from "./HuchaCard";
 import { ActivityList } from "./ActivityList";
-import { MovementReview } from "./MovementReview";
 import { AnalyticsSection } from "./AnalyticsSection";
 import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
@@ -336,9 +335,6 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
       </div>
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          {props.onUpdateCategoria && props.onAcceptCompensation && props.onDismissCompensation && (
-            <MovementReview movimientos={props.chartMovements} onCategory={props.onUpdateCategoria} onAccept={props.onAcceptCompensation} onDismiss={props.onDismissCompensation} onAdjust={props.onLink} />
-          )}
           <ActivityList
             movimientos={props.movimientos}
             allMovimientos={props.chartMovements}
@@ -346,6 +342,8 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             huchaMonthlyBudgets={props.huchaMonthlyBudgets}
             onUpdateConcepto={props.onUpdateConcepto}
             onUpdateCategoria={props.onUpdateCategoria}
+            onAcceptCompensation={props.onAcceptCompensation}
+            onDismissCompensation={props.onDismissCompensation}
             onConvert={props.onConvert}
             onLink={props.onLink}
             onUnlink={props.onUnlink}
