@@ -2,6 +2,11 @@ export interface Movimiento {
   id: string;
   tipo: 'gasto' | 'ingreso';
   concepto: string;
+  /** Categoría elegida por el usuario; una propuesta nunca la sobrescribe. */
+  categoria?: string;
+  categoria_sugerida?: string;
+  categoria_confianza?: 'alta' | 'media' | 'baja';
+  compensaciones_descartadas?: string[];
   importe: number;
   fecha_operacion: any; // Firestore Timestamp, Date, or string representation
   hucha_id?: string;

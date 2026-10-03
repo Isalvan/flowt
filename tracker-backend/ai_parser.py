@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from bs4 import BeautifulSoup
+from category_suggestions import CATEGORIES, category_instruction
 
 load_dotenv()
 
@@ -78,7 +79,7 @@ SUPPORTED TRANSACTIONS:
 
 DO NOT EXTRACT:
 - Card, account, wallet, or balance top-ups; cash withdrawals or ATM operations.
-- Outgoing transfers or Bizum payments, or transfers between the user's own accounts or wallets.
+- Transfers between the user's own accounts or wallets. Outgoing transfers or Bizum without an explicit spending purpose.
 - Cash deposits whose external origin is unclear.
 - Pending, scheduled, reversed, cancelled, declined, rejected, blocked, or failed transactions.
 - Payment attempts, verification charges, balances, credit limits, promotions, or events without an explicit amount.
@@ -89,7 +90,7 @@ UNICaja-SPECIFIC RULES:
 - A Unicaja card recharge at "SISTEMA DE RECARGAS" is a top-up: exclude it.
 - An annulled authorization is not a transaction: exclude it.
 - "Se ha recibido un ingreso..." and received salary notifications are ingreso.
-- Outgoing Bizum and ATM withdrawals are not transactions to extract.
+- Outgoing Bizum with an explicit spending purpose (food, cinema, subscription, purchase) is gasto. Generic outgoing Bizum and ATM withdrawals are not transactions to extract.
 - Do not classify from the subject alone; inspect the transaction sentence and concept.
 - "En breve podrás ver la operación reflejada en tu Banca Digital" does not make an otherwise confirmed operation pending.
 
@@ -135,6 +136,14 @@ def load_prompt_configuration():
     if schema_path.is_file():
         with schema_path.open(encoding="utf-8") as schema_file:
             schema = json.load(schema_file)
+    # Keep old extraction fixtures compatible; category fields are optional.
+    schema["items"]["properties"]["categoria_sugerida"] = {
+        "type": "string", "enum": [c["id"] for c in CATEGORIES]
+    }
+    schema["items"]["properties"]["categoria_confianza"] = {
+        "type": "string", "enum": ["alta", "media", "baja"]
+    }
+    system_instruction += "\n\n" + category_instruction()
     return system_instruction, schema
 
 

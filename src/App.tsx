@@ -93,6 +93,8 @@ const AppContent: React.FC = () => {
     handleRestoreHucha,
     handleTransfer,
     handleUpdateMovimientoConcepto,
+    handleUpdateMovimientoCategoria,
+    handleDismissCompensation,
     handleConvertMovimiento,
     handleLinkMovimiento,
     handleUnlinkMovimiento,
@@ -644,6 +646,9 @@ const AppContent: React.FC = () => {
             chartData={chartData}
             huchaMonthlyBudgets={huchaMonthlyBudgets}
             onUpdateConcepto={handleUpdateMovimientoConcepto}
+            onUpdateCategoria={handleUpdateMovimientoCategoria}
+            onAcceptCompensation={handleLinkMovimiento}
+            onDismissCompensation={handleDismissCompensation}
             onConvert={handleOpenConvertModal}
             onLink={handleOpenLinkModal}
             onUnlink={handleUnlinkMovimiento}
@@ -866,6 +871,10 @@ const AppContent: React.FC = () => {
         hasMore={historyHasMore}
         isLoading={historyLoading}
         onUpdateConcepto={handleUpdateMovimientoConcepto}
+        onUpdateCategoria={async (id, categoria) => {
+          await handleUpdateMovimientoCategoria(id, categoria);
+          setHistoryMovements(current => current.map(m => m.id === id ? { ...m, categoria } : m));
+        }}
         onUnlink={handleUnlinkMovimiento}
         onDeleteMovimiento={onDeleteMovimientoWrapper}
       />

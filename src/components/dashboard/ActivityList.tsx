@@ -16,7 +16,8 @@ import {
   Search,
   SlidersHorizontal,
   Trash2,
-  Landmark
+  Landmark,
+  Sparkles
 } from 'lucide-react';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
 import { Card } from '../common/Card';
@@ -27,6 +28,10 @@ import { ExpenseImpactBadge } from './BurnRateVisuals';
 import { generateCsv } from '../../utils/csv';
 import { ServiceIcon } from './ServiceIcon';
 import { resolveServiceKey } from '../../utils/serviceNames';
+import { CategoryPicker } from './CategoryPicker';
+import { MovementReview } from './MovementReview';
+import { importeEnEstadisticas } from '../../utils/movements';
+import { MOVEMENT_CATEGORIES, categoryLabel, suggestCategory, suggestCompensations } from '../../utils/movementSuggestions';
 
 interface ActivityListProps {
   movimientos: Movimiento[];
@@ -34,6 +39,9 @@ interface ActivityListProps {
   huchas: Hucha[];
   huchaMonthlyBudgets: Record<string, number>;
   onUpdateConcepto: (movId: string, newConcepto: string) => void;
+  onUpdateCategoria?: (id: string, categoria: string) => Promise<void>;
+  onAcceptCompensation?: (base: Movimiento, allocations: { mov: Movimiento; importe: number }[]) => Promise<void>;
+  onDismissCompensation?: (ingresoId: string, gastoId: string) => Promise<void>;
   onConvert: (mov: Movimiento) => void;
   onLink: (mov: Movimiento) => void;
   onUnlink: (ingreso: Movimiento) => void;
@@ -47,6 +55,9 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   huchas,
   huchaMonthlyBudgets,
   onUpdateConcepto,
+  onUpdateCategoria,
+  onAcceptCompensation,
+  onDismissCompensation,
   onConvert,
   onLink,
   onUnlink,
@@ -61,6 +72,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedHucha, setSelectedHucha] = useState('all');
   const [selectedTipo, setSelectedTipo] = useState('all');
+  const [selectedCategoria, setSelectedCategoria] = useState('all');
   const [minAmount, setMinAmount] = useState('');
   const [maxAmount, setMaxAmount] = useState('');
   const [dateRange, setDateRange] = useState('all');
@@ -69,7 +81,11 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   const [selectedBanco, setSelectedBanco] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  const { formatCurrency } = usePrivacy();
+  const { formatCurrency, isLocked } = usePrivacy();
+  const compensations = React.useMemo(() => new Map(
+    onAcceptCompensation && onDismissCompensation ? suggestCompensations(allMovimientos).map(s => [s.ingreso.id, s]) : []
+  ), [allMovimientos, onAcceptCompensation, onDismissCompensation]);
+  const pendingCount = allMovimientos.filter(m => (onUpdateCategoria && suggestCategory(m)) || compensations.has(m.id)).length;
 
   const formatDate = (dateValue: unknown) => {
     const d = parseMovimientoDate(dateValue);
@@ -98,6 +114,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
     setSearchTerm('');
     setSelectedHucha('all');
     setSelectedTipo('all');
+    setSelectedCategoria('all');
     setMinAmount('');
     setMaxAmount('');
     setDateRange('all');
@@ -115,12 +132,14 @@ export const ActivityList: React.FC<ActivityListProps> = ({
       selectedBanco !== 'all' ||
       minAmount !== '' || 
       maxAmount !== '' || 
-      dateRange !== 'all';
+      dateRange !== 'all' || selectedCategoria !== 'all';
 
     // Search across ALL movements if a filter is active; otherwise show default recent list
     const baseList = isFilterActive ? allMovimientos : movimientos;
 
     return baseList.filter(m => {
+      if (selectedCategoria === 'pending' && !suggestCategory(m) && !compensations.has(m.id)) return false;
+      if (selectedCategoria !== 'all' && selectedCategoria !== 'pending' && (m.categoria || suggestCategory(m)?.categoria || 'sin_categorizar') !== selectedCategoria) return false;
       // 1. Text Search
       if (searchTerm) {
         const term = searchTerm.toLowerCase().trim();
@@ -196,11 +215,11 @@ export const ActivityList: React.FC<ActivityListProps> = ({
 
       return true;
     });
-  }, [movimientos, allMovimientos, searchTerm, selectedHucha, selectedTipo, selectedBanco, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
+  }, [movimientos, allMovimientos, compensations, searchTerm, selectedHucha, selectedTipo, selectedCategoria, selectedBanco, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
 
   // CSV Exporter using currently filtered items
   const exportToCSV = () => {
-    const headers = ['ID', 'Fecha', 'Tipo', 'Concepto', 'Importe', 'Importe Neto', 'Hucha Receptora'];
+    const headers = ['ID', 'Fecha', 'Tipo', 'Concepto', 'Categoría', 'Estado categoría', 'Importe', 'Importe Neto', 'Hucha Receptora'];
     const rows = filteredMovimientos.map(m => {
       const huchaName = m.hucha_id ? (huchas.find(h => h.id === m.hucha_id)?.nombre || '') : '';
       const dateStr = formatDate(m.fecha_operacion);
@@ -209,8 +228,10 @@ export const ActivityList: React.FC<ActivityListProps> = ({
         dateStr,
         m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto',
         m.concepto,
+        categoryLabel(m.categoria || suggestCategory(m)?.categoria),
+        m.categoria ? 'Confirmada' : 'Pendiente',
         m.importe,
-        m.tipo === 'gasto' && m.compensado_por ? (m.importe_neto ?? m.importe) : m.importe,
+        importeEnEstadisticas(m),
         huchaName
       ];
     });
@@ -246,7 +267,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   };
 
   return (
-    <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-xl">
+    <Card aria-label="Actividad reciente" className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-xl">
       <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
         <div>
           <h3 className="font-extrabold text-lg text-slate-800 dark:text-slate-100 uppercase tracking-tight">
@@ -287,6 +308,12 @@ export const ActivityList: React.FC<ActivityListProps> = ({
           </div>
 
           <div className="flex gap-2">
+            {!isLocked && pendingCount > 0 && (
+              <button type="button" aria-pressed={selectedCategoria === 'pending'} onClick={() => setSelectedCategoria(selectedCategoria === 'pending' ? 'all' : 'pending')}
+                className={`flex items-center gap-1.5 rounded-2xl border px-3 py-2.5 text-xs font-bold transition-colors ${selectedCategoria === 'pending' ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'border-slate-200/50 bg-white/40 text-slate-500 dark:border-white/5 dark:bg-slate-950/20 dark:text-slate-400'}`}>
+                <Sparkles size={13} /> Revisar <span className="rounded-md bg-indigo-500/10 px-1.5 text-[10px] text-indigo-600 dark:text-indigo-400">{pendingCount}</span>
+              </button>
+            )}
             {/* Filter Toggle Button */}
             <button
               onClick={() => setShowFilters(!showFilters)}
@@ -301,7 +328,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             </button>
 
             {/* Clear Filters Button (conditional) */}
-            {(searchTerm || selectedHucha !== 'all' || selectedTipo !== 'all' || minAmount || maxAmount || dateRange !== 'all') && (
+            {(searchTerm || selectedHucha !== 'all' || selectedTipo !== 'all' || selectedCategoria !== 'all' || selectedBanco !== 'all' || minAmount || maxAmount || dateRange !== 'all') && (
               <button
                 onClick={clearAllFilters}
                 className="flex items-center gap-1 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/10 font-bold text-xs px-3.5 py-2.5 rounded-2xl transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-md hover:shadow-rose-500/10 cursor-pointer"
@@ -316,6 +343,14 @@ export const ActivityList: React.FC<ActivityListProps> = ({
         {/* Collapsible Advanced Filters Grid */}
         {showFilters && (
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 p-4 rounded-2xl bg-slate-50/50 dark:bg-slate-950/10 border border-slate-200/30 dark:border-white/5 animate-in fade-in slide-in-from-top-2 duration-300">
+            {onUpdateCategoria && <label className="flex flex-col gap-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Categoría</span>
+              <select aria-label="Filtrar por categoría" value={selectedCategoria} onChange={e => setSelectedCategoria(e.target.value)} className="w-full rounded-xl border border-slate-200/50 bg-white/50 px-2.5 py-2 text-xs font-bold text-slate-700 dark:border-white/5 dark:bg-slate-950/20 dark:text-slate-300">
+                <option value="all">Todas las categorías</option>
+                <option value="pending">Pendientes de revisar</option>
+                {MOVEMENT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </label>}
             
             {/* Hucha Filter */}
             <div className="flex flex-col gap-1">
@@ -440,6 +475,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             
             const linkedMovs = hasCompensaciones ? getLinkedMovements(m) : [];
             const isEditing = editingId === m.id;
+            const compensation = compensations.get(m.id);
             
             let expensePercentage = 0;
             if (m.tipo === 'gasto' && m.hucha_id) {
@@ -454,7 +490,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                 key={m.id}
                 onMouseEnter={() => setHoveredMovId(m.id)}
                 onMouseLeave={() => setHoveredMovId(null)}
-                className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white/40 dark:bg-slate-900/20 border border-white/5 hover:border-indigo-500/10 hover:bg-white/80 dark:hover:bg-slate-950/20 transition-all duration-300 shadow-sm hover:shadow"
+                className="group relative flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white/40 dark:bg-slate-900/20 border border-white/5 hover:border-indigo-500/10 hover:bg-white/80 dark:hover:bg-slate-950/20 transition-all duration-300 shadow-sm hover:shadow"
               >
                 {/* Visual Connector Popover */}
                 {hoveredMovId === m.id && hasCompensaciones && linkedMovs.length > 0 && (
@@ -575,6 +611,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                         </span>
                       )}
                     </div>
+                    {onUpdateCategoria && <CategoryPicker movimiento={m} onSave={onUpdateCategoria} />}
                   </div>
                 </div>
 
@@ -664,6 +701,9 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                     </button>
                   </div>
                 </div>
+                {compensation && onAcceptCompensation && onDismissCompensation && (
+                  <MovementReview key={compensation.id} suggestion={compensation} onAccept={onAcceptCompensation} onDismiss={onDismissCompensation} onAdjust={onLink} />
+                )}
               </div>
             );
           })

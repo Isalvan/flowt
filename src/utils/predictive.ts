@@ -1,7 +1,7 @@
 import type { Movimiento, Suscripcion } from "../types";
 import { parseMovimientoDate } from "../hooks/useFinanceData";
 import { getObservedCalendarDays } from "./financialDates";
-import { cuentaEnEstadisticas } from "./movements";
+import { cuentaEnEstadisticas, importeEnEstadisticas } from "./movements";
 import { isSubscriptionMovement } from "./serviceNames";
 import {
   getEffectiveSubscriptionAmount,
@@ -37,7 +37,7 @@ export const calculateProjectionEstimates = (
 
   const income = dated
     .filter(({ movement }) => movement.tipo === "ingreso")
-    .reduce((sum, { movement }) => sum + movement.importe, 0);
+    .reduce((sum, { movement }) => sum + importeEnEstadisticas(movement), 0);
   if (income <= 0) return null;
 
   const activeSubscriptions = subscriptions.filter(({ activa }) => activa);
@@ -48,7 +48,7 @@ export const calculateProjectionEstimates = (
         movement.tipo === "gasto" &&
         !isSubscriptionMovement(movement.concepto, subscriptionNames),
     )
-    .reduce((sum, { movement }) => sum + movement.importe, 0);
+    .reduce((sum, { movement }) => sum + importeEnEstadisticas(movement), 0);
 
   return {
     dailyIncome: income / observedDays,
