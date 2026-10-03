@@ -5,7 +5,7 @@ import { usePrivacy } from '../../context/PrivacyContext';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
 import { cuentaEnEstadisticas, importeEnEstadisticas } from '../../utils/movements';
 import { generateCsv } from '../../utils/csv';
-import { categoryLabel, suggestCategory } from '../../utils/movementSuggestions';
+import { useCategories } from '../../hooks/useCategories';
 
 interface ExportViewProps {
   movimientos: Movimiento[];
@@ -38,6 +38,7 @@ const DEFAULT_FILTERS: FilterState = {
 };
 
 export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, suscripciones, userStats, userId }) => {
+  const { categoryLabel, suggestCategory } = useCategories();
   const { isLocked } = usePrivacy();
   
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);

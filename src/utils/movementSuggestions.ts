@@ -2,12 +2,13 @@ import catalog from '../../tracker-backend/prompts/categories.json';
 import type { Movimiento } from '../types';
 
 export const MOVEMENT_CATEGORIES = catalog;
-export const categoryOptions = (tipo: Movimiento['tipo']) =>
-  catalog.filter(c => c.tipo === tipo || c.tipo === 'ambos');
-export const validCategory = (id: string, tipo: Movimiento['tipo']) =>
-  categoryOptions(tipo).some(c => c.id === id);
-export const categoryLabel = (id?: string) =>
-  catalog.find(c => c.id === id)?.label ?? 'Sin categorizar';
+export interface MovementCategory { id: string; label: string; tipo: 'gasto' | 'ingreso' | 'ambos' }
+export const categoryOptions = (tipo: Movimiento['tipo'], custom: MovementCategory[] = []) =>
+  [...catalog, ...custom].filter(c => c.tipo === tipo || c.tipo === 'ambos');
+export const validCategory = (id: string, tipo: Movimiento['tipo'], custom: MovementCategory[] = []) =>
+  categoryOptions(tipo, custom).some(c => c.id === id);
+export const categoryLabel = (id?: string, custom: MovementCategory[] = []) =>
+  [...catalog, ...custom].find(c => c.id === id)?.label ?? 'Sin categorizar';
 
 const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const expenseRules: [RegExp, string][] = [
@@ -37,8 +38,8 @@ export interface CategorySuggestion {
   motivo: string;
 }
 
-export function suggestCategory(m: Movimiento): CategorySuggestion | null {
-  if (m.es_interno || m.transfer_id || (m.categoria && validCategory(m.categoria, m.tipo))) return null;
+export function suggestCategory(m: Movimiento, custom: MovementCategory[] = []): CategorySuggestion | null {
+  if (m.es_interno || m.transfer_id || (m.categoria && validCategory(m.categoria, m.tipo, custom))) return null;
   if (m.categoria_sugerida && m.categoria_sugerida !== 'sin_categorizar' && validCategory(m.categoria_sugerida, m.tipo)) {
     return { categoria: m.categoria_sugerida, confianza: m.categoria_confianza ?? 'baja', motivo: 'Propuesta a partir del aviso bancario' };
   }

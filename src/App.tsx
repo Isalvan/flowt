@@ -47,6 +47,7 @@ import {
   HeartPulse
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
+import { CategoriesProvider } from './context/CategoriesContext';
 import { PinModal } from './components/common/PinModal';
 import { Calendar, Settings } from 'lucide-react';
 import { BentoMenu } from './components/common/BentoMenu';
@@ -62,12 +63,11 @@ const FlowtLogoSVG: React.FC<{ size?: number }> = ({ size = 20 }) => (
 );
 
 
-const AppContent: React.FC = () => {
+const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<React.SetStateAction<boolean>> }> = ({ forceDemo, setForceDemo }) => {
   const { theme, toggleTheme } = useTheme();
   const { isLocked, lock, openUnlockModal, hasPin, openCreateModal } = usePrivacy();
 
   // Demo mode can be forced from the login screen even when Firebase is configured
-  const [forceDemo, setForceDemo] = useState(false);
   
   const {
     user,
@@ -927,9 +927,12 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  const [forceDemo, setForceDemo] = useState(false);
   return (
     <PrivacyProvider>
-      <AppContent />
+      <CategoriesProvider forceDemo={forceDemo}>
+        <AppContent forceDemo={forceDemo} setForceDemo={setForceDemo} />
+      </CategoriesProvider>
     </PrivacyProvider>
   );
 };

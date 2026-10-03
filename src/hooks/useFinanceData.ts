@@ -22,7 +22,7 @@ import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type 
 import { usePrivacy } from '../context/PrivacyContext';
 import { crearRetiradaEfectivo, cuentaEnEstadisticas, importeEnEstadisticas } from '../utils/movements';
 import { sanitizeConcepto } from '../utils/sanitize';
-import { validCategory, compensationUpdates, unlinkCompensationUpdates } from '../utils/movementSuggestions';
+import { compensationUpdates, unlinkCompensationUpdates, validCategory as validCatalogCategory } from '../utils/movementSuggestions';
 import {
   getMonthlySubscriptionAmount,
   getNextSubscriptionChargeDate,
@@ -1405,14 +1405,20 @@ export const useFinanceData = (forceDemo = false) => {
     try {
       if (!isFirebaseConfigured) {
         const movimiento = movimientos.find(m => m.id === movId);
-        if (!movimiento || !validCategory(categoria, movimiento.tipo)) throw new Error('Categoría no válida');
+        const custom = JSON.parse(localStorage.getItem('flowt-demo-categories') ?? '[]');
+        if (!movimiento || !validCatalogCategory(categoria, movimiento.tipo, custom)) throw new Error('Categoría no válida');
         saveDemoState(movimientos.map(m => m.id === movId ? { ...m, categoria } : m), huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
       } else {
         if (!user) throw new Error('Inicia sesión para guardar');
         await runTransaction(db, async transaction => {
           const ref = doc(db, 'movimientos', movId);
           const snap = await transaction.get(ref);
-          if (!snap.exists() || snap.data().id_propietario !== user.uid || !validCategory(categoria, snap.data().tipo)) throw new Error('Movimiento o categoría no válidos');
+          if (!snap.exists() || snap.data().id_propietario !== user.uid) throw new Error('Movimiento no válido');
+          if (!validCatalogCategory(categoria, snap.data().tipo)) {
+            if (!/^custom_[a-f0-9]{64}$/.test(categoria)) throw new Error('Categoría no válida');
+            const category = await transaction.get(doc(db, 'categorias', user.uid, 'items', categoria));
+            if (!category.exists() || ![snap.data().tipo, 'ambos'].includes(category.data().tipo)) throw new Error('Categoría no válida');
+          }
           transaction.update(ref, { categoria, updated_at: serverTimestamp() });
         });
       }
