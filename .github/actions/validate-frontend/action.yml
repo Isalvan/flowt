@@ -1,0 +1,31 @@
+name: Validate Flowt frontend
+description: Install, lint, test with Firestore emulator, and build the frontend.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with:
+        node-version: '22'
+        cache: npm
+    - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+      with:
+        distribution: temurin
+        java-version: '21'
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+    - name: Lint
+      shell: bash
+      run: npm run lint
+    - name: Test deployment helpers
+      shell: bash
+      run: node --test .github/scripts/firebase-hosting.checks.mjs
+    - name: Test frontend and Firestore rules
+      shell: bash
+      run: npx firebase emulators:exec --only firestore --project demo-flowt-test "npm test -- --run"
+    - name: Validate Firebase web configuration
+      shell: bash
+      run: node .github/scripts/firebase-hosting.mjs check-config
+    - name: Build
+      shell: bash
+      run: npm run build

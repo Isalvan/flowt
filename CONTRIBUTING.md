@@ -30,6 +30,8 @@ cp .env.example .env
 
 Utiliza un proyecto de Firebase de desarrollo y datos ficticios.
 
+Las PR internas se validan y publican una preview de Hosting cuando están configuradas las variables y la cuenta de despliegue. Los cambios en `main` publican Hosting automáticamente. Consulta la [configuración de CI y despliegue](docs/DEPLOYMENT.md#despliegue-automático-desde-github).
+
 ## Flujo de trabajo
 
 1. Crea una rama desde `main`.
@@ -55,6 +57,15 @@ npm test
 npm run build
 python -m pytest tracker-backend
 ```
+
+Para comprobar las reglas sin acceder a producción (requiere Java 21):
+
+```bash
+npx firebase emulators:exec --only firestore --project demo-flowt-test "npm test -- --run"
+node --test .github/scripts/firebase-hosting.checks.mjs
+```
+
+El lint registra la deuda previa en `eslint-suppressions.json`. Los errores nuevos deben corregirse; al resolver errores anteriores, actualiza la base con `npx eslint . --prune-suppressions`. No aumentes las excepciones para hacer pasar un cambio.
 
 ## Estilo
 
