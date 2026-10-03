@@ -54,7 +54,7 @@ test('production publishes only Hosting and removes temporary credentials', () =
     credentials = env.GOOGLE_APPLICATION_CREDENTIALS;
     assert.equal(env.FIREBASE_SERVICE_ACCOUNT_FLOWT_63536, undefined);
     assert.deepEqual(JSON.parse(readFileSync(credentials, 'utf8')), account);
-    assert.equal(statSync(credentials).mode & 0o777, 0o600);
+    if (process.platform !== 'win32') assert.equal(statSync(credentials).mode & 0o777, 0o600);
     return { status: 0, stdout: JSON.stringify({ status: 'success', result: { hosting: `https://${projectId}.web.app` } }) };
   } });
   assert.equal(url, `https://${projectId}.web.app`);
@@ -67,6 +67,15 @@ test('preview expires after seven days and never updates Firebase Auth domains',
     return { status: 0, stdout: JSON.stringify({ status: 'success', result: { [projectId]: { url: `https://${projectId}--pr-80-example.web.app` } } }) };
   } });
   assert.match(url, /--pr-80-example\.web\.app$/);
+});
+
+test('production reads the version resource returned by Firebase CLI', () => {
+  for (const hosting of [`sites/${projectId}/versions/release-123`, [`sites/${projectId}/versions/release-123`]]) {
+    const url = deployHosting({ env: fixture(), projectId, channel: 'live', run: () => ({
+      status: 0, stdout: JSON.stringify({ status: 'success', result: { hosting } }),
+    }) });
+    assert.equal(url, `https://${projectId}.web.app`);
+  }
 });
 
 test('failed Firebase commands and invalid responses clean up credentials without reporting success', () => {

@@ -61,8 +61,10 @@ export function deployHosting({ env, projectId, channel, run = runFirebase }) {
     try { response = JSON.parse(result.stdout); }
     catch { throw new Error('Firebase devolvió una respuesta de despliegue no válida.'); }
     if (response.status !== 'success') throw new Error('Firebase no confirmó el despliegue.');
+    const hosting = Array.isArray(response.result?.hosting) ? response.result.hosting[0] : response.result?.hosting;
+    const site = typeof hosting === 'string' ? /^sites\/([\w-]+)\/versions\/[^/]+$/.exec(hosting)?.[1] : undefined;
     const url = channel === 'live'
-      ? (Array.isArray(response.result.hosting) ? response.result.hosting[0] : response.result.hosting)
+      ? (site ? `https://${site}.web.app` : hosting)
       : Object.values(response.result)[0]?.url;
     if (typeof url !== 'string' || !/^https:\/\/[\w.-]+\.(web\.app|firebaseapp\.com)\/?$/.test(url)) {
       throw new Error('Firebase no devolvió una URL de Hosting válida.');
