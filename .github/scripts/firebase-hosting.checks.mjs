@@ -70,7 +70,11 @@ test('preview expires after seven days and never updates Firebase Auth domains',
 });
 
 test('production reads the version resource returned by Firebase CLI', () => {
-  for (const hosting of [`sites/${projectId}/versions/release-123`, [`sites/${projectId}/versions/release-123`]]) {
+  for (const hosting of [
+    `sites/${projectId}/versions/release-123`, [`sites/${projectId}/versions/release-123`],
+    `projects/123456789/sites/${projectId}/versions/release-123`,
+    [`projects/123456789/sites/${projectId}/versions/release-123`],
+  ]) {
     const url = deployHosting({ env: fixture(), projectId, channel: 'live', run: () => ({
       status: 0, stdout: JSON.stringify({ status: 'success', result: { hosting } }),
     }) });
