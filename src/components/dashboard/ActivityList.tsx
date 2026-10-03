@@ -31,7 +31,8 @@ import { resolveServiceKey } from '../../utils/serviceNames';
 import { CategoryPicker } from './CategoryPicker';
 import { MovementReview } from './MovementReview';
 import { importeEnEstadisticas } from '../../utils/movements';
-import { MOVEMENT_CATEGORIES, categoryLabel, suggestCategory, suggestCompensations } from '../../utils/movementSuggestions';
+import { suggestCompensations } from '../../utils/movementSuggestions';
+import { useCategories } from '../../hooks/useCategories';
 
 interface ActivityListProps {
   movimientos: Movimiento[];
@@ -64,6 +65,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   onChangeHucha,
   onDeleteMovimiento,
 }) => {
+  const { categories: MOVEMENT_CATEGORIES, categoryLabel, suggestCategory } = useCategories();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tempConcepto, setTempConcepto] = useState('');
   const [hoveredMovId, setHoveredMovId] = useState<string | null>(null);
@@ -215,7 +217,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
 
       return true;
     });
-  }, [movimientos, allMovimientos, compensations, searchTerm, selectedHucha, selectedTipo, selectedCategoria, selectedBanco, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
+  }, [movimientos, allMovimientos, compensations, suggestCategory, searchTerm, selectedHucha, selectedTipo, selectedCategoria, selectedBanco, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
 
   // CSV Exporter using currently filtered items
   const exportToCSV = () => {

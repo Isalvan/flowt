@@ -34,9 +34,25 @@ service cloud.firestore {
     }
 
     function validCategoryValue(value) {
-      return value is string && (request.resource.data.tipo == 'gasto'
+      return value is string && ((request.resource.data.tipo == 'gasto'
         ? value in ['alimentacion', 'vivienda', 'transporte', 'restaurantes', 'ocio', 'salud', 'compras', 'tecnologia', 'formacion', 'inversion', 'otros_gastos', 'sin_categorizar']
-        : value in ['nomina', 'trabajos', 'ventas', 'intereses', 'regalos', 'reembolsos', 'otros_ingresos', 'sin_categorizar']);
+        : value in ['nomina', 'trabajos', 'ventas', 'intereses', 'regalos', 'reembolsos', 'otros_ingresos', 'sin_categorizar']) || validCustomCategory(value));
+    }
+
+    function validCustomCategory(value) {
+      let path = /databases/$(database)/documents/categorias/$(request.auth.uid)/items/$(value);
+      return isAuthenticated() && value.matches('custom_[a-f0-9]{64}') && exists(path) &&
+        get(path).data.tipo in [request.resource.data.tipo, 'ambos'];
+    }
+
+    match /categorias/{userId}/items/{categoryId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && categoryId.matches('custom_[a-f0-9]{64}') &&
+        request.resource.data.keys().hasOnly(['label', 'tipo', 'created_at']) &&
+        request.resource.data.keys().hasAll(['label', 'tipo', 'created_at']) &&
+        isStringWithLength('label', 1, 50) &&
+        request.resource.data.tipo in ['gasto', 'ingreso', 'ambos'] &&
+        request.resource.data.created_at == request.time;
     }
 
     function validMovementCategories() {

@@ -1,7 +1,7 @@
 import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
 import { initializeTestEnvironment, RulesTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
-import { doc, setDoc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, updateDoc, writeBatch, serverTimestamp, getDoc } from 'firebase/firestore';
 
 let testEnv: RulesTestEnvironment | null = null;
 
@@ -43,6 +43,25 @@ afterAll(async () => {
 });
 
 describe('Firestore Rules - Movimientos', () => {
+  it('permite categorías propias del usuario y rechaza categorías ajenas o de otro tipo', async () => {
+    if (!testEnv) return;
+    const db = testEnv.authenticatedContext('user_123').firestore();
+    const otherDb = testEnv.authenticatedContext('other_user').firestore();
+    const id = 'custom_' + 'a'.repeat(64);
+    const incomeId = 'custom_' + 'b'.repeat(64);
+    const categoryRef = doc(db, 'categorias', 'user_123', 'items', id);
+    await assertSucceeds(setDoc(categoryRef, { label: 'Regalos', tipo: 'gasto', created_at: serverTimestamp() }));
+    await assertSucceeds(setDoc(doc(db, 'categorias', 'user_123', 'items', incomeId), { label: 'Otros regalos', tipo: 'ingreso', created_at: serverTimestamp() }));
+    await assertFails(getDoc(doc(otherDb, 'categorias', 'user_123', 'items', id)));
+    await assertFails(setDoc(doc(otherDb, 'categorias', 'user_123', 'items', 'custom_' + 'c'.repeat(64)), { label: 'Ajena', tipo: 'gasto', created_at: serverTimestamp() }));
+    await assertFails(setDoc(doc(db, 'categorias', 'user_123', 'items', 'custom_' + 'd'.repeat(64)), { label: '', tipo: 'gasto', created_at: serverTimestamp() }));
+    const movementRef = doc(db, 'movimientos', 'custom-category');
+    await assertSucceeds(setDoc(movementRef, { id_propietario: 'user_123', tipo: 'gasto', concepto: 'Regalo', importe: 20, fecha_operacion: new Date(), categoria: id }));
+    await assertSucceeds(updateDoc(movementRef, { categoria: id, updated_at: serverTimestamp() }));
+    await assertFails(updateDoc(movementRef, { categoria: incomeId }));
+    await assertFails(updateDoc(movementRef, { categoria: 'custom_' + 'e'.repeat(64) }));
+    await assertFails(updateDoc(doc(otherDb, 'movimientos', 'custom-category'), { categoria: id }));
+  });
   it('permite revisar categorías y rechazar parejas solo al propietario', async () => {
     if (!testEnv) return;
     const db = testEnv.authenticatedContext('user_123').firestore();

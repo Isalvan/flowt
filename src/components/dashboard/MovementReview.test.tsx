@@ -23,13 +23,14 @@ describe('revisión rápida de propuestas', () => {
     expect(screen.getByText('¿Compensa este gasto?')).toBeInTheDocument();
     const income = within(screen.getByTestId('category-i'));
     expect(income.getByText('Revisar')).toBeInTheDocument();
-    expect(income.getByRole('combobox')).toHaveValue('otros_ingresos');
+    expect(income.getByRole('button', { name: 'Categoría de Persona de ejemplo' })).toHaveTextContent('Otros ingresos');
     fireEvent.click(income.getByRole('button', { name: /Confirmar Otros ingresos/ }));
     await waitFor(() => expect(handlers.onCategory).toHaveBeenCalledWith('i', 'otros_ingresos'));
   });
   it('guarda un cambio de categoría directamente desde el selector', async () => {
     const handlers = setup();
-    fireEvent.change(within(screen.getByTestId('category-i')).getByRole('combobox'), { target: { value: 'regalos' } });
+    fireEvent.click(within(screen.getByTestId('category-i')).getByRole('button', { name: 'Categoría de Persona de ejemplo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Regalos' }));
     await waitFor(() => expect(handlers.onCategory).toHaveBeenCalledWith('i', 'regalos'));
     expect(handlers.onAccept).not.toHaveBeenCalled();
   });
