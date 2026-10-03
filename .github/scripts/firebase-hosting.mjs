@@ -62,7 +62,7 @@ export function deployHosting({ env, projectId, channel, run = runFirebase }) {
     catch { throw new Error('Firebase devolvió una respuesta de despliegue no válida.'); }
     if (response.status !== 'success') throw new Error('Firebase no confirmó el despliegue.');
     const hosting = Array.isArray(response.result?.hosting) ? response.result.hosting[0] : response.result?.hosting;
-    const site = typeof hosting === 'string' ? /^sites\/([\w-]+)\/versions\/[^/]+$/.exec(hosting)?.[1] : undefined;
+    const site = typeof hosting === 'string' ? /^(?:projects\/[\w-]+\/)?sites\/([\w-]+)\/versions\/[^/]+$/.exec(hosting)?.[1] : undefined;
     const url = channel === 'live'
       ? (site ? `https://${site}.web.app` : hosting)
       : Object.values(response.result)[0]?.url;
