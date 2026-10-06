@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from './App';
+import { MANUAL_LOGIN_PATH } from './components/auth/ManualLogin';
 
 vi.mock('firebase/app', () => ({
   initializeApp: vi.fn(() => ({})),
@@ -47,6 +48,7 @@ vi.mock('./context/PrivacyContext', () => ({
 
 describe('App Dashboard', () => {
   beforeEach(() => {
+    window.history.replaceState(null, '', '/');
     localStorage.clear();
     vi.resetAllMocks();
   });
@@ -56,6 +58,16 @@ describe('App Dashboard', () => {
     render(<App />);
     expect(await screen.findByText(/Control de gastos inteligente/i)).toBeInTheDocument();
     expect(await screen.findByText(/Acceder con Google/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Contraseña')).not.toBeInTheDocument();
+    vi.unstubAllEnvs();
+  });
+
+  it('shows manual login only at its hidden URL', async () => {
+    vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
+    window.history.replaceState(null, '', MANUAL_LOGIN_PATH);
+    render(<App />);
+    expect(await screen.findByLabelText('Contraseña')).toBeInTheDocument();
+    expect(screen.queryByText(/Acceder con Google/i)).not.toBeInTheDocument();
     vi.unstubAllEnvs();
   });
 

@@ -28,6 +28,7 @@ import { DemoSimulator } from './components/demo/DemoSimulator';
 import { Toast } from './components/common/Toast';
 import { ConfirmModal } from './components/common/ConfirmModal';
 import { DashboardSkeleton } from './components/dashboard/DashboardSkeleton';
+import { ManualLogin, MANUAL_LOGIN_PATH } from './components/auth/ManualLogin';
 import { ShortcutsHelpModal } from './components/common/ShortcutsHelpModal';
 import { CelebrationConfetti } from './components/common/CelebrationConfetti';
 
@@ -415,6 +416,10 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
   // Rendering loading state
   if (loading) {
     return <DashboardSkeleton />;
+  }
+
+  if (!user && window.location.pathname.replace(/\/$/, '') === MANUAL_LOGIN_PATH) {
+    return <ManualLogin configured={isFirebaseConfigured} />;
   }
 
   // Rendering signed out view when firebase is active
