@@ -9,10 +9,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons.svg'],
+      includeAssets: ['flowt-logo.png'],
       manifest: {
         name: 'Flowt - Tracker Financiero',
         short_name: 'Flowt',
+        lang: 'es',
         description: 'Tracker financiero automatizado con Gemini AI',
         theme_color: '#080a10',
         background_color: '#080a10',
@@ -22,21 +23,15 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: '/favicon.svg',
-            sizes: '192x192',
-            type: 'image/svg+xml',
+            src: '/flowt-logo.png',
+            sizes: '1254x1254',
+            type: 'image/png',
             purpose: 'any'
           },
           {
-            src: '/favicon.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any'
-          },
-          {
-            src: '/favicon.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
+            src: '/flowt-logo.png',
+            sizes: '1254x1254',
+            type: 'image/png',
             purpose: 'maskable'
           }
         ]
