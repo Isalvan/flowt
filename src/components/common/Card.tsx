@@ -31,17 +31,12 @@ export const Card: React.FC<CardProps> = ({
     <div
       onMouseMove={handleMouseMove}
       className={`
-        ${isGradient ? '' : 'glass-panel'}
-        rounded-2xl 
+        ${isGradient ? 'rounded-[1.25rem] shadow-sm' : 'flowt-card'}
         p-6 
-        shadow-sm 
-        transition-all 
-        duration-300 
-        ease-out 
         relative 
         overflow-hidden
         group
-        ${hoverable ? 'hover:-translate-y-1 hover:shadow-lg hover:border-white/80 dark:hover:border-white/20 cursor-pointer' : ''}
+        ${hoverable ? 'is-liftable cursor-pointer' : ''}
         ${className}
       `}
       style={{

@@ -34,7 +34,7 @@ export const ShortcutsHelpModal: React.FC<ShortcutsHelpModalProps> = ({ isOpen, 
               <Keyboard size={20} />
             </div>
             <div>
-              <h3 className="font-extrabold text-base text-slate-800 dark:text-white uppercase tracking-tight">
+              <h3 className="text-lg font-bold text-ink">
                 Atajos de Teclado
               </h3>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Superpoderes financieros</p>

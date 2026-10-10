@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebase';
+import { FlowtLogo } from '../common/FlowtLogo';
 
 export const MANUAL_LOGIN_PATH = '/acceso/chati-35004424751f4017';
 const MANUAL_ACCOUNT_EMAIL = 'chati@flowt-63536.firebaseapp.com';
@@ -36,23 +37,27 @@ export function ManualLogin({ configured }: { configured: boolean }) {
     }
   }
 
+  const field = 'mb-5 w-full rounded-xl border border-line-strong bg-surface-2 p-3 text-ink focus:outline-none focus-visible:border-brand';
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-slate-950 font-sans">
-      <form onSubmit={submit} className="w-full max-w-md bg-white/5 border border-white/10 rounded-[32px] p-8 sm:p-10 shadow-2xl">
-        <img src="/flowt-logo.png" alt="Flowt" width={64} height={64} className="mx-auto mb-6" />
-        <h1 className="text-2xl font-black text-white text-center mb-8">Acceso manual</h1>
-        <label htmlFor="manual-user" className="block text-sm text-slate-300 mb-2">Usuario</label>
+    <main className="app-canvas flex min-h-dvh items-center justify-center p-5 font-sans">
+      <form onSubmit={submit} className="flowt-card w-full max-w-md p-7 sm:p-10">
+        <div className="mb-7 flex items-center justify-center gap-2.5">
+          <FlowtLogo size={34} />
+          <span className="font-display text-2xl font-bold tracking-tight text-ink">Flowt</span>
+        </div>
+        <h1 className="mb-8 text-center text-2xl font-bold text-ink">Acceso manual</h1>
+        <label htmlFor="manual-user" className="mb-2 block text-sm font-semibold text-ink-soft">Usuario</label>
         <input id="manual-user" name="username" autoComplete="username" required disabled={pending}
           value={username} onChange={event => setUsername(event.target.value)}
-          className="w-full rounded-xl bg-slate-900 border border-white/10 p-3 text-white mb-5" />
-        <label htmlFor="manual-password" className="block text-sm text-slate-300 mb-2">Contraseña</label>
+          className={field} />
+        <label htmlFor="manual-password" className="mb-2 block text-sm font-semibold text-ink-soft">Contraseña</label>
         <input id="manual-password" name="password" type="password" autoComplete="current-password" required disabled={pending}
           value={password} onChange={event => setPassword(event.target.value)}
-          className="w-full rounded-xl bg-slate-900 border border-white/10 p-3 text-white mb-5" />
-        {!configured && <p role="alert" className="text-sm text-rose-400 mb-4">El acceso no está configurado en este entorno.</p>}
-        {error && <p role="alert" className="text-sm text-rose-400 mb-4">{error}</p>}
+          className={field} />
+        {!configured && <p role="alert" className="mb-4 text-sm text-rose-500">El acceso no está configurado en este entorno.</p>}
+        {error && <p role="alert" className="mb-4 text-sm text-rose-500">{error}</p>}
         <button type="submit" disabled={pending || !configured}
-          className="w-full py-4 rounded-2xl bg-gradient-to-r from-sky-500 to-violet-600 text-white font-bold disabled:opacity-50 cursor-pointer">
+          className="dashboard-primary-button w-full !py-4 !text-sm disabled:opacity-50">
           {pending ? 'Iniciando sesión…' : 'Iniciar sesión'}
         </button>
       </form>

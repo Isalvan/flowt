@@ -71,7 +71,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </div>
 
         {/* Modal Title */}
-        <h4 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight mb-2">
+        <h4 className="font-title mb-2 text-xl font-bold text-ink">
           {title}
         </h4>
 

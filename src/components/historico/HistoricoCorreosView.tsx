@@ -29,11 +29,11 @@ export const HistoricoCorreosView: React.FC<HistoricoCorreosViewProps> = ({ hist
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col gap-2">
-        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
+        <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink sm:text-4xl flex items-center gap-3">
           <div className="p-2.5 rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
             <MailOpen size={28} className="drop-shadow-sm" />
           </div>
-          Histórico de Correos
+          Histórico de correos
         </h2>
         <p className="text-sm font-medium text-slate-500 dark:text-slate-400 pl-14">
           Registro de notificaciones procesadas y sus movimientos vinculados.

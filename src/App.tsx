@@ -29,39 +29,42 @@ import { Toast } from './components/common/Toast';
 import { ConfirmModal } from './components/common/ConfirmModal';
 import { DashboardSkeleton } from './components/dashboard/DashboardSkeleton';
 import { ManualLogin, MANUAL_LOGIN_PATH } from './components/auth/ManualLogin';
+import { LoginScreen } from './components/auth/LoginScreen';
 import { ShortcutsHelpModal } from './components/common/ShortcutsHelpModal';
 import { CelebrationConfetti } from './components/common/CelebrationConfetti';
+import { FlowtLogo } from './components/common/FlowtLogo';
 
 // Icons
-import { 
-  LogOut, 
-  Sun, 
-  Moon, 
-  TrendingUp, 
-  Key, 
-  Sparkles,
-  ShieldAlert,
+import {
+  LogOut,
+  Sun,
+  Moon,
+  House,
   Mail,
   Eye,
   EyeOff,
   User,
-  HeartPulse
+  HeartPulse,
+  CalendarDays,
+  Settings,
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { CategoriesProvider } from './context/CategoriesContext';
 import { PinModal } from './components/common/PinModal';
-import { Calendar, Settings } from 'lucide-react';
 import { BentoMenu } from './components/common/BentoMenu';
 
-const FlowtLogoSVG: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <img 
-    src="/flowt-logo.png" 
-    alt="Flowt Logo" 
-    width={size} 
-    height={size} 
-    className="object-contain"
-  />
-);
+type AppTab = 'dashboard' | 'salud' | 'calendario' | 'correos' | 'ajustes';
+
+const NAV_TABS: { id: AppTab; label: string; icon: typeof House }[] = [
+  { id: 'dashboard', label: 'Inicio', icon: House },
+  { id: 'salud', label: 'Salud', icon: HeartPulse },
+  { id: 'calendario', label: 'Calendario', icon: CalendarDays },
+  { id: 'correos', label: 'Correos', icon: Mail },
+  { id: 'ajustes', label: 'Ajustes', icon: Settings },
+];
+
+const headerIconButton =
+  'grid h-9 w-9 shrink-0 place-items-center rounded-xl text-ink-soft transition-colors duration-150 hover:bg-surface-2 hover:text-ink';
 
 
 const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<React.SetStateAction<boolean>> }> = ({ forceDemo, setForceDemo }) => {
@@ -115,7 +118,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
   } = useFinanceData(forceDemo);
 
   // Tab switching state
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'salud' | 'calendario' | 'correos' | 'ajustes'>('dashboard');
+  const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
   const [prevMobileIndex, setPrevMobileIndex] = useState(0);
   const [isSliding, setIsSliding] = useState(false);
 
@@ -424,214 +427,123 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
 
   // Rendering signed out view when firebase is active
   if (isFirebaseConfigured && !user) {
-    return (
-      <div className="min-h-screen relative flex items-center justify-center p-6 bg-slate-950 overflow-hidden font-sans">
-        {/* Decorative glassmorphic ambient circles */}
-        <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-blue-600/10 blur-[80px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-violet-600/10 blur-[100px] pointer-events-none" />
-
-        <div className="w-full max-w-md backdrop-blur-md bg-white/5 border border-white/10 rounded-[32px] p-8 sm:p-10 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-500">
-          {/* Glowing Brand Icon */}
-          <div className="mb-6 flex items-center justify-center">
-            <FlowtLogoSVG size={64} />
-          </div>
-
-          <h1 className="text-3xl font-black text-white tracking-tight uppercase">
-            Flowt
-          </h1>
-          <p className="text-[10px] font-black tracking-[0.2em] text-indigo-400 uppercase mt-1 mb-6">
-            Financial Tracker
-          </p>
-
-          <p className="text-slate-400 text-xs sm:text-sm leading-relaxed mb-8">
-            Control de gastos inteligente con reparto automático en carteras y gestión integral de tus suscripciones recurrentes.
-          </p>
-
-          {/* Login Action Button */}
-          <button
-            onClick={handleLogin}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-600 hover:from-sky-400 hover:to-violet-500 text-white font-extrabold text-xs uppercase tracking-widest shadow-lg shadow-indigo-500/15 hover:shadow-indigo-500/30 hover:shadow-2xl hover:scale-[1.01] active:scale-95 transition-all duration-200 border border-white/10 flex items-center justify-center gap-3 cursor-pointer"
-          >
-            <Key size={14} />
-            Acceder con Google
-          </button>
-
-          {/* Demo mode bypass */}
-          <div className="relative flex items-center gap-3 my-2">
-            <div className="flex-1 h-px bg-white/10" />
-            <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">o</span>
-            <div className="flex-1 h-px bg-white/10" />
-          </div>
-
-          <button
-            onClick={() => setForceDemo(true)}
-            className="w-full py-3 rounded-2xl border border-white/10 text-slate-400 hover:text-slate-200 hover:border-white/20 hover:bg-white/5 font-bold text-xs uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Sparkles size={13} className="text-indigo-400" />
-            Explorar en modo Demo
-          </button>
-
-          {/* Secure details */}
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-4 font-semibold uppercase tracking-wider">
-            <ShieldAlert size={12} />
-            Autenticación segura por Google Firebase
-          </div>
-        </div>
-      </div>
-    );
+    return <LoginScreen onLogin={handleLogin} onDemo={() => setForceDemo(true)} />;
   }
 
+  const firstName = !isLocked ? user?.displayName?.trim().split(/\s+/)[0] : undefined;
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 transition-colors duration-300 font-sans pb-24 overflow-x-hidden max-w-full">
+    <div className="app-canvas min-h-screen max-w-full overflow-x-clip pb-28 font-sans md:pb-12">
       {/* 1. Header Navbar */}
-      <header className="sticky top-0 z-30 backdrop-blur-md bg-white/70 dark:bg-slate-950/70 border-b border-slate-100 dark:border-white/5 transition-all duration-300">
-        <div className="flowt-container mx-auto h-16 sm:h-18 flex items-center justify-between">
-          
+      <header className="sticky top-0 z-30 border-b border-line bg-page/75 backdrop-blur-xl">
+        <div className="flowt-container mx-auto flex h-14 items-center justify-between gap-3 sm:h-16">
+
           {/* Logo brand */}
-          <div className="flex items-center gap-3">
-            <FlowtLogoSVG size={32} />
-            <div>
-              <h1 className="text-lg font-black tracking-tight leading-none uppercase text-slate-800 dark:text-white">
-                Flowt
-              </h1>
-              <span className="text-[8px] font-black uppercase tracking-[0.2em] text-indigo-500 leading-none block mt-0.5">
-                Financial Tracker
-              </span>
-            </div>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <FlowtLogo size={28} />
+            <span className="font-display text-xl font-bold leading-none tracking-tight text-ink">
+              Flowt
+            </span>
           </div>
 
-          {/* Responsive View Tabs Orchestration */}
-          <nav className="hidden md:flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200/40 dark:border-white/5 rounded-2xl">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
-                activeTab === 'dashboard'
-                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
-              }`}
-            >
-              <TrendingUp size={14} />
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveTab('salud')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
-                activeTab === 'salud'
-                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
-              }`}
-            >
-              <HeartPulse size={14} />
-              Salud
-            </button>
-            <button
-              onClick={() => setActiveTab('calendario')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
-                activeTab === 'calendario'
-                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
-              }`}
-            >
-              <Calendar size={14} />
-              Calendario
-            </button>
-            <button
-              onClick={() => setActiveTab('correos')}
-              className={`relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
-                activeTab === 'correos'
-                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
-              }`}
-            >
-              <Mail size={14} />
-              Correos
-              {pendingEmails.length > 0 && (
-                <span className={`ml-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black ${
-                  activeTab === 'correos' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300' : 'bg-indigo-500 text-white shadow-sm shadow-indigo-500/20'
-                }`}>
-                  {pendingEmails.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('ajustes')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ${
-                activeTab === 'ajustes'
-                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/30'
-              }`}
-            >
-              <Settings size={14} />
-              Ajustes
-            </button>
+          {/* Desktop view tabs */}
+          <nav
+            aria-label="Secciones"
+            className="segmented max-md:hidden"
+          >
+            {NAV_TABS.map(({ id, label, icon: Icon }) => {
+              const isActive = activeTab === id;
+              const badge = id === 'correos' ? pendingEmails.length : 0;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setActiveTab(id)}
+                  aria-current={isActive ? 'page' : undefined}
+                  className="segmented-item"
+                >
+                  <Icon size={15} className={isActive ? 'text-brand-ink' : ''} />
+                  {label}
+                  {badge > 0 && (
+                    <span className="grid h-4.5 min-w-4.5 place-items-center rounded-full bg-sun-500 px-1 text-[10px] font-extrabold leading-none text-slate-950">
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </nav>
 
           {/* Quick utility controls */}
-          <div className="flex items-center gap-3">
-            
+          <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
             <BentoMenu />
 
             {/* Privacy switch */}
             <button
+              type="button"
               onClick={handlePrivacyToggle}
-              className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md ${
+              className={
                 isLocked
-                  ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/20 animate-pulse hover:shadow-rose-500/10'
-                  : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 hover:shadow-indigo-500/10'
-              }`}
+                  ? 'grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-rose-500/10 text-rose-500 transition-colors duration-150 hover:bg-rose-500/15'
+                  : headerIconButton
+              }
               title={isLocked ? (hasPin ? 'Desbloquear datos con PIN' : 'Crear PIN de privacidad') : 'Bloquear datos (Ocultar saldos)'}
+              aria-label={isLocked ? (hasPin ? 'Desbloquear datos con PIN' : 'Crear PIN de privacidad') : 'Bloquear datos'}
             >
               {isLocked ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
 
             {/* Theme switch */}
             <button
+              type="button"
               onClick={toggleTheme}
-              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-450 border border-slate-200/30 dark:border-white/5 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md hover:shadow-slate-500/5"
+              className={headerIconButton}
               title={theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}
+              aria-label={theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
             {/* Signed User Badge / Demo Mode indicator */}
             {!isFirebaseConfigured ? (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-wider shadow-sm">
-                  <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                  Modo Demo
-                </div>
+              <div className="ml-1 flex items-center gap-1 rounded-full bg-sun-500/12 py-1 pl-3 pr-1 text-xs font-bold text-sun-600 dark:text-sun-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-sun-500" />
+                <span className={forceDemo ? '' : 'pr-2'}>Demo</span>
                 {forceDemo && (
                   <button
+                    type="button"
                     onClick={() => setForceDemo(false)}
-                    className="w-8 h-8 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md hover:shadow-rose-500/10"
+                    className="grid h-7 w-7 place-items-center rounded-full transition-colors duration-150 hover:bg-sun-500/20"
                     title="Salir del modo Demo y volver al login"
+                    aria-label="Salir del modo Demo"
                   >
-                    <LogOut size={14} />
+                    <LogOut size={13} />
                   </button>
                 )}
               </div>
             ) : (
               user && (
                 <button
+                  type="button"
                   onClick={() => setIsProfilePanelOpen(true)}
-                  className="flex items-center gap-2.5 pl-2.5 pr-1.5 py-1 rounded-2xl bg-slate-150/40 dark:bg-slate-900 border border-slate-200/30 dark:border-white/5 hover:border-indigo-500/30 hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer group active:scale-95"
+                  aria-label="Abrir perfil"
+                  className="group ml-1 flex items-center gap-2.5 rounded-full border border-transparent py-1 pl-1 pr-1 transition-colors duration-150 hover:border-line hover:bg-surface-2 lg:pr-3"
                 >
-                  <div className="flex flex-col text-right shrink-0">
-                    <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                      {isLocked ? 'Usuario Privado' : (user.displayName || 'Usuario')}
+                  <span className="grid h-8 w-8 place-items-center overflow-hidden rounded-full bg-brand-tint text-brand-ink">
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <User size={15} />
+                    )}
+                  </span>
+                  <span className="hidden text-left leading-tight lg:block">
+                    <span className="block text-xs font-bold text-ink">
+                      {isLocked ? 'Usuario privado' : (user.displayName || 'Usuario')}
                     </span>
-                    <span className="text-[8px] font-semibold text-slate-400 leading-none">
+                    <span className="block text-[10px] text-ink-faint">
                       {isLocked ? '••••@••••.••' : (user.email || 'Conectado')}
                     </span>
-                  </div>
-                  
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center transition-all group-hover:bg-indigo-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-indigo-500/20">
-                    {user.photoURL ? (
-                       <img src={user.photoURL} alt="Avatar" className="w-full h-full rounded-lg object-cover" />
-                    ) : (
-                       <User size={14} />
-                    )}
-                  </div>
+                  </span>
                 </button>
               )
             )}
@@ -643,6 +555,9 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
       <main className="flowt-container mx-auto mt-5 sm:mt-8">
         {activeTab === 'dashboard' && (
           <DashboardView
+            userName={firstName}
+            hasPin={hasPin}
+            onUnlock={handlePrivacyToggle}
             movimientos={movimientos}
             chartMovements={chartMovements}
             huchas={huchas}
@@ -713,25 +628,18 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
         )}
       </main>
 
-      {/* 3. Mobile Bottom navigation tabs bar - FLOATING PREMIUM WITH LIQUID SLIDER */}
+      {/* 3. Mobile bottom navigation: a floating bar with a sliding marker */}
       {(() => {
-        const mobileNavTabs = [
-          { id: 'dashboard', label: 'Inicio', icon: TrendingUp },
-          { id: 'salud', label: 'Salud', icon: HeartPulse },
-          { id: 'calendario', label: 'Calendario', icon: Calendar },
-          { id: 'correos', label: 'Correos', icon: Mail, badge: pendingEmails.length },
-          { id: 'ajustes', label: 'Ajustes', icon: Settings },
-        ] as const;
-
-        const activeMobileIndex = Math.max(0, mobileNavTabs.findIndex(t => t.id === activeTab));
+        const activeMobileIndex = Math.max(0, NAV_TABS.findIndex(t => t.id === activeTab));
         const distance = Math.abs(activeMobileIndex - prevMobileIndex);
         const slideDuration = Math.min(420, Math.max(250, distance * 85));
 
-        const handleMobileTabClick = (tabId: typeof activeTab) => {
-          const nextIndex = Math.max(0, mobileNavTabs.findIndex(t => t.id === tabId));
+        const handleMobileTabClick = (tabId: AppTab) => {
+          const nextIndex = Math.max(0, NAV_TABS.findIndex(t => t.id === tabId));
           if (nextIndex !== activeMobileIndex) {
             setIsSliding(true);
             setActiveTab(tabId);
+            window.scrollTo({ top: 0 });
             setTimeout(() => {
               setIsSliding(false);
               setPrevMobileIndex(nextIndex);
@@ -740,12 +648,15 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
         };
 
         return (
-          <div className="md:hidden fixed bottom-6 left-3.5 right-3.5 z-50">
-            <div className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[2.2rem] flex items-center h-16 shadow-[0_12px_45px_rgba(0,0,0,0.18)] dark:shadow-[0_12px_45px_rgba(0,0,0,0.6)] overflow-hidden">
-              
-              {/* Perfect Centered Sliding Liquid Indicator Wrapper */}
+          <nav
+            aria-label="Secciones"
+            className="fixed inset-x-3 bottom-3 z-40 pb-[env(safe-area-inset-bottom)] md:hidden"
+          >
+            <div className="relative flex h-16 items-center overflow-hidden rounded-[1.75rem] border border-line-strong bg-surface/90 shadow-[var(--shadow-pop)] backdrop-blur-xl">
+
+              {/* Sliding marker */}
               <div
-                className="absolute top-0 bottom-0 left-0 w-1/5 h-full p-1.5 pointer-events-none z-0"
+                className="pointer-events-none absolute inset-y-0 left-0 w-1/5 p-1.5"
                 style={{
                   transform: `translateX(${activeMobileIndex * 100}%)`,
                   transitionProperty: 'transform',
@@ -755,46 +666,39 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
                 }}
               >
                 <div
-                  className={`w-full h-full rounded-[1.7rem] bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 dark:from-indigo-500 dark:via-indigo-600 dark:to-violet-500 shadow-md shadow-indigo-500/35 dark:shadow-[0_0_20px_rgba(99,102,241,0.5)] border border-white/25 dark:border-white/15 transition-transform duration-200 ${
-                    isSliding ? 'scale-x-105 scale-y-97' : 'scale-x-100 scale-y-100'
+                  className={`h-full w-full rounded-[1.3rem] bg-brand shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_8px_18px_-8px_var(--brand)] transition-transform duration-200 ${
+                    isSliding ? 'scale-x-110 scale-y-95' : ''
                   }`}
                 />
               </div>
 
-              {/* Navigation Items */}
-              {mobileNavTabs.map((tab) => {
-                const IconComponent = tab.icon;
-                const isActive = activeTab === tab.id;
+              {NAV_TABS.map(({ id, label, icon: Icon }) => {
+                const isActive = activeTab === id;
+                const badge = id === 'correos' ? pendingEmails.length : 0;
                 return (
                   <button
-                    key={tab.id}
-                    onClick={() => handleMobileTabClick(tab.id)}
-                    className={`relative z-10 flex flex-col items-center justify-center w-1/5 h-full transition-colors duration-300 cursor-pointer ${
-                      isActive
-                        ? 'text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                    key={id}
+                    type="button"
+                    onClick={() => handleMobileTabClick(id)}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`relative z-10 flex h-full w-1/5 flex-col items-center justify-center gap-1 transition-colors duration-300 ${
+                      isActive ? 'text-white' : 'text-ink-soft'
                     }`}
                   >
-                    <div className="relative">
-                      <IconComponent size={19} className={`transition-transform duration-300 ${isActive ? 'scale-110 -translate-y-0.5' : ''}`} />
-                      {'badge' in tab && tab.badge !== undefined && tab.badge > 0 && (
-                        <span className={`absolute -top-1.5 -right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-black border-2 ${
-                          isActive ? 'bg-white text-indigo-700 border-indigo-600 shadow-sm' : 'bg-red-500 text-white border-slate-900'
-                        }`}>
-                          {tab.badge}
+                    <span className="relative">
+                      <Icon size={19} strokeWidth={isActive ? 2.4 : 2} />
+                      {badge > 0 && (
+                        <span className="absolute -right-2 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-sun-500 px-0.5 text-[8px] font-extrabold leading-none text-slate-950 ring-2 ring-surface">
+                          {badge}
                         </span>
                       )}
-                    </div>
-                    <span className={`text-[8.5px] font-black uppercase tracking-tight transition-all duration-300 mt-0.5 ${
-                      isActive ? 'opacity-100 scale-105 font-black' : 'opacity-80'
-                    }`}>
-                      {tab.label}
                     </span>
+                    <span className="text-[10px] font-bold leading-none">{label}</span>
                   </button>
                 );
               })}
             </div>
-          </div>
+          </nav>
         );
       })()}
 
@@ -904,7 +808,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
 
       {/* 6. Global Feedback overlay components */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full pointer-events-none">
+        <div className="pointer-events-none fixed inset-x-3 bottom-24 z-50 md:inset-x-auto md:bottom-6 md:right-6 md:w-full md:max-w-sm">
           <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
         </div>
       )}

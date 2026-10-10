@@ -1,21 +1,167 @@
-import React from 'react';
-import { Info, TrendingDown, TrendingUp } from 'lucide-react';
+import React, { useId, useMemo } from 'react';
+import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { CountUp } from '../common/CountUp';
+import { useCountUp } from '../../hooks/useCountUp';
 import { usePrivacy } from '../../context/PrivacyContext';
 
-interface FinancialOverviewProps { balance: number; ingresos: number; gastos: number; }
+interface FinancialOverviewProps {
+  balance: number;
+  ingresos: number;
+  gastos: number;
+  /** Which period the income / expense figures cover, e.g. "Este mes". */
+  periodLabel?: string;
+  /** Running net of the period, oldest first. Drawn as the line behind the figures. */
+  trend?: number[];
+}
 
-export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ balance, ingresos, gastos }) => {
+const euro = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' });
+
+/** The balance, with the cents stepped back so the eye lands on the euros. */
+const Balance: React.FC<{ value: number }> = ({ value }) => {
+  const shown = useCountUp(value, 1.1, true);
+  const [whole, cents] = euro.format(shown).split(',');
+  return (
+    <>
+      {whole}
+      <span className="text-[0.5em] font-semibold tracking-normal text-ink-soft">,{cents} €</span>
+    </>
+  );
+};
+
+const TREND_WIDTH = 400;
+const TREND_HEIGHT = 100;
+const TREND_MAX_POINTS = 48;
+
+/**
+ * Where the money has been, ending in the ring from the logo: today.
+ * Stretches to whatever box it is given, so it is drawn in a fixed viewBox with
+ * a non-scaling stroke and the ring is laid over it in HTML to stay round.
+ */
+const TrendLine: React.FC<{ values: number[]; className?: string }> = ({ values, className = '' }) => {
+  const id = useId().replace(/[^a-zA-Z0-9_-]/g, '');
+  const shape = useMemo(() => {
+    const stride = Math.max(1, Math.ceil(values.length / TREND_MAX_POINTS));
+    const sampled = values.filter((_, i) => i % stride === 0 || i === values.length - 1);
+    const series = [0, ...sampled];
+    const min = Math.min(...series);
+    const span = Math.max(...series) - min || 1;
+    const points = series.map((v, i) => ({
+      x: (i / (series.length - 1)) * TREND_WIDTH,
+      y: 8 + (1 - (v - min) / span) * (TREND_HEIGHT - 16),
+    }));
+    const line = points
+      .map((p, i) => {
+        if (i === 0) return `M${p.x} ${p.y}`;
+        const mid = (points[i - 1].x + p.x) / 2;
+        return `C${mid} ${points[i - 1].y} ${mid} ${p.y} ${p.x} ${p.y}`;
+      })
+      .join('');
+    return { line, area: `${line}V${TREND_HEIGHT}H0Z`, end: points[points.length - 1].y / TREND_HEIGHT };
+  }, [values]);
+
+  return (
+    <div
+      role="img"
+      aria-label="Evolución de tu saldo en el periodo"
+      className={`relative ${className}`}
+      style={{ animation: 'reveal-x 1200ms var(--ease-soft) 150ms backwards' }}
+    >
+      <svg
+        viewBox={`0 0 ${TREND_WIDTH} ${TREND_HEIGHT}`}
+        preserveAspectRatio="none"
+        className="absolute inset-y-0 left-0 h-full w-[calc(100%-6px)] overflow-visible"
+      >
+        <defs>
+          <linearGradient id={`${id}-line`} x1="0" y1="0" x2={TREND_WIDTH} y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#6366f1" stopOpacity="0.15" />
+            <stop offset="0.5" stopColor="#6366f1" />
+            <stop offset="1" stopColor="#ff9f0a" />
+          </linearGradient>
+          <linearGradient id={`${id}-area`} x1="0" y1="0" x2="0" y2={TREND_HEIGHT} gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#6366f1" stopOpacity="0.14" />
+            <stop offset="1" stopColor="#6366f1" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={shape.area} fill={`url(#${id}-area)`} />
+        <path
+          d={shape.line}
+          fill="none"
+          stroke={`url(#${id}-line)`}
+          strokeWidth="2.25"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+      <span
+        className="absolute right-0 h-3 w-3 -translate-y-1/2 rounded-full border-[2.5px] border-sun-500 bg-surface"
+        style={{ top: `${shape.end * 100}%` }}
+      />
+    </div>
+  );
+};
+
+export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ balance, ingresos, gastos, periodLabel, trend }) => {
   const { isLocked } = usePrivacy();
   const spent = ingresos > 0 ? Math.round((gastos / ingresos) * 100) : 0;
-  const visible = (value: number) => isLocked ? '•••• €' : <CountUp end={value} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.1} />;
-  return <section className="dashboard-surface grid grid-cols-2 gap-3 p-4 sm:grid-cols-[1.35fr_1fr_1fr_1fr] sm:items-center sm:gap-5 sm:p-6" aria-label="Resumen financiero">
-    <div className="border-b border-slate-200 pb-4 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-6 dark:border-slate-700">
-      <div className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400">Saldo actual <Info size={14} /></div>
-      <div className="mt-1 text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl tabular-nums">{visible(balance)}</div>
-    </div>
-    <div className="flex items-center gap-3"><span className="dashboard-icon bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10"><TrendingUp size={19} /></span><div><p className="dashboard-label">Ingresos</p><p className="dashboard-value text-emerald-600 dark:text-emerald-400">{visible(ingresos)}</p></div></div>
-    <div className="flex items-center gap-3"><span className="dashboard-icon bg-rose-50 text-rose-500 dark:bg-rose-500/10"><TrendingDown size={19} /></span><div><p className="dashboard-label">Gastos</p><p className="dashboard-value text-rose-500 dark:text-rose-400">{visible(gastos)}</p></div></div>
-    <div className="flex items-center gap-3 sm:border-l sm:border-slate-200 sm:pl-5 dark:sm:border-slate-700"><div className="relative grid h-16 w-16 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(#35bf8a ${isLocked ? 0 : Math.min(spent, 100)}%, #e2e8f0 0)` }}><div className="grid h-12 w-12 place-items-center rounded-full bg-white text-sm font-black text-slate-800 dark:bg-slate-900 dark:text-white">{isLocked ? '••' : `${spent}%`}</div></div><div><p className="dashboard-value">Gastado</p><p className="text-xs text-slate-500 dark:text-slate-400">sobre tus ingresos</p></div></div>
-  </section>;
+  const meter = isLocked ? 0 : Math.min(spent, 100);
+  const meterColor = spent >= 85 ? 'text-rose-500' : spent >= 65 ? 'text-sun-500' : 'text-emerald-500';
+  const showTrend = !isLocked && trend !== undefined && trend.length > 1;
+  const amount = (value: number) =>
+    isLocked ? '•••• €' : <CountUp end={value} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.1} />;
+
+  return (
+    <section className="dashboard-surface p-5 sm:p-7" aria-label="Resumen financiero">
+      <div className="grid gap-5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-end lg:gap-10">
+        <div className="min-w-0">
+          <p className="eyebrow">Saldo actual</p>
+          <p className={`figure mt-3 whitespace-nowrap text-[2.9rem] sm:text-6xl ${balance < 0 && !isLocked ? 'text-rose-500' : 'text-ink'}`}>
+            {isLocked ? '•••• €' : <Balance value={balance} />}
+          </p>
+        </div>
+
+        {showTrend ? <TrendLine values={trend} className="h-14 lg:h-20" /> : <div className="hidden lg:block" />}
+
+        <div className="grid min-w-0 grid-cols-2 gap-3 lg:w-[23rem]">
+          <div className="min-w-0 rounded-2xl bg-surface-2 p-3.5">
+            <div className="flex items-center gap-2">
+              <span className="grid h-6 w-6 place-items-center rounded-lg bg-emerald-500/12 text-emerald-600 dark:text-emerald-300">
+                <ArrowUpRight size={14} />
+              </span>
+              <p className="dashboard-label">Ingresos</p>
+            </div>
+            <p className="figure mt-2.5 truncate text-lg text-ink sm:text-xl">{amount(ingresos)}</p>
+          </div>
+          <div className="min-w-0 rounded-2xl bg-surface-2 p-3.5">
+            <div className="flex items-center gap-2">
+              <span className="grid h-6 w-6 place-items-center rounded-lg bg-rose-500/12 text-rose-600 dark:text-rose-300">
+                <ArrowDownRight size={14} />
+              </span>
+              <p className="dashboard-label">Gastos</p>
+            </div>
+            <p className="figure mt-2.5 truncate text-lg text-ink sm:text-xl">{amount(gastos)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="mb-2.5 flex items-baseline justify-between gap-3 text-xs">
+          <span className="text-ink-soft">
+            <span className="font-bold text-ink">Gastado</span> sobre tus ingresos
+            {periodLabel && <span className="text-ink-faint"> · {periodLabel.toLowerCase()}</span>}
+          </span>
+          <span className="font-extrabold tabular-nums text-ink">{isLocked ? '••' : `${spent}%`}</span>
+        </div>
+        <div
+          role="progressbar"
+          aria-label="Gastado sobre tus ingresos"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={meter}
+          className="flow-meter"
+        >
+          {meter > 0 && <i className={meterColor} style={{ width: `${meter}%` }} />}
+        </div>
+      </div>
+    </section>
+  );
 };

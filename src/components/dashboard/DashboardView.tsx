@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, ChevronDown, Info, Plus } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, Lock, Plus } from "lucide-react";
 import type { Hucha, Movimiento, Suscripcion } from "../../types";
 import { usePrivacy } from "../../context/PrivacyContext";
 import { parseMovimientoDate } from "../../hooks/useFinanceData";
@@ -13,14 +13,33 @@ import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { ServiceIcon } from "./ServiceIcon";
+import { walletAccent } from "../../utils/walletAccent";
 
 type TimePeriod = "este_mes" | "mes_pasado" | "este_anio" | "historico";
+const PERIODS: { value: TimePeriod; label: string }[] = [
+  { value: "este_mes", label: "Este mes" },
+  { value: "mes_pasado", label: "Mes pasado" },
+  { value: "este_anio", label: "Este año" },
+  { value: "historico", label: "Histórico" },
+];
+const greetingFor = (date: Date) => {
+  const hour = date.getHours();
+  if (hour >= 6 && hour < 13) return "Buenos días";
+  if (hour >= 13 && hour < 21) return "Buenas tardes";
+  return "Buenas noches";
+};
 interface ChartDatum {
   name: string;
   ingresos: number;
   gastos: number;
 }
 interface DashboardViewProps {
+  /** First name for the greeting; left out while data is locked. */
+  userName?: string;
+  /** Whether a privacy PIN exists yet; picks the wording of the locked state. */
+  hasPin?: boolean;
+  /** Opens the PIN prompt. With it, a locked dashboard shows one clear way in. */
+  onUnlock?: () => void;
   movimientos: Movimiento[];
   chartMovements: Movimiento[];
   huchas: Hucha[];
@@ -115,6 +134,23 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([, value]) => value);
   }, [filtered]);
+  const trend = useMemo(
+    () =>
+      filtered
+        .map((m) => ({
+          time: parseMovimientoDate(m.fecha_operacion)?.getTime() ?? 0,
+          value: (m.tipo === "ingreso" ? 1 : -1) * importeEnEstadisticas(m),
+        }))
+        .sort((a, b) => a.time - b.time)
+        .reduce<number[]>(
+          (running, point) => [
+            ...running,
+            (running[running.length - 1] ?? 0) + point.value,
+          ],
+          [],
+        ),
+    [filtered],
+  );
   const upcoming = useMemo(
     () =>
       props.suscripciones
@@ -136,82 +172,133 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
     [props.suscripciones],
   );
   const periodLabel =
-    period === "este_mes"
-      ? "Este mes"
-      : period === "mes_pasado"
-        ? "Mes pasado"
-        : period === "este_anio"
-          ? "Este año"
-          : "Histórico";
-  return (
-    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
-      <header className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h2 className="font-title text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Mi panel
-            </h2>
-            <div ref={periodRef} className="relative">
-              <button
-                type="button"
-                aria-haspopup="listbox"
-                aria-expanded={periodOpen}
-                onClick={() => setPeriodOpen(!periodOpen)}
-                className="dashboard-period-button"
-              >
-                {periodLabel}
-                <ChevronDown size={14} />
-              </button>
-              {periodOpen && (
-                <div
-                  role="listbox"
-                  aria-label="Periodo"
-                  className="absolute left-0 top-[calc(100%+6px)] z-40 w-36 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
-                >
-                  {(
-                    [
-                      "este_mes",
-                      "mes_pasado",
-                      "este_anio",
-                      "historico",
-                    ] as TimePeriod[]
-                  ).map((value) => (
-                    <button
-                      role="option"
-                      aria-selected={period === value}
-                      type="button"
-                      key={value}
-                      onClick={() => {
-                        setPeriod(value);
-                        setPeriodOpen(false);
-                      }}
-                      className="block w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-indigo-50 dark:text-slate-200 dark:hover:bg-indigo-500/10"
-                    >
-                      {value === "este_mes"
-                        ? "Este mes"
-                        : value === "mes_pasado"
-                          ? "Mes pasado"
-                          : value === "este_anio"
-                            ? "Este año"
-                            : "Histórico"}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Un resumen de tu situación financiera
+    PERIODS.find((p) => p.value === period)?.label ?? "Histórico";
+  const wallets = props.huchas.filter((h) => h.activa !== false);
+  const walletsTotal = wallets.reduce(
+    (sum, h) => sum + Math.max(0, h.saldo_acumulado),
+    0,
+  );
+  const now = new Date();
+  const today = now.toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const step = (i: number) => ({ "--i": i }) as React.CSSProperties;
+  const dueLabel = (daysLeft: number) =>
+    daysLeft === 0
+      ? "Vence hoy"
+      : daysLeft === 1
+        ? "Vence mañana"
+        : `Vence en ${daysLeft} días`;
+
+  const greeting = (
+    <div className="min-w-0">
+      <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink sm:text-4xl">
+        {greetingFor(now)}
+        {props.userName ? `, ${props.userName}` : ""}
+      </h2>
+      <p className="mt-1 text-sm text-ink-soft first-letter:uppercase">
+        {today}
+      </p>
+    </div>
+  );
+
+  // Locked: the data is not even loaded, so say so instead of showing empty lists.
+  if (isLocked && props.onUnlock) {
+    return (
+      <div className="space-y-5 sm:space-y-7">
+        <header className="rise" style={step(0)}>
+          {greeting}
+        </header>
+        <section
+          className="rise dashboard-surface grid place-items-center px-6 py-14 text-center sm:py-20"
+          style={step(1)}
+        >
+          <span className="grid h-16 w-16 place-items-center rounded-full border-[3px] border-sun-500 text-ink">
+            <Lock size={22} />
+          </span>
+          <h3 className="font-title mt-6 text-balance text-2xl font-bold text-ink sm:text-3xl">
+            {props.hasPin ? "Tus datos están ocultos" : "Protege tus datos con un PIN"}
+          </h3>
+          <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
+            {props.hasPin
+              ? "Introduce tu PIN para ver tus saldos, carteras y movimientos."
+              : "Flowt mantiene tus saldos ocultos hasta que introduces un PIN de 4 dígitos. Créalo para empezar."}
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={props.onUnlock}
+            className="dashboard-primary-button mt-7 !px-6 !py-3.5 !text-sm"
+          >
+            <Lock size={15} />
+            {props.hasPin ? "Desbloquear" : "Crear PIN"}
+          </button>
+          <p className="mt-4 hidden text-xs text-ink-faint md:block">
+            o pulsa{" "}
+            <kbd className="rounded-md border border-line-strong bg-surface-2 px-1.5 py-0.5 font-sans text-[11px] font-bold text-ink-soft">
+              P
+            </kbd>
+          </p>
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5 sm:space-y-7">
+      <header
+        className="rise flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
+        style={step(0)}
+      >
+        {greeting}
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={props.onOpenManualMovimientoModal}
-            className="dashboard-primary-button"
+            className="dashboard-primary-button flex-1 md:order-last md:flex-none"
           >
             <Plus size={16} /> Añadir movimiento
           </button>
+          <div ref={periodRef} className="relative">
+            <button
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded={periodOpen}
+              onClick={() => setPeriodOpen(!periodOpen)}
+              className="dashboard-period-button"
+            >
+              {periodLabel}
+              <ChevronDown
+                size={14}
+                className={`transition-transform duration-200 ${periodOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {periodOpen && (
+              <div
+                role="listbox"
+                aria-label="Periodo"
+                className="glass-panel animate-in fade-in slide-in-from-top-1 absolute right-0 top-[calc(100%+6px)] z-40 w-40 rounded-2xl p-1 duration-150 md:left-0 md:right-auto"
+              >
+                {PERIODS.map(({ value, label }) => (
+                  <button
+                    role="option"
+                    aria-selected={period === value}
+                    type="button"
+                    key={value}
+                    onClick={() => {
+                      setPeriod(value);
+                      setPeriodOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-bold transition-colors hover:bg-surface-2 ${period === value ? "text-brand-ink" : "text-ink"}`}
+                  >
+                    {label}
+                    {period === value && <Check size={14} aria-hidden="true" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <MoreActionsMenu
             open={actionsOpen}
             onToggle={() => setActionsOpen(!actionsOpen)}
@@ -222,43 +309,95 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
           />
         </div>
       </header>
-      <FinancialOverview
-        balance={props.balance}
-        ingresos={ingresos}
-        gastos={gastos}
-      />
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="dashboard-heading">Mis carteras</h3>
-          <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
-            {props.huchas.filter((h) => h.activa !== false).length} activas
-          </span>
+
+      <div className="rise" style={step(1)}>
+        <FinancialOverview
+          balance={props.balance}
+          ingresos={ingresos}
+          gastos={gastos}
+          periodLabel={periodLabel}
+          trend={trend}
+        />
+      </div>
+
+      <section className="rise" style={step(2)}>
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="dashboard-heading">Mis carteras</h3>
+            <p className="dashboard-subtitle">
+              {wallets.length} {wallets.length === 1 ? "activa" : "activas"}
+              {!isLocked && walletsTotal > 0 && (
+                <> · {formatCurrency(walletsTotal)} repartidos</>
+              )}
+            </p>
+          </div>
         </div>
-        <div className="flowt-wallets-grid -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3 xl:grid-cols-5">
-          {props.huchas.filter((h) => h.activa !== false).length ? (
-            props.huchas
-              .filter((h) => h.activa !== false)
-              .map((h) => (
-                  <div key={h.id} className="min-w-[82vw] snap-start sm:min-w-0">
+        {!isLocked && walletsTotal > 0 && wallets.length > 1 && (
+          <div
+            role="img"
+            aria-label="Cómo se reparte tu saldo entre las carteras"
+            className="mb-3 flex h-1.5 gap-0.5"
+          >
+            {wallets.map((h, i) => {
+              const share = Math.max(0, h.saldo_acumulado) / walletsTotal;
+              return share > 0 ? (
+                <span
+                  key={h.id}
+                  title={`${h.nombre} · ${Math.round(share * 100)}%`}
+                  className={`h-full min-w-1 rounded-full ${walletAccent(i).fill}`}
+                  style={{ width: `${share * 100}%` }}
+                />
+              ) : null;
+            })}
+          </div>
+        )}
+        <div className="flowt-wallets-grid -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3 xl:grid-cols-[repeat(auto-fit,minmax(13rem,1fr))]">
+          {wallets.length ? (
+            <>
+              {wallets.map((h, i) => (
+                <div key={h.id} className="min-w-[78vw] snap-start sm:min-w-0">
                   <HuchaCard
-                  hucha={h}
-                  onEdit={props.onOpenHuchaModal}
-                  onDelete={props.onDeleteHucha}
-                  onSubsanar={props.onSubsanar}
-                  onRevertirDeuda={props.onRevertirDeuda}
+                    hucha={h}
+                    index={i}
+                    onEdit={props.onOpenHuchaModal}
+                    onDelete={props.onDeleteHucha}
+                    onSubsanar={props.onSubsanar}
+                    onRevertirDeuda={props.onRevertirDeuda}
                   />
-                  </div>
-              ))
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => props.onOpenHuchaModal(null)}
+                className="grid min-h-36 min-w-[44vw] snap-start place-items-center content-center gap-2 rounded-[1.25rem] border border-dashed border-line-strong text-xs font-bold text-ink-soft transition-colors duration-150 hover:border-brand hover:bg-brand-tint hover:text-brand-ink sm:min-w-0"
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-surface-2">
+                  <Plus size={16} />
+                </span>
+                Nueva cartera
+              </button>
+            </>
           ) : (
-            <div className="dashboard-empty sm:col-span-2 lg:col-span-3 xl:col-span-5">
+            <div className="dashboard-empty w-full py-6 sm:col-span-2 lg:col-span-3 xl:col-span-full">
               <EmptyIllustration />
               <p>No tienes carteras activas</p>
+              <button
+                type="button"
+                onClick={() => props.onOpenHuchaModal(null)}
+                className="dashboard-secondary-button mt-2"
+              >
+                <Plus size={15} /> Crear la primera
+              </button>
             </div>
           )}
         </div>
       </section>
-      <div className="grid items-start gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+
+      <div
+        className="rise grid grid-cols-1 items-start gap-4 lg:grid-cols-3"
+        style={step(3)}
+      >
+        <div className="min-w-0 lg:col-span-2">
           <AnalyticsSection
             chartData={periodChartData}
             huchas={props.huchas}
@@ -266,13 +405,13 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             allMovimientos={filtered}
           />
         </div>
-        <section className="dashboard-surface p-5">
-          <div className="mb-4 flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <span className="dashboard-icon bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10">
-                <Calendar size={18} />
+        <section className="dashboard-surface min-w-0 p-5">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="dashboard-icon bg-brand-tint text-brand-ink">
+                <CalendarClock size={18} />
               </span>
-              <div>
+              <div className="min-w-0">
                 <h3 className="dashboard-heading">Próximos cargos</h3>
                 <p className="dashboard-subtitle">Movimientos programados</p>
               </div>
@@ -280,30 +419,29 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             <button
               type="button"
               onClick={props.onOpenCalendar}
-              className="text-[11px] font-bold text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:text-indigo-400"
+              className="shrink-0 rounded-lg py-1 text-xs font-bold text-brand-ink underline-offset-4 hover:underline"
             >
               Ver calendario
             </button>
           </div>
           {upcoming.length ? (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="divide-y divide-line">
               {upcoming.map(({ sub, date, daysLeft }) => (
                 <div key={sub.id} className="flex items-center gap-3 py-3">
                   <ServiceIcon name={sub.nombre} color={sub.color} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-extrabold text-slate-800 dark:text-white">
+                    <p className="truncate text-[13px] font-bold text-ink">
                       {sub.nombre}
                     </p>
-                    <p className="text-[11px] text-slate-500">
-                      Vence en{" "}
+                    <p className="text-[11px] text-ink-soft">
                       <span
                         className={
                           daysLeft <= 3
-                            ? "font-bold text-amber-600"
-                            : "font-bold text-slate-700 dark:text-slate-300"
+                            ? "font-bold text-sun-600 dark:text-sun-300"
+                            : ""
                         }
                       >
-                        {daysLeft} {daysLeft === 1 ? "día" : "días"}
+                        {dueLabel(daysLeft)}
                       </span>{" "}
                       ·{" "}
                       {date.toLocaleDateString("es-ES", {
@@ -312,7 +450,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
                       })}
                     </p>
                   </div>
-                  <span className="text-xs font-black tabular-nums text-slate-900 dark:text-white">
+                  <span className="text-[13px] font-extrabold tabular-nums text-ink">
                     {isLocked
                       ? "•• €"
                       : formatCurrency(sub.mi_parte ?? sub.importe)}
@@ -326,15 +464,18 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             </div>
           )}
           {upcoming.length > 0 && (
-            <div className="mt-3 flex gap-2 rounded-xl bg-indigo-50 p-3 text-[11px] text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
-              <Info size={14} className="shrink-0" /> Las fechas se calculan
-              desde tus suscripciones activas.
-            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-ink-faint">
+              Las fechas se calculan desde tus suscripciones activas.
+            </p>
           )}
         </section>
       </div>
-      <div className="grid items-start gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+
+      <div
+        className="rise grid grid-cols-1 items-start gap-4 lg:grid-cols-3"
+        style={step(4)}
+      >
+        <div className="min-w-0 lg:col-span-2">
           <ActivityList
             movimientos={props.movimientos}
             allMovimientos={props.chartMovements}
@@ -351,7 +492,9 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             onDeleteMovimiento={props.onDeleteMovimiento}
           />
         </div>
-        <MonthlySummary movimientos={props.chartMovements} />
+        <div className="min-w-0">
+          <MonthlySummary movimientos={props.chartMovements} />
+        </div>
       </div>
     </div>
   );

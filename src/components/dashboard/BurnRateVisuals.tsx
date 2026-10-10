@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 // ExpenseImpactBadge Component
+// How much of the wallet's monthly budget a single expense takes.
 export const ExpenseImpactBadge = ({
   percentage,
   className = '',
@@ -8,49 +9,20 @@ export const ExpenseImpactBadge = ({
   percentage: number;
   className?: string;
 }) => {
-  let severity = 'neutral';
-  if (percentage > 10) severity = 'critical';
-  else if (percentage > 5) severity = 'warning';
-
-  const baseStyles = "relative inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider overflow-hidden backdrop-blur-md border shadow-lg transition-all duration-300";
-  
-  const severityStyles: Record<string, string> = {
-    critical: "bg-red-500/20 border-red-500/50 text-red-700 dark:text-red-100 shadow-[0_0_15px_rgba(239,68,68,0.5),inset_0_0_10px_rgba(239,68,68,0.2)] animate-pulse-shake",
-    warning: "bg-amber-500/20 border-amber-500/50 text-amber-700 dark:text-amber-100 shadow-[0_0_10px_rgba(245,158,11,0.3),inset_0_0_5px_rgba(245,158,11,0.1)]",
-    neutral: "bg-slate-500/20 border-slate-500/30 text-slate-700 dark:text-slate-300 shadow-[0_0_5px_rgba(148,163,184,0.1)]"
-  };
-
-  const glowStyles: Record<string, string> = {
-    critical: "bg-red-400",
-    warning: "bg-amber-400",
-    neutral: "bg-slate-400"
-  };
+  const tone =
+    percentage > 10
+      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-300'
+      : percentage > 5
+        ? 'bg-sun-500/12 text-sun-600 dark:text-sun-300'
+        : 'bg-surface-2 text-ink-soft';
 
   return (
-    <>
-      <style>{`
-        @keyframes pulse-shake {
-          0%, 100% { transform: scale(1) rotate(0deg); }
-          25% { transform: scale(1.02) rotate(1deg); }
-          50% { transform: scale(1.04) rotate(-1deg); }
-          75% { transform: scale(1.02) rotate(0.5deg); }
-        }
-        .animate-pulse-shake {
-          animation: pulse-shake 2s infinite ease-in-out;
-        }
-      `}</style>
-      <div className={`${baseStyles} ${severityStyles[severity]} ${className}`}>
-        {/* Inner glow element */}
-        <span className={`absolute -top-2 -left-2 w-8 h-8 rounded-full blur-xl opacity-50 ${glowStyles[severity]}`}></span>
-        
-        <span className="relative z-10 drop-shadow-md">
-          Impact: {percentage.toFixed(1)}%
-        </span>
-        
-        {/* Glossy top highlight for 3D effect */}
-        <span className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-full"></span>
-      </div>
-    </>
+    <span
+      title="Parte del presupuesto mensual de la cartera que se lleva este gasto"
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${tone} ${className}`}
+    >
+      {percentage.toLocaleString('es-ES', { maximumFractionDigits: 1 })}% del presupuesto
+    </span>
   );
 };
 

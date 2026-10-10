@@ -172,10 +172,10 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
       
       {/* Header */}
       <div>
-        <h2 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-          Revisión Manual
+        <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink sm:text-4xl">
+          Revisión manual
         </h2>
-        <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500">
+        <p className="mt-1 text-sm text-ink-soft">
           Correos bancarios que requirieron revisión o tuvieron baja confianza en el parseo automático
         </p>
       </div>
@@ -184,9 +184,9 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
         
         {/* Left Side: Pending Emails List (1/3 width) */}
         <div className="space-y-4">
-          <h3 className="font-extrabold text-sm text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-            <Inbox className="w-4 h-4" />
-            Bandeja de Pendientes ({pendingEmails.length})
+          <h3 className="dashboard-heading flex items-center gap-2">
+            <Inbox className="h-4 w-4 text-ink-faint" />
+            Pendientes ({pendingEmails.length})
           </h3>
           
           <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
@@ -436,8 +436,8 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 text-center h-[520px]">
-              <Mail className="w-16 h-16 text-indigo-500/30 dark:text-indigo-400/20 mb-4 animate-bounce" />
-              <h3 className="font-extrabold text-base text-slate-700 dark:text-slate-350 uppercase tracking-wider">Espacio de Revisión</h3>
+              <Mail className="mb-4 h-12 w-12 text-ink-faint" />
+              <h3 className="dashboard-heading">Elige un correo para revisarlo</h3>
               <p className="text-xs text-slate-400 mt-1 max-w-sm">
                 Selecciona un correo bancario de la bandeja de entrada de la izquierda para analizarlo y registrarlo manualmente.
               </p>

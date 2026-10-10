@@ -341,11 +341,11 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
     <div className="flex flex-col gap-6 animate-in slide-in-from-bottom-4 duration-500 pb-12">
       {/* Header */}
       <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-black tracking-tight text-slate-800 dark:text-white flex items-center gap-3">
+        <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink sm:text-4xl flex items-center gap-3">
           <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
             <Download size={24} />
           </div>
-          Exportar Datos
+          Exportar datos
         </h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Filtra tus movimientos y cópialos para análisis externos o asistentes de IA.

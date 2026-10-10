@@ -56,7 +56,7 @@ describe('App Dashboard', () => {
   it('renders the login screen when not authenticated', async () => {
     vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
     render(<App />);
-    expect(await screen.findByText(/Control de gastos inteligente/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Cada euro,\s*en su sitio/i })).toBeInTheDocument();
     expect(await screen.findByText(/Acceder con Google/i)).toBeInTheDocument();
     expect(screen.queryByLabelText('Contraseña')).not.toBeInTheDocument();
     vi.unstubAllEnvs();
@@ -78,7 +78,7 @@ describe('App Dashboard', () => {
     const demoBtn = await screen.findByText(/Explorar en modo Demo/i);
     fireEvent.click(demoBtn);
     
-    expect(await screen.findByText(/Dashboard/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Mis carteras/i })).toBeInTheDocument();
     
     vi.unstubAllEnvs();
   });

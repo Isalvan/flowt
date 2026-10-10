@@ -245,7 +245,8 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [pinCallback, memoryPin, memorySalt]);
 
   const formatPlainCurrency = useCallback((value: number): string => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
+    // 'always': Spanish only groups from five digits by default, which left 2450,00 € next to 12.450,00 €
+    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', useGrouping: 'always' }).format(value);
   }, []);
 
   const formatCurrency = useCallback((value: number): string => {

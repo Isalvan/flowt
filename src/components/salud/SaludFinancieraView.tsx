@@ -70,10 +70,10 @@ export const SaludFinancieraView: React.FC<SaludFinancieraViewProps> = ({
       {/* Clean Header without icon clutter */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
-            Salud Financiera
+          <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink sm:text-4xl">
+            Salud financiera
           </h2>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-ink-soft">
             Evaluación continua de tu tasa de ahorro, estabilidad y balance
             financiero.
           </p>

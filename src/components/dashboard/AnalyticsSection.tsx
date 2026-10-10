@@ -14,7 +14,6 @@ import {
 } from "recharts";
 import { BarChart3, TrendingUp } from "lucide-react";
 import type { Hucha, Movimiento, Suscripcion } from "../../types";
-import { Card } from "../common/Card";
 import { usePrivacy } from "../../context/PrivacyContext";
 
 interface AnalyticsSectionProps {
@@ -43,15 +42,15 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
     label,
   }: TooltipContentProps<TooltipValueType, string | number>) =>
     active && payload?.length ? (
-      <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-xl dark:border-slate-700 dark:bg-slate-900">
-        <p className="mb-2 font-bold text-slate-500">{String(label ?? "")}</p>
+      <div className="glass-panel rounded-xl p-3 text-xs">
+        <p className="mb-1.5 font-bold capitalize text-ink-soft">{String(label ?? "")}</p>
         {payload.map((item, index) => {
           const dataKey = String(item.dataKey ?? "");
           const isIncome = dataKey === "ingresos";
           return (
             <p
               key={`${dataKey}-${index}`}
-              className={isIncome ? "text-emerald-600" : "text-rose-500"}
+              className={`font-semibold tabular-nums ${isIncome ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}
             >
               {isIncome ? "Ingresos" : "Gastos"}:{" "}
               {formatCurrency(toNumericValue(item.value))}
@@ -62,10 +61,10 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
     ) : null;
 
   return (
-    <Card className="dashboard-surface !p-5">
+    <section className="dashboard-surface p-5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="dashboard-icon bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10">
+          <span className="dashboard-icon bg-brand-tint text-brand-ink">
             <TrendingUp size={18} />
           </span>
           <div>
@@ -75,12 +74,13 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
             </p>
           </div>
         </div>
-        <div className="flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-700">
+        <div className="flex shrink-0 rounded-xl bg-surface-2 p-0.5">
           <button
             type="button"
             aria-label="Ver gráfico de área"
             onClick={() => setChartType("area")}
-            className={`rounded-md p-1.5 ${chartType === "area" ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-slate-400"}`}
+            aria-pressed={chartType === "area"}
+            className={`rounded-[0.6rem] p-1.5 transition-colors ${chartType === "area" ? "bg-surface text-ink shadow-sm" : "text-ink-faint hover:text-ink"}`}
           >
             <TrendingUp size={14} />
           </button>
@@ -88,7 +88,8 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
             type="button"
             aria-label="Ver gráfico de barras"
             onClick={() => setChartType("bar")}
-            className={`rounded-md p-1.5 ${chartType === "bar" ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10" : "text-slate-400"}`}
+            aria-pressed={chartType === "bar"}
+            className={`rounded-[0.6rem] p-1.5 transition-colors ${chartType === "bar" ? "bg-surface text-ink shadow-sm" : "text-ink-faint hover:text-ink"}`}
           >
             <BarChart3 size={14} />
           </button>
@@ -96,8 +97,12 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
       </div>
       <div className="h-64 w-full">
         {isLocked ? (
-          <div className="grid h-full place-items-center rounded-xl bg-slate-50 text-sm font-bold text-slate-400 dark:bg-slate-800/50">
+          <div className="grid h-full place-items-center rounded-2xl bg-surface-2 text-sm font-semibold text-ink-faint">
             Gráfica protegida por privacidad
+          </div>
+        ) : !chartData.length ? (
+          <div className="dashboard-empty h-full">
+            <p>Aún no hay movimientos en este periodo</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -130,34 +135,39 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
                 </defs>
                 <CartesianGrid
                   vertical={false}
-                  stroke="#e2e8f0"
-                  strokeDasharray="3 3"
+                  stroke="var(--line-strong)"
+                  strokeDasharray="2 6"
                 />
                 <XAxis
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "#64748b", fontSize: 10 }}
+                  tick={{ fill: "var(--ink-faint)", fontSize: 11 }}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "#64748b", fontSize: 10 }}
+                  tick={{ fill: "var(--ink-faint)", fontSize: 11 }}
                 />
-                <Tooltip content={tooltip} />
+                <Tooltip
+                  content={tooltip}
+                  cursor={{ stroke: "var(--line-strong)", fill: "var(--surface-2)" }}
+                />
                 <Area
                   type="monotone"
                   dataKey="ingresos"
                   stroke="#10b981"
-                  strokeWidth={2}
+                  strokeWidth={2.25}
                   fill="url(#flowtIncomeFill)"
+                  activeDot={{ r: 4, strokeWidth: 0 }}
                 />
                 <Area
                   type="monotone"
                   dataKey="gastos"
                   stroke="#fb7185"
-                  strokeWidth={2}
+                  strokeWidth={2.25}
                   fill="url(#flowtExpenseFill)"
+                  activeDot={{ r: 4, strokeWidth: 0 }}
                 />
               </AreaChart>
             ) : (
@@ -167,29 +177,32 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
               >
                 <CartesianGrid
                   vertical={false}
-                  stroke="#e2e8f0"
-                  strokeDasharray="3 3"
+                  stroke="var(--line-strong)"
+                  strokeDasharray="2 6"
                 />
                 <XAxis
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "#64748b", fontSize: 10 }}
+                  tick={{ fill: "var(--ink-faint)", fontSize: 11 }}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "#64748b", fontSize: 10 }}
+                  tick={{ fill: "var(--ink-faint)", fontSize: 11 }}
                 />
-                <Tooltip content={tooltip} />
-                <Bar dataKey="ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="gastos" fill="#fb7185" radius={[4, 4, 0, 0]} />
+                <Tooltip
+                  content={tooltip}
+                  cursor={{ stroke: "var(--line-strong)", fill: "var(--surface-2)" }}
+                />
+                <Bar dataKey="ingresos" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                <Bar dataKey="gastos" fill="#fb7185" radius={[6, 6, 0, 0]} maxBarSize={28} />
               </BarChart>
             )}
           </ResponsiveContainer>
         )}
       </div>
-      <div className="mt-2 flex justify-center gap-5 text-[11px] font-bold text-slate-500">
+      <div className="mt-2 flex justify-center gap-5 text-[11px] font-semibold text-ink-soft">
         <span>
           <i className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />
           Ingresos
@@ -199,6 +212,6 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
           Gastos
         </span>
       </div>
-    </Card>
+    </section>
   );
 };

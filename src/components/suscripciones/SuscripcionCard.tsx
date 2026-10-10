@@ -80,7 +80,7 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
           
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <h4 className="font-extrabold text-slate-800 dark:text-slate-100 text-sm uppercase tracking-tight truncate max-w-[120px]" title={suscripcion.nombre}>
+              <h4 className="truncate text-sm font-bold text-ink" title={suscripcion.nombre}>
                 {suscripcion.nombre}
               </h4>
               
