@@ -58,22 +58,19 @@ export const calculateProjectionEstimates = (
   };
 };
 
-export const hasProjectionData = (
-  movements: Movimiento[],
-  subscriptions: Suscripcion[],
-  now = new Date(),
-): boolean =>
-  Boolean(calculateProjectionEstimates(movements, subscriptions, now));
-
 export const buildProjectionData = (
   startingBalance: number,
   estimates: ProjectionEstimates,
   now = new Date(),
+  days = 90,
 ) => {
   const data: Array<{ name: string; balance: number; rawDate: Date }> = [];
   let balance = startingBalance;
+  // Roughly 30 points whatever the horizon, so long ranges stay readable.
+  const step = Math.max(1, Math.round(days / 30));
+  const withYear = days > 330;
 
-  for (let day = 0; day <= 90; day += 1) {
+  for (let day = 0; day <= days; day += 1) {
     const date = new Date(now);
     date.setDate(now.getDate() + day);
     if (day > 0)
@@ -92,11 +89,12 @@ export const buildProjectionData = (
     });
 
     balance = Math.round(balance * 100) / 100;
-    if (day % 3 === 0 || day === 90) {
+    if (day % step === 0 || day === days) {
       data.push({
         name: date.toLocaleDateString("es-ES", {
           day: "numeric",
           month: "short",
+          ...(withYear && { year: "2-digit" }),
         }),
         balance,
         rawDate: date,

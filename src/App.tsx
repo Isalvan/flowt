@@ -8,7 +8,6 @@ import { type Hucha, type Suscripcion, type Movimiento } from './types';
 
 // Tab subviews
 import { DashboardView } from './components/dashboard/DashboardView';
-import { SaludFinancieraView } from './components/salud/SaludFinancieraView';
 import { CalendarioView } from './components/calendario/CalendarioView';
 import { CorreosOrchestrator } from './components/correos/CorreosOrchestrator';
 import { AjustesOrchestrator } from './components/ajustes/AjustesOrchestrator';
@@ -44,7 +43,6 @@ import {
   Eye,
   EyeOff,
   User,
-  HeartPulse,
   CalendarDays,
   Settings,
 } from 'lucide-react';
@@ -53,11 +51,10 @@ import { CategoriesProvider } from './context/CategoriesContext';
 import { PinModal } from './components/common/PinModal';
 import { BentoMenu } from './components/common/BentoMenu';
 
-type AppTab = 'dashboard' | 'salud' | 'calendario' | 'correos' | 'ajustes';
+type AppTab = 'dashboard' | 'calendario' | 'correos' | 'ajustes';
 
 const NAV_TABS: { id: AppTab; label: string; icon: typeof House }[] = [
   { id: 'dashboard', label: 'Inicio', icon: House },
-  { id: 'salud', label: 'Salud', icon: HeartPulse },
   { id: 'calendario', label: 'Calendario', icon: CalendarDays },
   { id: 'correos', label: 'Correos', icon: Mail },
   { id: 'ajustes', label: 'Ajustes', icon: Settings },
@@ -596,15 +593,6 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             huchas={huchas}
             onApprove={handleApprovePendingEmail}
             onDiscard={handleDiscardPendingEmail}
-          />
-        )}
-
-        {activeTab === 'salud' && (
-          <SaludFinancieraView
-            movimientos={chartMovements}
-            huchas={huchas}
-            suscripciones={suscripciones}
-            userStats={userStats}
           />
         )}
 

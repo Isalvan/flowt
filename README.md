@@ -8,7 +8,7 @@ Flowt is a personal finance application that turns bank notifications received t
 
 - **Automatic multi-bank synchronization** for Unicaja, Revolut, BBVA, Santander, CaixaBank, ING, Sabadell, and N26 using the `gmail.modify` scope.
 - **Intelligent transaction extraction** with PII redaction before Gemini processing.
-- **Financial health dashboard** scoring savings, portfolios, cash flow, and subscriptions from 0 to 100.
+- **Balance projection** over a configurable horizon (1 to 60 months), based on your actual pace of income, expenses, and subscriptions.
 - **Bank filtering**, idempotent manual review, pockets, goals, and shared subscriptions.
 - **Safe CSV export** protected against formula injection.
 - **Security and privacy controls** with strict Firestore rules, 90-day email-data TTL retention, CSP, and HSTS.
