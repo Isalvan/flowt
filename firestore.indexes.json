@@ -48,6 +48,54 @@
   // ]
   "indexes": [
     {
+      "collectionGroup": "review_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_propietario", "order": "ASCENDING" },
+        { "fieldPath": "state", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "review_questions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_propietario", "order": "ASCENDING" },
+        { "fieldPath": "state", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "review_history",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_propietario", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "movimientos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_propietario", "order": "ASCENDING" },
+        { "fieldPath": "fecha_operacion", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "movimientos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_propietario", "order": "ASCENDING" },
+        { "fieldPath": "fecha_operacion", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "movimientos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_propietario", "order": "ASCENDING" },
+        { "fieldPath": "suscripcion_id", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "suscripciones",
       "queryScope": "COLLECTION",
       "fields": [

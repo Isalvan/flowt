@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { Layers, Download, Archive, RefreshCw } from 'lucide-react';
+import { Layers, Download, Archive, RefreshCw, Tags, Plug } from 'lucide-react';
+import { CategoryHuchasView } from './CategoryHuchasView';
+import { ReviewHistoryView } from './ReviewHistoryView';
+import { ConnectionsView } from './ConnectionsView';
 import { SuscripcionesView } from '../suscripciones/SuscripcionesView';
 import { ExportView } from '../export/ExportView';
 import { usePrivacy } from '../../context/PrivacyContext';
@@ -19,6 +22,7 @@ interface AjustesOrchestratorProps {
   chartMovements: Movimiento[];
   userStats: any;
   userId: string | undefined;
+  demo?: boolean;
   onRestoreHucha: (huchaId: string) => void;
 }
 
@@ -33,9 +37,10 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
   chartMovements,
   userStats,
   userId,
+  demo = false,
   onRestoreHucha
 }) => {
-  const [subTab, setSubTab] = useState<'suscripciones' | 'exportar' | 'carteras_inactivas'>('suscripciones');
+  const [subTab, setSubTab] = useState<'suscripciones' | 'exportar' | 'carteras_inactivas' | 'categorias' | 'revisiones' | 'conexiones'>('suscripciones');
   const { formatCurrency } = usePrivacy();
 
   return (
@@ -44,6 +49,8 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
       {/* Elegante selector de sub-vista tipo píldora */}
       <div className="no-scrollbar -mx-4 flex overflow-x-auto px-4 sm:mx-0 sm:justify-center sm:px-0">
         <div className="segmented">
+          <button onClick={() => setSubTab('revisiones')} aria-pressed={subTab === 'revisiones'} className="segmented-item"><RefreshCw size={16} />Revisiones automáticas</button>
+          <button onClick={() => setSubTab('categorias')} aria-pressed={subTab === 'categorias'} className="segmented-item"><Tags size={16} />Huchas por categoría</button>
           
           <button
             onClick={() => setSubTab('suscripciones')}
@@ -72,12 +79,20 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
             Carteras inactivas
           </button>
 
+          <button onClick={() => setSubTab('conexiones')} aria-pressed={subTab === 'conexiones'} className="segmented-item"><Plug size={16} />Conexiones</button>
+
         </div>
       </div>
 
       {/* Renderizado de la vista seleccionada */}
       <div className="w-full">
-        {subTab === 'suscripciones' ? (
+        {subTab === 'revisiones' ? (
+          <ReviewHistoryView userId={userId} demo={demo} huchas={huchas} suscripciones={suscripciones} />
+        ) : subTab === 'categorias' ? (
+          <CategoryHuchasView userId={userId} huchas={huchas} demo={demo} />
+        ) : subTab === 'conexiones' ? (
+          <ConnectionsView userId={userId} demo={demo} />
+        ) : subTab === 'suscripciones' ? (
           <SuscripcionesView
             suscripciones={suscripciones}
             huchas={huchas}
@@ -89,7 +104,7 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
           />
         ) : subTab === 'carteras_inactivas' ? (
           <div className="w-full max-w-2xl mx-auto bg-white/40 dark:bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/20 dark:border-white/5 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Carteras inactivas</h3>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Carteras Inactivas</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
               Aquí puedes ver y restaurar las carteras que has ocultado o desactivado. Al restaurarlas, volverán a estar disponibles en tu dashboard.
             </p>

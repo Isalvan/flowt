@@ -29,6 +29,7 @@ import { Toast } from './components/common/Toast';
 import { ConfirmModal } from './components/common/ConfirmModal';
 import { DashboardSkeleton } from './components/dashboard/DashboardSkeleton';
 import { ManualLogin, MANUAL_LOGIN_PATH } from './components/auth/ManualLogin';
+import { ConnectConsent, CONNECT_PATH } from './components/auth/ConnectConsent';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { ShortcutsHelpModal } from './components/common/ShortcutsHelpModal';
 import { CelebrationConfetti } from './components/common/CelebrationConfetti';
@@ -430,6 +431,11 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     return <LoginScreen onLogin={handleLogin} onDemo={() => setForceDemo(true)} />;
   }
 
+  // An assistant sent the user here to approve its access; no financial data is shown.
+  if (isFirebaseConfigured && user && window.location.pathname.replace(/\/$/, '') === CONNECT_PATH) {
+    return <ConnectConsent email={user.email} onLogout={handleLogout} />;
+  }
+
   const firstName = !isLocked ? user?.displayName?.trim().split(/\s+/)[0] : undefined;
 
   return (
@@ -623,6 +629,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             chartMovements={chartMovements}
             userStats={userStats}
             userId={user?.uid}
+            demo={!isFirebaseConfigured}
             onRestoreHucha={handleRestoreHucha}
           />
         )}

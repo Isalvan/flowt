@@ -1,0 +1,13 @@
+**
+!requirements.txt
+!requirements.in
+!requirements-review.in
+!Dockerfile.review
+!mcp_server.py
+!mcp_auth.py
+!finance/
+!finance/*.py
+!reviews/
+!reviews/*.py
+!prompts/
+!prompts/categories.json

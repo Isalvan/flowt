@@ -2,6 +2,15 @@ export interface Movimiento {
   id: string;
   tipo: 'gasto' | 'ingreso';
   concepto: string;
+  original_concept?: string;
+  original_concept_source?: 'initial_extraction' | 'bank_email';
+  email_id?: string;
+  id_correo_origen?: string;
+  moneda?: string;
+  suscripcion_id?: string;
+  review_version?: number;
+  review_protected_fields?: string[];
+  field_provenance?: Record<string, { source: 'manual' | 'automatic'; review_id?: string; reverted_review_id?: string }>;
   /** Categoría elegida por el usuario; una propuesta nunca la sobrescribe. */
   categoria?: string;
   categoria_sugerida?: string;

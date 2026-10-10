@@ -11,7 +11,9 @@ lerna-debug.log*
 node_modules
 .venv
 tracker-backend/.venv/
+tracker-backend/.venv313/
 tracker-backend/manual/temp/
+tracker-backend/runtime/private/
 
 # Build and cache
 dist

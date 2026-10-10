@@ -22,6 +22,10 @@ from gmail_client import get_unread_emails_from_bank, mark_email_as_read
 from fallback_logic import fallback_extract_movement
 from ai_parser import clean_body, extract_with_gemini
 from category_suggestions import category_fields
+from reviews.processing import (
+    review_enabled, read_processing, record_movements,
+    record_resolved_branches, complete_processing, processing_ref, drain_approved_handoffs,
+)
 
 # --- Configuration & Initialization ---
 
@@ -315,13 +319,16 @@ def process_expired_subscriptions(owner_id: str, today: Optional[date] = None) -
     return len(expired)
 
 @firestore.transactional
-def process_email_movements_transaction(transaction, movements_to_process: List[Dict], owner_id: str):
+def process_email_movements_transaction(transaction, movements_to_process: List[Dict], owner_id: str, email_id=None):
     """
     Firestore transaction to save MULTIPLE movements and update huchas.
     movements_to_process is a list of dicts: {"doc_id": "...", "movimiento": {...}}
     Returns the list of doc_ids that were actually recorded.
     """
     recorded_ids = []
+    processing = None
+    if review_enabled() and email_id:
+        processing = read_processing(db, owner_id, email_id, transaction)
 
     # 1. Read stats doc
     stats_ref = db.collection("stats").document(owner_id)
@@ -342,7 +349,16 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
     if not mov_refs:
         return []
     mov_snapshots = db.get_all(mov_refs, transaction=transaction)
-    existing_ids = {snap.id for snap in mov_snapshots if snap.exists}
+    existing_ids = set()
+    for snap in mov_snapshots:
+        if snap.exists:
+            existing = snap.to_dict()
+            if processing is not None and (
+                existing.get("id_propietario") != owner_id
+                or existing.get("email_id", existing.get("id_correo_origen")) != email_id
+            ):
+                raise ValueError("Existing movement does not belong to this email owner")
+            existing_ids.add(snap.id)
 
     # Active subscriptions are used to route matching bank charges.
     active_subscriptions = [doc.to_dict() for doc in subs_docs]
@@ -353,6 +369,10 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
     huchas_state = {}
     for h_doc in huchas_docs:
         data = h_doc.to_dict()
+        # Archived wallets keep their contribution rule and flags, but take no part
+        # in splits, fallbacks or debt repayments: money sent there would stop being visible.
+        if data.get("activa") is False:
+            continue
         huchas_state[h_doc.id] = {
             "ref": h_doc.reference,
             "data": data,
@@ -373,6 +393,11 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
             continue
             
         movimiento = m["movimiento"]
+        if processing is not None:
+            movimiento.setdefault("original_concept", movimiento.get("concepto"))
+            movimiento.setdefault("original_concept_source", "initial_extraction")
+            movimiento.setdefault("review_version", 0)
+            movimiento.setdefault("id_correo_origen", email_id)
         amount = float(movimiento["importe"])
         target_gasto_hucha_id = None
         
@@ -442,7 +467,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                             remaining_amount -= to_add
                             
                             # Intercept for debt repayment
-                            if h_info["deuda_actual"] > 0:
+                            if h_info["deuda_actual"] > 0 and data.get("deuda_con") in huchas_state:
                                 lender_id = data.get("deuda_con")
                                 payment = min(h_info["deuda_actual"], to_add)
                                 h_info["deuda_actual"] -= payment
@@ -475,7 +500,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                             remaining_amount -= to_add
                             
                             # Intercept for debt repayment
-                            if h_info["deuda_actual"] > 0:
+                            if h_info["deuda_actual"] > 0 and data.get("deuda_con") in huchas_state:
                                 lender_id = data.get("deuda_con")
                                 payment = min(h_info["deuda_actual"], to_add)
                                 h_info["deuda_actual"] -= payment
@@ -498,7 +523,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                     to_add = remaining_amount
                     remaining_amount = 0
                     
-                    if resto_info["deuda_actual"] > 0:
+                    if resto_info["deuda_actual"] > 0 and resto_info["data"].get("deuda_con") in huchas_state:
                         lender_id = resto_info["data"].get("deuda_con")
                         payment = min(resto_info["deuda_actual"], to_add)
                         resto_info["deuda_actual"] -= payment
@@ -578,6 +603,11 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
             "updated_at": firestore.SERVER_TIMESTAMP,
         })
 
+    if processing is not None:
+        persisted_ids = [m["doc_id"] for m in movements_to_process
+                         if m["doc_id"] in existing_ids or m["doc_id"] in recorded_ids]
+        record_movements(transaction, db, owner_id, email_id, processing, persisted_ids)
+        return persisted_ids
     return recorded_ids
 
 def extract_email(header_value: str) -> str:
@@ -605,8 +635,9 @@ def save_to_pending_review(email: Dict[str, Any], motivo: str) -> bool:
         pending_ref = db.collection("correos_pendientes").document(doc_id)
         
         # Check if already exists to avoid duplicate entries
-        if pending_ref.get().exists:
-            return False
+        existing = pending_ref.get()
+        if existing.exists:
+            return existing.to_dict().get("id_propietario") == UID_PROPIETARIO
             
         pending_ref.set({
             "id_propietario": UID_PROPIETARIO,
@@ -624,12 +655,56 @@ def save_to_pending_review(email: Dict[str, Any], motivo: str) -> bool:
         logger.error(f"Failed to save email {email['id']} to pending review: {e}")
         return False
 
+@firestore.transactional
+def repair_historical_processing(transaction, owner_id, email_id, ids):
+    previous = read_processing(db, owner_id, email_id, transaction)
+    # Validation is intentionally performed before any writes.
+    for movement_id in ids:
+        snapshot = db.collection("movimientos").document(movement_id).get(transaction=transaction)
+        data = snapshot.to_dict() if snapshot.exists else {}
+        if (data.get("id_propietario") != owner_id
+                or data.get("email_id", data.get("id_correo_origen")) != email_id):
+            raise ValueError("Invalid historical movement reference")
+    record_movements(transaction, db, owner_id, email_id, previous, ids)
+    transaction.set(processing_ref(db, owner_id, email_id), {
+        "branches_resolved": True, "pending_initial_review": False,
+    }, merge=True)
+
+
+def finish_review_handoff(email, movement_ids):
+    """History failure keeps Gmail unread and receipt available for recovery."""
+    receipt = read_processing(db, UID_PROPIETARIO, email["id"])
+    movement_ids = receipt.get("movement_ids", movement_ids)
+    db.collection("correos_historico").document(email["id"]).set({
+        "id_propietario": UID_PROPIETARIO,
+        "email_id": email["id"],
+        "cuerpo": clean_body(email["body"]),
+        "fecha_envio": email["date_sent"],
+        "movimientos_generados": movement_ids,
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=90),
+        "created_at": firestore.SERVER_TIMESTAMP,
+    })
+    complete_processing(db.transaction(), db, UID_PROPIETARIO, email["id"])
+    if not mark_email_as_read(email["id"]):
+        logger.error("Failed to mark completed email %s as read", email["id"])
+
+
+def finish_pending_handoff(email):
+    try:
+        record_resolved_branches(db, UID_PROPIETARIO, email["id"], True)
+        finish_review_handoff(email, [])
+    except Exception as exc:
+        logger.error("Unable to finish pending processing %s: %s", email["id"], exc)
+
+
 def process_emails():
     """
     Main processing loop.
     """
     if UID_PROPIETARIO:
         process_expired_subscriptions(UID_PROPIETARIO)
+        if review_enabled():
+            drain_approved_handoffs(db, UID_PROPIETARIO)
     emails = get_unread_emails_from_bank(BANK_SENDER, MAX_EMAILS_PER_RUN)
     
     for email in emails:
@@ -648,7 +723,10 @@ def process_emails():
             if "spf=pass" not in auth_results and "dkim=pass" not in auth_results and "dmarc=pass" not in auth_results:
                 logger.warning(f"Auth failed for {email_id}: {auth_results}")
                 if save_to_pending_review(email, f"Fallo de autenticación: {auth_results}"):
-                    mark_email_as_read(email_id)
+                    if review_enabled():
+                        finish_pending_handoff(email)
+                    else:
+                        mark_email_as_read(email_id)
                 continue
 
         email_date = email["date_sent"]
@@ -656,6 +734,41 @@ def process_emails():
         # Skip emails that failed in this session to avoid infinite loops until restart
         if email_id in FAILED_IDS_IN_SESSION:
             continue
+
+        if review_enabled():
+            try:
+                receipt = read_processing(db, UID_PROPIETARIO, email_id)
+                if receipt.get("state") == "completed":
+                    mark_email_as_read(email_id)
+                    continue
+                if receipt.get("branches_resolved"):
+                    finish_review_handoff(email, receipt.get("movement_ids", []))
+                    continue
+                if receipt.get("movement_ids"):
+                    # Financial persistence succeeded but branch bookkeeping
+                    # did not. Re-running a nondeterministic parser could assign
+                    # different indexes and charge the same email twice. Salvage
+                    # known IDs and leave the original email for initial review.
+                    if save_to_pending_review(email, "Recovery after interrupted extraction: verify unrecorded branches"):
+                        record_resolved_branches(db, UID_PROPIETARIO, email_id, True)
+                        finish_review_handoff(email, receipt["movement_ids"])
+                    continue
+                # Repair legacy history only when all referenced movements are
+                # verified by completion (no unbounded historical backfill).
+                history = db.collection("correos_historico").document(email_id).get()
+                if history.exists:
+                    data = history.to_dict()
+                    if data.get("id_propietario") != UID_PROPIETARIO:
+                        raise ValueError("History owner mismatch")
+                    ids = data.get("movimientos_generados", [])
+                    if ids:
+                        transaction = db.transaction()
+                        repair_historical_processing(transaction, UID_PROPIETARIO, email_id, ids)
+                        finish_review_handoff(email, ids)
+                        continue
+            except Exception as exc:
+                logger.error("Unable to recover processing %s: %s", email_id, exc)
+                continue
 
         # 1. Limpiar HTML gigante (ahorra tokens)
         body_clean = clean_body(email["body"])
@@ -669,6 +782,9 @@ def process_emails():
         if not raw_movements:
             # Movimiento ignorado o fallido
             if save_to_pending_review(email, "Fallo total en extracción automática"):
+                if review_enabled():
+                    finish_pending_handoff(email)
+                    continue
                 if mark_email_as_read(email_id):
                     logger.info(f"Email {email_id} marked as read.")
                 else:
@@ -681,6 +797,9 @@ def process_emails():
         if len(movements_list) > 10:
             logger.warning(f"Too many movements ({len(movements_list)}) in email {email_id}.")
             if save_to_pending_review(email, "Excede máximo de movimientos por correo"):
+                if review_enabled():
+                    finish_pending_handoff(email)
+                    continue
                 mark_email_as_read(email_id)
             continue
         
@@ -778,7 +897,19 @@ def process_emails():
         if movements_to_process:
             try:
                 transaction = db.transaction()
-                recorded_ids = process_email_movements_transaction(transaction, movements_to_process, UID_PROPIETARIO)
+                recorded_ids = process_email_movements_transaction(
+                    transaction, movements_to_process, UID_PROPIETARIO,
+                    email_id=email_id if review_enabled() else None,
+                )
+
+                if review_enabled():
+                    if has_low_confidence and not save_to_pending_review(
+                        email, "Partial extraction: invalid or low-confidence movement branches"
+                    ):
+                        continue
+                    record_resolved_branches(db, UID_PROPIETARIO, email_id, has_low_confidence)
+                    finish_review_handoff(email, recorded_ids)
+                    continue
                 
                 if recorded_ids:
                     has_recorded_any = True
@@ -810,9 +941,14 @@ def process_emails():
             except Exception as e:
                 logger.error(f"Error saving batch movements for email {email_id}: {e}")
                 has_low_confidence = True
+                if review_enabled():
+                    continue
 
         if has_low_confidence and not has_recorded_any:
             if save_to_pending_review(email, "Movimiento descartado por baja confianza o datos inválidos"):
+                if review_enabled():
+                    finish_pending_handoff(email)
+                    continue
                 if mark_email_as_read(email_id):
                     logger.info(f"Email {email_id} marked as processed.")
                 else:

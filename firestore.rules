@@ -59,24 +59,38 @@ service cloud.firestore {
       return (!('categoria' in request.resource.data) || validCategoryValue(request.resource.data.categoria)) &&
         (!('categoria_sugerida' in request.resource.data) || validCategoryValue(request.resource.data.categoria_sugerida)) &&
         (!('categoria_confianza' in request.resource.data) || request.resource.data.categoria_confianza in ['alta', 'media', 'baja']) &&
-        (!('compensaciones_descartadas' in request.resource.data) || (request.resource.data.compensaciones_descartadas is list && request.resource.data.compensaciones_descartadas.size() <= 200));
+        (!('compensaciones_descartadas' in request.resource.data) || (request.resource.data.compensaciones_descartadas is list && request.resource.data.compensaciones_descartadas.size() <= 200)) &&
+        (!('review_protected_fields' in request.resource.data) || (request.resource.data.review_protected_fields is list &&
+          request.resource.data.review_protected_fields.size() <= 4 &&
+          request.resource.data.review_protected_fields.hasOnly(['concepto', 'categoria', 'hucha_id', 'suscripcion_id'])));
+    }
+
+    function protectsManualEdits() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      let protected = request.resource.data.get('review_protected_fields', []);
+      let provenance = resource.data.get('field_provenance', {});
+      return protected.hasAll(resource.data.get('review_protected_fields', [])) &&
+        (!('concepto' in provenance) || !changed.hasAny(['concepto']) || protected.hasAll(['concepto'])) &&
+        (!('categoria' in provenance) || !changed.hasAny(['categoria']) || protected.hasAll(['categoria'])) &&
+        (!('hucha_id' in provenance) || !changed.hasAny(['hucha_id']) || protected.hasAll(['hucha_id'])) &&
+        (!('suscripcion_id' in provenance) || !changed.hasAny(['suscripcion_id']) || protected.hasAll(['suscripcion_id']));
     }
 
     match /movimientos/{movimiento} {
       allow create: if isReqOwner() && 
                        request.resource.data.keys().hasAll(['id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion']) &&
-                       request.resource.data.keys().hasOnly(['categoria', 'categoria_sugerida', 'categoria_confianza', 'compensaciones_descartadas', 'id', 'id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'created_at', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
+                       request.resource.data.keys().hasOnly(['review_protected_fields', 'categoria', 'categoria_sugerida', 'categoria_confianza', 'compensaciones_descartadas', 'id', 'id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'created_at', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
                        (request.resource.data.tipo == 'ingreso' || request.resource.data.tipo == 'gasto') &&
                        isNumber('importe') && request.resource.data.importe >= 0 &&
                        isStringWithLength('concepto', 0, 500) && validMovementCategories();
       
       allow read: if isDocOwner();
       allow update: if isDocOwner() && isReqOwner() &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['categoria', 'categoria_sugerida', 'categoria_confianza', 'compensaciones_descartadas', 'id', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['review_protected_fields', 'categoria', 'categoria_sugerida', 'categoria_confianza', 'compensaciones_descartadas', 'id', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at'])) &&
                        isNumber('importe') && request.resource.data.importe >= 0 &&
                        (request.resource.data.tipo == 'ingreso' || request.resource.data.tipo == 'gasto') &&
-                       (!('concepto' in request.resource.data) || isStringWithLength('concepto', 0, 500)) && validMovementCategories();
+                       (!('concepto' in request.resource.data) || isStringWithLength('concepto', 0, 500)) && validMovementCategories() && protectsManualEdits();
       allow delete: if isDocOwner();
     }
 
@@ -106,6 +120,33 @@ service cloud.firestore {
                        request.resource.data.keys().hasOnly(['total_ingresos', 'total_gastos', 'updated_at']);
       allow update: if isOwner(userId) &&
                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['total_ingresos', 'total_gastos', 'updated_at']);
+      allow delete: if false;
+    }
+
+    function validReviewMappingChange(userId) {
+      let data = request.resource.data;
+      let category = data.last_changed_category;
+      let previous = resource == null ? {} : resource.data.category_huchas;
+      let target = data.category_huchas.get(category, '__unassigned__');
+      let huchaPath = /databases/$(database)/documents/huchas/$(target);
+      let categoryPath = /databases/$(database)/documents/categorias/$(userId)/items/$(category);
+      return data.keys().hasOnly(['category_huchas', 'revision', 'updated_at', 'last_changed_category']) &&
+        data.keys().hasAll(['category_huchas', 'revision', 'updated_at', 'last_changed_category']) &&
+        data.category_huchas is map && data.category_huchas.size() <= 200 &&
+        category is string && category.size() > 0 && category.size() <= 100 &&
+        data.category_huchas.diff(previous).affectedKeys().hasOnly([category]) &&
+        data.revision is int && data.revision == (resource == null ? 1 : resource.data.revision + 1) &&
+        data.updated_at == request.time &&
+        ((!data.category_huchas.keys().hasAny([category])) || (target is string && target.size() > 0 && target.size() <= 200 &&
+          (category in ['alimentacion', 'vivienda', 'transporte', 'restaurantes', 'ocio', 'salud', 'compras', 'tecnologia', 'formacion', 'inversion', 'otros_gastos', 'sin_categorizar'] ||
+           (category.matches('custom_[a-f0-9]{64}') && exists(categoryPath) && get(categoryPath).data.tipo in ['gasto', 'ambos'])) &&
+          exists(huchaPath) && get(huchaPath).data.id_propietario == userId && get(huchaPath).data.get('activa', true) == true &&
+          get(huchaPath).data.get('es_metalico', false) == false && get(huchaPath).data.get('es_interno', false) == false));
+    }
+
+    match /review_configuration/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && validReviewMappingChange(userId);
       allow delete: if false;
     }
 
@@ -141,5 +182,42 @@ service cloud.firestore {
       allow read: if isDocOwner();
       allow create, update, delete: if false;
     }
+
+    match /review_handoffs/{movementId} {
+      allow create: if isReqOwner() &&
+        request.resource.data.keys().hasOnly(['id_propietario', 'movement_id', 'email_id', 'created_at']) &&
+        request.resource.data.movement_id == movementId &&
+        request.resource.data.email_id is string &&
+        request.resource.data.created_at == request.time &&
+        getAfter(/databases/$(database)/documents/movimientos/$(movementId)).data.id_propietario == request.auth.uid &&
+        getAfter(/databases/$(database)/documents/movimientos/$(movementId)).data.id_correo_origen == request.resource.data.email_id;
+      allow read: if isDocOwner();
+      allow update, delete: if false;
+    }
+
+    match /email_processing/{processingId} {
+      allow read: if isDocOwner();
+      allow write: if false;
+    }
+    match /review_jobs/{reviewId} {
+      allow read: if isDocOwner();
+      allow write: if false;
+    }
+    match /review_history/{reviewId} {
+      allow read: if isDocOwner();
+      allow write: if false;
+    }
+    match /review_questions/{questionId} {
+      allow read: if isDocOwner();
+      allow write: if false;
+    }
+
+    // Conector MCP: clientes, códigos, tokens y registro de operaciones.
+    // Solo el servicio (Admin SDK) los lee o escribe; la web usa su API.
+    match /oauth_clients/{clientId} { allow read, write: if false; }
+    match /oauth_codes/{codeId} { allow read, write: if false; }
+    match /oauth_grants/{grantId} { allow read, write: if false; }
+    match /oauth_tokens/{tokenId} { allow read, write: if false; }
+    match /mcp_operations/{operationId} { allow read, write: if false; }
   }
 }

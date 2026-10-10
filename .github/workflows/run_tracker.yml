@@ -44,6 +44,7 @@ jobs:
           AI_MODEL: ${{ secrets.AI_MODEL }}
           MAX_EMAILS_PER_RUN: 10
           MIN_CONFIDENCE: alta
+          FLOWT_REVIEW_ENABLED: ${{ vars.FLOWT_REVIEW_ENABLED || 'false' }}
         run: |
           cd tracker-backend
           python main.py
