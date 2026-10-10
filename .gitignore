@@ -53,3 +53,9 @@ tracker-backend/serviceAccountKey.json
 # Gemini / Agents
 .codex
 .agents/
+
+# Local working notes and generated backend packages
+scratch/
+docs/maestro/
+skills-lock.json
+flowt-backend-release.zip

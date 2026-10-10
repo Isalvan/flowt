@@ -50,7 +50,7 @@ Firebase CLI se usa desde las dependencias de `package-lock.json`, con la misma 
 
 ### Deuda de lint existente
 
-`eslint-suppressions.json` registra los 88 errores previos del frontend actual. `npm run lint` los reconoce y sigue fallando ante errores que superen esa base o aparezcan en archivos/reglas sin excepciones. No exige todavía resolver toda la deuda para publicar; siguen visibles ocho avisos anteriores. El prototipo antiguo `tracker-frontend/`, que no forma parte de la aplicación Vite actual, queda fuera del lint.
+`eslint-suppressions.json` registra los 88 errores previos del frontend actual. `npm run lint` los reconoce y sigue fallando ante errores que superen esa base o aparezcan en archivos/reglas sin excepciones. No exige todavía resolver toda la deuda para publicar; siguen visibles ocho avisos anteriores.
 
 Al corregir esa deuda, ejecuta `npx eslint . --prune-suppressions` y versiona la reducción del archivo. No regeneres las excepciones con `--suppress-all` para ocultar errores nuevos. La CI detecta excepciones sobrantes. Esto no sustituye la revisión de código: el presupuesto de excepciones se cuenta por archivo y regla.
 

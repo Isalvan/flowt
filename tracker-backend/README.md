@@ -156,3 +156,13 @@ base64 < credentials.json | tr -d '\n'
 - `token.json`
 - `serviceAccountKey.json`
 - `.venv/`
+
+## Migraciones de fechas
+
+Los scripts `manual/migrar_fechas.js` y `manual/migrar_fechas_admin.js` requieren el UID del propietario en la variable de entorno `UID_PROPIETARIO` o como primer argumento:
+
+```bash
+node manual/migrar_fechas_admin.js TU_UID_DE_FIREBASE
+```
+
+El script Admin utiliza `serviceAccountKey.json` y modifica las fechas de los movimientos de ese propietario. Haz una copia de los datos antes de ejecutarlo. El script del SDK web requiere además una sesión autorizada por las reglas de Firestore; la configuración web por sí sola no concede acceso.

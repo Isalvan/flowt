@@ -4,11 +4,11 @@ import { Book, Shield, FileCode, Server, ChevronLeft, Copy, Check, Moon, Sun } f
 import { useTheme } from '../../hooks/useTheme';
 
 import readmeContent from '../../../README.md?raw';
-import geminiContent from '../../../GEMINI.md?raw';
-import instructionsContent from '../../../INSTRUCTIONS.md?raw';
+import architectureContent from '../../../docs/ARCHITECTURE.md?raw';
+import deploymentContent from '../../../docs/DEPLOYMENT.md?raw';
 import backendContent from '../../../tracker-backend/README.md?raw';
 
-type DocSection = 'README' | 'GEMINI' | 'INSTRUCTIONS' | 'BACKEND';
+type DocSection = 'README' | 'ARCHITECTURE' | 'DEPLOYMENT' | 'BACKEND';
 
 const docContents: Record<DocSection, { title: string; content: string; icon: React.ReactNode }> = {
   README: { 
@@ -16,14 +16,14 @@ const docContents: Record<DocSection, { title: string; content: string; icon: Re
     content: readmeContent,
     icon: <Book size={16} />,
   },
-  GEMINI: { 
-    title: 'Arquitectura (ADR)', 
-    content: geminiContent,
+  ARCHITECTURE: { 
+    title: 'Arquitectura', 
+    content: architectureContent,
     icon: <FileCode size={16} />,
   },
-  INSTRUCTIONS: { 
-    title: 'Instrucciones', 
-    content: instructionsContent,
+  DEPLOYMENT: { 
+    title: 'Despliegue', 
+    content: deploymentContent,
     icon: <Shield size={16} />,
   },
   BACKEND: { 

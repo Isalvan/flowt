@@ -45,7 +45,7 @@ El backend se encuentra en `tracker-backend/`.
 - `manual/`: utilidades de migración o mantenimiento.
 - `tests/`: pruebas del backend.
 
-El proceso utiliza Gmail en modo de solo lectura. Los mensajes se filtran, normalizan y convierten en movimientos. Los resultados que requieren confirmación se guardan para revisión manual.
+El proceso utiliza el permiso OAuth `gmail.modify` para leer notificaciones y actualizar sus etiquetas tras procesarlas. Los mensajes se filtran, normalizan y convierten en movimientos. Los resultados que requieren confirmación se guardan para revisión manual.
 
 ## Modelo de datos
 
