@@ -20,7 +20,6 @@ import {
   Sparkles
 } from 'lucide-react';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
-import { Card } from '../common/Card';
 import { type Movimiento, type Hucha } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { EmptyIllustration } from '../common/EmptyIllustration';
@@ -268,115 +267,118 @@ export const ActivityList: React.FC<ActivityListProps> = ({
     return [];
   };
 
+  const hasActiveFilters = Boolean(
+    searchTerm || selectedHucha !== 'all' || selectedTipo !== 'all' || selectedCategoria !== 'all' ||
+    selectedBanco !== 'all' || minAmount || maxAmount || dateRange !== 'all'
+  );
+  const field = 'w-full rounded-xl border border-line bg-surface-2 px-2.5 py-2 text-xs font-semibold text-ink placeholder:text-ink-faint focus:outline-none focus-visible:border-brand';
+  const toolbarButton = 'inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition-colors duration-150';
+  const toolbarIdle = 'border-line bg-surface text-ink-soft hover:bg-surface-2 hover:text-ink';
+  const toolbarOn = 'border-transparent bg-brand-tint text-brand-ink';
+
   return (
-    <Card aria-label="Actividad reciente" className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-xl">
-      <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
-        <div>
-          <h3 className="font-extrabold text-lg text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-            Actividad Reciente
-          </h3>
-          <p className="text-xs text-slate-400 dark:text-slate-500">Últimos movimientos registrados</p>
+    <section aria-label="Actividad reciente" className="dashboard-surface p-4 sm:p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="dashboard-heading">Actividad reciente</h3>
+          <p className="dashboard-subtitle">Últimos movimientos registrados</p>
         </div>
         <button
+          type="button"
           onClick={exportToCSV}
-          className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs px-3.5 py-2 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 border border-white/5 hover:border-slate-300 dark:hover:border-slate-600 shadow-sm hover:shadow cursor-pointer"
+          aria-label="Exportar CSV"
+          className={`${toolbarButton} ${toolbarIdle}`}
         >
-          <Download className="w-3.5 h-3.5" />
-          Exportar CSV
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Exportar CSV</span>
         </button>
       </div>
 
-      {/* Advanced Filter Bar Controls */}
-      <div className="space-y-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Concept Search Input */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+      {/* Search and filters */}
+      <div className="mb-3 space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
             <input
               type="text"
               placeholder="Buscar por concepto..."
+              aria-label="Buscar por concepto"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white/40 dark:bg-slate-950/20 border border-slate-200/50 dark:border-white/5 text-xs text-slate-755 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all hover:border-slate-350 dark:hover:border-white/10 font-semibold"
+              className="w-full rounded-xl border border-line bg-surface-2 py-2 pl-9 pr-9 text-[13px] font-medium text-ink placeholder:text-ink-faint focus:outline-none focus-visible:border-brand"
             />
             {searchTerm && (
-              <button 
-                onClick={() => setSearchTerm('')} 
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer hover:scale-110 active:scale-90 transition-transform"
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                aria-label="Borrar búsqueda"
+                className="absolute right-2 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-lg text-ink-faint hover:bg-surface hover:text-ink"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
 
           <div className="flex gap-2">
             {!isLocked && pendingCount > 0 && (
-              <button type="button" aria-pressed={selectedCategoria === 'pending'} onClick={() => setSelectedCategoria(selectedCategoria === 'pending' ? 'all' : 'pending')}
-                className={`flex items-center gap-1.5 rounded-2xl border px-3 py-2.5 text-xs font-bold transition-colors ${selectedCategoria === 'pending' ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'border-slate-200/50 bg-white/40 text-slate-500 dark:border-white/5 dark:bg-slate-950/20 dark:text-slate-400'}`}>
-                <Sparkles size={13} /> Revisar <span className="rounded-md bg-indigo-500/10 px-1.5 text-[10px] text-indigo-600 dark:text-indigo-400">{pendingCount}</span>
+              <button
+                type="button"
+                aria-pressed={selectedCategoria === 'pending'}
+                onClick={() => setSelectedCategoria(selectedCategoria === 'pending' ? 'all' : 'pending')}
+                className={`${toolbarButton} ${selectedCategoria === 'pending' ? toolbarOn : toolbarIdle}`}
+              >
+                <Sparkles size={13} /> Revisar{' '}
+                <span className="rounded-md bg-sun-500 px-1.5 py-0.5 text-[10px] leading-none text-slate-950">{pendingCount}</span>
               </button>
             )}
-            {/* Filter Toggle Button */}
             <button
+              type="button"
+              aria-expanded={showFilters}
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-1.5 font-bold text-xs px-4 py-2.5 rounded-2xl border transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md ${
-                showFilters 
-                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 shadow-sm' 
-                  : 'bg-white/40 dark:bg-slate-950/20 text-slate-600 dark:text-slate-400 border-slate-200/50 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'
-              }`}
+              className={`${toolbarButton} ${showFilters ? toolbarOn : toolbarIdle}`}
             >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <SlidersHorizontal className="h-3.5 w-3.5" />
               Filtros
             </button>
 
-            {/* Clear Filters Button (conditional) */}
-            {(searchTerm || selectedHucha !== 'all' || selectedTipo !== 'all' || selectedCategoria !== 'all' || selectedBanco !== 'all' || minAmount || maxAmount || dateRange !== 'all') && (
+            {hasActiveFilters && (
               <button
+                type="button"
                 onClick={clearAllFilters}
-                className="flex items-center gap-1 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/10 font-bold text-xs px-3.5 py-2.5 rounded-2xl transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-md hover:shadow-rose-500/10 cursor-pointer"
+                className={`${toolbarButton} border-transparent bg-rose-500/10 text-rose-600 hover:bg-rose-500/15 dark:text-rose-300`}
                 title="Limpiar todos los filtros"
+                aria-label="Limpiar todos los filtros"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Collapsible Advanced Filters Grid */}
         {showFilters && (
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 p-4 rounded-2xl bg-slate-50/50 dark:bg-slate-950/10 border border-slate-200/30 dark:border-white/5 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="animate-in fade-in slide-in-from-top-2 grid gap-3 rounded-2xl bg-surface-2/60 p-3 duration-200 sm:grid-cols-2 md:grid-cols-4">
             {onUpdateCategoria && <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Categoría</span>
-              <select aria-label="Filtrar por categoría" value={selectedCategoria} onChange={e => setSelectedCategoria(e.target.value)} className="w-full rounded-xl border border-slate-200/50 bg-white/50 px-2.5 py-2 text-xs font-bold text-slate-700 dark:border-white/5 dark:bg-slate-950/20 dark:text-slate-300">
+              <span className="eyebrow">Categoría</span>
+              <select aria-label="Filtrar por categoría" value={selectedCategoria} onChange={e => setSelectedCategoria(e.target.value)} className={field}>
                 <option value="all">Todas las categorías</option>
                 <option value="pending">Pendientes de revisar</option>
                 {MOVEMENT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
             </label>}
-            
-            {/* Hucha Filter */}
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cartera</label>
-              <select
-                value={selectedHucha}
-                onChange={(e) => setSelectedHucha(e.target.value)}
-                className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none cursor-pointer"
-              >
+
+            <label className="flex flex-col gap-1">
+              <span className="eyebrow">Cartera</span>
+              <select value={selectedHucha} onChange={(e) => setSelectedHucha(e.target.value)} className={field}>
                 <option value="all">Todas</option>
                 {huchas.filter(h => h.activa !== false).map(h => (
                   <option key={h.id} value={h.id}>{h.nombre}</option>
                 ))}
               </select>
-            </div>
+            </label>
 
-            {/* Bank Filter */}
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Banco</label>
-              <select
-                value={selectedBanco}
-                onChange={(e) => setSelectedBanco(e.target.value)}
-                className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none cursor-pointer"
-              >
+            <label className="flex flex-col gap-1">
+              <span className="eyebrow">Banco</span>
+              <select value={selectedBanco} onChange={(e) => setSelectedBanco(e.target.value)} className={field}>
                 <option value="all">Todos los bancos</option>
                 <option value="Unicaja">Unicaja</option>
                 <option value="Revolut">Revolut</option>
@@ -387,98 +389,65 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                 <option value="Sabadell">Sabadell</option>
                 <option value="N26">N26</option>
               </select>
-            </div>
+            </label>
 
-            {/* Type Filter */}
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo</label>
-              <select
-                value={selectedTipo}
-                onChange={(e) => setSelectedTipo(e.target.value)}
-                className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none cursor-pointer"
-              >
+            <label className="flex flex-col gap-1">
+              <span className="eyebrow">Tipo</span>
+              <select value={selectedTipo} onChange={(e) => setSelectedTipo(e.target.value)} className={field}>
                 <option value="all">Todos</option>
                 <option value="ingreso">Ingresos</option>
                 <option value="gasto">Gastos</option>
               </select>
-            </div>
+            </label>
 
-            {/* Amount range */}
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Importe (€)</label>
+              <span className="eyebrow">Importe (€)</span>
               <div className="flex items-center gap-1.5">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={minAmount}
-                  onChange={(e) => setMinAmount(e.target.value)}
-                  className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none placeholder-slate-450"
-                />
-                <span className="text-slate-400 text-xs font-bold">-</span>
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={maxAmount}
-                  onChange={(e) => setMaxAmount(e.target.value)}
-                  className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none placeholder-slate-450"
-                />
+                <input type="number" placeholder="Min" aria-label="Importe mínimo" value={minAmount} onChange={(e) => setMinAmount(e.target.value)} className={field} />
+                <span className="text-xs text-ink-faint">–</span>
+                <input type="number" placeholder="Max" aria-label="Importe máximo" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} className={field} />
               </div>
             </div>
 
-            {/* Date range */}
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Fecha</label>
-              <select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-2.5 py-2 focus:outline-none cursor-pointer"
-              >
+            <label className="flex flex-col gap-1">
+              <span className="eyebrow">Fecha</span>
+              <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className={field}>
                 <option value="all">Cualquier fecha</option>
                 <option value="week">Últimos 7 días</option>
                 <option value="month">Este mes</option>
                 <option value="three_months">Últimos 3 meses</option>
                 <option value="custom">Personalizado...</option>
               </select>
-            </div>
+            </label>
 
-            {/* Custom Dates (conditional) */}
             {dateRange === 'custom' && (
-              <div className="sm:col-span-2 md:col-span-4 grid gap-4 sm:grid-cols-2 p-3 bg-indigo-500/5 border border-indigo-500/10 rounded-xl mt-1 animate-in slide-in-from-top-1 duration-200">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Fecha Inicio</span>
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-indigo-500/15 rounded-xl px-2.5 py-2 focus:outline-none"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Fecha Fin</span>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="w-full text-xs font-bold bg-white/50 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-indigo-500/15 rounded-xl px-2.5 py-2 focus:outline-none"
-                  />
-                </div>
+              <div className="animate-in fade-in slide-in-from-top-1 grid gap-3 duration-200 sm:col-span-2 sm:grid-cols-2 md:col-span-4">
+                <label className="flex flex-col gap-1">
+                  <span className="eyebrow">Desde</span>
+                  <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className={field} />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="eyebrow">Hasta</span>
+                  <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className={field} />
+                </label>
               </div>
             )}
           </div>
         )}
       </div>
 
-      <div className="space-y-3.5 max-h-[420px] overflow-y-auto pr-1 sm:max-h-[500px]">
+      <div className="custom-scrollbar -mr-2 max-h-[440px] divide-y divide-line overflow-y-auto pr-2 sm:max-h-[520px]">
         {filteredMovimientos.length > 0 ? (
           filteredMovimientos.map((m) => {
-          const hasCompensaciones = 
-              (m.tipo === 'gasto' && ((m.compensado_por?.length ?? 0) > 0 || (m.compensado_por_detalles?.length ?? 0) > 0)) || 
+            const hasCompensaciones =
+              (m.tipo === 'gasto' && ((m.compensado_por?.length ?? 0) > 0 || (m.compensado_por_detalles?.length ?? 0) > 0)) ||
               (m.tipo === 'ingreso' && (!!m.compensa_movimiento_id || (m.compensaciones_destinos?.length ?? 0) > 0));
-            
+
             const linkedMovs = hasCompensaciones ? getLinkedMovements(m) : [];
             const isEditing = editingId === m.id;
             const compensation = compensations.get(m.id);
-            
+            const reassignable = huchas.filter(h => !h.es_suscripciones && h.activa !== false);
+
             let expensePercentage = 0;
             if (m.tipo === 'gasto' && m.hucha_id) {
               const budget = huchaMonthlyBudgets[m.hucha_id] || 0;
@@ -492,231 +461,244 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                 key={m.id}
                 onMouseEnter={() => setHoveredMovId(m.id)}
                 onMouseLeave={() => setHoveredMovId(null)}
-                className="group relative flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white/40 dark:bg-slate-900/20 border border-white/5 hover:border-indigo-500/10 hover:bg-white/80 dark:hover:bg-slate-950/20 transition-all duration-300 shadow-sm hover:shadow"
+                className="group relative py-3.5 first:pt-1 last:pb-1"
               >
-                {/* Visual Connector Popover */}
+                {/* What this movement is linked to */}
                 {hoveredMovId === m.id && hasCompensaciones && linkedMovs.length > 0 && (
-                  <div className="absolute left-4 top-[-10px] sm:top-auto sm:bottom-full sm:left-1/2 sm:-translate-x-1/2 z-50 mb-3 w-80 max-w-[calc(100vw-3rem)] animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none">
-                    <div className="glass-panel rounded-2xl p-4 border border-emerald-500/20 shadow-2xl bg-slate-950/95 text-left text-slate-100">
-                      <div className="flex items-center gap-1.5 text-emerald-400 font-extrabold text-xs uppercase tracking-wider mb-2.5">
-                        <Info className="w-3.5 h-3.5" />
-                        {m.tipo === 'gasto' ? 'Gasto Compensado por:' : 'Ingreso Vinculado a Gasto:'}
-                      </div>
-                      <div className="space-y-2">
+                  <div className="animate-in fade-in slide-in-from-bottom-1 pointer-events-none absolute left-12 top-full z-50 -mt-2 w-80 max-w-[calc(100vw-5rem)] duration-150">
+                    <div className="glass-panel rounded-2xl p-3.5 text-left">
+                      <p className="eyebrow mb-2 flex items-center gap-1.5 !text-emerald-600 dark:!text-emerald-400">
+                        <Info className="h-3.5 w-3.5" />
+                        {m.tipo === 'gasto' ? 'Gasto compensado por' : 'Ingreso vinculado a'}
+                      </p>
+                      <div className="space-y-1.5">
                         {linkedMovs.map((link) => (
-                          <div key={link.id} className="flex justify-between items-center bg-white/5 border border-white/5 p-2 rounded-xl text-[11px]">
+                          <div key={link.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 p-2 text-[11px]">
                             <div className="min-w-0">
-                              <p className="font-semibold text-slate-200 truncate">{link.concepto}</p>
-                              <p className="text-[9px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                <Calendar className="w-2.5 h-2.5" /> {formatDate(link.fecha_operacion)}
+                              <p className="truncate font-semibold text-ink">{link.concepto}</p>
+                              <p className="mt-0.5 flex items-center gap-1 text-[10px] text-ink-faint">
+                                <Calendar className="h-2.5 w-2.5" /> {formatDate(link.fecha_operacion)}
                               </p>
                             </div>
-                            <span className={`font-bold shrink-0 ml-3 ${
-                              link.tipo === 'ingreso' ? 'text-emerald-400' : 'text-rose-400'
-                            }`}>
-                              {link.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(link.importe)}
+                            <span className={`shrink-0 font-bold tabular-nums ${link.tipo === 'ingreso' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
+                              {link.tipo === 'ingreso' ? '+' : '−'}{formatCurrency(link.importe)}
                             </span>
                           </div>
                         ))}
                       </div>
                       {m.tipo === 'gasto' && (
-                        <div className="mt-3 pt-2 border-t border-white/10 flex justify-between items-center text-xs">
-                          <span className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">Importe Original:</span>
-                          <span className="font-extrabold text-slate-300 tabular-nums">{formatCurrency(m.importe)}</span>
+                        <div className="mt-2.5 flex items-center justify-between border-t border-line pt-2 text-xs">
+                          <span className="text-ink-soft">Importe original</span>
+                          <span className="font-extrabold tabular-nums text-ink">{formatCurrency(m.importe)}</span>
                         </div>
                       )}
                     </div>
-                    {/* Small arrow */}
-                    <div className="w-3 h-3 bg-slate-950/95 border-b border-r border-emerald-500/20 rotate-45 absolute bottom-[-6px] left-[20px] sm:left-1/2 sm:-translate-x-1/2 -z-10" />
                   </div>
                 )}
 
-                <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                <div className="flex items-start gap-3">
                   {/* Icon depending on type */}
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-2xl shrink-0 ${
+                  <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
                     m.es_metalico
-                      ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/10 shadow-sm'
+                      ? 'bg-sky-500/12 text-sky-600 dark:text-sky-300'
                       : m.tipo === 'ingreso'
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10'
-                        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/10'
+                        ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-300'
+                        : resolveServiceKey(m.concepto)
+                          ? ''
+                          : 'bg-surface-2 text-ink-soft'
                   }`}>
                     {m.es_metalico ? (
-                      <Banknote className="w-5 h-5" />
+                      <Banknote className="h-5 w-5" />
                     ) : m.tipo === 'ingreso' ? (
-                      <ArrowUpRight className="w-5 h-5" />
+                      <ArrowUpRight className="h-5 w-5" />
                     ) : resolveServiceKey(m.concepto) ? (
                       <ServiceIcon name={m.concepto} />
                     ) : (
-                      <ArrowDownRight className="w-5 h-5" />
+                      <ArrowDownRight className="h-5 w-5" />
                     )}
                   </div>
 
-                  {/* Concept and Info */}
                   <div className="min-w-0 flex-1">
-                    {isEditing ? (
-                      <div className="flex items-center gap-2 max-w-md">
-                        <input
-                          type="text"
-                          value={tempConcepto}
-                          onChange={(e) => setTempConcepto(e.target.value)}
-                          className="bg-slate-100/50 dark:bg-slate-800/50 border border-white/10 rounded-xl px-2.5 py-1 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveConcepto(m);
-                            if (e.key === 'Escape') handleCancelEdit();
-                          }}
-                        />
-                        <button
-                          onClick={() => handleSaveConcepto(m)}
-                          className="flex items-center justify-center w-7 h-7 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg active:scale-90 transition-transform shrink-0"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="flex items-center justify-center w-7 h-7 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg active:scale-90 transition-transform shrink-0"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                    <div className="flex items-start justify-between gap-3">
+                      {/* Concept and info */}
+                      <div className="min-w-0 flex-1">
+                        {isEditing ? (
+                          <div className="flex max-w-md items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={tempConcepto}
+                              aria-label="Concepto"
+                              onChange={(e) => setTempConcepto(e.target.value)}
+                              className="w-full rounded-lg border border-brand bg-surface-2 px-2.5 py-1 text-sm text-ink focus:outline-none"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveConcepto(m);
+                                if (e.key === 'Escape') handleCancelEdit();
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveConcepto(m)}
+                              aria-label="Guardar concepto"
+                              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-emerald-500 text-white transition-transform hover:bg-emerald-400 active:scale-90"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelEdit}
+                              aria-label="Cancelar edición"
+                              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface-2 text-ink-soft transition-transform hover:text-ink active:scale-90"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="group/concept flex items-center gap-1.5">
+                            <p
+                              onDoubleClick={() => handleStartEdit(m)}
+                              className="truncate text-sm font-bold text-ink"
+                              title="Doble click para editar"
+                            >
+                              {m.concepto}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(m)}
+                              aria-label={`Editar concepto de ${m.concepto}`}
+                              className="shrink-0 rounded p-0.5 text-ink-faint opacity-0 transition-opacity hover:text-brand-ink focus-visible:opacity-100 group-hover/concept:opacity-100"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-ink-soft">
+                          <span>{formatDate(m.fecha_operacion)}</span>
+                          {m.banco && (
+                            <span className="inline-flex items-center gap-1">
+                              <span aria-hidden="true">·</span>
+                              <Landmark size={10} />
+                              {m.banco}
+                            </span>
+                          )}
+                          {m.hucha_id && (
+                            <span className="inline-flex items-center gap-1.5 font-semibold text-brand-ink">
+                              <span aria-hidden="true" className="font-normal text-ink-soft">·</span>
+                              {huchas.find(h => h.id === m.hucha_id)?.nombre || 'Cartera'}
+                            </span>
+                          )}
+                          {expensePercentage >= 5 && (
+                            <ExpenseImpactBadge percentage={expensePercentage} />
+                          )}
+                        </div>
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-2 group/concept">
-                        <p
-                          onDoubleClick={() => handleStartEdit(m)}
-                          className="font-extrabold text-sm text-slate-800 dark:text-slate-100 uppercase tracking-tight truncate cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                          title="Doble click para editar"
-                        >
-                          {m.concepto}
+
+                      {/* Amount */}
+                      <div className="shrink-0 text-right">
+                        <p className={`text-sm font-extrabold tabular-nums ${
+                          m.tipo === 'ingreso' ? 'text-emerald-600 dark:text-emerald-400' : 'text-ink'
+                        } ${hasCompensaciones ? 'line-through opacity-50' : ''}`}>
+                          {m.tipo === 'ingreso' ? '+' : '−'}{formatCurrency(m.importe)}
                         </p>
+
+                        {m.tipo === 'gasto' && hasCompensaciones && (
+                          <p className="text-xs font-extrabold tabular-nums text-emerald-600 dark:text-emerald-400">
+                            neto −{formatCurrency(m.importe_neto ?? m.importe)}
+                          </p>
+                        )}
+
+                        {m.tipo === 'ingreso' && hasCompensaciones && (
+                          <p className="mt-0.5 flex items-center justify-end gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                            <Undo2 className="h-2.5 w-2.5" /> Compensación
+                          </p>
+                        )}
+
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-end justify-between gap-x-3">
+                      {onUpdateCategoria && <CategoryPicker movimiento={m} onSave={onUpdateCategoria} />}
+
+                      {/* Actions (reassign, convert, link, delete) */}
+                      <div className="ml-auto mt-2 flex items-center gap-0.5 transition-opacity duration-200 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
+                        {m.tipo === 'gasto' && reassignable.length > 0 && (
+                          <select
+                            value={m.hucha_id || ''}
+                            onChange={(e) => onChangeHucha(m, e.target.value)}
+                            className="mr-1 max-w-[120px] truncate rounded-lg bg-surface-2 px-2 py-1.5 text-[11px] font-semibold text-ink-soft hover:text-ink focus:outline-none"
+                            title="Reasignar hucha"
+                            aria-label="Reasignar hucha"
+                          >
+                            <option value="" disabled>Reasignar...</option>
+                            {reassignable.map(h => (
+                              <option key={h.id} value={h.id}>{h.nombre}</option>
+                            ))}
+                          </select>
+                        )}
+
                         <button
-                          onClick={() => handleStartEdit(m)}
-                          className="text-slate-400 opacity-0 group-hover/concept:opacity-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-opacity p-0.5"
+                          type="button"
+                          onClick={() => onConvert(m)}
+                          className="dashboard-icon-button"
+                          title="Convertir tipo de movimiento"
+                          aria-label="Convertir tipo de movimiento"
                         >
-                          <Edit2 className="w-3 h-3" />
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onLink(m)}
+                          className="dashboard-icon-button"
+                          title={m.tipo === 'gasto' ? "Vincular/Compensar con Bizum" : "Repartir este ingreso en gastos"}
+                          aria-label={m.tipo === 'gasto' ? "Vincular/Compensar con Bizum" : "Repartir este ingreso en gastos"}
+                        >
+                          <Link className="h-3.5 w-3.5" />
+                        </button>
+                        {hasCompensaciones && (
+                          <button
+                            type="button"
+                            onClick={() => onUnlink(m)}
+                            className="dashboard-icon-button is-danger"
+                            title="Deshacer vínculo de compensación"
+                            aria-label="Deshacer vínculo de compensación"
+                          >
+                            <Link2Off className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => onDeleteMovimiento(m)}
+                          className="dashboard-icon-button is-danger"
+                          title="Eliminar movimiento"
+                          aria-label="Eliminar movimiento"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                    )}
-
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">
-                        {formatDate(m.fecha_operacion)}
-                      </span>
-                      {m.banco && (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 uppercase tracking-wider">
-                          <Landmark size={10} />
-                          {m.banco}
-                        </span>
-                      )}
-                      {m.hucha_id && (
-                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">
-                          • {huchas.find(h => h.id === m.hucha_id)?.nombre || 'Cartera'}
-                        </span>
-                      )}
                     </div>
-                    {onUpdateCategoria && <CategoryPicker movimiento={m} onSave={onUpdateCategoria} />}
-                  </div>
-                </div>
-
-                {/* Amounts and action indicators */}
-                <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2.5 w-full sm:w-auto mt-2 sm:mt-0 shrink-0">
-                  <div className="flex items-center sm:items-end flex-row sm:flex-col gap-2 sm:gap-0 shrink-0">
-                    {expensePercentage >= 5 && (
-                      <div className="mb-1">
-                        <ExpenseImpactBadge percentage={expensePercentage} />
-                      </div>
-                    )}
-                    <div className="text-left sm:text-right shrink-0">
-                      <p className={`text-base font-extrabold tabular-nums tracking-tight ${
-                      m.tipo === 'ingreso' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                    } ${hasCompensaciones ? 'line-through opacity-50' : ''}`}>
-                      {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.importe)}
-                    </p>
-                    
-                    {m.tipo === 'gasto' && hasCompensaciones && (
-                      <p className="text-xs font-black tabular-nums text-emerald-600 dark:text-emerald-400 -mt-0.5 flex items-center gap-1 justify-end">
-                        neto −{formatCurrency(m.importe_neto ?? m.importe)}
-                      </p>
-                    )}
-
-                    {m.tipo === 'ingreso' && hasCompensaciones && (
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center gap-0.5 justify-end">
-                        <Undo2 className="w-2.5 h-2.5" /> compensación
-                      </p>
-                    )}
-                  </div>
-                  </div>
-
-                  {/* Actions (Link, Convert, Reassign Hucha) */}
-                  <div className="flex flex-wrap items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 w-full sm:w-auto justify-end">
-                    
-                    {/* Hucha reassign select (expenses only) */}
-                    {m.tipo === 'gasto' && huchas.filter(h => !h.es_suscripciones && h.activa !== false).length > 0 && (
-                      <select
-                        value={m.hucha_id || ''}
-                        onChange={(e) => onChangeHucha(m, e.target.value)}
-                        className="text-[9px] font-bold uppercase tracking-wider bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-450 border border-white/5 rounded-xl px-2.5 py-1.5 focus:outline-none cursor-pointer max-w-[110px] truncate transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-sm"
-                        title="Reasignar hucha"
-                      >
-                        <option value="" disabled>Reasignar...</option>
-                        {huchas
-                          .filter(h => !h.es_suscripciones && h.activa !== false)
-                          .map(h => (
-                            <option key={h.id} value={h.id}>{h.nombre}</option>
-                          ))}
-                      </select>
-                    )}
-
-                    {/* Convert Type (Ingreso <-> Gasto) */}
-                    <button
-                      onClick={() => onConvert(m)}
-                      className="flex items-center justify-center w-7 h-7 rounded-xl bg-slate-100 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-600 dark:bg-slate-800 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
-                      title="Convertir tipo de movimiento"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                    </button>
-
-                    {/* Link / Unlink Button */}
-                    <button
-                      onClick={() => onLink(m)}
-                      className="flex items-center justify-center w-7 h-7 rounded-xl bg-slate-100 hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-600 dark:bg-slate-800 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
-                      title={m.tipo === 'gasto' ? "Vincular/Compensar con Bizum" : "Repartir este ingreso en gastos"}
-                    >
-                      <Link className="w-3.5 h-3.5" />
-                    </button>
-                    {((m.tipo === 'gasto' && ((m.compensado_por?.length ?? 0) > 0 || (m.compensado_por_detalles?.length ?? 0) > 0)) || (m.tipo === 'ingreso' && (m.compensa_movimiento_id || (m.compensaciones_destinos?.length ?? 0) > 0))) && (
-                      <button
-                        onClick={() => onUnlink(m)}
-                        className="flex items-center justify-center w-7 h-7 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 border border-rose-500/10 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
-                        title="Deshacer vínculo de compensación"
-                      >
-                        <Link2Off className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-
-                    {/* Delete Movement Button */}
-                    <button
-                      onClick={() => onDeleteMovimiento(m)}
-                      className="flex items-center justify-center w-7 h-7 rounded-xl bg-slate-100 hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 dark:bg-slate-800 dark:hover:bg-rose-950/40 border border-white/5 transition-all duration-200 hover:scale-110 active:scale-90 hover:shadow-sm"
-                      title="Eliminar movimiento"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
                   </div>
                 </div>
                 {compensation && onAcceptCompensation && onDismissCompensation && (
-                  <MovementReview key={compensation.id} suggestion={compensation} onAccept={onAcceptCompensation} onDismiss={onDismissCompensation} onAdjust={onLink} />
+                  <div className="mt-3 sm:pl-[3.25rem]">
+                    <MovementReview key={compensation.id} suggestion={compensation} onAccept={onAcceptCompensation} onDismiss={onDismissCompensation} onAdjust={onLink} />
+                  </div>
                 )}
               </div>
             );
           })
         ) : (
-          <div className="flex flex-col items-center justify-center p-12 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 text-center animate-in fade-in duration-300">
+          <div className="dashboard-empty animate-in fade-in my-1 py-10 duration-300">
             <EmptyIllustration />
-            <p className="font-extrabold text-sm text-slate-400 dark:text-slate-600 uppercase tracking-wider">Sin Movimientos</p>
-            <p className="text-xs text-slate-400 mt-1">Registra nuevos cargos o nóminas para ver la actividad</p>
+            <p className="text-sm font-bold text-ink">{hasActiveFilters ? 'Nada coincide con esos filtros' : 'Aún no hay movimientos'}</p>
+            <p className="max-w-xs text-xs font-normal">
+              {hasActiveFilters ? 'Prueba a quitar alguno para ver más movimientos.' : 'Cuando llegue un cargo o una nómina aparecerá aquí.'}
+            </p>
           </div>
         )}
       </div>
-    </Card>
+    </section>
   );
 };

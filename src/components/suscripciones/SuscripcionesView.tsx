@@ -64,18 +64,18 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
       {/* 1. Header & main action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-            Suscripciones Recurrentes
+          <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink sm:text-4xl">
+            Suscripciones recurrentes
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">Previsión y distribución automática de cargos periódicos</p>
+          <p className="mt-1 text-sm text-ink-soft">Previsión y distribución automática de cargos periódicos</p>
         </div>
 
         <button
           onClick={() => onOpenSuscripcionModal(null)}
-          className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-extrabold text-xs px-5 py-3 rounded-xl shadow-lg hover:shadow-xl hover:shadow-indigo-500/10 active:scale-95 transition-all border border-indigo-400/20 shrink-0 self-start sm:self-auto"
+          className="dashboard-primary-button self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
-          Nueva Suscripción
+          Nueva suscripción
         </button>
       </div>
 

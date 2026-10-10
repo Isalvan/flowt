@@ -83,7 +83,7 @@ export const Modal: React.FC<ModalProps> = ({
         aria-labelledby={!hideHeader && title ? `${modalId}-title` : undefined}
         aria-label={hideHeader || !title ? 'Diálogo de Flowt' : undefined}
         tabIndex={-1}
-        className="fixed inset-0 bg-slate-950/40 dark:bg-black/60 backdrop-blur-md transition-opacity duration-300 animate-fade-in"
+        className="fixed inset-0 bg-slate-950/45 dark:bg-black/65 backdrop-blur-sm animate-fade-in"
         onClick={() => closeOnBackdrop && onClose()}
       />
 
@@ -94,17 +94,10 @@ export const Modal: React.FC<ModalProps> = ({
           w-full 
           ${sizeClasses[size]} 
           glass-panel 
-          rounded-2xl 
-          shadow-2xl 
-          border 
-          border-white/20 
-          dark:border-slate-800/80 
-          p-6 
+          rounded-3xl 
+          p-5 
+          sm:p-6 
           z-10 
-          transform 
-          transition-all 
-          duration-300 
-          ease-out 
           animate-appear-up
           max-h-[90vh]
           flex
@@ -113,9 +106,9 @@ export const Modal: React.FC<ModalProps> = ({
       >
         {/* Header */}
         {!hideHeader && (
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800/60 mb-4 shrink-0">
+          <div className="mb-4 flex shrink-0 items-center justify-between gap-3 border-b border-line pb-4">
             {title ? (
-              <h3 id={`${modalId}-title`} className="font-title text-xl font-bold text-slate-900 dark:text-white">
+              <h3 id={`${modalId}-title`} className="font-title text-xl font-bold text-ink">
                 {title}
               </h3>
             ) : (
@@ -123,7 +116,7 @@ export const Modal: React.FC<ModalProps> = ({
             )}
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors duration-150 cursor-pointer"
+              className="dashboard-icon-button shrink-0"
               aria-label="Cerrar modal"
             >
               <X size={18} />

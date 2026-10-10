@@ -103,10 +103,10 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
       {/* 1. Header with Month switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-            Calendario de Cargos
+          <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink sm:text-4xl">
+            Calendario de cargos
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">Vencimiento mensual estimado de tus suscripciones recurrentes</p>
+          <p className="mt-1 text-sm text-ink-soft">Vencimiento mensual estimado de tus suscripciones recurrentes</p>
         </div>
 
         {/* Month selector controls */}
@@ -222,7 +222,7 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
           
           {/* Selected day details panel */}
           <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-lg p-5">
-            <h3 className="font-extrabold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-widest border-b border-slate-150/40 dark:border-white/5 pb-3 mb-4 flex items-center gap-1.5">
+            <h3 className="dashboard-heading mb-4 flex items-center gap-2 border-b border-line pb-3">
               <Calendar className="w-4 h-4 text-indigo-500" />
               Detalles: Día {selectedDay || today.getDate()}
             </h3>
@@ -240,7 +240,7 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
                             boxShadow: `0 0 5px ${sub.color}80`
                           }} 
                         />
-                        <h4 className="font-extrabold text-xs text-slate-800 dark:text-slate-205 uppercase tracking-tight truncate">
+                        <h4 className="truncate text-[13px] font-bold text-ink">
                           {sub.nombre}
                         </h4>
                       </div>
@@ -272,9 +272,9 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
           {/* Full Month Agenda listing card */}
           <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-lg p-5 flex-1 flex flex-col justify-between">
             <div>
-              <h3 className="font-extrabold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-widest border-b border-slate-150/40 dark:border-white/5 pb-3 mb-4 flex items-center gap-1.5">
+              <h3 className="dashboard-heading mb-4 flex items-center gap-2 border-b border-line pb-3">
                 <Clock className="w-4 h-4 text-indigo-500" />
-                Agenda Mensual
+                Agenda mensual
               </h3>
 
               <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">

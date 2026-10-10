@@ -28,25 +28,18 @@ export const CorreosOrchestrator: React.FC<CorreosOrchestratorProps> = ({
     <div className="w-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       {/* Elegante selector de sub-vista tipo píldora */}
-      <div className="flex justify-center w-full">
-        <div className="inline-flex bg-white/40 dark:bg-slate-900/40 backdrop-blur-md p-1.5 rounded-2xl border border-white/20 dark:border-white/5 shadow-sm">
+      <div className="no-scrollbar -mx-4 flex overflow-x-auto px-4 sm:mx-0 sm:justify-center sm:px-0">
+        <div className="segmented">
           
           <button
             onClick={() => setSubTab('revision')}
-            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer ${
-              subTab === 'revision'
-                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_10px_rgba(0,0,0,0.08)] ring-1 ring-slate-900/5 dark:ring-white/10 scale-[1.02]'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-            }`}
+            aria-pressed={subTab === 'revision'}
+            className="segmented-item"
           >
-            <Mail size={16} className={subTab === 'revision' ? 'text-indigo-500' : ''} />
-            Revisión Manual
+            <Mail size={16} className={subTab === 'revision' ? 'text-brand-ink' : ''} />
+            Revisión manual
             {pendingCount > 0 && (
-              <span className={`ml-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${
-                subTab === 'revision' 
-                  ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300' 
-                  : 'bg-indigo-500 text-white shadow-sm shadow-indigo-500/20'
-              }`}>
+              <span className="grid h-4.5 min-w-4.5 place-items-center rounded-full bg-sun-500 px-1 text-[10px] font-extrabold leading-none text-slate-950">
                 {pendingCount}
               </span>
             )}
@@ -54,14 +47,11 @@ export const CorreosOrchestrator: React.FC<CorreosOrchestratorProps> = ({
           
           <button
             onClick={() => setSubTab('historico')}
-            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer ${
-              subTab === 'historico'
-                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_10px_rgba(0,0,0,0.08)] ring-1 ring-slate-900/5 dark:ring-white/10 scale-[1.02]'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-            }`}
+            aria-pressed={subTab === 'historico'}
+            className="segmented-item"
           >
-            <History size={16} className={subTab === 'historico' ? 'text-indigo-500' : ''} />
-            Historial de Correos
+            <History size={16} className={subTab === 'historico' ? 'text-brand-ink' : ''} />
+            Historial de correos
           </button>
 
         </div>

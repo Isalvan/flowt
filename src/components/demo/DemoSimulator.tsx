@@ -42,17 +42,18 @@ export const DemoSimulator: React.FC<DemoSimulatorProps> = ({ injectDemoMovement
   ];
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 transition-all duration-300">
+    <div className="fixed bottom-24 right-3 z-40 md:bottom-6 md:right-6">
       {!isOpen ? (
         <button
           onClick={() => setIsOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white px-5 py-3 rounded-full shadow-lg hover:shadow-xl hover:shadow-indigo-500/20 active:scale-95 transition-all duration-200 border border-white/10"
+          aria-label="Simulador Demo"
+          className="flex items-center gap-2 rounded-full bg-ink px-4 py-3 text-page shadow-[var(--shadow-pop)] transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0"
         >
-          <Sparkles className="w-5 h-5 animate-pulse text-yellow-300" />
-          <span className="font-semibold text-sm">Simulador Demo</span>
+          <Sparkles className="h-4 w-4 text-sun-500" />
+          <span className="hidden text-[13px] font-bold sm:inline">Simulador Demo</span>
         </button>
       ) : (
-        <div className="w-96 animate-in slide-in-from-bottom-5 duration-300">
+        <div className="animate-in fade-in slide-in-from-bottom-5 w-[calc(100vw-1.5rem)] max-w-96 duration-300">
           <Card className="border border-indigo-500/30 shadow-2xl shadow-indigo-950/20">
             <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
               <div className="flex items-center gap-2">

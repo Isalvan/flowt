@@ -200,12 +200,12 @@ export const PinModal: React.FC = () => {
               ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 scale-110 shadow-lg shadow-emerald-500/10' 
               : isShaking 
                 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' 
-                : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400 animate-pulse'
+                : 'bg-brand-tint border-transparent text-brand-ink'
           }`}>
             {isSuccess ? <Sparkles className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
           </div>
           
-          <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-tight mt-1">
+          <h3 className="mt-1 text-2xl font-bold text-ink">
             {getHeading()}
           </h3>
           <p className="text-[12px] leading-relaxed text-slate-600 dark:text-slate-400 max-w-[260px] mx-auto font-medium">

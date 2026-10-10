@@ -1,130 +1,100 @@
 import React from 'react';
+import { FlowtLogo } from '../common/FlowtLogo';
 
+/** Mirrors the dashboard's real layout so nothing jumps when the data lands. */
 export const DashboardSkeleton: React.FC = () => {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 transition-colors duration-300 font-sans pb-24">
-      {/* 1. Header Navbar Skeleton */}
-      <header className="sticky top-0 z-30 backdrop-blur-md bg-white/70 dark:bg-slate-950/70 border-b border-slate-100 dark:border-white/5 transition-all duration-300">
-        <div className="flowt-container mx-auto h-16 sm:h-18 flex items-center justify-between">
-          
-          {/* Logo brand placeholder */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl shimmer-placeholder shrink-0" />
-            <div className="space-y-2">
-              <div className="w-16 h-4 rounded shimmer-placeholder" />
-              <div className="w-20 h-2.5 rounded shimmer-placeholder" />
-            </div>
+    <div className="app-canvas min-h-screen pb-28 font-sans md:pb-12" aria-busy="true" aria-label="Cargando Flowt">
+      <header className="sticky top-0 z-30 border-b border-line bg-page/75 backdrop-blur-xl">
+        <div className="flowt-container mx-auto flex h-14 items-center justify-between gap-3 sm:h-16">
+          <div className="flex items-center gap-2.5">
+            <FlowtLogo size={28} />
+            <span className="font-display text-xl font-bold leading-none tracking-tight text-ink">Flowt</span>
           </div>
-
-          {/* Nav Tabs placeholder */}
-          <div className="hidden md:flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200/40 dark:border-white/5 rounded-2xl">
-            <div className="w-24 h-8 rounded-xl shimmer-placeholder" />
-            <div className="w-28 h-8 rounded-xl shimmer-placeholder" />
-            <div className="w-24 h-8 rounded-xl shimmer-placeholder" />
-            <div className="w-20 h-8 rounded-xl shimmer-placeholder" />
-          </div>
-
-          {/* Quick utilities placeholder */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl shimmer-placeholder" />
-            <div className="w-10 h-10 rounded-xl shimmer-placeholder" />
-            <div className="w-24 h-10 rounded-2xl shimmer-placeholder" />
+          <div className="hidden h-10 w-[26rem] rounded-full shimmer-placeholder md:block" />
+          <div className="flex items-center gap-1.5">
+            <div className="h-9 w-9 rounded-xl shimmer-placeholder" />
+            <div className="h-9 w-9 rounded-xl shimmer-placeholder" />
+            <div className="h-9 w-9 rounded-full shimmer-placeholder" />
           </div>
         </div>
       </header>
 
-      {/* 2. Main Content Skeleton */}
-      <main className="flowt-container mx-auto mt-5 sm:mt-8 space-y-6 sm:space-y-8">
-        
-        {/* Title and main buttons */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <main className="flowt-container mx-auto mt-5 space-y-5 sm:mt-8 sm:space-y-7">
+        {/* Greeting and actions */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2.5">
-            <div className="w-36 h-8 rounded-lg shimmer-placeholder" />
-            <div className="w-56 h-4 rounded shimmer-placeholder" />
+            <div className="h-9 w-56 rounded-xl shimmer-placeholder" />
+            <div className="h-4 w-40 rounded shimmer-placeholder" />
           </div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-28 h-9.5 rounded-xl shimmer-placeholder" />
-            <div className="w-32 h-9.5 rounded-xl shimmer-placeholder" />
-            <div className="w-36 h-9.5 rounded-xl shimmer-placeholder" />
+          <div className="flex items-center gap-2">
+            <div className="h-10 flex-1 rounded-xl shimmer-placeholder md:w-44 md:flex-none" />
+            <div className="h-8 w-24 rounded-full shimmer-placeholder" />
+            <div className="h-10 w-11 rounded-xl shimmer-placeholder sm:w-36" />
           </div>
         </div>
 
-        {/* 4 Stat Cards shimmer */}
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <div 
-              key={i} 
-              className="p-5 rounded-2xl bg-white/60 dark:bg-slate-900/30 border border-slate-100 dark:border-white/5 h-32 flex flex-col justify-between"
-            >
-              <div className="flex justify-between items-center">
-                <div className="w-28 h-3.5 rounded shimmer-placeholder" />
-                <div className="w-5 h-5 rounded-full shimmer-placeholder" />
-              </div>
-              <div className="space-y-2">
-                <div className="w-24 h-7.5 rounded-lg shimmer-placeholder" />
-                <div className="w-36 h-3 rounded shimmer-placeholder" />
-              </div>
+        {/* Balance */}
+        <div className="dashboard-surface p-5 sm:p-7">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:items-end lg:gap-10">
+            <div className="space-y-4">
+              <div className="h-3 w-24 rounded shimmer-placeholder" />
+              <div className="h-12 w-64 max-w-full rounded-xl shimmer-placeholder sm:h-14" />
             </div>
-          ))}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="h-20 rounded-2xl shimmer-placeholder" />
+              <div className="h-20 rounded-2xl shimmer-placeholder" />
+            </div>
+          </div>
+          <div className="mt-6 h-2 rounded-full shimmer-placeholder" />
         </div>
 
-        {/* Carteras shimmer */}
-        <div className="space-y-4">
-          <div className="w-40 h-4.5 rounded shimmer-placeholder" />
-          <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(3)].map((_, i) => (
-              <div 
-                key={i} 
-                className="p-6 rounded-2xl bg-white/60 dark:bg-slate-900/30 border border-slate-100 dark:border-white/5 h-44 flex flex-col justify-between"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="space-y-3">
-                    <div className="w-28 h-5.5 rounded shimmer-placeholder" />
-                    <div className="w-20 h-5 rounded-lg shimmer-placeholder" />
-                  </div>
-                  <div className="flex gap-1">
-                    <div className="w-8 h-8 rounded-xl shimmer-placeholder" />
-                    <div className="w-8 h-8 rounded-xl shimmer-placeholder" />
+        {/* Wallets */}
+        <div className="space-y-3">
+          <div className="h-5 w-32 rounded shimmer-placeholder" />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className={`dashboard-surface h-36 flex-col justify-between p-4 ${i > 0 ? 'hidden sm:flex' : 'flex'} ${i > 2 ? 'lg:hidden xl:flex' : ''}`}>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl shimmer-placeholder" />
+                  <div className="space-y-2">
+                    <div className="h-3.5 w-28 rounded shimmer-placeholder" />
+                    <div className="h-2.5 w-20 rounded shimmer-placeholder" />
                   </div>
                 </div>
-                <div className="flex justify-between items-end">
-                  <div className="space-y-2">
-                    <div className="w-32 h-7.5 rounded-lg shimmer-placeholder" />
-                    <div className="w-24 h-3.5 rounded shimmer-placeholder" />
-                  </div>
-                  <div className="w-14 h-14 rounded-full shimmer-placeholder" />
+                <div className="space-y-3">
+                  <div className="h-6 w-32 rounded-lg shimmer-placeholder" />
+                  <div className="h-1.5 rounded-full shimmer-placeholder" />
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Evolution Chart shimmer */}
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="md:col-span-2 p-6 rounded-2xl bg-white/60 dark:bg-slate-900/30 border border-slate-100 dark:border-white/5 h-96 flex flex-col justify-between">
-            <div className="flex justify-between items-center border-b border-slate-150 dark:border-white/5 pb-4">
+        {/* Chart and upcoming charges */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="dashboard-surface h-96 p-5 lg:col-span-2">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl shimmer-placeholder" />
               <div className="space-y-2">
-                <div className="w-40 h-5.5 rounded shimmer-placeholder" />
-                <div className="w-56 h-3 rounded shimmer-placeholder" />
+                <div className="h-4 w-44 rounded shimmer-placeholder" />
+                <div className="h-3 w-56 max-w-full rounded shimmer-placeholder" />
               </div>
-              <div className="w-28 h-8 rounded-2xl shimmer-placeholder" />
             </div>
-            <div className="w-full h-64 rounded-xl shimmer-placeholder" />
+            <div className="mt-5 h-64 rounded-2xl shimmer-placeholder" />
           </div>
-          
-          <div className="p-6 rounded-2xl bg-white/60 dark:bg-slate-900/30 border border-slate-100 dark:border-white/5 h-96 flex flex-col justify-between">
-            <div className="border-b border-slate-150 dark:border-white/5 pb-4 space-y-2">
-              <div className="w-36 h-5.5 rounded shimmer-placeholder" />
-              <div className="w-40 h-3 rounded shimmer-placeholder" />
+          <div className="dashboard-surface hidden h-96 p-5 lg:block">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl shimmer-placeholder" />
+              <div className="h-4 w-36 rounded shimmer-placeholder" />
             </div>
-            <div className="w-36 h-36 rounded-full shimmer-placeholder mx-auto my-3" />
-            <div className="space-y-2">
-              <div className="w-full h-8 rounded-lg shimmer-placeholder" />
-              <div className="w-full h-8 rounded-lg shimmer-placeholder" />
+            <div className="mt-6 space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-10 rounded-xl shimmer-placeholder" />
+              ))}
             </div>
           </div>
         </div>
-
       </main>
     </div>
   );

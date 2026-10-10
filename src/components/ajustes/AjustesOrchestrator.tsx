@@ -42,43 +42,34 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
     <div className="w-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       {/* Elegante selector de sub-vista tipo píldora */}
-      <div className="flex justify-center w-full">
-        <div className="inline-flex bg-white/40 dark:bg-slate-900/40 backdrop-blur-md p-1.5 rounded-2xl border border-white/20 dark:border-white/5 shadow-sm">
+      <div className="no-scrollbar -mx-4 flex overflow-x-auto px-4 sm:mx-0 sm:justify-center sm:px-0">
+        <div className="segmented">
           
           <button
             onClick={() => setSubTab('suscripciones')}
-            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer ${
-              subTab === 'suscripciones'
-                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_10px_rgba(0,0,0,0.08)] ring-1 ring-slate-900/5 dark:ring-white/10 scale-[1.02]'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-            }`}
+            aria-pressed={subTab === 'suscripciones'}
+            className="segmented-item"
           >
-            <Layers size={16} className={subTab === 'suscripciones' ? 'text-indigo-500' : ''} />
+            <Layers size={16} className={subTab === 'suscripciones' ? 'text-brand-ink' : ''} />
             Suscripciones
           </button>
           
           <button
             onClick={() => setSubTab('exportar')}
-            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer ${
-              subTab === 'exportar'
-                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_10px_rgba(0,0,0,0.08)] ring-1 ring-slate-900/5 dark:ring-white/10 scale-[1.02]'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-            }`}
+            aria-pressed={subTab === 'exportar'}
+            className="segmented-item"
           >
-            <Download size={16} className={subTab === 'exportar' ? 'text-indigo-500' : ''} />
-            Exportar Datos
+            <Download size={16} className={subTab === 'exportar' ? 'text-brand-ink' : ''} />
+            Exportar datos
           </button>
 
           <button
             onClick={() => setSubTab('carteras_inactivas')}
-            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer ${
-              subTab === 'carteras_inactivas'
-                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_10px_rgba(0,0,0,0.08)] ring-1 ring-slate-900/5 dark:ring-white/10 scale-[1.02]'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-            }`}
+            aria-pressed={subTab === 'carteras_inactivas'}
+            className="segmented-item"
           >
-            <Archive size={16} className={subTab === 'carteras_inactivas' ? 'text-indigo-500' : ''} />
-            Carteras Inactivas
+            <Archive size={16} className={subTab === 'carteras_inactivas' ? 'text-brand-ink' : ''} />
+            Carteras inactivas
           </button>
 
         </div>
@@ -98,7 +89,7 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
           />
         ) : subTab === 'carteras_inactivas' ? (
           <div className="w-full max-w-2xl mx-auto bg-white/40 dark:bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/20 dark:border-white/5 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Carteras Inactivas</h3>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Carteras inactivas</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
               Aquí puedes ver y restaurar las carteras que has ocultado o desactivado. Al restaurarlas, volverán a estar disponibles en tu dashboard.
             </p>

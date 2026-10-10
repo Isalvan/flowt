@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import {
   ArrowRightLeft,
   ChevronDown,
+  Ellipsis,
   History,
   Plus,
   HelpCircle,
@@ -84,21 +85,21 @@ export const MoreActionsMenu: React.FC<MoreActionsMenuProps> = ({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={onToggle}
+        aria-label="Más acciones"
         className="dashboard-secondary-button"
       >
-        <span className="text-base leading-none">⋮</span> Más acciones{" "}
+        <Ellipsis size={16} />
+        <span className="hidden sm:inline">Más acciones</span>
         <ChevronDown
           size={15}
-          className={
-            open ? "rotate-180 transition-transform" : "transition-transform"
-          }
+          className={`hidden transition-transform duration-200 sm:block ${open ? "rotate-180" : ""}`}
         />
       </button>
       {open && (
         <div
           role="menu"
           aria-label="Más acciones"
-          className="absolute right-0 top-[calc(100%+8px)] z-50 w-52 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+          className="glass-panel animate-in fade-in slide-in-from-top-1 absolute right-0 top-[calc(100%+8px)] z-50 w-56 rounded-2xl p-1.5 duration-150"
         >
           {actions.map(({ label, icon: Icon, onClick }, index) => (
             <button
@@ -111,9 +112,9 @@ export const MoreActionsMenu: React.FC<MoreActionsMenuProps> = ({
                 onClose();
                 triggerRef.current?.focus();
               }}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:text-slate-200 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300"
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-semibold text-ink transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none"
             >
-              <Icon size={15} /> {label}
+              <Icon size={15} className="text-ink-faint" /> {label}
             </button>
           ))}
         </div>

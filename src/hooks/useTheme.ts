@@ -17,6 +17,10 @@ export const useTheme = () => {
     } else {
       document.documentElement.classList.remove('dark');
     }
+    // Keep the browser / PWA chrome the same colour as the page behind it
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', theme === 'dark' ? '#080a10' : '#f4f5f8');
     window.localStorage.setItem('flowt-theme', theme);
   }, [theme]);
 
