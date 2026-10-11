@@ -18,9 +18,9 @@ CASES = json.loads((Path(__file__).parent.parent / "finance" / "distribution_cas
 def test_split_matches_the_shared_cases(case):
     if "error" in case:
         with pytest.raises(ReviewError) as raised:
-            d.distribute_income(case["importe"], case["huchas"], case["plain"])
+            d.distribute_income(case["importe"], case["huchas"], case["plain"], case.get("mes"))
         assert raised.value.code == case["error"]
         return
-    split = d.distribute_income(case["importe"], case["huchas"], case["plain"])
+    split = d.distribute_income(case["importe"], case["huchas"], case["plain"], case.get("mes"))
     assert split == case["esperado"]
     assert sum(split["saldos"].values()) == case["importe"]

@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, CreditCard, Edit3, Lock, PiggyBank, Trash2, User, Wallet, WalletCards } from 'lucide-react';
+import { CheckCircle, CreditCard, Edit3, Gift, Lock, PiggyBank, Trash2, User, Wallet, WalletCards } from 'lucide-react';
 import { CountUp } from '../common/CountUp';
 import { type Hucha } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
@@ -17,6 +17,8 @@ interface HuchaCardProps {
 
 const normalizeHuchaName = (name: string) => name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
 const renderHuchaIcon = (hucha: Hucha) => {
   const name = normalizeHuchaName(hucha.nombre);
   if (hucha.es_suscripciones || name.includes('suscrip')) return <CreditCard size={18} />;
@@ -30,6 +32,8 @@ const renderHuchaIcon = (hucha: Hucha) => {
 export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, index = 0, onEdit, onDelete, onSubsanar, onRevertirDeuda }) => {
   const { isLocked, formatCurrency } = usePrivacy();
   const accent = walletAccent(index);
+  const months = [...(hucha.extra_meses || [])].sort((a, b) => a - b).map(month => monthNames[month - 1]);
+  const extraMonths = months.length > 1 ? `${months.slice(0, -1).join(', ')} y ${months[months.length - 1]}` : months[0];
   const hasGoal = Boolean(hucha.objetivo && hucha.objetivo > 0);
   const full = hasGoal && hucha.saldo_acumulado >= (hucha.objetivo || 0);
   const percent = hasGoal ? Math.min(100, Math.max(0, Math.round((hucha.saldo_acumulado / (hucha.objetivo || 1)) * 100))) : 0;
@@ -86,6 +90,14 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, index = 0, onEdit, 
         </div>
       ) : (
         <p className="mt-4 text-[11px] text-ink-faint">Sin objetivo</p>
+      )}
+
+      {/* At the foot of the card, so every wallet keeps its balance on the same line. */}
+      {(hucha.extra_importe || 0) > 0 && months.length > 0 && (
+        <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-snug text-ink-soft">
+          <Gift size={12} aria-hidden="true" className="mt-0.5 shrink-0 text-ink-faint" />
+          <span>Paga extra de {formatCurrency(hucha.extra_importe!)} en {extraMonths}</span>
+        </p>
       )}
 
       {(hucha.deuda_pendiente || 0) > 0 && (

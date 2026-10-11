@@ -1,15 +1,18 @@
-import { cents, euros, percentOf, room, fallbackHucha, distributeIncome, incomeReversal, recordedSplit as domainRecordedSplit } from '../../mcp-worker/src/financeDomain.js';
+import { cents, euros, percentOf, room, fallbackHucha, distributeIncome, incomeReversal, extraMonth as domainExtraMonth, recordedSplit as domainRecordedSplit } from '../../mcp-worker/src/financeDomain.js';
 import type { Hucha, Movimiento } from '../types';
 
-export type IncomeSplit = NonNullable<Movimiento['reparto_aplicado']>;
+// Reversals carry a transient flag so applySplit clears, rather than sets, the month.
+export type IncomeSplit = NonNullable<Movimiento['reparto_aplicado']> & { reverseExtras?: boolean };
 export type IncomeRow = { huchaId: string; tipoAportacion: Hucha['tipo_aportacion']; value: number };
 
 export const roundMoney = (value: number): number => euros(cents(value));
 const walletsById = (huchas: Hucha[]) => Object.fromEntries(huchas.map(h => [h.id, h]));
 
 /** All public splits use euros. Positive debt amounts repay; negative ones restore. */
-export function splitIncome(importe: number, huchas: Hucha[], options?: { plain?: boolean }): IncomeSplit {
-  return domainRecordedSplit(distributeIncome(cents(importe), walletsById(huchas), options?.plain));
+export const extraMonth = domainExtraMonth;
+
+export function splitIncome(importe: number, huchas: Hucha[], options?: { plain?: boolean; extraMonth?: string | null }): IncomeSplit {
+  return domainRecordedSplit(distributeIncome(cents(importe), walletsById(huchas), options?.plain, options?.extraMonth));
 }
 
 export function reverseIncome(movimiento: Movimiento, huchas: Hucha[]): IncomeSplit {
@@ -18,7 +21,7 @@ export function reverseIncome(movimiento: Movimiento, huchas: Hucha[]): IncomeSp
     ? { ...movimiento, reparto_aplicado: { saldos: { [movimiento.hucha_id]: movimiento.importe }, deudas: {} } }
     : movimiento;
   const split = domainRecordedSplit(incomeReversal(movement, walletsById(huchas)));
-  return { ...split, deudas: Object.fromEntries(Object.entries(split.deudas).map(([id, debt]) => [id, { ...debt, importe: -debt.importe }])) };
+  return { ...split, ...(split.extras ? { reverseExtras: true } : {}), deudas: Object.fromEntries(Object.entries(split.deudas).map(([id, debt]) => [id, { ...debt, importe: -debt.importe }])) };
 }
 
 export function applySplit(huchas: Hucha[], split: IncomeSplit): Hucha[] {
@@ -29,6 +32,8 @@ export function applySplit(huchas: Hucha[], split: IncomeSplit): Hucha[] {
       ...h,
       saldo_acumulado: euros(cents(h.saldo_acumulado || 0) + cents(split.saldos[h.id] || 0)),
       ...(debt ? { deuda_pendiente: euros(owed), deuda_con: owed > 0 ? debt.con : null } : {}),
+      ...(split.extras?.[h.id] && (!split.reverseExtras || h.extra_ultimo === split.extras[h.id])
+        ? { extra_ultimo: split.reverseExtras ? null : split.extras[h.id] } : {}),
     };
   });
 }
@@ -37,6 +42,7 @@ export function recordedSplit(split: IncomeSplit): IncomeSplit {
   return domainRecordedSplit({
     saldos: Object.fromEntries(Object.entries(split.saldos).map(([id, value]) => [id, cents(value)])),
     deudas: Object.fromEntries(Object.entries(split.deudas).map(([id, debt]) => [id, { ...debt, importe: cents(debt.importe) }])),
+    ...(split.extras ? { extras: split.extras } : {}),
   });
 }
 

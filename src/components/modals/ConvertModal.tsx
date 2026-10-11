@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRightLeft, Info, Plus, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { type Movimiento, type Hucha } from '../../types';
-import { splitIncome, explicitIncomeShares, applySplit, isIncomeSplitError } from '../../utils/incomeSplit';
+import { extraMonth, splitIncome, explicitIncomeShares, applySplit, isIncomeSplitError } from '../../utils/incomeSplit';
 
 interface ConvertRow {
   huchaId: string;
@@ -100,7 +100,7 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
         const refund = huchas.find(h => h.id === movimiento.hucha_id && h.activa !== false)
           || huchas.find(h => h.es_principal && h.activa !== false) || huchas.find(h => h.activa !== false);
         const copy = applySplit(huchas, { saldos: refund ? { [refund.id]: amount } : {}, deudas: {} });
-        preview = splitIncome(amount, copy).saldos;
+        preview = splitIncome(amount, copy, { extraMonth: extraMonth(movimiento) }).saldos;
       }
     } catch (err) {
       if (!isIncomeSplitError(err)) throw err;

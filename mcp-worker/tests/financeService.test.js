@@ -32,6 +32,54 @@ async function refused(code, call) {
 
 const expense = (overrides = {}) => service.create_movement('owner', { tipo: 'gasto', concepto: 'Mercadona', importe: 84.5, fecha_operacion: NOW.toISOString(), ...overrides });
 
+describe('payroll extras', () => {
+  const configure = () => db.put('huchas', 'fixed', { ...db.read('huchas', 'fixed'), extra_importe: 100, extra_meses: [8, 12] });
+  const payroll = (overrides = {}) => service.create_movement('owner', { tipo: 'ingreso', concepto: 'Nómina', importe: 1000, fecha_operacion: '2026-08-01', ...overrides });
+
+  it('applies once, records the month, and deletion permits reapplication', async () => {
+    configure();
+    const first = await payroll();
+    expect(db.read('huchas', 'fixed')).toMatchObject({ extra_ultimo: '2026-08', saldo_acumulado: 200 });
+    expect(first.movement.reparto_aplicado.extras).toEqual({ fixed: '2026-08' });
+    expect((await payroll()).movement.reparto_aplicado).not.toHaveProperty('extras');
+    await service.delete_movement('owner', { movement_id: first.movement.id });
+    expect(db.read('huchas', 'fixed')).not.toHaveProperty('extra_ultimo');
+    expect((await payroll()).movement.reparto_aplicado.extras).toEqual({ fixed: '2026-08' });
+  });
+
+  it('preserves a newer extra month when deleting an older payroll', async () => {
+    configure();
+    const first = await payroll();
+    await payroll({ fecha_operacion: '2026-12-01' });
+    await service.delete_movement('owner', { movement_id: first.movement.id });
+    expect(db.read('huchas', 'fixed').extra_ultimo).toBe('2026-12');
+  });
+
+  it.each([{ concepto: 'Regalo' }, { hucha_id: 'fixed' }])('does not apply to non payroll or directed income: %j', async overrides => {
+    configure();
+    await payroll(overrides);
+    expect(db.read('huchas', 'fixed')).not.toHaveProperty('extra_ultimo');
+  });
+
+  it('applies when approving pending payroll and clears it on deletion', async () => {
+    configure();
+    db.put('correos_pendientes', 'pending', { id_propietario: 'owner', email_id: 'mail' });
+    const created = await service.approve_pending_email('owner', { email_id: 'pending', tipo: 'ingreso', concepto: 'Nómina', importe: 1000, fecha_operacion: '2026-08-01' });
+    expect(db.read('huchas', 'fixed').extra_ultimo).toBe('2026-08');
+    await service.delete_movement('owner', { movement_id: created.movement.id });
+    expect(db.read('huchas', 'fixed')).not.toHaveProperty('extra_ultimo');
+  });
+
+  it.each([false, true])('conversion applies only automatic extras, reversal clears them: manual=%s', async manual => {
+    configure();
+    const created = await expense({ concepto: 'Nómina', importe: 1000, fecha_operacion: '2026-08-01', hucha_id: 'main' });
+    await service.convert_movement('owner', { movement_id: created.movement.id, ...(manual ? { distribution: [{ hucha_id: 'fixed', importe: 1000 }] } : {}) });
+    expect(db.read('huchas', 'fixed').extra_ultimo).toBe(manual ? undefined : '2026-08');
+    await service.convert_movement('owner', { movement_id: created.movement.id, target_hucha_id: 'main' });
+    expect(db.read('huchas', 'fixed')).not.toHaveProperty('extra_ultimo');
+  });
+});
+
 describe('movements', () => {
   it('charges the chosen wallet and protects what the user chose', async () => {
     const result = await expense({ hucha_id: 'trip', categoria: 'alimentacion' });

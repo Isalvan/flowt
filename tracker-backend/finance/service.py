@@ -143,12 +143,15 @@ class FinanceService:
         return summary
 
     @staticmethod
-    def _debt_fields(huchas, debts, restore=False):
-        """Wallet fields for debt repaid by an income, or owed again when that income is undone."""
+    def _debt_fields(huchas, debts, restore=False, extras=None):
+        """Debt and extra-month fields to apply an income or undo its recorded split."""
         fields = {}
         for hid, debt in debts.items():
             owed = cents(huchas[hid].get("deuda_pendiente") or 0) + (debt["importe"] if restore else -debt["importe"])
             fields[hid] = {"deuda_pendiente": d.euros(max(owed, 0)), "deuda_con": debt["con"] if owed > 0 else DELETE}
+        for hid, month in (extras or {}).items():
+            if hid in huchas and (not restore or huchas[hid].get("extra_ultimo") == month):
+                fields.setdefault(hid, {})["extra_ultimo"] = DELETE if restore else month
         return fields
 
     def _bump_stats(self, tx, owner, stats, ingresos=0, gastos=0):
@@ -371,13 +374,13 @@ class FinanceService:
         elif target:
             deltas[target] = amount
         else:
-            split = d.distribute_income(amount, huchas)
+            split = d.distribute_income(amount, huchas, extra_month=d.extra_month(movement))
             deltas, debts = split["saldos"], split["deudas"]
             movement["reparto_aplicado"] = d.recorded_split(split)
         movement["hucha_id"] = target
         movement["review_protected_fields"] = protected
         ref = self.db.collection("movimientos").document()
-        changes = self._apply(tx, huchas, deltas, self._debt_fields(huchas, debts), created)
+        changes = self._apply(tx, huchas, deltas, self._debt_fields(huchas, debts, extras=(movement.get("reparto_aplicado") or {}).get("extras")), created)
         if d.counts_in_stats(movement):
             self._bump_stats(tx, owner, stats, **{"ingresos" if tipo == "ingreso" else "gastos": amount})
         tx.set(ref, movement)
@@ -445,7 +448,7 @@ class FinanceService:
         elif d.ordered(huchas):
             reversal = d.income_reversal(movement, huchas)
             deltas, debts = reversal["saldos"], reversal["deudas"]
-        changes = self._apply(tx, huchas, deltas, self._debt_fields(huchas, debts, restore=True))
+        changes = self._apply(tx, huchas, deltas, self._debt_fields(huchas, debts, restore=True, extras=(movement.get("reparto_aplicado") or {}).get("extras")))
         for other_id, update in unlinked.items():
             if other_id != movement_id:
                 tx.update(self._ref("movimientos", other_id),
@@ -484,11 +487,11 @@ class FinanceService:
             else:
                 # Caps are measured after the expense has been handed back.
                 view = {**huchas, **({refund: {**huchas[refund], "saldo_acumulado": d.euros(cents(huchas[refund].get("saldo_acumulado") or 0) + amount)}} if refund else {})}
-                split = d.distribute_income(amount, view)
+                split = d.distribute_income(amount, view, extra_month=d.extra_month(movement))
             deltas = dict(split["saldos"])
             if refund:
                 deltas[refund] = deltas.get(refund, 0) + amount
-            extra = self._debt_fields(huchas, split["deudas"])
+            extra = self._debt_fields(huchas, split["deudas"], extras=split.get("extras"))
             update.update({"tipo": "ingreso", "hucha_id": DELETE, "reparto_aplicado": d.recorded_split(split)})
             stat_change = {"ingresos": amount, "gastos": -amount}
         else:
@@ -505,7 +508,7 @@ class FinanceService:
                 reversal = d.income_reversal(movement, huchas)
                 deltas, debts = dict(reversal["saldos"]), reversal["deudas"]
             deltas[target_hucha_id] = deltas.get(target_hucha_id, 0) - amount
-            extra = self._debt_fields(huchas, debts, restore=True)
+            extra = self._debt_fields(huchas, debts, restore=True, extras=(movement.get("reparto_aplicado") or {}).get("extras"))
             update.update({"tipo": "gasto", "hucha_id": target_hucha_id, "reparto_aplicado": DELETE})
             stat_change = {"ingresos": -amount, "gastos": amount}
         changes = self._apply(tx, huchas, deltas, extra)
@@ -845,12 +848,12 @@ class FinanceService:
                 fail("no_hucha", "Indica de qué cartera sale el gasto")
             deltas[target] = -amount
         else:
-            split = d.distribute_income(amount, huchas)
+            split = d.distribute_income(amount, huchas, extra_month=d.extra_month(movement))
             deltas, debts = split["saldos"], split["deudas"]
             movement["reparto_aplicado"] = d.recorded_split(split)
         movement["hucha_id"] = target
         ref = self.db.collection("movimientos").document()
-        changes = self._apply(tx, huchas, deltas, self._debt_fields(huchas, debts))
+        changes = self._apply(tx, huchas, deltas, self._debt_fields(huchas, debts, extras=(movement.get("reparto_aplicado") or {}).get("extras")))
         self._bump_stats(tx, owner, stats, **{"ingresos" if tipo == "ingreso" else "gastos": amount})
         tx.set(ref, movement)
         # Same durable handoff as the web: the synchroniser queues the automatic review from it.

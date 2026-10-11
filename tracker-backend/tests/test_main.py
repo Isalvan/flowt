@@ -415,7 +415,7 @@ def hucha_doc(doc_id, **data):
     return doc
 
 
-def process_income_email(mock_config, huchas, amounts):
+def process_income_email(mock_config, huchas, amounts, concepto="Ingreso"):
     """Run one email transaction with distinct movement, stats and wallet references."""
     mock_firestore, mock_collection = mock_config
     references = {}
@@ -434,7 +434,7 @@ def process_income_email(mock_config, huchas, amounts):
     mock_firestore.get_all.return_value = []
     movements = [{"doc_id": f"income-{index}", "movimiento": {
         "tipo": "ingreso", "importe": amount, "id_propietario": "test_user_123",
-        "concepto": "Ingreso", "fecha_operacion": "2026-04-11",
+        "concepto": concepto, "fecha_operacion": "2026-04-11",
     }} for index, amount in enumerate(amounts)]
     transaction = mock_firestore.transaction.return_value
     with patch.object(main, "review_enabled", return_value=False):
@@ -593,6 +593,33 @@ def test_email_income_writes_whole_cents_for_half_of_three_cents(mock_config):
     assert saved["income-0"]["reparto_aplicado"] == {
         "saldos": {"percentage": 0.02, "rest": 0.01}, "deudas": {},
     }
+
+
+@pytest.mark.parametrize("concepto,last,expected", [
+    ("Nómina", None, True), ("Nómina", "2026-04", False), ("Regalo", None, False),
+])
+def test_email_payroll_extra_once_per_month_in_same_email(mock_config, concepto, last, expected):
+    personal = {"tipo_aportacion": "flat", "valor_aportacion": 10, "saldo_acumulado": 0,
+                "extra_importe": 100, "extra_meses": [4], "extra_ultimo": last, "orden": 1}
+    huchas = [hucha_doc("personal", **personal),
+              hucha_doc("rest", tipo_aportacion="resto", saldo_acumulado=0, orden=2)]
+    updates, saved, _ = process_income_email(mock_config, huchas, [1000, 1000], concepto=concepto)
+    assert updates["personal"]["saldo_acumulado"] == (120 if expected else 20)
+    assert updates["rest"]["saldo_acumulado"] == (1880 if expected else 1980)
+    assert updates["personal"].get("extra_ultimo") == ("2026-04" if expected else None)
+    assert saved["income-0"]["reparto_aplicado"].get("extras") == ({"personal": "2026-04"} if expected else None)
+    assert "extras" not in saved["income-1"]["reparto_aplicado"]
+
+
+def test_email_extra_marks_borrower_even_when_balance_does_not_change(mock_config):
+    huchas = [hucha_doc("personal", tipo_aportacion="flat", valor_aportacion=0, saldo_acumulado=0,
+                        extra_importe=100, extra_meses=[4], deuda_pendiente=100, deuda_con="rest", orden=1),
+              hucha_doc("rest", tipo_aportacion="resto", saldo_acumulado=0, orden=2)]
+    updates, saved, _ = process_income_email(mock_config, huchas, [1000, 1000], concepto="Nómina")
+    assert updates["personal"]["extra_ultimo"] == "2026-04"
+    assert updates["personal"]["deuda_pendiente"] == 0
+    assert updates["personal"]["saldo_acumulado"] == 0
+    assert "extras" not in saved["income-1"]["reparto_aplicado"]
 
 
 def test_email_income_rounds_written_balance_and_pending_debt(mock_config):

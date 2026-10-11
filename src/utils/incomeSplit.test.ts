@@ -9,9 +9,10 @@ const wallet = (id: string, fields: Partial<Hucha> = {}): Hucha => ({
 const income = (fields: Partial<Movimiento> = {}): Movimiento => ({
   id: 'income', tipo: 'ingreso', concepto: 'Ingreso', importe: 100, fecha_operacion: '2026-10-01', ...fields,
 });
-const toEuros = (split: { saldos: Record<string, number>; deudas: Record<string, { importe: number; con: string }> }) => ({
+const toEuros = (split: { saldos: Record<string, number>; deudas: Record<string, { importe: number; con: string }>; extras?: Record<string, string> }) => ({
   saldos: Object.fromEntries(Object.entries(split.saldos).map(([id, value]) => [id, value / 100])),
   deudas: Object.fromEntries(Object.entries(split.deudas).map(([id, debt]) => [id, { ...debt, importe: debt.importe / 100 }])),
+  ...(split.extras ? { extras: split.extras } : {}),
 });
 
 describe('splitIncome: todos los casos compartidos con Python', () => {
@@ -21,7 +22,7 @@ describe('splitIncome: todos los casos compartidos con Python', () => {
     if (entry.error) {
       expect(() => splitIncome(entry.importe / 100, wallets, { plain: entry.plain })).toThrowError(expect.objectContaining({ code: entry.error }));
     } else {
-      const split = splitIncome(entry.importe / 100, wallets, { plain: entry.plain });
+      const split = splitIncome(entry.importe / 100, wallets, { plain: entry.plain, extraMonth: 'mes' in entry ? entry.mes : null });
       expect(split).toEqual(toEuros(entry.esperado as unknown as Parameters<typeof toEuros>[0]));
       expect(recordedSplit(split)).toEqual(split);
     }

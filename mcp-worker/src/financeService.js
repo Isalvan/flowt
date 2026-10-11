@@ -125,12 +125,17 @@ export class FinanceService {
     return summary;
   }
 
-  /** Wallet fields for debt repaid by an income, or owed again when that income is undone. */
-  _debtFields(huchas, debts, restore = false) {
+  /** Debt and extra-month fields to apply an income or undo its recorded split. */
+  _debtFields(huchas, debts, restore = false, extras = {}) {
     const fields = {};
     for (const [id, debt] of Object.entries(debts)) {
       const owed = d.cents(huchas[id].deuda_pendiente || 0) + (restore ? debt.importe : -debt.importe);
       fields[id] = { deuda_pendiente: d.euros(Math.max(owed, 0)), deuda_con: owed > 0 ? debt.con : DELETE_FIELD };
+    }
+    for (const [id, month] of Object.entries(extras || {})) {
+      if (huchas[id] && (!restore || huchas[id].extra_ultimo === month)) {
+        fields[id] = { ...fields[id], extra_ultimo: restore ? DELETE_FIELD : month };
+      }
     }
     return fields;
   }
@@ -376,7 +381,7 @@ export class FinanceService {
       } else if (target) {
         deltas[target] = amount;
       } else {
-        const split = d.distributeIncome(amount, huchas);
+        const split = d.distributeIncome(amount, huchas, false, d.extraMonth(movement));
         deltas = split.saldos;
         debts = split.deudas;
         movement.reparto_aplicado = d.recordedSplit(split);
@@ -384,7 +389,7 @@ export class FinanceService {
       movement.hucha_id = target;
       movement.review_protected_fields = protectedFields;
       const ref = this.db.doc('movimientos', this.db.newId());
-      const changes = this._apply(tx, huchas, deltas, this._debtFields(huchas, debts), created);
+      const changes = this._apply(tx, huchas, deltas, this._debtFields(huchas, debts, false, movement.reparto_aplicado?.extras), created);
       if (d.countsInStats(movement)) this._bumpStats(tx, owner, stats, { [tipo === 'ingreso' ? 'ingresos' : 'gastos']: amount });
       tx.set(ref, movement);
       return { movement: visible(ref.id, movement), hucha_changes: changes };
@@ -450,7 +455,7 @@ export class FinanceService {
         deltas = reversal.saldos;
         debts = reversal.deudas;
       }
-      const changes = this._apply(tx, huchas, deltas, this._debtFields(huchas, debts, true));
+      const changes = this._apply(tx, huchas, deltas, this._debtFields(huchas, debts, true, movement.reparto_aplicado?.extras));
       for (const [otherId, update] of Object.entries(unlinked)) {
         if (otherId !== movement_id) tx.update(this._ref('movimientos', otherId), { ...orDelete(update), updated_at: NOW });
       }
@@ -492,11 +497,11 @@ export class FinanceService {
           const view = refund
             ? { ...huchas, [refund]: { ...huchas[refund], saldo_acumulado: d.euros(d.cents(huchas[refund].saldo_acumulado || 0) + amount) } }
             : huchas;
-          split = d.distributeIncome(amount, view);
+          split = d.distributeIncome(amount, view, false, d.extraMonth(movement));
         }
         deltas = { ...split.saldos };
         if (refund) deltas[refund] = (deltas[refund] || 0) + amount;
-        extra = this._debtFields(huchas, split.deudas);
+        extra = this._debtFields(huchas, split.deudas, false, split.extras);
         Object.assign(update, { tipo: 'ingreso', hucha_id: DELETE_FIELD, reparto_aplicado: d.recordedSplit(split) });
         statChange = { ingresos: amount, gastos: -amount };
       } else {
@@ -512,7 +517,7 @@ export class FinanceService {
           debts = reversal.deudas;
         }
         deltas[target_hucha_id] = (deltas[target_hucha_id] || 0) - amount;
-        extra = this._debtFields(huchas, debts, true);
+        extra = this._debtFields(huchas, debts, true, movement.reparto_aplicado?.extras);
         Object.assign(update, { tipo: 'gasto', hucha_id: target_hucha_id, reparto_aplicado: DELETE_FIELD });
         statChange = { ingresos: -amount, gastos: amount };
       }
@@ -862,14 +867,14 @@ export class FinanceService {
         if (!target) fail('no_hucha', 'Indica de qué cartera sale el gasto');
         deltas[target] = -amount;
       } else {
-        const split = d.distributeIncome(amount, huchas);
+        const split = d.distributeIncome(amount, huchas, false, d.extraMonth(movement));
         deltas = split.saldos;
         debts = split.deudas;
         movement.reparto_aplicado = d.recordedSplit(split);
       }
       movement.hucha_id = target;
       const ref = this.db.doc('movimientos', this.db.newId());
-      const changes = this._apply(tx, huchas, deltas, this._debtFields(huchas, debts));
+      const changes = this._apply(tx, huchas, deltas, this._debtFields(huchas, debts, false, movement.reparto_aplicado?.extras));
       this._bumpStats(tx, owner, stats, { [tipo === 'ingreso' ? 'ingresos' : 'gastos']: amount });
       tx.set(ref, movement);
       // Same durable handoff as the web: the synchroniser queues the automatic review from it.

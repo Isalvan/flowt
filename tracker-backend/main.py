@@ -24,7 +24,7 @@ from gmail_client import get_unread_emails_from_bank, mark_email_as_read
 from fallback_logic import fallback_extract_movement
 from ai_parser import clean_body, extract_with_gemini
 from category_suggestions import category_fields
-from finance.domain import amount_cents, cents, distribute_income, euros, percentage_total, recorded_split
+from finance.domain import amount_cents, cents, distribute_income, extra_month, euros, percentage_total, recorded_split
 from reviews.domain import ReviewError
 from reviews.processing import (
     review_enabled, read_processing, record_movements,
@@ -367,7 +367,8 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
             "ref": h_doc.reference,
             "data": data,
             "saldo_actual": float(data.get("saldo_acumulado", 0) or 0),
-            "deuda_actual": float(data.get("deuda_pendiente", 0) or 0)
+            "deuda_actual": float(data.get("deuda_pendiente", 0) or 0),
+            "extra_original": data.get("extra_ultimo")
         }
         if data.get("es_suscripciones"):
             subs_hucha_id = h_doc.id
@@ -437,7 +438,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                 for h_id, h_info in huchas_state.items()
             }
             try:
-                split = distribute_income(amount_cents(movimiento["importe"]), distribution_huchas)
+                split = distribute_income(amount_cents(movimiento["importe"]), distribution_huchas, extra_month=extra_month(movimiento))
             except ReviewError as error:
                 if error.code not in ("invalid_distribution", "no_hucha"):
                     raise
@@ -453,6 +454,8 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                     huchas_state[h_id]["saldo_actual"] += euros(delta)
                 for h_id, debt in split["deudas"].items():
                     huchas_state[h_id]["deuda_actual"] -= euros(debt["importe"])
+                for h_id, month in split.get("extras", {}).items():
+                    huchas_state[h_id]["data"]["extra_ultimo"] = month
                 movimiento["reparto_aplicado"] = recorded_split(split)
                 if new_hucha_ref:
                     new_hucha_has_income = True
@@ -506,7 +509,8 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
         new_balance = euros(cents(h_info["saldo_actual"]))
         new_deuda = euros(cents(h_info.get("deuda_actual", original_deuda)))
         
-        if abs(new_balance - original_balance) > 0.001 or abs(new_deuda - original_deuda) > 0.001:  # if changed
+        extra_changed = h_info["data"].get("extra_ultimo") != h_info.get("extra_original")
+        if abs(new_balance - original_balance) > 0.001 or abs(new_deuda - original_deuda) > 0.001 or extra_changed:  # if changed
             # Don't update the new default hucha twice if we just created it
             if new_hucha_ref and h_id == new_hucha_ref.id:
                 continue
@@ -515,6 +519,8 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                 "saldo_acumulado": new_balance,
                 "updated_at": firestore.SERVER_TIMESTAMP
             }
+            if extra_changed:
+                update_data["extra_ultimo"] = h_info["data"]["extra_ultimo"]
             if abs(new_deuda - original_deuda) > 0.001:
                 update_data["deuda_pendiente"] = new_deuda
                 if new_deuda == 0:

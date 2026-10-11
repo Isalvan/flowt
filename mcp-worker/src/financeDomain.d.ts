@@ -7,6 +7,9 @@ export interface Wallet {
   saldo_acumulado?: number;
   objetivo?: number | null;
   tope_objetivo?: boolean;
+  extra_importe?: number | null;
+  extra_meses?: number[] | null;
+  extra_ultimo?: string | null;
   es_principal?: boolean;
   es_suscripciones?: boolean;
   es_metalico?: boolean;
@@ -17,6 +20,7 @@ export interface Wallet {
 export interface Split {
   saldos: Record<string, number>;
   deudas: Record<string, { importe: number; con: string }>;
+  extras?: Record<string, string>;
 }
 
 export function cents(value: number): number;
@@ -24,6 +28,14 @@ export function euros(value: number): number;
 export function percentOf(amount: number, percent: number): number;
 export function room(hucha: Wallet, pending?: number): number | null;
 export function fallbackHucha(huchas: Record<string, Wallet>, exclude?: string[]): string | null;
-export function distributeIncome(amountCents: number, huchas: Record<string, Wallet>, plain?: boolean): Split;
+export interface PayrollMovement {
+  categoria?: string | null;
+  categoria_sugerida?: string | null;
+  concepto?: string;
+  fecha_operacion?: unknown;
+}
+export function isPayroll(movement: PayrollMovement): boolean;
+export function extraMonth(movement: PayrollMovement): string | null;
+export function distributeIncome(amountCents: number, huchas: Record<string, Wallet>, plain?: boolean, extraMonth?: string | null): Split;
 export function incomeReversal(movement: { importe: number; reparto_aplicado?: Split | null }, huchas: Record<string, Wallet>): Split;
 export function recordedSplit(split: Split): Split;

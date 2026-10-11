@@ -26,7 +26,7 @@ import { crearRetiradaEfectivo, cuentaEnEstadisticas } from '../utils/movements'
 import { getMovementWindowStart, groupMovementsByMonth, typicalMonthlyIncome, parseMovimientoDate } from '../utils/periodStats';
 import { usePreferences } from '../context/PreferencesContext';
 import { payrollDates, periodOf, previousPeriod } from '../utils/periods';
-import { splitIncome, reverseIncome, applySplit, recordedSplit, explicitIncomeSplit, cappedWalletCredit, roundMoney, isIncomeSplitError, type IncomeSplit } from '../utils/incomeSplit';
+import { extraMonth, splitIncome, reverseIncome, applySplit, recordedSplit, explicitIncomeSplit, cappedWalletCredit, roundMoney, isIncomeSplitError, type IncomeSplit } from '../utils/incomeSplit';
 import { sanitizeConcepto } from '../utils/sanitize';
 import { tryEditReviewedMovement } from '../utils/reviewApi';
 import { compensationUpdates, unlinkCompensationUpdates, validCategory as validCatalogCategory } from '../utils/movementSuggestions';
@@ -510,9 +510,11 @@ export const useFinanceData = (forceDemo = false) => {
 
   const writeSplit = (transaction: Transaction, current: Hucha[], split: IncomeSplit) => {
     for (const h of applySplit(current, split)) {
-      if (!split.saldos[h.id] && !split.deudas[h.id]) continue;
+      if (!split.saldos[h.id] && !split.deudas[h.id] && !split.extras?.[h.id]) continue;
       transaction.update(doc(db, 'huchas', h.id), {
         saldo_acumulado: h.saldo_acumulado,
+        ...(split.extras?.[h.id] && (!split.reverseExtras || current.find(wallet => wallet.id === h.id)?.extra_ultimo === split.extras[h.id])
+          ? { extra_ultimo: h.extra_ultimo || deleteField() } : {}),
         ...(split.deudas[h.id] ? { deuda_pendiente: h.deuda_pendiente, deuda_con: h.deuda_con || deleteField() } : {}),
         updated_at: serverTimestamp(),
       });
@@ -524,8 +526,10 @@ export const useFinanceData = (forceDemo = false) => {
   // ----------------------------------------------------
 
   const handleCreateOrUpdateHucha = async (newHucha: Omit<Hucha, 'id' | 'saldo_acumulado' | 'orden'>, editingId: string | null) => {
-    // Loan settings ("subsanar"). A caller that does not send them leaves the stored ones untouched.
-    const loanSettings = {
+    // Optional wallet settings: omitted fields leave the stored values untouched.
+    const optionalSettings = {
+      ...(newHucha.extra_importe !== undefined ? { extra_importe: newHucha.extra_importe === null ? null : roundMoney(Number(newHucha.extra_importe)) } : {}),
+      ...(newHucha.extra_meses !== undefined ? { extra_meses: newHucha.extra_meses === null ? null : [...new Set(newHucha.extra_meses)].sort((a, b) => a - b) } : {}),
       ...(newHucha.subsanar_hasta !== undefined ? { subsanar_hasta: Number(newHucha.subsanar_hasta) || 0 } : {}),
       ...(newHucha.subsanar_con !== undefined ? { subsanar_con: newHucha.subsanar_con || null } : {}),
     };
@@ -543,7 +547,7 @@ export const useFinanceData = (forceDemo = false) => {
               objetivo: newHucha.objetivo,
               es_principal: newHucha.es_principal,
               tope_objetivo: newHucha.objetivo && newHucha.objetivo > 0 ? !!newHucha.tope_objetivo : false,
-              ...loanSettings,
+              ...optionalSettings,
             };
           }
           // If this hucha is being set as principal, reset other ones
@@ -565,7 +569,7 @@ export const useFinanceData = (forceDemo = false) => {
           objetivo: newHucha.objetivo,
           es_principal: newHucha.es_principal,
           tope_objetivo: newHucha.objetivo && newHucha.objetivo > 0 ? !!newHucha.tope_objetivo : false,
-          ...loanSettings,
+          ...optionalSettings,
           activa: true,
           saldo_acumulado: 0,
           orden: huchas.length + 1
@@ -592,7 +596,7 @@ export const useFinanceData = (forceDemo = false) => {
       objetivo: newHucha.objetivo && newHucha.objetivo > 0 ? Number(newHucha.objetivo) : null,
       es_principal: !!newHucha.es_principal,
       tope_objetivo: newHucha.objetivo && newHucha.objetivo > 0 ? !!newHucha.tope_objetivo : false,
-      ...loanSettings,
+      ...optionalSettings,
       activa: true,
       updated_at: serverTimestamp()
     };
@@ -1122,7 +1126,7 @@ export const useFinanceData = (forceDemo = false) => {
       if (current.tipo === 'gasto') {
         const refundId = refundHuchaId(current.hucha_id, wallets);
         const refunded = applySplit(wallets, { saldos: refundId ? { [refundId]: amount } : {}, deudas: {} });
-        const split = rows?.length ? explicitIncomeSplit(amount, wallets, rows) : splitIncome(amount, refunded);
+        const split = rows?.length ? explicitIncomeSplit(amount, wallets, rows) : splitIncome(amount, refunded, { extraMonth: extraMonth(current) });
         return { split: { ...split, saldos: { ...split.saldos, ...(refundId ? { [refundId]: roundMoney((split.saldos[refundId] || 0) + amount) } : {}) } }, recorded: recordedSplit(split) };
       }
       if (!wallets.some(h => h.id === targetHuchaId && h.activa !== false)) throw new Error('Hucha no válida');
@@ -1167,7 +1171,7 @@ export const useFinanceData = (forceDemo = false) => {
         const wallets = await readHuchas(transaction, [
           ...(rows?.map(r => r.huchaId) || []), ...(current.hucha_id ? [current.hucha_id] : []),
           ...(targetHuchaId ? [targetHuchaId] : []),
-          ...Object.keys(current.reparto_aplicado?.saldos || {}), ...Object.keys(current.reparto_aplicado?.deudas || {}),
+          ...Object.keys(current.reparto_aplicado?.saldos || {}), ...Object.keys(current.reparto_aplicado?.deudas || {}), ...Object.keys(current.reparto_aplicado?.extras || {}),
         ]);
         const plan = conversion(current, wallets);
         writeSplit(transaction, wallets, plan.split);
@@ -1688,7 +1692,7 @@ export const useFinanceData = (forceDemo = false) => {
         if (hid) {
           nextHuchas = huchas.map(h => h.id === hid ? { ...h, saldo_acumulado: Number((h.saldo_acumulado + amt).toFixed(2)) } : h);
         } else {
-          const split = splitIncome(amt, huchas);
+          const split = splitIncome(amt, huchas, { extraMonth: extraMonth(newMov) });
           nextHuchas = applySplit(huchas, split);
           newMov.reparto_aplicado = recordedSplit(split);
         }
@@ -1750,7 +1754,7 @@ export const useFinanceData = (forceDemo = false) => {
             }
           } else {
             const currentHuchas = await readHuchas(transaction);
-            const split = splitIncome(amt, currentHuchas);
+            const split = splitIncome(amt, currentHuchas, { extraMonth: extraMonth(movData) });
             incomeRecord = recordedSplit(split);
             writeSplit(transaction, currentHuchas, split);
           }
@@ -1920,7 +1924,7 @@ export const useFinanceData = (forceDemo = false) => {
         if (targetHuchaId) {
           nextHuchas = nextHuchas.map(h => h.id === targetHuchaId ? { ...h, saldo_acumulado: Number((h.saldo_acumulado + amt).toFixed(2)) } : h);
         } else {
-          const split = splitIncome(amt, nextHuchas);
+          const split = splitIncome(amt, nextHuchas, { extraMonth: extraMonth(newMov) });
           nextHuchas = applySplit(nextHuchas, split);
           newMov.reparto_aplicado = recordedSplit(split);
         }
@@ -2046,7 +2050,7 @@ export const useFinanceData = (forceDemo = false) => {
             }
           } else {
             const currentHuchas = await readHuchas(transaction);
-            const split = splitIncome(amt, currentHuchas);
+            const split = splitIncome(amt, currentHuchas, { extraMonth: extraMonth(movData) });
             incomeRecord = recordedSplit(split);
             writeSplit(transaction, currentHuchas, split);
           }
@@ -2191,7 +2195,7 @@ export const useFinanceData = (forceDemo = false) => {
         } else {
           const currentHuchas = await readHuchas(transaction, [
             ...(current.hucha_id ? [current.hucha_id] : []),
-            ...Object.keys(current.reparto_aplicado?.saldos || {}), ...Object.keys(current.reparto_aplicado?.deudas || {}),
+            ...Object.keys(current.reparto_aplicado?.saldos || {}), ...Object.keys(current.reparto_aplicado?.deudas || {}), ...Object.keys(current.reparto_aplicado?.extras || {}),
           ]);
           writeSplit(transaction, currentHuchas, reverseIncome(current, currentHuchas));
         }
@@ -2256,7 +2260,7 @@ export const useFinanceData = (forceDemo = false) => {
       hucha_id: tipo === 'gasto' ? (selectedHuchaId || huchas.find(h => h.es_principal && h.activa !== false)?.id || huchas.find(h => h.activa !== false)?.id) : undefined
     };
 
-    const split = tipo === 'ingreso' ? splitIncome(importe, huchas) : null;
+    const split = tipo === 'ingreso' ? splitIncome(importe, huchas, { extraMonth: extraMonth(addedMov) }) : null;
     if (split) addedMov.reparto_aplicado = recordedSplit(split);
     const nextHuchas = split ? applySplit(huchas, split) : huchas.map(h => h.id === addedMov.hucha_id
       ? { ...h, saldo_acumulado: roundMoney(Math.max(0, h.saldo_acumulado - importe)) } : h);

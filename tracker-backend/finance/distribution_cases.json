@@ -1014,5 +1014,616 @@
       },
       "deudas": {}
     }
+  },
+  {
+    "nombre": "paga extra: mes incluido",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 12000,
+        "ahorro": 50000,
+        "resto": 38000
+      },
+      "deudas": {},
+      "extras": {
+        "personal": "2026-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: mes no incluido",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-07",
+    "esperado": {
+      "saldos": {
+        "personal": 2000,
+        "ahorro": 50000,
+        "resto": 48000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: ya aplicada",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1,
+        "extra_ultimo": "2026-08"
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 2000,
+        "ahorro": 50000,
+        "resto": 48000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: sin mes",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "personal": 2000,
+        "ahorro": 50000,
+        "resto": 48000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: ingreso insuficiente",
+    "importe": 7000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 7000
+      },
+      "deudas": {},
+      "extras": {
+        "personal": "2026-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: tope casi lleno",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 75,
+        "orden": 1,
+        "objetivo": 100,
+        "tope_objetivo": true
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 2500,
+        "ahorro": 50000,
+        "resto": 47500
+      },
+      "deudas": {},
+      "extras": {
+        "personal": "2026-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: deuda",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1,
+        "deuda_pendiente": 80,
+        "deuda_con": "resto"
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "resto": 46000,
+        "personal": 4000,
+        "ahorro": 50000
+      },
+      "deudas": {
+        "personal": {
+          "importe": 8000,
+          "con": "resto"
+        }
+      },
+      "extras": {
+        "personal": "2026-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: dos carteras en orden con ingreso insuficiente",
+    "importe": 17000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2,
+        "extra_importe": 100,
+        "extra_meses": [
+          8
+        ]
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 12000,
+        "ahorro": 5000
+      },
+      "deudas": {},
+      "extras": {
+        "personal": "2026-08",
+        "ahorro": "2026-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: cartera de resto",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": null,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3,
+        "extra_importe": 100,
+        "extra_meses": [
+          8
+        ]
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 2000,
+        "resto": 48000,
+        "ahorro": 50000
+      },
+      "deudas": {},
+      "extras": {
+        "resto": "2026-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: plain ignora extra",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": true,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 2000,
+        "ahorro": 50000,
+        "resto": 48000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: otro año permite repetir",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1,
+        "extra_ultimo": "2026-08"
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2027-08",
+    "esperado": {
+      "saldos": {
+        "personal": 12000,
+        "ahorro": 50000,
+        "resto": 38000
+      },
+      "deudas": {},
+      "extras": {
+        "personal": "2027-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: tope lleno no marca",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 100,
+        "orden": 1,
+        "objetivo": 100,
+        "tope_objetivo": true
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "ahorro": 50000,
+        "resto": 50000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: archivada no participa",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1,
+        "activa": false
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "ahorro": 50000,
+        "resto": 50000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: efectivo no participa",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1,
+        "es_metalico": true
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "ahorro": 50000,
+        "resto": 50000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: redondeo a céntimos",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 0.005,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 2001,
+        "ahorro": 50000,
+        "resto": 47999
+      },
+      "deudas": {},
+      "extras": {
+        "personal": "2026-08"
+      }
+    }
   }
 ]
