@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactNode } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Movimiento } from "../../types";
+import type { Movimiento, Suscripcion } from "../../types";
 import { PredictiveChart } from "./PredictiveChart";
 import { buildProjectionData, calculateProjectionEstimates, netVariability } from "../../utils/predictive";
 
@@ -19,7 +19,12 @@ vi.mock("recharts", () => ({
     state.chartData = data;
     return <div>{Children.map(children, (child) => isValidElement(child) && child.type === "defs" ? <svg>{child}</svg> : child)}</div>;
   },
+  ComposedChart: ({ children, data }: { children: ReactNode; data: typeof state.chartData }) => {
+    state.chartData = data;
+    return <div>{Children.map(children, (child) => isValidElement(child) && child.type === "defs" ? <svg>{child}</svg> : child)}</div>;
+  },
   Area: ({ stroke, fill }: { stroke: string; fill: string }) => <div data-testid={stroke === "none" ? "band" : "expected-line"} data-fill={fill} />,
+  Line: ({ name, strokeDasharray }: { name: string; strokeDasharray: string }) => <div data-testid="scenario-line" data-name={name} data-dash={strokeDasharray} />,
   XAxis: () => null,
   YAxis: ({ domain }: { domain: number[] }) => <div data-testid="y-axis" data-domain={JSON.stringify(domain)} />,
   CartesianGrid: () => null,
@@ -88,5 +93,91 @@ describe("PredictiveChart", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(screen.queryByText(/Saldo esperado:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/La franja refleja/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Añadir supuesto" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Los supuestos son para probar/)).not.toBeInTheDocument();
+  });
+
+  it("adds and removes a one-off scenario, shows its summary and expands the axis", () => {
+    show();
+    const add = screen.getByRole("button", { name: "Añadir supuesto" });
+    fireEvent.click(add);
+    expect(screen.getByLabelText("Tipo de supuesto")).toHaveFocus();
+    fireEvent.change(screen.getByLabelText("Descripción (opcional)"), { target: { value: "Coche" } });
+    fireEvent.change(screen.getByLabelText("Importe (€)"), { target: { value: "9000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Añadir" }));
+    expect(screen.getByText(/^Coche ·/)).toHaveTextContent("−9000");
+    expect(screen.getByRole("status")).toHaveTextContent(`Con tus supuestos acabarías con ${currency(9000)} menos`.replace(/\s/g, " "));
+    expect(screen.getByRole("status")).toHaveTextContent("y te quedarías sin saldo el 20 abr");
+    expect(screen.getByTestId("scenario-line")).toHaveAttribute("data-dash", "6 4");
+    expect(screen.getByText(/^Con tus supuestos:/)).toBeInTheDocument();
+    expect(JSON.parse(screen.getByTestId("y-axis").getAttribute("data-domain")!)[0]).toBeLessThanOrEqual(-9000);
+    expect(add).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: /^Quitar supuesto Coche/ }));
+    expect(screen.queryByText(/^Coche ·/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("scenario-line")).not.toBeInTheDocument();
+  });
+
+  it("cancels with Escape and restores focus without adding an adjustment", () => {
+    show();
+    const add = screen.getByRole("button", { name: "Añadir supuesto" });
+    fireEvent.click(add);
+    fireEvent.keyDown(screen.getByLabelText("Descripción (opcional)"), { key: "Escape" });
+    expect(screen.queryByRole("form")).not.toBeInTheDocument();
+    expect(add).toHaveFocus();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("adds monthly income and clears multiple assumptions without persisting them", () => {
+    show();
+    for (let index = 0; index < 2; index += 1) {
+      fireEvent.click(screen.getByRole("button", { name: "Añadir supuesto" }));
+      fireEvent.change(screen.getByLabelText("Tipo de supuesto"), { target: { value: "mensual" } });
+      fireEvent.change(screen.getByLabelText("Descripción (opcional)"), { target: { value: "Sueldo" } });
+      fireEvent.change(screen.getByLabelText("Importe al mes (€)"), { target: { value: "150" } });
+      fireEvent.change(screen.getByLabelText("Gasto o ingreso"), { target: { value: "ingreso" } });
+      fireEvent.submit(screen.getByRole("form"));
+    }
+    expect(screen.getAllByText(/^Sueldo ·/)).toHaveLength(2);
+    expect(screen.getByRole("status")).toHaveTextContent("más");
+    expect(localStorage.length).toBe(0);
+    fireEvent.click(screen.getByRole("button", { name: "Quitar todos" }));
+    expect(screen.queryByText(/^Sueldo ·/)).not.toBeInTheDocument();
+  });
+
+  it("offers active subscriptions and removes future charges in the scenario", () => {
+    const subscription: Suscripcion = {
+      id: "netflix", nombre: "Netflix", importe: 15, frecuencia: "mensual",
+      activa: true, dia_pago: 25, categoria: "streaming", color: "#000",
+    };
+    render(<PredictiveChart huchas={[]} suscripciones={[subscription, { ...subscription, id: "inactive", nombre: "Inactiva", activa: false }]} allMovimientos={history} />);
+    fireEvent.click(screen.getByRole("button", { name: "Añadir supuesto" }));
+    fireEvent.change(screen.getByLabelText("Tipo de supuesto"), { target: { value: "cancelar_suscripcion" } });
+    expect(screen.getByRole("option", { name: "Netflix" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Inactiva" })).not.toBeInTheDocument();
+    fireEvent.submit(screen.getByRole("form"));
+    expect(screen.getByText("Sin Netflix")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(`Con tus supuestos acabarías con ${currency(45)} más`.replace(/\s/g, " "));
+  });
+
+  it("rejects out-of-range dates and discards assumptions on remount", () => {
+    const view = show();
+    fireEvent.click(screen.getByRole("button", { name: "Añadir supuesto" }));
+    fireEvent.change(screen.getByLabelText("Importe (€)"), { target: { value: "10" } });
+    const date = screen.getByLabelText("Fecha");
+    expect(date).toHaveAttribute("min", "2026-04-20");
+    expect(date).toHaveAttribute("max", "2031-04-20");
+    for (const value of ["2026-04-19", "2031-04-21"]) {
+      fireEvent.change(date, { target: { value } });
+      fireEvent.submit(screen.getByRole("form"));
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    }
+    fireEvent.change(date, { target: { value: "2026-04-20" } });
+    fireEvent.submit(screen.getByRole("form"));
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    view.unmount();
+    show();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("scenario-line")).not.toBeInTheDocument();
   });
 });

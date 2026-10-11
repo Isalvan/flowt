@@ -1,7 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
+  ComposedChart,
+  Line,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -10,7 +12,7 @@ import {
   type TooltipContentProps,
   type TooltipValueType,
 } from "recharts";
-import { AlertTriangle, LineChart } from "lucide-react";
+import { AlertTriangle, LineChart, Plus, X } from "lucide-react";
 import type { Hucha, Movimiento, Suscripcion } from "../../types";
 import { usePrivacy } from "../../context/PrivacyContext";
 import { usePreferences } from "../../context/PreferencesContext";
@@ -19,7 +21,9 @@ import {
   buildProjectionData,
   calculateProjectionEstimates,
   netVariability,
+  scenarioSummary,
 } from "../../utils/predictive";
+import { ProjectionAdjustmentForm, type NamedProjectionAdjustment } from "./ProjectionAdjustmentForm";
 
 interface PredictiveChartProps {
   huchas: Hucha[];
@@ -55,6 +59,18 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
   const { isLocked, formatCurrency } = usePrivacy();
   const { inicioPeriodo } = usePreferences();
   const [months, setMonths] = useState(readStoredMonths);
+  const [adjustments, setAdjustments] = useState<NamedProjectionAdjustment[]>([]);
+  const [formOpen, setFormOpen] = useState(false);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const closeForm = () => {
+    setFormOpen(false);
+    addButtonRef.current?.focus();
+  };
+  const adjustmentLabel = (adjustment: NamedProjectionAdjustment) => {
+    if (adjustment.tipo === "cancelar_suscripcion") return adjustment.descripcion;
+    const amount = `${adjustment.importe < 0 ? "−" : "+"}${formatCurrency(Math.abs(adjustment.importe))}`;
+    return `${adjustment.descripcion} · ${amount}${adjustment.tipo === "mensual" ? "/mes" : ` · ${adjustment.fecha.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}`}`;
+  };
   // Kept apart from `months` so the field can be emptied while typing.
   const [monthsDraft, setMonthsDraft] = useState(String(months));
   const changeMonths = (value: number, syncDraft = true) => {
@@ -96,9 +112,10 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
             new Date(),
             daysUntil(months),
             variability,
+            adjustments,
           )
         : [],
-    [estimates, totalSavings, months, variability],
+    [estimates, totalSavings, months, variability, adjustments],
   );
   const horizonLabel = months === 1 ? "Próximo mes" : `Próximos ${months} meses`;
 
@@ -108,8 +125,10 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
   const lastPoint = projectionData.at(-1);
   const end = lastPoint?.balance ?? totalSavings;
   const diff = Math.round((end - totalSavings) * 100) / 100;
-  const domainMin = Math.min(...projectionData.map((point) => point.low ?? point.balance));
-  const domainMax = Math.max(...projectionData.map((point) => point.high ?? point.balance));
+  const domainMin = Math.min(...projectionData.map((point) => Math.min(point.low ?? point.balance, point.scenario ?? point.balance)));
+  const domainMax = Math.max(...projectionData.map((point) => Math.max(point.high ?? point.balance, point.scenario ?? point.balance)));
+  const summary = scenarioSummary(projectionData);
+  const Chart = adjustments.length > 0 ? ComposedChart : AreaChart;
   const figures = variability
     ? [["Prudente", lastPoint?.low ?? end], ["Esperado", end], ["Optimista", lastPoint?.high ?? end]] as const
     : [["Mínimo", min], ["Máximo", max], ["Variación", diff]] as const;
@@ -126,6 +145,11 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
         <p className="font-semibold tabular-nums text-brand-ink">
           Saldo esperado: {formatCurrency(point.balance)}
         </p>
+        {point.scenario !== undefined && (
+          <p className="mt-1 font-semibold tabular-nums text-violet-600 dark:text-violet-400">
+            Con tus supuestos: {formatCurrency(point.scenario)}
+          </p>
+        )}
         {point.low !== undefined && point.high !== undefined && (
           <p className="mt-1 text-ink-soft">
             entre {formatCurrency(point.low)} y {formatCurrency(point.high)}
@@ -152,7 +176,7 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
           </div>
         </div>
         {estimates && !isLocked && (
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div
               role="group"
               aria-label="Horizonte de la proyección"
@@ -191,6 +215,62 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
           </div>
         )}
       </div>
+      {!isLocked && estimates && (
+        <div className="mb-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              ref={addButtonRef}
+              type="button"
+              aria-expanded={formOpen}
+              onClick={() => (formOpen ? closeForm() : setFormOpen(true))}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-line-strong px-3 text-xs font-bold text-ink-soft transition-colors duration-150 hover:border-brand hover:bg-brand-tint hover:text-brand-ink"
+            >
+              <Plus size={14} />
+              Añadir supuesto
+            </button>
+            {adjustments.map((adjustment) => {
+              const label = adjustmentLabel(adjustment);
+              return (
+                <span
+                  key={adjustment.id}
+                  className="inline-flex h-8 items-center gap-1 rounded-full bg-surface-2 pl-3 pr-0.5 text-xs font-semibold text-ink"
+                >
+                  {label}
+                  <button
+                    type="button"
+                    aria-label={`Quitar supuesto ${label}`}
+                    onClick={() => setAdjustments((current) => current.filter((item) => item.id !== adjustment.id))}
+                    className="grid h-7 w-7 place-items-center rounded-full text-ink-soft transition-colors duration-150 hover:bg-surface hover:text-ink"
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
+              );
+            })}
+            {adjustments.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setAdjustments([])}
+                className="rounded-lg px-1.5 py-1 text-xs font-bold text-ink-soft underline-offset-4 hover:text-ink hover:underline"
+              >
+                Quitar todos
+              </button>
+            )}
+          </div>
+          {formOpen && (
+            <div className="mt-3">
+              <ProjectionAdjustmentForm
+                subscriptions={suscripciones.filter((subscription) => subscription.activa)}
+                onAdd={(adjustment) => setAdjustments((current) => [...current, adjustment])}
+                onClose={closeForm}
+              />
+            </div>
+          )}
+          {(formOpen || adjustments.length > 0) && (
+            <p className="field-hint mt-2">Los supuestos son para probar; no se guardan.</p>
+          )}
+        </div>
+      )}
       {isLocked ? (
         <div className="grid h-56 place-items-center rounded-2xl bg-surface-2 text-sm font-semibold text-ink-faint">
           Gráfica protegida por privacidad
@@ -219,13 +299,21 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
               </div>
             ))}
           </div>
+          {adjustments.length > 0 && <p className="mt-3 text-xs text-ink-soft" role="status">
+            Con tus supuestos acabarías con {formatCurrency(Math.abs(summary.difference))} {summary.difference < 0 ? "menos" : "más"}
+            {summary.firstNegativeDate && ` y te quedarías sin saldo el ${summary.firstNegativeDate.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}`}.
+          </p>}
+          {adjustments.length > 0 && <div className="mt-3 flex flex-wrap gap-4 text-xs text-ink-soft" aria-label="Leyenda de la proyección">
+            <span className="flex items-center gap-2"><span className="w-5 border-t-2 border-[var(--brand)]" aria-hidden="true" />Saldo esperado</span>
+            <span className="flex items-center gap-2"><span className="w-5 border-t-2 border-dashed border-violet-500" aria-hidden="true" />Con tus supuestos</span>
+          </div>}
           <div
             className="mt-3 h-56 w-full"
             role="img"
-            aria-label={`Proyección de saldo a ${months} meses: saldo esperado ${formatCurrency(end)}${variability ? `, entre ${formatCurrency(lastPoint?.low ?? end)} y ${formatCurrency(lastPoint?.high ?? end)}` : `, mínimo ${formatCurrency(min)} y máximo ${formatCurrency(max)}`}.`}
+            aria-label={`Proyección de saldo a ${months} meses: saldo esperado ${formatCurrency(end)}${variability ? `, entre ${formatCurrency(lastPoint?.low ?? end)} y ${formatCurrency(lastPoint?.high ?? end)}` : `, mínimo ${formatCurrency(min)} y máximo ${formatCurrency(max)}`}${lastPoint?.scenario !== undefined ? `, con tus supuestos ${formatCurrency(lastPoint.scenario)}` : ""}.`}
           >
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
+              <Chart
                 data={projectionData}
                 margin={{ top: 10, right: 8, left: -6, bottom: 0 }}
               >
@@ -286,12 +374,14 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
                 <Area
                   type="monotone"
                   dataKey="balance"
+                  name="Saldo esperado"
                   stroke="var(--brand)"
                   strokeWidth={2.25}
                   fill={variability ? "none" : "url(#flowtProjectionFill)"}
                   activeDot={{ r: 4, strokeWidth: 0 }}
                 />
-              </AreaChart>
+                {adjustments.length > 0 && <Line type="monotone" dataKey="scenario" name="Con tus supuestos" stroke="#8b5cf6" strokeWidth={2.25} strokeDasharray="6 4" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} isAnimationActive={false} />}
+              </Chart>
             </ResponsiveContainer>
           </div>
           <p className="mt-3 text-xs text-ink-soft">
