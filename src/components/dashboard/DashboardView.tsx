@@ -11,6 +11,7 @@ import { ActivityList } from "./ActivityList";
 import { AnalyticsSection, CategoryBreakdown } from "./LazyCharts";
 import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
+import { SmallPurchasesCard } from "./SmallPurchasesCard";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { PredictiveChart } from "./LazyCharts";
 import { ServiceIcon } from "./ServiceIcon";
@@ -504,8 +505,13 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             onDeleteMovimiento={props.onDeleteMovimiento}
           />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 space-y-4">
           <MonthlySummary movimientos={props.chartMovements} />
+          <SmallPurchasesCard
+            movimientos={filtered}
+            periodLabel={periodLabel}
+            totalGastos={gastos}
+          />
         </div>
       </div>
     </div>
