@@ -1,11 +1,15 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ComponentProps } from "react";
 import type { Movimiento } from "../../types";
 import { DashboardView } from "./DashboardView";
+import { useFinanceData } from "../../hooks/useFinanceData";
 
+const privacy = vi.hoisted(() => ({ isLocked: false }));
+beforeEach(() => { privacy.isLocked = false; });
 vi.mock("../../context/PrivacyContext", () => ({
   usePrivacy: () => ({
-    isLocked: false,
+    isLocked: privacy.isLocked,
     formatCurrency: (value: number) => String(value),
   }),
 }));
@@ -26,23 +30,30 @@ vi.mock("./FinancialOverview", () => ({
     balance,
     ingresos,
     gastos,
+    periodStatus,
   }: {
     balance: number;
     ingresos: number;
     gastos: number;
+    periodStatus?: "loading" | "error";
   }) => (
     <div
       data-testid="overview"
       data-balance={balance}
-      data-income={ingresos}
-      data-expense={gastos}
+      data-income={periodStatus ? "—" : ingresos}
+      data-expense={periodStatus ? "—" : gastos}
     >
       Saldo actual
+      {periodStatus && <p role={periodStatus === "error" ? "alert" : "status"}>
+        {periodStatus === "error" ? "No se pudieron cargar los movimientos históricos." : "Cargando movimientos…"}
+      </p>}
     </div>
   ),
 }));
 vi.mock("./AnalyticsSection", () => ({
-  AnalyticsSection: ({ chartData }: { chartData: unknown }) => (
+  AnalyticsSection: ({ chartData, periodStatus }: { chartData: unknown; periodStatus?: "loading" | "error" }) => periodStatus ? (
+    <div>{periodStatus === "error" ? "No se pudieron cargar los movimientos históricos." : "Cargando movimientos…"}</div>
+  ) : (
     <output data-testid="chart-data">{JSON.stringify(chartData)}</output>
   ),
 }));
@@ -62,7 +73,7 @@ const movement = (
   concepto: id,
 });
 
-const renderDashboard = () => {
+const renderDashboard = (overrides: Partial<ComponentProps<typeof DashboardView>> = {}) => {
   const now = new Date();
   const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const older = new Date(now.getFullYear() - 1, 5, 1);
@@ -88,7 +99,7 @@ const renderDashboard = () => {
     ),
     movement("older-income", "ingreso", 200, older),
   ];
-  render(
+  const dashboard = (
     <DashboardView
       movimientos={chartMovements.slice(0, 2)}
       chartMovements={chartMovements}
@@ -108,8 +119,15 @@ const renderDashboard = () => {
       onOpenTransferModal={vi.fn()}
       onOpenHistoryModal={vi.fn()}
       onOpenManualMovimientoModal={vi.fn()}
-    />,
+      {...overrides}
+    />
   );
+  const view = render(dashboard);
+  return {
+    ...view,
+    update: (next: Partial<ComponentProps<typeof DashboardView>>) =>
+      view.rerender(<DashboardView {...dashboard.props} {...overrides} {...next} />),
+  };
 };
 
 const choosePeriod = (name: string) => {
@@ -120,6 +138,89 @@ const choosePeriod = (name: string) => {
 };
 
 describe("Dashboard period selector", () => {
+  it("renders complete historical figures from the demo mocks", () => {
+    localStorage.clear();
+    const { result } = renderHook(() => useFinanceData(true));
+    renderDashboard({
+      chartMovements: result.current.chartMovements,
+      chartMovementsLoading: result.current.chartMovementsLoading,
+      olderMovements: result.current.olderMovements,
+      olderMovementsLoaded: result.current.olderMovementsLoaded,
+      loadOlderMovements: result.current.loadOlderMovements,
+    });
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-income", "2570");
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-expense", "124.99");
+    expect(screen.getByTestId("chart-data").textContent).toContain("2450");
+  });
+
+  it("requests older movements for histórico and hides partial figures until they arrive", () => {
+    const loadOlderMovements = vi.fn().mockResolvedValue(undefined);
+    const view = renderDashboard({ loadOlderMovements, olderMovementsLoading: true, olderMovementsLoaded: false });
+    expect(loadOlderMovements).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando movimientos");
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-balance", "4321");
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-income", "—");
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-expense", "—");
+    expect(screen.queryByTestId("chart-data")).not.toBeInTheDocument();
+
+    choosePeriod("Este mes");
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-income", "1000");
+    choosePeriod("Histórico");
+    expect(loadOlderMovements).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-income", "—");
+
+    view.update({
+      olderMovements: [movement("old", "ingreso", 300, new Date(2020, 0, 1))],
+      loadOlderMovements,
+      olderMovementsLoading: false,
+      olderMovementsLoaded: true,
+    });
+    expect(screen.queryByText(/Cargando movimientos/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-income", "2000");
+    expect(screen.getByTestId("chart-data").textContent).toContain("300");
+  });
+
+  it("shows a historical error without partial totals or charts", () => {
+    renderDashboard({ loadOlderMovements: vi.fn().mockResolvedValue(undefined), olderMovementsError: true });
+    expect(screen.getByRole("alert")).toHaveTextContent("No se pudieron cargar los movimientos históricos.");
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-balance", "4321");
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-income", "—");
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-expense", "—");
+    expect(screen.queryByTestId("chart-data")).not.toBeInTheDocument();
+  });
+
+  it("never reports loading while locked, even without an unlock action", () => {
+    privacy.isLocked = true;
+    const loadOlderMovements = vi.fn().mockResolvedValue(undefined);
+    renderDashboard({ chartMovementsLoading: true, olderMovementsLoading: true, loadOlderMovements });
+    expect(screen.queryByText(/Cargando movimientos/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: /Cargando/ })).not.toBeInTheDocument();
+    expect(loadOlderMovements).not.toHaveBeenCalled();
+  });
+
+  it("retries after returning to histórico and shows the successful totals without a retry loop", () => {
+    const loadOlderMovements = vi.fn().mockResolvedValue(undefined);
+    const view = renderDashboard({ loadOlderMovements, olderMovementsLoading: true });
+    expect(loadOlderMovements).toHaveBeenCalledTimes(1);
+    view.update({ olderMovementsLoading: false, olderMovementsError: true });
+    expect(screen.getByRole("alert")).toHaveTextContent("No se pudieron cargar");
+    expect(loadOlderMovements).toHaveBeenCalledTimes(1);
+    choosePeriod("Este mes");
+    choosePeriod("Histórico");
+    expect(loadOlderMovements).toHaveBeenCalledTimes(2);
+    view.update({ olderMovementsLoading: true, olderMovementsError: false });
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-income", "—");
+    view.update({
+      olderMovementsLoading: false,
+      olderMovementsError: false,
+      olderMovementsLoaded: true,
+      olderMovements: [movement("old", "ingreso", 300, new Date(2020, 0, 1))],
+    });
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-income", "2000");
+    expect(screen.getByTestId("chart-data").textContent).toContain("300");
+    expect(loadOlderMovements).toHaveBeenCalledTimes(2);
+  });
+
   it("starts with historical figures and chart data", () => {
     renderDashboard();
     expect(screen.getByTestId("overview")).toHaveAttribute(

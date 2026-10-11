@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarClock, Check, ChevronDown, Lock, Plus } from "lucide-react";
 import type { Hucha, Movimiento, Suscripcion } from "../../types";
 import { usePrivacy } from "../../context/PrivacyContext";
-import { parseMovimientoDate } from "../../hooks/useFinanceData";
+import { groupMovementsByMonth, parseMovimientoDate } from "../../utils/periodStats";
 import { getNextSubscriptionChargeDate } from "../../utils/subscriptions";
 import { cuentaEnEstadisticas, importeEnEstadisticas } from "../../utils/movements";
 import { EmptyIllustration } from "../common/EmptyIllustration";
@@ -43,6 +43,12 @@ interface DashboardViewProps {
   onUnlock?: () => void;
   movimientos: Movimiento[];
   chartMovements: Movimiento[];
+  chartMovementsLoading?: boolean;
+  olderMovements?: Movimiento[];
+  olderMovementsLoading?: boolean;
+  olderMovementsLoaded?: boolean;
+  olderMovementsError?: boolean;
+  loadOlderMovements?: () => Promise<void>;
   huchas: Hucha[];
   suscripciones: Suscripcion[];
   balance: number;
@@ -89,9 +95,18 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [periodOpen]);
+  const { loadOlderMovements } = props;
+  useEffect(() => {
+    if (period === "historico" && !isLocked) void loadOlderMovements?.();
+  }, [period, isLocked, loadOlderMovements]);
+  const historicalError = !isLocked && period === "historico" && props.olderMovementsError;
+  const periodLoading = !isLocked && Boolean(props.chartMovementsLoading || (period === "historico" && !historicalError && (
+    props.olderMovementsLoading || (loadOlderMovements && !props.olderMovementsLoaded)
+  )));
+  const periodStatus = historicalError ? "error" : periodLoading ? "loading" : undefined;
   const filtered = useMemo(() => {
     if (period === "historico")
-      return props.chartMovements.filter(cuentaEnEstadisticas);
+      return [...props.chartMovements, ...(props.olderMovements ?? [])].filter(cuentaEnEstadisticas);
     const now = new Date();
     return props.chartMovements.filter((m) => {
       if (!cuentaEnEstadisticas(m)) return false;
@@ -109,32 +124,14 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         d.getFullYear() === previous.getFullYear()
       );
     });
-  }, [props.chartMovements, period]);
+  }, [props.chartMovements, props.olderMovements, period]);
   const ingresos = filtered
     .filter((m) => m.tipo === "ingreso")
     .reduce((sum, m) => sum + importeEnEstadisticas(m), 0);
   const gastos = filtered
     .filter((m) => m.tipo === "gasto")
     .reduce((sum, m) => sum + importeEnEstadisticas(m), 0);
-  const periodChartData = useMemo<ChartDatum[]>(() => {
-    const grouped = new Map<string, ChartDatum>();
-    filtered.forEach((movement) => {
-      const date = parseMovimientoDate(movement.fecha_operacion);
-      if (!date) return;
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
-      const entry = grouped.get(key) || {
-        name: date.toLocaleDateString("es-ES", { month: "short" }),
-        ingresos: 0,
-        gastos: 0,
-      };
-      entry[movement.tipo === "ingreso" ? "ingresos" : "gastos"] +=
-        importeEnEstadisticas(movement);
-      grouped.set(key, entry);
-    });
-    return Array.from(grouped.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([, value]) => value);
-  }, [filtered]);
+  const periodChartData = useMemo(() => groupMovementsByMonth(filtered), [filtered]);
   const trend = useMemo(
     () =>
       filtered
@@ -317,6 +314,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
           ingresos={ingresos}
           gastos={gastos}
           periodLabel={periodLabel}
+          periodStatus={periodStatus}
           trend={trend}
         />
       </div>
@@ -404,6 +402,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             huchas={props.huchas}
             suscripciones={props.suscripciones}
             allMovimientos={filtered}
+            periodStatus={periodStatus}
           />
           <PredictiveChart
             huchas={props.huchas}

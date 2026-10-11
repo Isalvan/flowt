@@ -21,6 +21,7 @@ interface AnalyticsSectionProps {
   huchas: Hucha[];
   suscripciones: Suscripcion[];
   allMovimientos: Movimiento[];
+  periodStatus?: "loading" | "error";
 }
 const toNumericValue = (value: TooltipValueType | undefined): number => {
   if (typeof value === "number") return value;
@@ -33,6 +34,7 @@ const toNumericValue = (value: TooltipValueType | undefined): number => {
 
 export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
   chartData,
+  periodStatus,
 }) => {
   const [chartType, setChartType] = useState<"area" | "bar">("area");
   const { isLocked, formatCurrency } = usePrivacy();
@@ -99,6 +101,10 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
         {isLocked ? (
           <div className="grid h-full place-items-center rounded-2xl bg-surface-2 text-sm font-semibold text-ink-faint">
             Gráfica protegida por privacidad
+          </div>
+        ) : periodStatus ? (
+          <div className="dashboard-empty h-full" aria-busy={periodStatus === "loading"}>
+            <p>{periodStatus === "error" ? "No se pudieron cargar los movimientos históricos." : "Cargando movimientos…"}</p>
           </div>
         ) : !chartData.length ? (
           <div className="dashboard-empty h-full">
