@@ -96,7 +96,7 @@ describe('App Dashboard', () => {
     const historyBtn = await screen.findByRole('menuitem', { name: /Historial completo/i });
     fireEvent.click(historyBtn);
     
-    expect(await screen.findByPlaceholderText(/Buscar por concepto o importe/i)).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText(/Buscar por concepto o importe/i, {}, { timeout: 5000 })).toBeInTheDocument();
     
     vi.unstubAllEnvs();
   });

@@ -8,30 +8,13 @@ import { type Hucha, type Suscripcion, type Movimiento } from './types';
 
 // Tab subviews
 import { DashboardView } from './components/dashboard/DashboardView';
-import { CalendarioView } from './components/calendario/CalendarioView';
-import { CorreosOrchestrator } from './components/correos/CorreosOrchestrator';
-import { AjustesOrchestrator } from './components/ajustes/AjustesOrchestrator';
 
-// Modals
-import { HuchaModal } from './components/modals/HuchaModal';
-import { TransferModal } from './components/modals/TransferModal';
-import { DeleteHuchaModal } from './components/modals/DeleteHuchaModal';
-import { ConvertModal } from './components/modals/ConvertModal';
-import { LinkModal } from './components/modals/LinkModal';
-import { SuscripcionModal } from './components/modals/SuscripcionModal';
-import { HistoryModal } from './components/modals/HistoryModal';
-import { ManualMovimientoModal } from './components/modals/ManualMovimientoModal';
-import { ProfilePanel } from './components/profile/ProfilePanel';
 // Demo, Feedback, and Premium Visuals
-import { DemoSimulator } from './components/demo/DemoSimulator';
 import { Toast } from './components/common/Toast';
-import { ConfirmModal } from './components/common/ConfirmModal';
 import { DashboardSkeleton } from './components/dashboard/DashboardSkeleton';
-import { ManualLogin, MANUAL_LOGIN_PATH } from './components/auth/ManualLogin';
+import { MANUAL_LOGIN_PATH } from './components/auth/manualLoginPath';
 import { ConnectConsent, CONNECT_PATH } from './components/auth/ConnectConsent';
 import { LoginScreen } from './components/auth/LoginScreen';
-import { ShortcutsHelpModal } from './components/common/ShortcutsHelpModal';
-import { CelebrationConfetti } from './components/common/CelebrationConfetti';
 import { FlowtLogo } from './components/common/FlowtLogo';
 
 // Icons
@@ -49,8 +32,29 @@ import {
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { CategoriesProvider } from './context/CategoriesContext';
+// The app always starts locked, so the PIN modal is on the critical path: keep it in the entry chunk.
 import { PinModal } from './components/common/PinModal';
+import { DeferredOverlay } from './components/common/DeferredOverlay';
+import { TabLoading } from './components/common/TabLoading';
 import { BentoMenu } from './components/common/BentoMenu';
+
+const CalendarioView = React.lazy(() => import('./components/calendario/CalendarioView').then((m) => ({ default: m.CalendarioView })));
+const CorreosOrchestrator = React.lazy(() => import('./components/correos/CorreosOrchestrator').then((m) => ({ default: m.CorreosOrchestrator })));
+const AjustesOrchestrator = React.lazy(() => import('./components/ajustes/AjustesOrchestrator').then((m) => ({ default: m.AjustesOrchestrator })));
+const HuchaModal = React.lazy(() => import('./components/modals/HuchaModal').then((m) => ({ default: m.HuchaModal })));
+const TransferModal = React.lazy(() => import('./components/modals/TransferModal').then((m) => ({ default: m.TransferModal })));
+const DeleteHuchaModal = React.lazy(() => import('./components/modals/DeleteHuchaModal').then((m) => ({ default: m.DeleteHuchaModal })));
+const ConvertModal = React.lazy(() => import('./components/modals/ConvertModal').then((m) => ({ default: m.ConvertModal })));
+const LinkModal = React.lazy(() => import('./components/modals/LinkModal').then((m) => ({ default: m.LinkModal })));
+const SuscripcionModal = React.lazy(() => import('./components/modals/SuscripcionModal').then((m) => ({ default: m.SuscripcionModal })));
+const HistoryModal = React.lazy(() => import('./components/modals/HistoryModal').then((m) => ({ default: m.HistoryModal })));
+const ManualMovimientoModal = React.lazy(() => import('./components/modals/ManualMovimientoModal').then((m) => ({ default: m.ManualMovimientoModal })));
+const ProfilePanel = React.lazy(() => import('./components/profile/ProfilePanel').then((m) => ({ default: m.ProfilePanel })));
+const DemoSimulator = React.lazy(() => import('./components/demo/DemoSimulator').then((m) => ({ default: m.DemoSimulator })));
+const ConfirmModal = React.lazy(() => import('./components/common/ConfirmModal').then((m) => ({ default: m.ConfirmModal })));
+const ShortcutsHelpModal = React.lazy(() => import('./components/common/ShortcutsHelpModal').then((m) => ({ default: m.ShortcutsHelpModal })));
+const CelebrationConfetti = React.lazy(() => import('./components/common/CelebrationConfetti').then((m) => ({ default: m.CelebrationConfetti })));
+const ManualLogin = React.lazy(() => import('./components/auth/ManualLogin').then((m) => ({ default: m.ManualLogin })));
 
 type AppTab = 'dashboard' | 'calendario' | 'correos' | 'ajustes';
 
@@ -426,7 +430,11 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
   }
 
   if (!user && window.location.pathname.replace(/\/$/, '') === MANUAL_LOGIN_PATH) {
-    return <ManualLogin configured={isFirebaseConfigured} />;
+    return (
+      <React.Suspense fallback={<DashboardSkeleton />}>
+        <ManualLogin configured={isFirebaseConfigured} />
+      </React.Suspense>
+    );
   }
 
   // Rendering signed out view when firebase is active
@@ -601,37 +609,43 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
         )}
 
         {activeTab === 'calendario' && (
-          <CalendarioView suscripciones={suscripciones} />
+          <React.Suspense fallback={<TabLoading />}>
+            <CalendarioView suscripciones={suscripciones} />
+          </React.Suspense>
         )}
 
         {activeTab === 'correos' && (
-          <CorreosOrchestrator
-            pendingEmails={pendingEmails}
-            historicoCorreos={historicoCorreos}
-            huchas={huchas}
-            onApprove={handleApprovePendingEmail}
-            onDiscard={handleDiscardPendingEmail}
-          />
+          <React.Suspense fallback={<TabLoading />}>
+            <CorreosOrchestrator
+              pendingEmails={pendingEmails}
+              historicoCorreos={historicoCorreos}
+              huchas={huchas}
+              onApprove={handleApprovePendingEmail}
+              onDiscard={handleDiscardPendingEmail}
+            />
+          </React.Suspense>
         )}
 
         {activeTab === 'ajustes' && (
-          <AjustesOrchestrator
-            suscripciones={suscripciones}
-            huchas={huchas}
-            onOpenSuscripcionModal={(s) => {
-              setEditingSuscripcion(s || null);
-              setIsSuscripcionModalOpen(true);
-            }}
-            onDeleteSuscripcion={handleDeleteSuscripcion}
-            onToggleSuscripcion={handleToggleSuscripcion}
-            onCancelSuscripcion={handleCancelSuscripcion}
-            onUndoCancelSuscripcion={handleUndoCancelSuscripcion}
-            chartMovements={chartMovements}
-            userStats={userStats}
-            userId={user?.uid}
-            demo={!isFirebaseConfigured}
-            onRestoreHucha={handleRestoreHucha}
-          />
+          <React.Suspense fallback={<TabLoading />}>
+            <AjustesOrchestrator
+              suscripciones={suscripciones}
+              huchas={huchas}
+              onOpenSuscripcionModal={(s) => {
+                setEditingSuscripcion(s || null);
+                setIsSuscripcionModalOpen(true);
+              }}
+              onDeleteSuscripcion={handleDeleteSuscripcion}
+              onToggleSuscripcion={handleToggleSuscripcion}
+              onCancelSuscripcion={handleCancelSuscripcion}
+              onUndoCancelSuscripcion={handleUndoCancelSuscripcion}
+              chartMovements={chartMovements}
+              userStats={userStats}
+              userId={user?.uid}
+              demo={!isFirebaseConfigured}
+              onRestoreHucha={handleRestoreHucha}
+            />
+          </React.Suspense>
         )}
       </main>
 
@@ -709,105 +723,125 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
         );
       })()}
 
-      <ProfilePanel 
-        isOpen={isProfilePanelOpen} 
-        onClose={() => setIsProfilePanelOpen(false)} 
-        user={user} 
-        onLogout={handleLogout} 
-      />
+      <DeferredOverlay active={isProfilePanelOpen}>
+        <ProfilePanel
+          isOpen={isProfilePanelOpen}
+          onClose={() => setIsProfilePanelOpen(false)}
+          user={user}
+          onLogout={handleLogout}
+        />
+      </DeferredOverlay>
 
       {/* 4. Global Specialized Form Modals overlays mounting */}
-      <HuchaModal
-        isOpen={isHuchaModalOpen}
-        onClose={() => {
-          setIsHuchaModalOpen(false);
-          setEditingHucha(null);
-        }}
-        onSave={onSaveHucha}
-        editingHucha={editingHucha}
-        allHuchas={huchas}
-      />
+      <DeferredOverlay active={isHuchaModalOpen}>
+        <HuchaModal
+          isOpen={isHuchaModalOpen}
+          onClose={() => {
+            setIsHuchaModalOpen(false);
+            setEditingHucha(null);
+          }}
+          onSave={onSaveHucha}
+          editingHucha={editingHucha}
+          allHuchas={huchas}
+        />
+      </DeferredOverlay>
 
-      <TransferModal
-        isOpen={isTransferModalOpen}
-        onClose={() => setIsTransferModalOpen(false)}
-        onTransfer={onSafeTransfer}
-        huchas={huchas}
-      />
+      <DeferredOverlay active={isTransferModalOpen}>
+        <TransferModal
+          isOpen={isTransferModalOpen}
+          onClose={() => setIsTransferModalOpen(false)}
+          onTransfer={onSafeTransfer}
+          huchas={huchas}
+        />
+      </DeferredOverlay>
 
-      <DeleteHuchaModal
-        isOpen={isDeleteHuchaModalOpen}
-        onClose={() => {
-          setIsDeleteHuchaModalOpen(false);
-          setHuchaToDelete(null);
-        }}
-        onConfirmDelete={handleDeleteHucha}
-        huchaToDelete={huchaToDelete}
-        allHuchas={huchas}
-      />
+      <DeferredOverlay active={isDeleteHuchaModalOpen}>
+        <DeleteHuchaModal
+          isOpen={isDeleteHuchaModalOpen}
+          onClose={() => {
+            setIsDeleteHuchaModalOpen(false);
+            setHuchaToDelete(null);
+          }}
+          onConfirmDelete={handleDeleteHucha}
+          huchaToDelete={huchaToDelete}
+          allHuchas={huchas}
+        />
+      </DeferredOverlay>
 
-      <ConvertModal
-        isOpen={isConvertModalOpen}
-        onClose={() => {
-          setIsConvertModalOpen(false);
-          setMovimientoToConvert(null);
-        }}
-        onConvert={onSafeConvert}
-        movimiento={movimientoToConvert}
-        huchas={huchas}
-      />
+      <DeferredOverlay active={isConvertModalOpen}>
+        <ConvertModal
+          isOpen={isConvertModalOpen}
+          onClose={() => {
+            setIsConvertModalOpen(false);
+            setMovimientoToConvert(null);
+          }}
+          onConvert={onSafeConvert}
+          movimiento={movimientoToConvert}
+          huchas={huchas}
+        />
+      </DeferredOverlay>
 
-      <LinkModal
-        isOpen={isLinkModalOpen}
-        onClose={() => {
-          setIsLinkModalOpen(false);
-          setMovimientoToLink(null);
-        }}
-        onLink={handleLinkMovimiento}
-        gasto={movimientoToLink}
-        allMovimientos={chartMovements}
-      />
+      <DeferredOverlay active={isLinkModalOpen}>
+        <LinkModal
+          isOpen={isLinkModalOpen}
+          onClose={() => {
+            setIsLinkModalOpen(false);
+            setMovimientoToLink(null);
+          }}
+          onLink={handleLinkMovimiento}
+          gasto={movimientoToLink}
+          allMovimientos={chartMovements}
+        />
+      </DeferredOverlay>
 
-      <SuscripcionModal
-        isOpen={isSuscripcionModalOpen}
-        onClose={() => {
-          setIsSuscripcionModalOpen(false);
-          setEditingSuscripcion(null);
-        }}
-        onSave={handleCreateOrUpdateSuscripcion}
-        editingSuscripcion={editingSuscripcion}
-        huchas={huchas}
-      />
+      <DeferredOverlay active={isSuscripcionModalOpen}>
+        <SuscripcionModal
+          isOpen={isSuscripcionModalOpen}
+          onClose={() => {
+            setIsSuscripcionModalOpen(false);
+            setEditingSuscripcion(null);
+          }}
+          onSave={handleCreateOrUpdateSuscripcion}
+          editingSuscripcion={editingSuscripcion}
+          huchas={huchas}
+        />
+      </DeferredOverlay>
 
-      <HistoryModal
-        isOpen={isHistoryModalOpen}
-        onClose={() => setIsHistoryModalOpen(false)}
-        history={historyMovements}
-        onLoadMore={handleLoadMoreHistory}
-        hasMore={historyHasMore}
-        isLoading={historyLoading}
-        onUpdateConcepto={handleUpdateMovimientoConcepto}
-        onUpdateCategoria={async (id, categoria) => {
-          await handleUpdateMovimientoCategoria(id, categoria);
-          setHistoryMovements(current => current.map(m => m.id === id ? { ...m, categoria } : m));
-        }}
-        onUnlink={handleUnlinkMovimiento}
-        onDeleteMovimiento={onDeleteMovimientoWrapper}
-      />
+      <DeferredOverlay active={isHistoryModalOpen}>
+        <HistoryModal
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+          history={historyMovements}
+          onLoadMore={handleLoadMoreHistory}
+          hasMore={historyHasMore}
+          isLoading={historyLoading}
+          onUpdateConcepto={handleUpdateMovimientoConcepto}
+          onUpdateCategoria={async (id, categoria) => {
+            await handleUpdateMovimientoCategoria(id, categoria);
+            setHistoryMovements(current => current.map(m => m.id === id ? { ...m, categoria } : m));
+          }}
+          onUnlink={handleUnlinkMovimiento}
+          onDeleteMovimiento={onDeleteMovimientoWrapper}
+        />
+      </DeferredOverlay>
 
-      <ManualMovimientoModal
-        isOpen={isManualMovimientoModalOpen}
-        onClose={() => setIsManualMovimientoModalOpen(false)}
-        onSave={handleCreateManualMovimiento}
-        huchas={huchas}
-      />
+      <DeferredOverlay active={isManualMovimientoModalOpen}>
+        <ManualMovimientoModal
+          isOpen={isManualMovimientoModalOpen}
+          onClose={() => setIsManualMovimientoModalOpen(false)}
+          onSave={handleCreateManualMovimiento}
+          huchas={huchas}
+        />
+      </DeferredOverlay>
 
       {/* 5. One-Click Mock Transaction Injector Panel for Demo Mode */}
       {!isFirebaseConfigured && (
-        <DemoSimulator 
-          injectDemoMovement={injectDemoMovement}
-          huchas={huchas}
-        />
+        <React.Suspense fallback={null}>
+          <DemoSimulator
+            injectDemoMovement={injectDemoMovement}
+            huchas={huchas}
+          />
+        </React.Suspense>
       )}
 
       {/* PIN Security lockscreen modal */}
@@ -820,24 +854,30 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
         </div>
       )}
       {confirmModal && (
-        <ConfirmModal
-          isOpen={true}
-          title={confirmModal.title}
-          message={confirmModal.message}
-          confirmText={confirmModal.confirmLabel}
-          onConfirm={confirmModal.onConfirm}
-          onClose={() => setConfirmModal(null)}
-        />
+        <React.Suspense fallback={null}>
+          <ConfirmModal
+            isOpen={true}
+            title={confirmModal.title}
+            message={confirmModal.message}
+            confirmText={confirmModal.confirmLabel}
+            onConfirm={confirmModal.onConfirm}
+            onClose={() => setConfirmModal(null)}
+          />
+        </React.Suspense>
       )}
 
       {/* Premium Canvas Confetti burst milestone celebrates */}
-      <CelebrationConfetti trigger={confettiTrigger} />
+      <DeferredOverlay active={confettiTrigger > 0}>
+        <CelebrationConfetti trigger={confettiTrigger} />
+      </DeferredOverlay>
 
       {/* Keyboard Shortcuts floating guide help panel */}
-      <ShortcutsHelpModal 
-        isOpen={isShortcutsHelpOpen} 
-        onClose={() => setIsShortcutsHelpOpen(false)} 
-      />
+      <DeferredOverlay active={isShortcutsHelpOpen}>
+        <ShortcutsHelpModal
+          isOpen={isShortcutsHelpOpen}
+          onClose={() => setIsShortcutsHelpOpen(false)}
+        />
+      </DeferredOverlay>
     </div>
   );
 };

@@ -3,7 +3,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { FlowtLogo } from '../common/FlowtLogo';
 
-export const MANUAL_LOGIN_PATH = '/acceso/chati-35004424751f4017';
+export { MANUAL_LOGIN_PATH } from './manualLoginPath';
 const MANUAL_ACCOUNT_EMAIL = 'chati@flowt-63536.firebaseapp.com';
 
 export function ManualLogin({ configured }: { configured: boolean }) {
