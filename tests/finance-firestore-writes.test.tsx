@@ -116,6 +116,253 @@ beforeEach(() => {
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
+describe.each(['demo', 'firebase'] as const)('dominio común en %s', mode => {
+  const ingreso = { tipo: 'ingreso' as const, concepto: 'Nómina', importe: 100, fecha_operacion: '2026-10-01' };
+  const initial: Hucha[] = [
+    { id: 'principal', nombre: 'Cuenta', tipo_aportacion: 'resto', es_principal: true, saldo_acumulado: 100, objetivo: null, orden: 3 },
+    { id: 'llena', nombre: 'Llena', tipo_aportacion: 'flat', valor_aportacion: 80, saldo_acumulado: 100, objetivo: 100, tope_objetivo: true, orden: 1 },
+    { id: 'deudora', nombre: 'Deudora', tipo_aportacion: 'flat', valor_aportacion: 30, saldo_acumulado: 20, objetivo: null, deuda_pendiente: 25, deuda_con: 'principal', orden: 2 },
+    { id: 'cash', nombre: 'Efectivo', tipo_aportacion: 'flat', valor_aportacion: 1000, es_metalico: true, saldo_acumulado: 7, objetivo: null, orden: 0 },
+  ];
+  const record = { saldos: { deudora: 5, principal: 95 }, deudas: { deudora: { importe: 25, con: 'principal' } } };
+  async function setup(wallets = initial, movements: Movimiento[] = []) {
+    const pending = [{ id: 'pending', email_id: 'email', cuerpo: '', fecha_envio: '', motivo: '', procesado: false }];
+    fake.docs.clear();
+    wallets.forEach(h => put('huchas', h.id, { ...h }));
+    movements.forEach(m => put('movimientos', m.id, { ...m }));
+    put('stats', 'yo', { total_ingresos: 100, total_gastos: 100 });
+    put('correos_pendientes', 'pending', pending[0]);
+    localStorage.setItem('flowt-demo-huchas', JSON.stringify(wallets));
+    localStorage.setItem('flowt-demo-movimientos', JSON.stringify(movements));
+    localStorage.setItem('flowt-demo-suscripciones', '[]');
+    localStorage.setItem('flowt-demo-stats', JSON.stringify({ total_ingresos: 100, total_gastos: 100 }));
+    localStorage.setItem('flowt-demo-pending', JSON.stringify(pending));
+    const view = renderHook(() => useFinanceData(mode === 'demo'));
+    await waitFor(() => expect(view.result.current.huchas).toHaveLength(wallets.length));
+    return view.result;
+  }
+  const allBalances = (hook: Awaited<ReturnType<typeof setup>>) => Object.fromEntries(hook.current.huchas.map(h => [h.id, h.saldo_acumulado]));
+  const durableState = () => mode === 'demo'
+    ? ['huchas', 'movimientos', 'stats', 'pending'].map(key => localStorage.getItem(`flowt-demo-${key}`))
+    : structuredClone([...fake.docs]);
+
+  it.each(['manual', 'pending'] as const)('%s respeta el tope lleno, paga deuda y guarda el registro', async operation => {
+    const hook = await setup();
+    const before = structuredClone(hook.current.huchas);
+    await act(() => operation === 'manual' ? hook.current.handleCreateManualMovimiento(ingreso) : hook.current.handleApprovePendingEmail('pending', ingreso));
+    expect(allBalances(hook)).toEqual({ principal: 195, llena: 100, deudora: 25, cash: 7 });
+    expect(hook.current.huchas.find(h => h.id === 'deudora')).toMatchObject({ deuda_pendiente: 0 });
+    expect(before.find(h => h.id === 'deudora')?.deuda_pendiente).toBe(25);
+    expect(hook.current.movimientos[0].reparto_aplicado).toEqual(record);
+    if (operation === 'pending') {
+      expect(hook.current.pendingEmails).toHaveLength(0);
+      if (mode === 'firebase') expect(fake.inCollection('review_handoffs')).toHaveLength(1);
+    }
+  });
+
+  it('gasto→ingreso automático aplica topes después de devolver el gasto y paga deuda', async () => {
+    const movement = gasto('expense', 100, 'llena');
+    const hook = await setup(initial, [movement]);
+    await act(() => hook.current.handleConvertMovimiento(movement));
+    expect(allBalances(hook)).toEqual({ principal: 195, llena: 200, deudora: 25, cash: 7 });
+    expect(hook.current.movimientos[0]).toMatchObject({ tipo: 'ingreso', reparto_aplicado: record });
+    expect(hook.current.huchas.find(h => h.id === 'deudora')?.deuda_pendiente).toBe(0);
+  });
+
+  it('gasto→ingreso con filas explícitas ignora tope y deuda', async () => {
+    const movement = gasto('expense', 100, 'principal');
+    const hook = await setup(initial, [movement]);
+    await act(() => hook.current.handleConvertMovimiento(movement, [
+      { huchaId: 'llena', tipoAportacion: 'flat', value: 60 },
+      { huchaId: 'deudora', tipoAportacion: 'porcentaje', value: 40 },
+    ]));
+    expect(allBalances(hook)).toEqual({ principal: 200, llena: 160, deudora: 60, cash: 7 });
+    expect(hook.current.huchas.find(h => h.id === 'deudora')?.deuda_pendiente).toBe(25);
+    expect(hook.current.movimientos[0].reparto_aplicado).toEqual({ saldos: { llena: 60, deudora: 40 }, deudas: {} });
+  });
+
+  it.each(['delete', 'convert'] as const)('%s revierte exactamente el registro aunque las reglas sean ahora inválidas', async operation => {
+    const wallets = initial.map(h => h.id === 'principal' ? { ...h, saldo_acumulado: 195 } : h.id === 'deudora'
+      ? { ...h, saldo_acumulado: 25, deuda_pendiente: 0, deuda_con: null, tipo_aportacion: 'porcentaje' as const, valor_aportacion: 150 } : h);
+    const movement: Movimiento = { id: 'income', ...ingreso, reparto_aplicado: record };
+    const hook = await setup(wallets, [movement]);
+    await act(() => operation === 'delete' ? hook.current.handleDeleteMovimiento(movement) : hook.current.handleConvertMovimiento(movement, undefined, 'principal'));
+    expect(allBalances(hook)).toEqual({ principal: operation === 'delete' ? 100 : 0, llena: 100, deudora: 20, cash: 7 });
+    expect(hook.current.huchas.find(h => h.id === 'deudora')).toMatchObject({ deuda_pendiente: 25, deuda_con: 'principal' });
+    if (operation === 'delete') expect(hook.current.movimientos).toHaveLength(0);
+    else expect(hook.current.movimientos[0]).toMatchObject({ tipo: 'gasto', hucha_id: 'principal' });
+  });
+
+  it.each(['delete', 'convert'] as const)('%s de ingreso antiguo usa plain sin topes ni pagos de deuda', async operation => {
+    const movement: Movimiento = { id: 'old', ...ingreso };
+    const hook = await setup(initial, [movement]);
+    await act(() => operation === 'delete' ? hook.current.handleDeleteMovimiento(movement) : hook.current.handleConvertMovimiento(movement, undefined, 'principal'));
+    expect(allBalances(hook)).toEqual({ principal: operation === 'delete' ? 100 : 0, llena: 20, deudora: 0, cash: 7 });
+    expect(hook.current.huchas.find(h => h.id === 'deudora')?.deuda_pendiente).toBe(25);
+  });
+
+  it('archivar reparte plain y deja intactas las deudas', async () => {
+    const archived: Hucha = { id: 'archive', nombre: 'Archivo', tipo_aportacion: 'resto', saldo_acumulado: 100, objetivo: null, orden: 4 };
+    const hook = await setup([...initial, archived]);
+    await act(() => hook.current.handleDeleteHucha(archived, 'auto'));
+    expect(allBalances(hook)).toEqual({ principal: 100, llena: 180, deudora: 40, cash: 7, archive: 0 });
+    expect(hook.current.huchas.find(h => h.id === 'archive')?.activa).toBe(false);
+    expect(hook.current.huchas.find(h => h.id === 'deudora')?.deuda_pendiente).toBe(25);
+  });
+
+  it.each(['manual', 'pending', 'convert'] as const)('%s rechaza porcentajes >100 sin ninguna escritura', async operation => {
+    const wallets = initial.map(h => h.id === 'llena' || h.id === 'deudora'
+      ? { ...h, tipo_aportacion: 'porcentaje' as const, valor_aportacion: h.id === 'llena' ? 70 : 40 } : h);
+    const movement = gasto('expense', 100, 'principal');
+    const hook = await setup(wallets, [movement]);
+    const before = durableState();
+    await act(async () => {
+      const operationPromise = operation === 'manual' ? hook.current.handleCreateManualMovimiento(ingreso)
+        : operation === 'pending' ? hook.current.handleApprovePendingEmail('pending', ingreso)
+        : hook.current.handleConvertMovimiento(movement);
+      await expect(operationPromise).rejects.toMatchObject({ code: 'invalid_distribution', message: expect.stringContaining('100 %') });
+    });
+    expect(durableState()).toEqual(before);
+    expect(hook.current.movimientos[0].tipo).toBe('gasto');
+    expect(hook.current.pendingEmails).toHaveLength(1);
+  });
+
+  it('filas que no suman el importe rechazan la conversión sin devolver el gasto', async () => {
+    const movement = gasto('expense', 100, 'principal');
+    const hook = await setup(initial, [movement]);
+    const before = durableState();
+    await act(async () => {
+      await expect(hook.current.handleConvertMovimiento(movement, [{ huchaId: 'llena', tipoAportacion: 'flat', value: 99 }])).rejects.toMatchObject({ code: 'invalid_distribution' });
+    });
+    expect(durableState()).toEqual(before);
+  });
+
+  it.each(['manual', 'pending', 'convert', 'delete', 'archive'] as const)('%s sin cartera elegible no deja saldos, movimientos ni vínculos parciales', async operation => {
+    const wallets = initial.map(h => ({ ...h, es_metalico: true }));
+    const movement: Movimiento = operation === 'delete'
+      ? { id: 'income', ...ingreso, compensa_movimiento_id: 'expense' } : gasto('expense', 100, 'principal');
+    const expense: Movimiento = { ...gasto('linked-expense', 100, 'principal'), id: 'expense', compensado_por: ['income'], importe_neto: 0 };
+    const hook = await setup(wallets, operation === 'delete' ? [movement, expense] : [movement]);
+    const before = durableState();
+    await act(async () => {
+      const result = operation === 'manual' ? hook.current.handleCreateManualMovimiento(ingreso)
+        : operation === 'pending' ? hook.current.handleApprovePendingEmail('pending', ingreso)
+        : operation === 'convert' ? hook.current.handleConvertMovimiento(movement)
+        : operation === 'delete' ? hook.current.handleDeleteMovimiento(movement)
+        : hook.current.handleDeleteHucha(wallets[0], 'auto');
+      await expect(result).rejects.toMatchObject({ code: 'no_hucha' });
+    });
+    expect(durableState()).toEqual(before);
+  });
+
+  it('los saldos de un reparto de tres céntimos se escriben redondeados', async () => {
+    const wallets = initial.filter(h => h.id === 'principal' || h.id === 'deudora').map(h => ({
+      ...h, deuda_pendiente: 0, saldo_acumulado: 0.005,
+      ...(h.id === 'deudora' ? { tipo_aportacion: 'porcentaje' as const, valor_aportacion: 50 } : {}),
+    }));
+    const hook = await setup(wallets);
+    await act(() => hook.current.handleCreateManualMovimiento({ ...ingreso, importe: 0.03 }));
+    expect(allBalances(hook)).toEqual({ principal: 0.02, deudora: 0.03 });
+    expect(hook.current.movimientos[0].reparto_aplicado).toEqual({ saldos: { deudora: 0.02, principal: 0.01 }, deudas: {} });
+  });
+
+  it('el presupuesto mensual usa topes y deudas sin escribir ni mutar carteras', async () => {
+    const previous = new Date();
+    previous.setMonth(previous.getMonth() - 1, 1);
+    const hook = await setup(initial, [{ id: 'salary', ...ingreso, fecha_operacion: previous.toISOString() }]);
+    const before = durableState();
+    expect(hook.current.huchaMonthlyBudgets).toEqual(record.saldos);
+    expect(hook.current.huchas.find(h => h.id === 'deudora')?.deuda_pendiente).toBe(25);
+    expect(durableState()).toEqual(before);
+  });
+
+  it('las reglas inválidas dejan vacío el presupuesto sin romper la pantalla', async () => {
+    const previous = new Date();
+    previous.setMonth(previous.getMonth() - 1, 1);
+    const wallets = initial.map(h => h.id === 'deudora' ? { ...h, tipo_aportacion: 'porcentaje' as const, valor_aportacion: 150 } : h);
+    const hook = await setup(wallets, [{ id: 'salary', ...ingreso, fecha_operacion: previous.toISOString() }]);
+    expect(hook.current.huchaMonthlyBudgets).toEqual({});
+    expect(allBalances(hook)).toEqual({ principal: 100, llena: 100, deudora: 20, cash: 7 });
+  });
+
+  it('borrar un ingreso vinculado revierte el reparto y desvincula el gasto en la misma escritura', async () => {
+    const movement: Movimiento = { id: 'income', ...ingreso, reparto_aplicado: record, compensa_movimiento_id: 'expense' };
+    const expense: Movimiento = { ...gasto('expense', 100, 'principal'), compensado_por: ['income'], importe_neto: 0 };
+    const hook = await setup(initial, [movement, expense]);
+    await act(() => hook.current.handleDeleteMovimiento(movement));
+    expect(allBalances(hook)).toEqual({ principal: 5, llena: 100, deudora: 15, cash: 7 });
+    expect(hook.current.movimientos).toHaveLength(1);
+    expect(hook.current.movimientos[0].compensado_por).toBeUndefined();
+    expect(hook.current.movimientos[0].importe_neto).toBeUndefined();
+  });
+
+  it('archivar con reparto manual mantiene los importes elegidos', async () => {
+    const archived: Hucha = { id: 'archive', nombre: 'Archivo', tipo_aportacion: 'resto', saldo_acumulado: 100, objetivo: null, orden: 4 };
+    const hook = await setup([...initial, archived]);
+    await act(() => hook.current.handleDeleteHucha(archived, 'manual', { llena: 60, deudora: 40 }));
+    expect(allBalances(hook)).toEqual({ principal: 100, llena: 160, deudora: 60, cash: 7, archive: 0 });
+  });
+
+  it.each(['principal', 'deudora'] as const)('archivar y asignar deuda a %s cancela o transfiere según el acreedor', async assignee => {
+    const archived: Hucha = { id: 'archive', nombre: 'Archivo', tipo_aportacion: 'resto', saldo_acumulado: 100, objetivo: null, orden: 4, deuda_pendiente: 50, deuda_con: 'principal' };
+    const hook = await setup([...initial, archived]);
+    await act(() => hook.current.handleDeleteHucha(archived, 'debt', undefined, assignee));
+    expect(hook.current.huchas.find(h => h.id === 'archive')).toMatchObject({ activa: false, saldo_acumulado: 0 });
+    expect(hook.current.huchas.find(h => h.id === 'deudora')).toMatchObject({ deuda_pendiente: assignee === 'deudora' ? 75 : 25, deuda_con: 'principal' });
+  });
+
+  if (mode === 'demo') {
+    it('el simulador rechaza porcentajes >100 sin modificar el estado', async () => {
+      const wallets = initial.map(h => h.id === 'deudora' ? { ...h, tipo_aportacion: 'porcentaje' as const, valor_aportacion: 150 } : h);
+      const hook = await setup(wallets);
+      const before = durableState();
+      expect(() => hook.current.injectDemoMovement('ingreso', 'Nómina', 100)).toThrowError(expect.objectContaining({ code: 'invalid_distribution' }));
+      expect(durableState()).toEqual(before);
+    });
+
+    it('el simulador aplica y registra el reparto, y conserva la rama de gasto', async () => {
+      const hook = await setup();
+      act(() => hook.current.injectDemoMovement('ingreso', 'Nómina', 100));
+      expect(allBalances(hook)).toEqual({ principal: 195, llena: 100, deudora: 25, cash: 7 });
+      expect(hook.current.movimientos[0].reparto_aplicado).toEqual(record);
+      act(() => hook.current.injectDemoMovement('gasto', 'Compra', 10, 'deudora'));
+      expect(allBalances(hook)).toEqual({ principal: 195, llena: 100, deudora: 15, cash: 7 });
+    });
+  } else {
+    it.each(['manual', 'pending', 'convert', 'archive'] as const)('%s lee las reglas, topes y saldo actuales dentro de la transacción', async operation => {
+      const movement = gasto('expense', 100, 'llena');
+      const archived: Hucha = { id: 'archive', nombre: 'Archivo', tipo_aportacion: 'resto', saldo_acumulado: 100, objetivo: null, orden: 4 };
+      const hook = await setup([...initial, archived], [movement]);
+      // Changes have not reached the UI listener yet.
+      fake.write(fake.ref('huchas', 'llena'), { saldo_acumulado: 0, valor_aportacion: 10 }, true);
+      fake.write(fake.ref('huchas', 'deudora'), { valor_aportacion: 20, deuda_pendiente: 15 }, true);
+      fake.write(fake.ref('huchas', 'archive'), { saldo_acumulado: 200 }, true);
+      await act(() => operation === 'manual' ? hook.current.handleCreateManualMovimiento(ingreso)
+        : operation === 'pending' ? hook.current.handleApprovePendingEmail('pending', ingreso)
+        : operation === 'convert' ? hook.current.handleConvertMovimiento(movement)
+        : hook.current.handleDeleteHucha(archived, 'auto'));
+      if (operation === 'archive') {
+        expect(allBalances(hook)).toEqual({ principal: 270, llena: 10, deudora: 40, cash: 7, archive: 0 });
+        expect(stored('huchas', 'deudora').deuda_pendiente).toBe(15);
+      } else {
+        // After refund, Llena is full for conversion; otherwise it receives its updated fixed 10€.
+        expect(allBalances(hook)).toEqual({ principal: operation === 'convert' ? 195 : 185, llena: operation === 'convert' ? 100 : 10, deudora: 25, cash: 7, archive: 200 });
+        expect(stored('huchas', 'deudora').deuda_pendiente).toBe(0);
+        expect(stored('huchas', 'deudora')).not.toHaveProperty('deuda_con');
+      }
+    });
+
+    it('borrar lee el registro actual y no el que tenía la pantalla', async () => {
+      const movement: Movimiento = { id: 'income', ...ingreso };
+      const hook = await setup(initial, [movement]);
+      fake.write(fake.ref('movimientos', movement.id), { reparto_aplicado: record }, true);
+      await act(() => hook.current.handleDeleteMovimiento(movement));
+      expect(allBalances(hook)).toEqual({ principal: 5, llena: 100, deudora: 15, cash: 7 });
+      expect(stored('huchas', 'deudora')).toMatchObject({ deuda_pendiente: 50, deuda_con: 'principal' });
+    });
+  }
+});
+
 describe('convertir un gasto en ingreso con cuenta real', () => {
   it('devuelve el gasto a su cartera y reparte el ingreso', async () => {
     put('movimientos', 'g', { ...gasto('g', 40, 'viaje'), categoria: 'ocio' });
@@ -130,16 +377,17 @@ describe('convertir un gasto en ingreso con cuenta real', () => {
     expect(hook.current.toast).toEqual({ message: 'Movimiento convertido a ingreso', type: 'success' });
   });
 
-  it('reparte entre varias carteras y pasa al resto lo que no cabe bajo un tope', async () => {
+  it('respeta el reparto explícito entre varias carteras aunque supere un tope', async () => {
     fake.write(fake.ref('huchas', 'viaje'), { objetivo: 100, tope_objetivo: true }, true);
     put('movimientos', 'g', gasto('g', 80, 'principal'));
     const hook = await mount();
-    // 60 € pedidos para Viaje, pero solo caben 50 €; el 25 % restante va a la cartera principal.
+    // Las filas explícitas son importes elegidos por el usuario y omiten topes y deudas.
     await act(() => hook.current.handleConvertMovimiento(gasto('g', 80, 'principal'), [
       { huchaId: 'viaje', tipoAportacion: 'flat', value: 60 },
       { huchaId: 'principal', tipoAportacion: 'porcentaje', value: 25 },
     ]));
-    expect(balances()).toEqual({ principal: 100 + 80 + 20 + 10, viaje: 100 });
+    expect(balances()).toEqual({ principal: 100 + 80 + 20, viaje: 110 });
+    expect(stored('movimientos', 'g').reparto_aplicado).toEqual({ saldos: { viaje: 60, principal: 20 }, deudas: {} });
   });
 
   it('usa los saldos actuales de Firestore y no los que tenía la pantalla', async () => {

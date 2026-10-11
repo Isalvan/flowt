@@ -17,6 +17,10 @@ export interface Movimiento {
   categoria_confianza?: 'alta' | 'media' | 'baja';
   compensaciones_descartadas?: string[];
   duplicados_descartados?: string[];
+  reparto_aplicado?: {
+    saldos: Record<string, number>;
+    deudas: Record<string, { importe: number; con: string }>;
+  } | null;
   importe: number;
   fecha_operacion: any; // Firestore Timestamp, Date, or string representation
   hucha_id?: string;

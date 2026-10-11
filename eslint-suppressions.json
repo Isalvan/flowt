@@ -122,10 +122,10 @@
   },
   "src/hooks/useFinanceData.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 14
+      "count": 10
     },
     "prefer-const": {
-      "count": 8
+      "count": 4
     }
   },
   "src/test/setup.tsx": {

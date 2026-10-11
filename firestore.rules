@@ -94,14 +94,14 @@ service cloud.firestore {
     match /movimientos/{movimiento} {
       allow create: if isReqOwner() && 
                        request.resource.data.keys().hasAll(['id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion']) &&
-                       request.resource.data.keys().hasOnly(['review_protected_fields', 'categoria', 'categoria_sugerida', 'categoria_confianza', 'compensaciones_descartadas', 'duplicados_descartados', 'id', 'id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'created_at', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
+                       request.resource.data.keys().hasOnly(['review_protected_fields', 'categoria', 'categoria_sugerida', 'categoria_confianza', 'compensaciones_descartadas', 'duplicados_descartados', 'id', 'id_propietario', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'created_at', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'reparto_aplicado', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
                        (request.resource.data.tipo == 'ingreso' || request.resource.data.tipo == 'gasto') &&
                        isNumber('importe') && request.resource.data.importe >= 0 &&
                        isStringWithLength('concepto', 0, 500) && validMovementCategories();
       
       allow read: if isDocOwner();
       allow update: if isDocOwner() && isReqOwner() &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['review_protected_fields', 'categoria', 'categoria_sugerida', 'categoria_confianza', 'compensaciones_descartadas', 'duplicados_descartados', 'id', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['review_protected_fields', 'categoria', 'categoria_sugerida', 'categoria_confianza', 'compensaciones_descartadas', 'duplicados_descartados', 'id', 'tipo', 'concepto', 'importe', 'fecha_operacion', 'updated_at', 'hucha_id', 'compensado_por', 'compensado_por_detalles', 'compensa_movimiento_id', 'compensaciones_destinos', 'reparto_aplicado', 'importe_neto', 'banco', 'cuenta_origen', 'id_correo_origen', 'suscripcion_id', 'es_metalico', 'es_interno', 'transfer_id']) &&
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at'])) &&
                        isNumber('importe') && request.resource.data.importe >= 0 &&
                        (request.resource.data.tipo == 'ingreso' || request.resource.data.tipo == 'gasto') &&
