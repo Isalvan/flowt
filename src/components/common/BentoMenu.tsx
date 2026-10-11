@@ -9,10 +9,11 @@ export const BentoMenu: React.FC = () => {
       title="Ir a Aether Hub"
       aria-label="Ir a Aether Hub"
     >
+      {/* Drawn for light backgrounds: in the dark theme its lightness is flipped and the hue turned back, so the star goes light and the ring stays blue. */}
       <img
         src="/aether.png"
         alt=""
-        className="h-6 w-6 rounded-full object-contain p-[2px] dark:bg-white"
+        className="h-6 w-6 object-contain dark:[filter:invert(1)_hue-rotate(180deg)]"
       />
     </a>
   );
