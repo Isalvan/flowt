@@ -19,6 +19,12 @@ export const importeEnEstadisticas = (m: Movimiento): number => {
   return m.importe_neto ?? Math.max(0, Math.round((m.importe - (m.compensado_por_detalles ?? []).reduce((s, d) => s + d.importe, 0)) * 100) / 100);
 };
 
+/** Gmail abre un mensaje por su identificador; los movimientos manuales no tienen correo de origen. */
+export const gmailUrlFor = (m: Pick<Movimiento, 'email_id' | 'id_correo_origen'>): string | null => {
+  const id = m.email_id ?? m.id_correo_origen;
+  return id && /^[0-9a-f]{8,32}$/i.test(id) ? `https://mail.google.com/mail/#all/${id}` : null;
+};
+
 export interface RetiradaEfectivoInput {
   gasto_id: string;
   ingreso_id: string;

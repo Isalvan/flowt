@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
   Trash2,
   Landmark,
+  Mail,
   Sparkles
 } from 'lucide-react';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
@@ -30,7 +31,7 @@ import { resolveServiceKey } from '../../utils/serviceNames';
 import { CategoryPicker } from './CategoryPicker';
 import { MovementReview } from './MovementReview';
 import { DuplicateChargeReview } from './DuplicateChargeReview';
-import { importeEnEstadisticas } from '../../utils/movements';
+import { gmailUrlFor, importeEnEstadisticas } from '../../utils/movements';
 import { findDuplicateCharges, suggestCompensations } from '../../utils/movementSuggestions';
 import { useCategories } from '../../hooks/useCategories';
 
@@ -643,6 +644,19 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                               <option key={h.id} value={h.id}>{h.nombre}</option>
                             ))}
                           </select>
+                        )}
+
+                        {gmailUrlFor(m) && (
+                          <a
+                            href={gmailUrlFor(m)!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="dashboard-icon-button"
+                            title="Ver correo original"
+                            aria-label="Ver correo original"
+                          >
+                            <Mail className="h-3.5 w-3.5" />
+                          </a>
                         )}
 
                         <button
