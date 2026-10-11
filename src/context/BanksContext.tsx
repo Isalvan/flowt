@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { collection, deleteDoc, doc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { collection, deleteDoc, doc, onSnapshot, runTransaction, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { usePrivacy } from './PrivacyContext';
-import { BANK_CATALOG, bankNameKey } from '../utils/banks';
+import { BANK_CATALOG, bankDate, bankNameKey } from '../utils/banks';
 import { BanksContext, type Bank } from './bankContext';
 
 const demoKey = 'flowt-demo-bancos';
@@ -15,7 +15,7 @@ export function BanksProvider({ children, forceDemo = false }: { children: React
   const [demoItems, setDemoItems] = useState<Bank[]>(() => {
     try {
       const saved: unknown = JSON.parse(localStorage.getItem(demoKey) ?? '[]');
-      return Array.isArray(saved) ? saved.filter((b): b is Bank => typeof b?.id === 'string' && typeof b?.nombre === 'string') : [];
+      return Array.isArray(saved) ? saved.filter((b): b is Bank => typeof b?.id === 'string' && typeof b?.nombre === 'string').map(b => ({ ...b, anclaFecha: bankDate(b.anclaFecha) })) : [];
     } catch { return []; }
   });
   const pending = useRef(new Set<string>());
@@ -33,7 +33,10 @@ export function BanksProvider({ children, forceDemo = false }: { children: React
   useEffect(() => {
     if (isLocked || !owner || demo) return;
     return onSnapshot(collection(db, 'bancos', owner, 'items'), snapshot => {
-      setState({ owner, items: snapshot.docs.map(d => ({ id: d.id, nombre: d.data().nombre })) });
+      setState({ owner, items: snapshot.docs.map(d => {
+        const data = d.data();
+        return { id: d.id, nombre: data.nombre, anclaSaldo: data.ancla_saldo, anclaFecha: bankDate(data.ancla_fecha), ultimoDesfase: data.ultimo_desfase ?? null };
+      }) });
     }, () => setState({ owner, items: [] }));
   }, [owner, demo, isLocked]);
 
@@ -49,7 +52,7 @@ export function BanksProvider({ children, forceDemo = false }: { children: React
     try {
       const digest = catalogBank ? null : await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key));
       const id = catalogBank?.id ?? 'custom_' + Array.from(new Uint8Array(digest!)).map(b => b.toString(16).padStart(2, '0')).join('');
-      const bank = { id, nombre };
+      const bank = { id, nombre, anclaFecha: null, ultimoDesfase: null };
       if (demo) {
         const next = [...demoRef.current, bank];
         localStorage.setItem(demoKey, JSON.stringify(next));
@@ -79,5 +82,20 @@ export function BanksProvider({ children, forceDemo = false }: { children: React
     }
   };
 
-  return <BanksContext.Provider value={{ banks, addBank, removeBank }}>{children}</BanksContext.Provider>;
+  const anchorBank = async (id: string, saldo: number, desfase: number | null) => {
+    if (isLocked || !owner) throw new Error('Desbloquea Flowt e inicia sesión para anotar saldos.');
+    if (!Number.isFinite(saldo) || saldo < -1_000_000 || saldo > 100_000_000 || (desfase !== null && !Number.isFinite(desfase))) throw new Error('Escribe un saldo válido.');
+    if (!(demo ? demoRef.current : items).some(b => b.id === id)) throw new Error('El banco ya no está disponible.');
+    const update = { anclaSaldo: saldo, anclaFecha: new Date(), ultimoDesfase: desfase };
+    if (demo) {
+      const next = demoRef.current.map(b => b.id === id ? { ...b, ...update } : b);
+      localStorage.setItem(demoKey, JSON.stringify(next));
+      demoRef.current = next;
+      setDemoItems(next);
+    } else {
+      await updateDoc(doc(db, 'bancos', owner, 'items', id), { ancla_saldo: saldo, ancla_fecha: serverTimestamp(), ultimo_desfase: desfase, updated_at: serverTimestamp() });
+    }
+  };
+
+  return <BanksContext.Provider value={{ banks, addBank, removeBank, anchorBank }}>{children}</BanksContext.Provider>;
 }

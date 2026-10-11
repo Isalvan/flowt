@@ -18,7 +18,7 @@ afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); privacy.locked = fal
 describe('aviso de duplicados en la lista', () => {
   it('shows configured and detected banks without case-insensitive repeats', () => {
     const movements: Movimiento[] = [{ id: 'one', tipo: 'gasto', concepto: 'Compra', importe: 10, fecha_operacion: '2026-10-11', banco: 'Trade Republic' }, { id: 'two', tipo: 'gasto', concepto: 'Compra', importe: 20, fecha_operacion: '2026-10-11', banco: 'unicaja' }];
-    render(<BanksContext.Provider value={{ banks: [{ id: 'unicaja', nombre: 'Unicaja' }, { id: 'bbva', nombre: 'BBVA' }], addBank: vi.fn(), removeBank: vi.fn() }}><ActivityList movimientos={movements} allMovimientos={movements} huchas={[]} huchaMonthlyBudgets={{}} onUpdateConcepto={vi.fn()} onConvert={vi.fn()} onLink={vi.fn()} onUnlink={vi.fn()} onChangeHucha={vi.fn()} onDeleteMovimiento={vi.fn()} /></BanksContext.Provider>);
+    render(<BanksContext.Provider value={{ banks: [{ id: 'unicaja', nombre: 'Unicaja' }, { id: 'bbva', nombre: 'BBVA' }], addBank: vi.fn(), removeBank: vi.fn(), anchorBank: vi.fn() }}><ActivityList movimientos={movements} allMovimientos={movements} huchas={[]} huchaMonthlyBudgets={{}} onUpdateConcepto={vi.fn()} onConvert={vi.fn()} onLink={vi.fn()} onUnlink={vi.fn()} onChangeHucha={vi.fn()} onDeleteMovimiento={vi.fn()} /></BanksContext.Provider>);
     fireEvent.click(screen.getByRole('button', { name: /Filtros/ }));
     expect(within(screen.getByRole('combobox', { name: 'Banco' })).getAllByRole('option').map(o => o.textContent)).toEqual(['Todos los bancos', 'BBVA', 'Trade Republic', 'Unicaja']);
   });

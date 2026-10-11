@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import { useBanks } from '../../hooks/useBanks';
-import { BANK_CATALOG, bankInitials, bankNameKey, detectedBanks } from '../../utils/banks';
+import { BANK_CATALOG, anchorDateLabel, bankInitials, bankNameKey, detectedBanks, estimateBankBalance } from '../../utils/banks';
+import { usePrivacy } from '../../context/PrivacyContext';
+import { AnchorBalanceModal } from '../modals/AnchorBalanceModal';
 import type { Movimiento } from '../../types';
 import type { Bank } from '../../context/bankContext';
 import { ConfirmModal } from '../common/ConfirmModal';
@@ -10,6 +12,9 @@ const pillClass = 'inline-flex h-8 items-center gap-1.5 rounded-full border bord
 
 export function BancosView({ chartMovements }: { chartMovements: Movimiento[] }) {
   const { banks, addBank, removeBank } = useBanks();
+  const { formatCurrency, isLocked } = usePrivacy();
+  const [anchoringId, setAnchoringId] = useState<string | null>(null);
+  const anchoring = banks.find(bank => bank.id === anchoringId);
   const [editing, setEditing] = useState(false);
   const [nombre, setNombre] = useState('');
   const [error, setError] = useState('');
@@ -49,13 +54,24 @@ export function BancosView({ chartMovements }: { chartMovements: Movimiento[] })
     <p className="dashboard-subtitle mb-5">Los bancos donde tienes el dinero. Flowt asigna cada movimiento al suyo según quién envía el aviso.</p>
     {banks.length ? <div className="divide-y divide-line">{banks.map(bank => {
       const count = chartMovements.filter(m => m.banco?.toLowerCase() === bank.nombre.toLowerCase()).length;
-      return <div key={bank.id} className="flex items-center gap-3 py-3">
+      const balance = isLocked ? null : estimateBankBalance(bank, chartMovements);
+      return <div key={bank.id} className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 py-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto_auto]">
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-tint text-xs font-extrabold text-brand-ink">{bankInitials(bank.nombre)}</div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold text-ink">{bank.nombre}</p>
           <p className="text-[11px] text-ink-soft">{count ? `${count} ${count === 1 ? 'movimiento' : 'movimientos'} en el último año` : 'Sin movimientos todavía'}</p>
         </div>
-        <button type="button" className="dashboard-icon-button is-danger" aria-label={`Quitar ${bank.nombre}`} disabled={saving} onClick={() => setRemoving(bank)}><Trash2 size={14} /></button>
+        {!isLocked && <div className="col-span-3 row-start-2 flex min-w-0 items-center justify-between gap-3 pl-[3.25rem] sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:pl-0">
+          <div className="min-w-0 flex-1 text-left sm:flex-none sm:shrink-0 sm:text-right">
+            {balance !== null && <>
+              <p className="text-sm font-extrabold tabular-nums text-ink">{formatCurrency(balance)}</p>
+              <p className="text-[11px] text-ink-soft">{anchorDateLabel(bank.anclaFecha!)}</p>
+              {bank.ultimoDesfase != null && bank.ultimoDesfase !== 0 && <p className="text-[11px] text-ink-faint">Último desfase: {bank.ultimoDesfase < 0 ? '−' : '+'}{formatCurrency(Math.abs(bank.ultimoDesfase))}</p>}
+            </>}
+          </div>
+          <button type="button" className="dashboard-secondary-button shrink-0 !px-2.5 !py-1.5 !text-xs" onClick={() => setAnchoringId(bank.id)}>{balance === null ? 'Anotar saldo' : 'Actualizar'}</button>
+        </div>}
+        <button type="button" className="dashboard-icon-button is-danger col-start-3 row-start-1 sm:col-start-4" aria-label={`Quitar ${bank.nombre}`} disabled={saving} onClick={() => setRemoving(bank)}><Trash2 size={14} /></button>
       </div>;
     })}</div> : <div className="dashboard-empty py-6"><p>Aún no has añadido ningún banco</p></div>}
     <div className="mt-5 border-t border-line pt-4">
@@ -71,6 +87,7 @@ export function BancosView({ chartMovements }: { chartMovements: Movimiento[] })
       </div>
     </div>
     {error && <p role="alert" className="mt-3 text-xs font-semibold text-rose-500 dark:text-rose-400">{error}</p>}
+    {anchoring && !isLocked && <AnchorBalanceModal key={anchoring.id} bank={anchoring} movimientos={chartMovements} onClose={() => setAnchoringId(null)} />}
     <ConfirmModal isOpen={!!removing} onClose={() => { if (!saving) setRemoving(null); }} onConfirm={() => void remove()} title={`Quitar ${removing?.nombre ?? ''}`} message="Sus movimientos no se borran; solo deja de aparecer en tus bancos." confirmText="Quitar" type="danger" isLoading={saving} />
   </div>;
 }

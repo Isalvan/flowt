@@ -11,6 +11,7 @@ import { ActivityList } from "./ActivityList";
 import { AnalyticsSection, CategoryBreakdown } from "./LazyCharts";
 import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
+import { BanksCard } from "./BanksCard";
 import { SmallPurchasesCard } from "./SmallPurchasesCard";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { PredictiveChart } from "./LazyCharts";
@@ -421,6 +422,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         </div>
         {/* Everything that summarises the period sits beside the charts, so the column never ends in a gap. */}
         <div className="min-w-0 space-y-4">
+          <BanksCard movimientos={props.chartMovements} walletsTotal={walletsTotal} />
           <section className="dashboard-surface min-w-0 p-5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">

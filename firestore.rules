@@ -57,6 +57,12 @@ service cloud.firestore {
 
     match /bancos/{userId}/items/{bancoId} {
       allow read, delete: if isOwner(userId);
+      allow update: if isOwner(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ancla_saldo', 'ancla_fecha', 'ultimo_desfase', 'updated_at']) &&
+        request.resource.data.ancla_saldo is number &&
+        request.resource.data.ancla_saldo >= -1000000 && request.resource.data.ancla_saldo <= 100000000 &&
+        (request.resource.data.ultimo_desfase == null || request.resource.data.ultimo_desfase is number) &&
+        request.resource.data.ancla_fecha == request.time;
       allow create: if isOwner(userId) &&
         request.resource.data.keys().hasOnly(['nombre', 'created_at']) &&
         request.resource.data.keys().hasAll(['nombre', 'created_at']) &&

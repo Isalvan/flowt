@@ -5,8 +5,8 @@ import { BanksProvider } from './BanksContext';
 import { useBanks } from '../hooks/useBanks';
 import { onAuthStateChanged } from 'firebase/auth';
 
-const mocks = vi.hoisted(() => ({ locked: false, snapshot: vi.fn(), unsubscribe: vi.fn(), authOff: vi.fn(), set: vi.fn(), delete: vi.fn(), exists: false,
-  success: null as null | ((snapshot: { docs: { id: string; data: () => { nombre: string } }[] }) => void),
+const mocks = vi.hoisted(() => ({ locked: false, snapshot: vi.fn(), unsubscribe: vi.fn(), authOff: vi.fn(), set: vi.fn(), update: vi.fn(), delete: vi.fn(), exists: false,
+  success: null as null | ((snapshot: { docs: { id: string; data: () => { nombre: string; ancla_saldo?: number; ancla_fecha?: { toDate: () => Date }; ultimo_desfase?: number | null } }[] }) => void),
   error: null as null | (() => void),
 }));
 vi.mock('./PrivacyContext', () => ({ usePrivacy: () => ({ isLocked: mocks.locked }) }));
@@ -14,6 +14,7 @@ vi.mock('firebase/auth', () => ({ onAuthStateChanged: vi.fn((_auth, cb) => { cb(
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn((_db, ...parts) => parts.join('/')), doc: vi.fn((_db, ...parts) => parts.join('/')),
   serverTimestamp: () => 'server-time', deleteDoc: mocks.delete,
+  updateDoc: mocks.update,
   onSnapshot: (...args: unknown[]) => { mocks.snapshot(...args); mocks.success = args[1] as typeof mocks.success; mocks.error = args[2] as typeof mocks.error; return mocks.unsubscribe; },
   runTransaction: async (_db: unknown, cb: (t: unknown) => Promise<void>) => cb({ get: async () => ({ exists: () => mocks.exists }), set: mocks.set }),
 }));
@@ -21,6 +22,31 @@ beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); mocks.locked = fals
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
 
 describe('BanksProvider', () => {
+  it('persists the demo anchor including its Date and discrepancy across remounts', async () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) => <BanksProvider forceDemo>{children}</BanksProvider>;
+    const hook = renderHook(useBanks, { wrapper });
+    await act(async () => { await hook.result.current.addBank('bbva'); await hook.result.current.anchorBank('bbva', 125.75, null); });
+    const firstDate = hook.result.current.banks[0].anclaFecha;
+    expect(firstDate).toBeInstanceOf(Date);
+    expect(hook.result.current.banks[0]).toMatchObject({ anclaSaldo: 125.75, ultimoDesfase: null });
+    await act(async () => { await hook.result.current.anchorBank('bbva', 120, -5.75); });
+    hook.unmount();
+    const restored = renderHook(useBanks, { wrapper });
+    expect(restored.result.current.banks[0]).toMatchObject({ anclaSaldo: 120, ultimoDesfase: -5.75 });
+    expect(restored.result.current.banks[0].anclaFecha).toBeInstanceOf(Date);
+  });
+  it('writes only the anchor fields and server timestamps to the owner bank', async () => {
+    const hook = renderHook(useBanks, { wrapper: ({ children }) => <BanksProvider>{children}</BanksProvider> });
+    await act(async () => { await hook.result.current.addBank('bbva'); });
+    await act(async () => { await hook.result.current.anchorBank('bbva', 120, -5); });
+    expect(mocks.update).toHaveBeenCalledWith('bancos/owner/items/bbva', { ancla_saldo: 120, ancla_fecha: 'server-time', ultimo_desfase: -5, updated_at: 'server-time' });
+    const date = new Date('2026-10-11T10:00:00Z');
+    act(() => { mocks.success?.({ docs: [{ id: 'bbva', data: () => ({ nombre: 'BBVA', ancla_saldo: 120, ancla_fecha: { toDate: () => date }, ultimo_desfase: -5 }) }] }); });
+    expect(hook.result.current.banks[0]).toMatchObject({ anclaSaldo: 120, anclaFecha: date, ultimoDesfase: -5 });
+    await expect(hook.result.current.anchorBank('bbva', Infinity, null)).rejects.toThrow('válido');
+    mocks.locked = true; hook.rerender();
+    await expect(hook.result.current.anchorBank('bbva', 10, null)).rejects.toThrow('Desbloquea');
+  });
   it('adds catalog and custom banks, rejects duplicates, sorts, removes and persists demo data', async () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => <StrictMode><BanksProvider forceDemo>{children}</BanksProvider></StrictMode>;
     const hook = renderHook(useBanks, { wrapper });

@@ -5,15 +5,23 @@ import { BanksContext, type Bank } from '../../context/bankContext';
 import { BanksProvider } from '../../context/BanksContext';
 import type { Movimiento } from '../../types';
 
-vi.mock('../../context/PrivacyContext', () => ({ usePrivacy: () => ({ isLocked: false }) }));
+vi.mock('../../context/PrivacyContext', () => ({ usePrivacy: () => ({ isLocked: false, formatCurrency: (value: number) => `${value.toFixed(2)} €` }) }));
 const addBank = vi.fn();
 const removeBank = vi.fn();
 const movements = (names: string[]): Movimiento[] => names.map((banco, i) => ({ id: String(i), banco, tipo: 'gasto', concepto: 'Compra', importe: 10, fecha_operacion: '2026-10-11' }));
-const setup = (banks: Bank[] = [], names: string[] = []) => render(<BanksContext.Provider value={{ banks, addBank, removeBank }}><BancosView chartMovements={movements(names)} /></BanksContext.Provider>);
+const setup = (banks: Bank[] = [], names: string[] = []) => render(<BanksContext.Provider value={{ banks, addBank, removeBank, anchorBank: vi.fn() }}><BancosView chartMovements={movements(names)} /></BanksContext.Provider>);
 beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); addBank.mockResolvedValue(undefined); removeBank.mockResolvedValue(undefined); });
 afterEach(cleanup);
 
 describe('BancosView', () => {
+  it('shows the estimated balance, anchor date and last discrepancy and opens the anchor modal', () => {
+    setup([{ id: 'bbva', nombre: 'BBVA', anclaSaldo: 120, anclaFecha: new Date(), ultimoDesfase: -62.1 }]);
+    expect(screen.getByText('120.00 €')).toBeInTheDocument();
+    expect(screen.getByText('Anotado hoy')).toBeInTheDocument();
+    expect(screen.getByText('Último desfase: −62.10 €')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Actualizar' }));
+    expect(screen.getByRole('heading', { name: 'Anotar saldo de BBVA' })).toBeInTheDocument();
+  });
   it('lists banks with case-insensitive counts, singular and empty states', () => {
     setup([{ id: 'unicaja', nombre: 'Unicaja' }, { id: 'bbva', nombre: 'BBVA' }, { id: 'n26', nombre: 'N26' }], ['UNICaja', 'Unicaja', 'bbva']);
     expect(screen.getByText('2 movimientos en el último año')).toBeInTheDocument();
