@@ -75,28 +75,24 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={
-        <div className="flex items-center gap-2">
-          <ArrowRightLeft className="text-amber-500" size={24} />
-          <span>Traspaso entre Carteras</span>
-        </div>
-      }
+      title="Traspaso entre carteras"
       size="md"
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* Origin Hucha */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-            Cartera de Origen
+          <label htmlFor="transfer-from" className="field-label">
+            Cartera de origen
           </label>
           <select
+            id="transfer-from"
             value={fromHuchaId}
             onChange={(e) => setFromHuchaId(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all cursor-pointer"
+            className="field"
           >
-            <option value="" disabled className="text-slate-400">Seleccionar origen</option>
+            <option value="" disabled>Seleccionar origen</option>
             {huchas.filter(h => h.activa !== false).map(h => (
-              <option key={h.id} value={h.id} className="text-slate-800 dark:text-slate-200">
+              <option key={h.id} value={h.id}>
                 {h.nombre} ({formatCurrency(h.saldo_acumulado)})
               </option>
             ))}
@@ -105,17 +101,18 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
         {/* Target Hucha */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-            Cartera de Destino
+          <label htmlFor="transfer-to" className="field-label">
+            Cartera de destino
           </label>
           <select
+            id="transfer-to"
             value={toHuchaId}
             onChange={(e) => setToHuchaId(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all cursor-pointer"
+            className="field"
           >
-            <option value="" disabled className="text-slate-400">Seleccionar destino</option>
+            <option value="" disabled>Seleccionar destino</option>
             {huchas.filter(h => h.id !== fromHuchaId).map(h => (
-              <option key={h.id} value={h.id} className="text-slate-800 dark:text-slate-200">
+              <option key={h.id} value={h.id}>
                 {h.nombre} ({formatCurrency(h.saldo_acumulado)})
               </option>
             ))}
@@ -124,10 +121,11 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
         {/* Amount */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-            Importe a Traspasar (€)
+          <label htmlFor="transfer-amount" className="field-label">
+            Importe a traspasar (€)
           </label>
           <input
+            id="transfer-amount"
             type="number"
             required
             min="0.01"
@@ -135,31 +133,29 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             placeholder="0.00 €"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all"
+            className="field tabular-nums"
           />
         </div>
 
         {/* Dynamic Simulation Preview */}
         {fromHucha && toHucha && transferAmount > 0 && (
-          <div className="p-4 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/20 space-y-3.5 animate-appear-up">
-            <h5 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">
-              Simulación de Saldos Resultantes
-            </h5>
+          <div className="space-y-3 rounded-2xl bg-surface-2 p-4 animate-appear-up">
+            <p className="dashboard-label">Saldos tras el traspaso</p>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               {/* Origin result */}
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-bold text-slate-400 truncate">{fromHucha.nombre}</span>
-                <div className="flex items-center gap-1.5 text-sm font-bold text-rose-500 dark:text-rose-400">
+              <div className="min-w-0">
+                <span className="block truncate text-[11px] font-semibold text-ink-soft">{fromHucha.nombre}</span>
+                <div className="mt-1 flex items-center gap-1.5 text-sm font-extrabold tabular-nums text-rose-500 dark:text-rose-400">
                   <TrendingDown size={14} />
                   <span>{formatCurrency(newFromBalance)}</span>
                 </div>
               </div>
 
               {/* Target result */}
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-bold text-slate-400 truncate">{toHucha.nombre}</span>
-                <div className="flex items-center gap-1.5 text-sm font-bold text-emerald-500 dark:text-emerald-400">
+              <div className="min-w-0">
+                <span className="block truncate text-[11px] font-semibold text-ink-soft">{toHucha.nombre}</span>
+                <div className="mt-1 flex items-center gap-1.5 text-sm font-extrabold tabular-nums text-emerald-600 dark:text-emerald-400">
                   <TrendingUp size={14} />
                   <span>{formatCurrency(willOverflow && toHucha.objetivo ? toHucha.objetivo : newToBalance)}</span>
                 </div>
@@ -168,8 +164,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
             {/* Overflow warning banner */}
             {willOverflow && (
-              <div className="flex gap-2 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 rounded-xl text-[11px] leading-relaxed">
-                <AlertTriangle size={16} className="shrink-0 text-amber-500" />
+              <div className="notice is-warning">
+                <AlertTriangle size={15} className="mt-0.5 shrink-0" />
                 <span>
                   El saldo de <strong>{toHucha.nombre}</strong> alcanzará su objetivo.
                   El exceso de <strong>{formatCurrency(overflowAmount)}</strong> rebotará automáticamente a tu cartera principal.
@@ -179,8 +175,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
             {/* Insufficient funds warning banner */}
             {transferAmount > fromBalance && (
-              <div className="flex gap-2 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-800 dark:text-rose-300 rounded-xl text-[11px] leading-relaxed">
-                <AlertTriangle size={16} className="shrink-0 text-rose-500" />
+              <div className="notice is-danger" role="alert">
+                <AlertTriangle size={15} className="mt-0.5 shrink-0" />
                 <span>Saldo insuficiente en la cartera origen para realizar este traspaso.</span>
               </div>
             )}
@@ -188,18 +184,18 @@ export const TransferModal: React.FC<TransferModalProps> = ({
         )}
 
         {/* Buttons */}
-        <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+        <div className="modal-actions">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold tracking-wide uppercase hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors"
+            className="dashboard-secondary-button"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isLoading || !fromHuchaId || !toHuchaId || transferAmount <= 0 || transferAmount > fromBalance}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold tracking-wide uppercase shadow-md hover:shadow-amber-500/10 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="dashboard-primary-button"
           >
             {isLoading ? (
               <>
@@ -207,12 +203,12 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Procesando...
+                Procesando…
               </>
             ) : (
               <>
                 <ArrowRightLeft size={14} />
-                Realizar Traspaso
+                Traspasar
               </>
             )}
           </button>
