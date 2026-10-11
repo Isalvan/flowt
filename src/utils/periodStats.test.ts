@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Movimiento } from '../types';
-import { getMovementWindowStart, groupMovementsByMonth, typicalMonthlyIncome } from './periodStats';
+import { getMovementWindowStart, groupExpensesByCategory, groupMovementsByMonth, typicalMonthlyIncome } from './periodStats';
 
 const income = (year: number, month: number, amount: number, extra: Partial<Movimiento> = {}): Movimiento => ({
   id: `${year}-${month}-${amount}`,
@@ -9,6 +9,43 @@ const income = (year: number, month: number, amount: number, extra: Partial<Movi
   importe: amount,
   fecha_operacion: new Date(year, month, 2),
   ...extra,
+});
+
+describe('groupExpensesByCategory', () => {
+  const expense = (amount: number, extra: Partial<Movimiento> = {}) => income(2026, 9, amount, { tipo: 'gasto', ...extra });
+
+  it('groups expenses, skips income and internal transfers, and sorts by net total', () => {
+    expect(groupExpensesByCategory([
+      expense(20, { categoria: 'compras' }),
+      expense(30, { categoria: 'compras' }),
+      expense(200, { categoria: 'vivienda', importe_neto: 60 }),
+      expense(30, { categoria: 'vivienda', compensado_por_detalles: [{ ingreso_id: 'refund', importe: 10 }] }),
+      expense(500, { categoria: 'compras', es_interno: true }),
+      expense(500, { categoria: 'compras', transfer_id: 'transfer' }),
+      income(2026, 9, 500, { categoria: 'compras' }),
+      expense(10),
+      expense(20, { categoria: '', importe_neto: 0 }),
+      expense(10, { categoria: 'salud', importe_neto: 0 }),
+    ])).toEqual([
+      { categoria: 'vivienda', total: 80, porcentaje: 57.14 },
+      { categoria: 'compras', total: 50, porcentaje: 35.71 },
+      { categoria: 'sin_categoria', total: 10, porcentaje: 7.14 },
+    ]);
+  });
+
+  it('rounds category totals to cents and percentages sum to 100 within rounding tolerance', () => {
+    const stats = groupExpensesByCategory([
+      expense(1, { categoria: 'a', importe_neto: 0.104 }),
+      expense(1, { categoria: 'a', importe_neto: 0.104 }),
+      expense(1, { categoria: 'b', importe_neto: 0.211 }),
+      expense(1, { categoria: 'c', importe_neto: 0.212 }),
+      expense(1, { categoria: 'zero', importe_neto: 0.001 }),
+    ]);
+    expect(stats.map(category => category.total)).toEqual([0.21, 0.21, 0.21]);
+    expect(Math.abs(stats.reduce((sum, category) => sum + category.porcentaje, 0) - 100)).toBeLessThanOrEqual(0.02);
+    expect(groupExpensesByCategory([])).toEqual([]);
+    expect(groupExpensesByCategory([expense(10, { categoria: '' })])[0].categoria).toBe('sin_categoria');
+  });
 });
 
 describe('dashboard period statistics', () => {
@@ -68,5 +105,16 @@ describe('dashboard period statistics', () => {
       income(2026, 9, 9000, { fecha_operacion: new Date(2026, 9, 20) }),
     ], new Date(2026, 9, 11))).toBe(150);
     expect(typicalMonthlyIncome([], new Date(2026, 9, 11))).toBe(0);
+  });
+});
+
+describe('groupExpensesByCategory con categoría sugerida', () => {
+  it('usa la función que recibe para los movimientos sin categoría elegida', () => {
+    const movimientos = [
+      { id: 'a', tipo: 'gasto', concepto: 'Mercadona', importe: 30, fecha_operacion: '2026-10-01' },
+      { id: 'b', tipo: 'gasto', concepto: 'Cine', importe: 10, categoria: 'ocio', fecha_operacion: '2026-10-02' },
+    ] as Movimiento[];
+    const result = groupExpensesByCategory(movimientos, m => m.categoria || (m.concepto === 'Mercadona' ? 'alimentacion' : undefined));
+    expect(result.map(c => [c.categoria, c.total])).toEqual([['alimentacion', 30], ['ocio', 10]]);
   });
 });

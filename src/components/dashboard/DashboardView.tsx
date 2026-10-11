@@ -8,7 +8,7 @@ import { cuentaEnEstadisticas, importeEnEstadisticas } from "../../utils/movemen
 import { EmptyIllustration } from "../common/EmptyIllustration";
 import { HuchaCard } from "./HuchaCard";
 import { ActivityList } from "./ActivityList";
-import { AnalyticsSection } from "./LazyCharts";
+import { AnalyticsSection, CategoryBreakdown } from "./LazyCharts";
 import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
 import { MoreActionsMenu } from "./MoreActionsMenu";
@@ -402,6 +402,11 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             huchas={props.huchas}
             suscripciones={props.suscripciones}
             allMovimientos={filtered}
+            periodStatus={periodStatus}
+          />
+          <CategoryBreakdown
+            allMovimientos={filtered}
+            periodLabel={periodLabel}
             periodStatus={periodStatus}
           />
           <PredictiveChart

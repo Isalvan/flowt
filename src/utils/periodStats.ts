@@ -1,6 +1,34 @@
 import type { Movimiento } from '../types';
 import { cuentaEnEstadisticas, importeEnEstadisticas } from './movements';
 
+export interface CategoryExpense {
+  categoria: string;
+  total: number;
+  porcentaje: number;
+}
+
+/** `categoryOf` lets the caller fall back to a suggested category for movements the user has not classified. */
+export const groupExpensesByCategory = (
+  movimientos: readonly Movimiento[],
+  categoryOf: (movement: Movimiento) => string | undefined = movement => movement.categoria,
+): CategoryExpense[] => {
+  const totals = new Map<string, number>();
+  movimientos.forEach(movement => {
+    if (movement.tipo !== 'gasto' || !cuentaEnEstadisticas(movement)) return;
+    const categoria = categoryOf(movement) || 'sin_categoria';
+    totals.set(categoria, (totals.get(categoria) ?? 0) + importeEnEstadisticas(movement));
+  });
+  const categories = [...totals].map(([categoria, amount]) => ({
+    categoria,
+    total: Math.round((amount + Number.EPSILON) * 100) / 100,
+  })).filter(({ total }) => total > 0).sort((a, b) => b.total - a.total);
+  const totalCents = categories.reduce((sum, category) => sum + Math.round(category.total * 100), 0);
+  return categories.map(category => ({
+    ...category,
+    porcentaje: Math.round(category.total * 100 / totalCents * 10000) / 100,
+  }));
+};
+
 export const parseMovimientoDate = (value: unknown): Date | null => {
   let date: unknown = value;
   if (value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
