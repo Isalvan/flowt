@@ -171,7 +171,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
                   <input
                     key={`threshold-${umbralCompraPequena}`}
                     id="profile-small-purchase"
-                    className="field pr-9"
+                    className="field has-unit"
                     type="number"
                     min={1}
                     max={100}

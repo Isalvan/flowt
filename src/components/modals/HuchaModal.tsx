@@ -270,9 +270,9 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
                       max="100000"
                       value={extraImporte}
                       onChange={(e) => setExtraImporte(e.target.value)}
-                      className="field tabular-nums"
+                      className="field has-unit tabular-nums"
                     />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint">€</span>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-soft">€</span>
                   </div>
                 </div>
                 <div>

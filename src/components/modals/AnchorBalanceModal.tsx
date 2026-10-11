@@ -35,7 +35,7 @@ export function AnchorBalanceModal({ bank, movimientos, onClose }: { bank: Bank;
     <form className="mt-4" onSubmit={event => void save(event)}>
       <label className="field-label" htmlFor={fieldId}>Saldo que ves ahora</label>
       <div className="relative">
-        <input ref={inputRef} id={fieldId} className="field pr-9 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" type="number" inputMode="decimal" step="0.01" min={-1_000_000} max={100_000_000} autoFocus value={value} disabled={saving} onChange={e => setValue(e.target.value)} />
+        <input ref={inputRef} id={fieldId} className="field has-unit" type="number" inputMode="decimal" step="0.01" min={-1_000_000} max={100_000_000} autoFocus value={value} disabled={saving} onChange={e => setValue(e.target.value)} />
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-soft">€</span>
       </div>
       {estimated !== null && <div className="mt-3 rounded-xl bg-surface-2 p-3 text-xs">
