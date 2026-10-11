@@ -34,7 +34,11 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const UID_PROPIETARIO = "4Jjrmc7VBtfQMvfpfgrTuGmA6D12";
+const UID_PROPIETARIO = process.env.UID_PROPIETARIO || process.argv[2];
+if (!UID_PROPIETARIO) {
+  console.error('Indica UID_PROPIETARIO en el entorno o como primer argumento.');
+  process.exit(1);
+}
 
 function parseDateString(raw_fecha) {
   if (!raw_fecha) return null;

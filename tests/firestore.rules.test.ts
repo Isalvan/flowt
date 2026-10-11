@@ -263,7 +263,7 @@ describe('Firestore Rules - Huchas Protegidas', () => {
     if (!testEnv) return;
     await testEnv.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore();
-      await setDoc(doc(db, 'huchas', 'hYpEkvuC37GXzCaomVPX'), {
+      await setDoc(doc(db, 'huchas', 'test-principal-pocket'), {
         id_propietario: 'user_123',
         nombre: 'Hucha A',
         tipo_aportacion: 'flat',
@@ -285,14 +285,14 @@ describe('Firestore Rules - Huchas Protegidas', () => {
         concepto: 'Supermercado',
         importe: 50,
         fecha_operacion: new Date(),
-        hucha_id: 'hYpEkvuC37GXzCaomVPX',
+        hucha_id: 'test-principal-pocket',
       });
     });
 
     const userContext = testEnv.authenticatedContext('user_123');
     const db = userContext.firestore();
     const batch = writeBatch(db);
-    batch.update(doc(db, 'huchas', 'hYpEkvuC37GXzCaomVPX'), { saldo_acumulado: 150 });
+    batch.update(doc(db, 'huchas', 'test-principal-pocket'), { saldo_acumulado: 150 });
     batch.update(doc(db, 'huchas', 'L7nVAw8fP9NPdWtKSn5U'), { saldo_acumulado: 450 });
     batch.update(doc(db, 'movimientos', 'e553ae9cdef9e8dc4295bf2900d36d24a775e1f2b54848bad22c673d6d75433a'), { hucha_id: 'L7nVAw8fP9NPdWtKSn5U' });
 
@@ -348,7 +348,7 @@ describe('Firestore Rules - Huchas Protegidas', () => {
         concepto: 'a'.repeat(250), // long concept imported from email
         importe: 50,
         fecha_operacion: new Date(),
-        hucha_id: 'hYpEkvuC37GXzCaomVPX',
+        hucha_id: 'test-principal-pocket',
       });
     });
 

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -10,9 +10,8 @@ import {
   type TooltipContentProps,
   type TooltipValueType,
 } from "recharts";
-import { AlertTriangle, Info, Lock, TrendingUp } from "lucide-react";
+import { AlertTriangle, LineChart } from "lucide-react";
 import type { Hucha, Movimiento, Suscripcion } from "../../types";
-import { Card } from "../common/Card";
 import { usePrivacy } from "../../context/PrivacyContext";
 import {
   buildProjectionData,
@@ -25,7 +24,27 @@ interface PredictiveChartProps {
   allMovimientos: Movimiento[];
 }
 
-const toNumericValue = (value: TooltipValueType | undefined): number => {
+const HORIZON_KEY = "flowt-projection-months";
+const HORIZON_PRESETS = [3, 6, 12];
+const MAX_MONTHS = 60;
+const clampMonths = (value: number) =>
+  Math.min(MAX_MONTHS, Math.max(1, Math.round(value) || 1));
+const readStoredMonths = () => {
+  try {
+    const stored = Number(localStorage.getItem(HORIZON_KEY));
+    return stored ? clampMonths(stored) : 3;
+  } catch {
+    return 3;
+  }
+};
+const daysUntil = (months: number) => {
+  const start = new Date();
+  const end = new Date(start);
+  end.setMonth(start.getMonth() + months);
+  return Math.round((end.getTime() - start.getTime()) / 86400000);
+};
+
+const toNumericValue =(value: TooltipValueType | undefined): number => {
   if (typeof value === "number") return value;
   if (typeof value === "string") {
     const parsed = Number(value);
@@ -39,7 +58,20 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
   suscripciones,
   allMovimientos,
 }) => {
-  const { isLocked, openUnlockModal, formatCurrency } = usePrivacy();
+  const { isLocked, formatCurrency } = usePrivacy();
+  const [months, setMonths] = useState(readStoredMonths);
+  // Kept apart from `months` so the field can be emptied while typing.
+  const [monthsDraft, setMonthsDraft] = useState(String(months));
+  const changeMonths = (value: number, syncDraft = true) => {
+    const next = clampMonths(value);
+    setMonths(next);
+    if (syncDraft) setMonthsDraft(String(next));
+    try {
+      localStorage.setItem(HORIZON_KEY, String(next));
+    } catch {
+      // The horizon just won't be remembered.
+    }
+  };
   const totalSavings = useMemo(
     () => huchas.reduce((sum, hucha) => sum + hucha.saldo_acumulado, 0),
     [huchas],
@@ -49,18 +81,18 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
     [allMovimientos, suscripciones],
   );
   const projectionData = useMemo(
-    () => (estimates ? buildProjectionData(totalSavings, estimates) : []),
-    [estimates, totalSavings],
+    () =>
+      estimates
+        ? buildProjectionData(
+            totalSavings,
+            estimates,
+            new Date(),
+            daysUntil(months),
+          )
+        : [],
+    [estimates, totalSavings, months],
   );
-
-  if (!estimates) {
-    return (
-      <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-        Datos insuficientes para proyectar liquidez. Necesitas ingresos y un
-        historial representativo de movimientos.
-      </div>
-    );
-  }
+  const horizonLabel = months === 1 ? "Próximo mes" : `Próximos ${months} meses`;
 
   const balances = projectionData.map((point) => point.balance);
   const min = Math.min(...balances);
@@ -74,115 +106,171 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
     label,
   }: TooltipContentProps<TooltipValueType, string | number>) =>
     active && payload?.length ? (
-      <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-xl dark:border-slate-700 dark:bg-slate-900">
-        <p className="font-bold text-slate-500">{String(label ?? "")}</p>
-        <p className="mt-1 font-black text-indigo-600">
-          Saldo proyectado: {formatCurrency(toNumericValue(payload[0]?.value))}
+      <div className="glass-panel rounded-xl p-3 text-xs">
+        <p className="mb-1.5 font-bold text-ink-soft">{String(label ?? "")}</p>
+        <p className="font-semibold tabular-nums text-brand-ink">
+          Saldo previsto: {formatCurrency(toNumericValue(payload[0]?.value))}
         </p>
       </div>
     ) : null;
 
   return (
-    <Card className="dashboard-surface !p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="flex items-center gap-2 text-lg font-extrabold text-slate-800 dark:text-white">
-            <TrendingUp size={18} className="text-indigo-500" /> Proyección de
-            liquidez
-          </h3>
-          <p className="text-xs text-slate-500">
-            Estimación basada en el promedio de tus movimientos durante{" "}
-            {estimates.observedDays} días.
-          </p>
-        </div>
-        {isLocked && (
-          <button
-            type="button"
-            onClick={() => openUnlockModal()}
-            className="text-xs font-bold text-indigo-600"
-          >
-            <Lock size={15} />
-          </button>
-        )}
-      </div>
-      <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-        {[
-          ["Mínimo", min],
-          ["Máximo", max],
-          ["Neto", diff],
-        ].map(([label, value]) => (
-          <div key={String(label)}>
-            <p className="text-[10px] font-bold text-slate-500">{label}</p>
-            <p
-              className={`text-sm font-black tabular-nums ${label === "Neto" ? (diff >= 0 ? "text-emerald-600" : "text-rose-500") : ""}`}
-            >
-              {label === "Neto" && diff >= 0 ? "+" : ""}
-              {formatCurrency(Number(value))}
+    <section className="dashboard-surface p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="dashboard-icon bg-brand-tint text-brand-ink">
+            <LineChart size={18} />
+          </span>
+          <div className="min-w-0">
+            <h3 className="dashboard-heading">Proyección de saldo</h3>
+            <p className="dashboard-subtitle">
+              {estimates
+                ? `${horizonLabel}, según tu ritmo de los últimos ${estimates.observedDays} días`
+                : horizonLabel}
             </p>
           </div>
-        ))}
-      </div>
-      <div className="relative mt-4 h-56">
-        {isLocked && (
-          <div className="absolute inset-0 z-10 grid place-items-center rounded-xl bg-white/70 text-xs font-bold text-slate-500 backdrop-blur-sm dark:bg-slate-950/70">
-            <span>
-              Proyección protegida ·{" "}
-              <button
-                type="button"
-                onClick={() => openUnlockModal()}
-                className="text-indigo-600 underline"
-              >
-                Desbloquear
-              </button>
-            </span>
+        </div>
+        {estimates && !isLocked && (
+          <div className="flex shrink-0 items-center gap-2">
+            <div
+              role="group"
+              aria-label="Horizonte de la proyección"
+              className="flex rounded-xl bg-surface-2 p-0.5"
+            >
+              {HORIZON_PRESETS.map((preset) => (
+                <button
+                  type="button"
+                  key={preset}
+                  onClick={() => changeMonths(preset)}
+                  aria-pressed={months === preset}
+                  className={`rounded-[0.6rem] px-2.5 py-1 text-xs font-bold tabular-nums transition-colors ${months === preset ? "bg-surface text-ink shadow-sm" : "text-ink-faint hover:text-ink"}`}
+                >
+                  {preset}m
+                </button>
+              ))}
+            </div>
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-ink-soft">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={MAX_MONTHS}
+                aria-label="Meses a proyectar"
+                value={monthsDraft}
+                onChange={(event) => {
+                  setMonthsDraft(event.target.value);
+                  const value = Number(event.target.value);
+                  if (value >= 1) changeMonths(value, false);
+                }}
+                onBlur={() => setMonthsDraft(String(months))}
+                className="w-12 rounded-lg border border-line-strong bg-surface px-1.5 py-1 text-center text-xs font-bold tabular-nums text-ink"
+              />
+              meses
+            </label>
           </div>
         )}
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={projectionData}
-            margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
-          >
-            <CartesianGrid
-              vertical={false}
-              stroke="#e2e8f0"
-              strokeDasharray="3 3"
-            />
-            <XAxis
-              dataKey="name"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "#64748b", fontSize: 9 }}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "#64748b", fontSize: 9 }}
-            />
-            <Tooltip content={tooltip} />
-            <Area
-              type="monotone"
-              dataKey="balance"
-              stroke="#6366f1"
-              fill="#6366f122"
-              strokeWidth={2}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
       </div>
-      <div
-        className={`mt-4 flex gap-2 rounded-xl p-3 text-xs ${isAlert ? "bg-rose-500/10 text-rose-700 dark:text-rose-300" : "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"}`}
-      >
-        {isAlert ? (
-          <AlertTriangle size={15} className="shrink-0" />
-        ) : (
-          <Info size={15} className="shrink-0" />
-        )}
-        <span>
-          {isAlert
-            ? "La proyección alcanza un nivel de liquidez bajo. Revisa tus próximos cargos."
-            : `Estimación basada en el flujo diario medio observado durante ${estimates.observedDays} días.`}
-        </span>
-      </div>
-    </Card>
+      {isLocked ? (
+        <div className="grid h-56 place-items-center rounded-2xl bg-surface-2 text-sm font-semibold text-ink-faint">
+          Gráfica protegida por privacidad
+        </div>
+      ) : !estimates ? (
+        <div className="dashboard-empty h-56">
+          <p>
+            Aún no hay suficientes ingresos y gastos para calcular una
+            proyección fiable
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            {(
+              [
+                ["Mínimo", min],
+                ["Máximo", max],
+                ["Variación", diff],
+              ] as const
+            ).map(([label, value]) => (
+              <div key={label} className="rounded-xl bg-surface-2 px-3 py-2">
+                <p className="text-[11px] font-semibold text-ink-soft">
+                  {label}
+                </p>
+                <p
+                  className={`text-sm font-extrabold tabular-nums ${label !== "Variación" ? "text-ink" : diff >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}
+                >
+                  {label === "Variación" && diff >= 0 ? "+" : ""}
+                  {formatCurrency(value)}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={projectionData}
+                margin={{ top: 10, right: 8, left: -6, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient
+                    id="flowtProjectionFill"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="0%"
+                      stopColor="var(--brand)"
+                      stopOpacity={0.22}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor="var(--brand)"
+                      stopOpacity={0}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  vertical={false}
+                  stroke="var(--line-strong)"
+                  strokeDasharray="2 6"
+                />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  minTickGap={24}
+                  tick={{ fill: "var(--ink-faint)", fontSize: 11 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "var(--ink-faint)", fontSize: 11 }}
+                />
+                <Tooltip
+                  content={tooltip}
+                  cursor={{ stroke: "var(--line-strong)" }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="balance"
+                  stroke="var(--brand)"
+                  strokeWidth={2.25}
+                  fill="url(#flowtProjectionFill)"
+                  activeDot={{ r: 4, strokeWidth: 0 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          {isAlert && (
+            <p className="mt-3 flex gap-2 rounded-xl bg-rose-500/10 p-3 text-xs font-semibold text-rose-700 dark:text-rose-300">
+              <AlertTriangle size={15} className="shrink-0" />
+              La proyección baja a un saldo muy ajustado. Revisa tus próximos
+              cargos.
+            </p>
+          )}
+        </>
+      )}
+    </section>
   );
 };

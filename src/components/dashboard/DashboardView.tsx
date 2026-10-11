@@ -12,6 +12,7 @@ import { AnalyticsSection } from "./AnalyticsSection";
 import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
 import { MoreActionsMenu } from "./MoreActionsMenu";
+import { PredictiveChart } from "./PredictiveChart";
 import { ServiceIcon } from "./ServiceIcon";
 import { walletAccent } from "../../utils/walletAccent";
 
@@ -397,12 +398,17 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         className="rise grid grid-cols-1 items-start gap-4 lg:grid-cols-3"
         style={step(3)}
       >
-        <div className="min-w-0 lg:col-span-2">
+        <div className="min-w-0 space-y-4 lg:col-span-2">
           <AnalyticsSection
             chartData={periodChartData}
             huchas={props.huchas}
             suscripciones={props.suscripciones}
             allMovimientos={filtered}
+          />
+          <PredictiveChart
+            huchas={props.huchas}
+            suscripciones={props.suscripciones}
+            allMovimientos={props.chartMovements}
           />
         </div>
         <section className="dashboard-surface min-w-0 p-5">
