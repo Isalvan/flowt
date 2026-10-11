@@ -546,6 +546,11 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
               onCancelSuscripcion={handleCancelSuscripcion}
               onUndoCancelSuscripcion={handleUndoCancelSuscripcion}
               chartMovements={chartMovements}
+              olderMovements={olderMovements}
+              olderMovementsLoading={olderMovementsLoading}
+              olderMovementsLoaded={olderMovementsLoaded}
+              olderMovementsError={olderMovementsError}
+              loadOlderMovements={loadOlderMovements}
               userStats={userStats}
               userId={user?.uid}
               demo={!isFirebaseConfigured}

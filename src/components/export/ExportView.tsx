@@ -3,12 +3,18 @@ import { Download, FileJson, FileText, Save, ListFilter, Trash2, CheckCircle2, S
 import { type Movimiento, type Hucha, type Suscripcion } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
-import { cuentaEnEstadisticas, importeEnEstadisticas } from '../../utils/movements';
+import { importeEnEstadisticas } from '../../utils/movements';
+import { calcularInformeExportacion, unirHistorialExportacion } from '../../utils/exportReport';
 import { generateCsv } from '../../utils/csv';
 import { useCategories } from '../../hooks/useCategories';
 
 interface ExportViewProps {
   movimientos: Movimiento[];
+  olderMovements: Movimiento[];
+  olderMovementsLoading: boolean;
+  olderMovementsLoaded: boolean;
+  olderMovementsError: boolean;
+  loadOlderMovements: () => Promise<void>;
   huchas: Hucha[];
   suscripciones: Suscripcion[];
   userStats: { total_ingresos: number; total_gastos: number } | null;
@@ -37,9 +43,18 @@ const DEFAULT_FILTERS: FilterState = {
   searchTerm: '',
 };
 
-export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, suscripciones, userStats, userId }) => {
+export const ExportView: React.FC<ExportViewProps> = ({ movimientos, olderMovements, olderMovementsLoading, olderMovementsLoaded, olderMovementsError, loadOlderMovements, huchas, suscripciones, userId }) => {
   const { categoryLabel, suggestCategory } = useCategories();
   const { isLocked } = usePrivacy();
+  useEffect(() => {
+    if (!isLocked && !olderMovementsLoaded && !olderMovementsLoading && !olderMovementsError) {
+      void loadOlderMovements();
+    }
+  }, [isLocked, olderMovementsLoaded, olderMovementsLoading, olderMovementsError, loadOlderMovements]);
+
+  const historialCompleto = useMemo(() => unirHistorialExportacion(movimientos, olderMovements), [movimientos, olderMovements]);
+  const informeHistorico = useMemo(() => calcularInformeExportacion(historialCompleto), [historialCompleto]);
+  const historialPendiente = olderMovementsLoading || !olderMovementsLoaded || olderMovementsError;
   
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [presets, setPresets] = useState<Preset[]>([]);
@@ -93,7 +108,7 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
 
   // Filtering Logic
   const filteredMovimientos = useMemo(() => {
-    return movimientos.filter((mov) => {
+    return historialCompleto.filter((mov) => {
       // 1. Date filter
       const movDate = parseMovimientoDate(mov.fecha_operacion);
       if (movDate) {
@@ -120,17 +135,14 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
       
       return true;
     });
-  }, [movimientos, filters]);
+  }, [historialCompleto, filters]);
 
-  const movimientosExternos = useMemo(() => filteredMovimientos.filter(cuentaEnEstadisticas), [filteredMovimientos]);
-  const transferenciasInternas = useMemo(() => filteredMovimientos.filter(m => !cuentaEnEstadisticas(m)), [filteredMovimientos]);
-  const calculateBalance = (items: Movimiento[]) => items.reduce((sum, mov) => {
-    return mov.tipo === 'ingreso' ? sum + mov.importe : sum - mov.importe;
-  }, 0);
-  const totalAmount = calculateBalance(movimientosExternos);
-  const totalInterno = calculateBalance(transferenciasInternas);
+  const informePeriodo = useMemo(() => calcularInformeExportacion(filteredMovimientos), [filteredMovimientos]);
+  const { externos: movimientosExternos, devoluciones, internos: transferenciasInternas } = informePeriodo;
+  const totalAmount = informePeriodo.balance;
+  const totalInterno = informePeriodo.balanceInternos;
   const totalCarteras = huchas.reduce((sum, hucha) => sum + hucha.saldo_acumulado, 0);
-  const balanceHistorico = (userStats?.total_ingresos || 0) - (userStats?.total_gastos || 0);
+  const balanceHistorico = informeHistorico.balance;
   const diferenciaConciliacion = totalCarteras - balanceHistorico;
 
   const detalleOrigenDestino = (movimiento: Movimiento) => {
@@ -142,12 +154,12 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
   const notaCompensacion = (movimiento: Movimiento) => {
     if (movimiento.tipo === 'ingreso') {
       const destinos = movimiento.compensaciones_destinos || [];
-      if (destinos.length) return `Compensa: ${destinos.map(d => `${movimientos.find(m => m.id === d.gasto_id)?.concepto || d.gasto_id} (${d.importe.toFixed(2)}€)`).join(', ')}`;
-      return movimiento.compensa_movimiento_id ? 'Reembolso/compensación de un gasto previo' : null;
+      if (destinos.length) return `Compensa: ${destinos.map(d => `${historialCompleto.find(m => m.id === d.gasto_id)?.concepto || 'Gasto no disponible'} (${d.importe.toFixed(2)}€)`).join(', ')}. Neto: ${importeEnEstadisticas(movimiento).toFixed(2)}€`;
+      return movimiento.compensa_movimiento_id ? `Compensa: ${historialCompleto.find(m => m.id === movimiento.compensa_movimiento_id)?.concepto || 'Gasto no disponible'}` : null;
     }
     const detalles = movimiento.compensado_por_detalles || [];
-    if (detalles.length) return `Compensado (${detalles.map(d => `${movimientos.find(m => m.id === d.ingreso_id)?.concepto || d.ingreso_id}: ${d.importe.toFixed(2)}€`).join(', ')}). Neto: ${(movimiento.importe_neto ?? movimiento.importe).toFixed(2)}€`;
-    if (movimiento.compensado_por?.length) return `Compensado. Neto: ${(movimiento.importe_neto ?? movimiento.importe).toFixed(2)}€`;
+    if (detalles.length) return `Compensado (${detalles.map(d => `${historialCompleto.find(m => m.id === d.ingreso_id)?.concepto || d.ingreso_id}: ${d.importe.toFixed(2)}€`).join(', ')}). Neto: ${importeEnEstadisticas(movimiento).toFixed(2)}€`;
+    if (movimiento.compensado_por?.length) return `Compensado. Neto: ${importeEnEstadisticas(movimiento).toFixed(2)}€`;
     return null;
   };
 
@@ -176,9 +188,10 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
     const report = {
       generado_el: new Date().toISOString(),
       estadisticas_globales: {
-        total_ingresos_historicos: userStats?.total_ingresos || 0,
-        total_gastos_historicos: userStats?.total_gastos || 0,
-        balance_historico: (userStats?.total_ingresos || 0) - (userStats?.total_gastos || 0)
+        total_ingresos_historicos: informeHistorico.ingresos,
+        total_gastos_historicos: informeHistorico.gastos,
+        balance_historico: balanceHistorico,
+        total_devoluciones: informeHistorico.totalDevoluciones,
       },
       carteras_huchas: huchas.map(h => ({
         nombre: h.nombre,
@@ -197,10 +210,13 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
         categoria: s.categoria
       })),
       movimientos_externos_filtrados: movimientosExternos.map(exportMovimiento),
+      devoluciones_recibidas_filtradas: devoluciones.map(exportMovimiento),
       transferencias_internas_filtradas: transferenciasInternas.map(exportMovimiento),
       resumen_filtro_actual: {
         total_movimientos: filteredMovimientos.length,
         movimientos_externos: movimientosExternos.length,
+        total_devoluciones: informePeriodo.totalDevoluciones,
+        movimientos_devoluciones: devoluciones.length,
         balance_externo: totalAmount,
         movimientos_internos: transferenciasInternas.length,
         balance_transferencias_internas: totalInterno,
@@ -224,9 +240,10 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
 
     // 1. Estadísticas Globales
     mdString += `## 📊 Estadísticas globales históricas\n`;
-    mdString += `- **Ingresos totales:** +${(userStats?.total_ingresos || 0).toFixed(2)}€\n`;
-    mdString += `- **Gastos totales:** -${(userStats?.total_gastos || 0).toFixed(2)}€\n`;
-    mdString += `- **Balance histórico:** ${((userStats?.total_ingresos || 0) - (userStats?.total_gastos || 0)).toFixed(2)}€\n\n`;
+    mdString += `- **Ingresos totales:** +${informeHistorico.ingresos.toFixed(2)}€\n`;
+    mdString += `- **Gastos totales:** -${informeHistorico.gastos.toFixed(2)}€\n`;
+    mdString += `- **Devoluciones recibidas:** +${informeHistorico.totalDevoluciones.toFixed(2)}€\n`;
+    mdString += `- **Balance histórico:** ${balanceHistorico.toFixed(2)}€\n\n`;
 
     // 2. Carteras
     mdString += `## 🏦 Estado de las carteras (huchas)\n`;
@@ -269,19 +286,24 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
       const fechaStr = d ? d.toLocaleDateString('es-ES') : 'Desconocida';
       const importeStr = `${m.tipo === 'gasto' ? '-' : '+'}${m.importe.toFixed(2)}€`;
       
-      let destino_origen = '';
-      if (m.tipo === 'gasto') {
-        destino_origen = huchas.find(h => h.id === m.hucha_id)?.nombre || 'Desconocida';
-      } else {
-        destino_origen = 'Repartido en carteras';
-      }
-
-      destino_origen = detalleOrigenDestino(m);
-      let notas = notaCompensacion(m) || '';
-      if (m.compensa_movimiento_id) notas = 'Reembolso';
-      if (m.compensado_por?.length) notas = `Compensado (Coste neto: ${m.importe_neto}€)`;
+      const destino_origen = detalleOrigenDestino(m);
+      const notas = notaCompensacion(m) || '';
 
       mdString += `| ${fechaStr} | ${m.concepto} | ${m.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'} | ${destino_origen} | ${importeStr} | ${notas} |\n`;
+    });
+
+    // También se detalla la parte compensadora de los ingresos parcialmente asignados.
+    const ingresosConDevolucion = filteredMovimientos.filter(m =>
+      m.tipo === 'ingreso' && !m.es_interno && !m.transfer_id && m.importe > importeEnEstadisticas(m));
+    mdString += `\n## Devoluciones recibidas\n`;
+    mdString += `**Total del periodo: +${informePeriodo.totalDevoluciones.toFixed(2)}€**\n\n`;
+    mdString += `| Fecha | Concepto | Importe | Gasto compensado |\n`;
+    mdString += `|---|---|---|---|\n`;
+    ingresosConDevolucion.forEach(m => {
+      const d = parseMovimientoDate(m.fecha_operacion);
+      const fechaStr = d ? d.toLocaleDateString('es-ES') : 'Desconocida';
+      const importeDevuelto = m.importe - importeEnEstadisticas(m);
+      mdString += `| ${fechaStr} | ${m.concepto} | +${importeDevuelto.toFixed(2)}€ | ${notaCompensacion(m) || 'Gasto no disponible'} |\n`;
     });
 
     if (transferenciasInternas.length > 0) {
@@ -556,10 +578,19 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
             </div>
 
             <div className="flex flex-col gap-2.5">
+              {olderMovementsError ? (
+                <div className="notice" role="alert">
+                  <p>No se pudo cargar el historial completo.</p>
+                  <button type="button" className="dashboard-secondary-button" disabled={olderMovementsLoading}
+                    onClick={() => void loadOlderMovements()}>Reintentar</button>
+                </div>
+              ) : historialPendiente && !isLocked ? (
+                <p className="dashboard-subtitle" role="status">Cargando el historial completo…</p>
+              ) : null}
               <button
                 type="button"
                 onClick={handleCopyJSON}
-                disabled={filteredMovimientos.length === 0 || isLocked}
+                disabled={filteredMovimientos.length === 0 || isLocked || historialPendiente}
                 className="dashboard-primary-button w-full"
               >
                 {copiedFormat === 'json' ? (
@@ -578,7 +609,7 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
               <button
                 type="button"
                 onClick={handleCopyMD}
-                disabled={filteredMovimientos.length === 0 || isLocked}
+                disabled={filteredMovimientos.length === 0 || isLocked || historialPendiente}
                 className="dashboard-secondary-button w-full"
               >
                 {copiedFormat === 'md' ? (
@@ -597,7 +628,7 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
               <button
                 type="button"
                 onClick={handleExportCSV}
-                disabled={filteredMovimientos.length === 0 || isLocked}
+                disabled={filteredMovimientos.length === 0 || isLocked || historialPendiente}
                 className="dashboard-secondary-button w-full"
               >
                 <Download size={16} />
