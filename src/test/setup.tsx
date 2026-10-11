@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
-// Mock matchMedia for JSDOM environment
-Object.defineProperty(window, 'matchMedia', {
+// Mock matchMedia for JSDOM environment (the Worker's tests run in Node, without a window)
+if (typeof window !== 'undefined') Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation(query => ({
     matches: false,
