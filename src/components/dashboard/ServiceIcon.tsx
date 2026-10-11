@@ -25,7 +25,7 @@ export const ServiceIcon: React.FC<{ name?: string; color?: string }> = ({
   return (
     <span
       aria-hidden="true"
-      className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-xs font-black text-indigo-600 dark:border-slate-700 dark:bg-slate-800"
+      className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-surface text-xs font-bold text-brand-ink"
       style={
         color && !asset ? { color, backgroundColor: `${color}18` } : undefined
       }
