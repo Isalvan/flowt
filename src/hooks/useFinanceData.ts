@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { type User } from 'firebase/auth';
 import {
   collection,
@@ -20,7 +20,8 @@ import {
 import { auth, db } from '../firebase';
 import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type CorreoHistorico } from '../types';
 import { usePrivacy } from '../context/PrivacyContext';
-import { crearRetiradaEfectivo, cuentaEnEstadisticas, importeEnEstadisticas } from '../utils/movements';
+import { crearRetiradaEfectivo, cuentaEnEstadisticas } from '../utils/movements';
+import { getMovementWindowStart, groupMovementsByMonth, typicalMonthlyIncome, parseMovimientoDate } from '../utils/periodStats';
 import { sanitizeConcepto } from '../utils/sanitize';
 import { compensationUpdates, unlinkCompensationUpdates, validCategory as validCatalogCategory } from '../utils/movementSuggestions';
 import {
@@ -29,6 +30,8 @@ import {
   isCancellationExpired,
   toLocalDateKey,
 } from '../utils/subscriptions';
+
+export { parseMovimientoDate } from '../utils/periodStats';
 
 // Standard fallback configurations and options
 export const SUBSCRIPTION_COLORS = [
@@ -55,22 +58,6 @@ export const CATEGORIA_OPTIONS = [
 
 export const calcMensual = (s: Suscripcion): number => {
   return getMonthlySubscriptionAmount(s);
-};
-
-export const parseMovimientoDate = (dateValue: any): Date | null => {
-  if (!dateValue) return null;
-  if (dateValue?.toDate instanceof Function) {
-    const d = dateValue.toDate();
-    return d instanceof Date && !Number.isNaN(d.getTime()) ? d : null;
-  }
-  if (dateValue instanceof Date) {
-    return !Number.isNaN(dateValue.getTime()) ? dateValue : null;
-  }
-  if (typeof dateValue === 'string') {
-    const d = new Date(dateValue);
-    return !Number.isNaN(d.getTime()) ? d : null;
-  }
-  return null;
 };
 
 // Initial Mock Data for outstanding user experience in Demo Mode
@@ -133,6 +120,27 @@ export const useFinanceData = (forceDemo = false) => {
   const [historicoCorreos, setHistoricoCorreos] = useState<CorreoHistorico[]>([]);
   const [userStats, setUserStats] = useState<{ total_ingresos: number; total_gastos: number } | null>(null);
 
+  const [windowStart] = useState(() => getMovementWindowStart());
+  const [chartMovementsLoading, setChartMovementsLoading] = useState(true);
+  const uid = user?.uid;
+  // Each unlocked user session owns its cache and pending request.
+  const olderSession = useMemo(() => ({ uid, isFirebaseConfigured, isLocked, forceDemo, active: true, requested: false }), [uid, isFirebaseConfigured, isLocked, forceDemo]);
+  const [olderState, setOlderState] = useState<{
+    session: typeof olderSession;
+    movements: Movimiento[];
+    status: 'loading' | 'loaded' | 'error';
+  } | null>(null);
+  useEffect(() => {
+    olderSession.active = true;
+    setOlderState(state => state?.session === olderSession ? state : null);
+    return () => { olderSession.active = false; };
+  }, [olderSession]);
+  const currentOlderState = olderState?.session === olderSession ? olderState : null;
+  const olderMovements = currentOlderState?.movements ?? [];
+  const olderMovementsLoading = currentOlderState?.status === 'loading';
+  const olderMovementsLoaded = !isFirebaseConfigured || forceDemo || currentOlderState?.status === 'loaded';
+  const olderMovementsError = currentOlderState?.status === 'error';
+
   // Global toasts & confirms
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{
@@ -142,10 +150,36 @@ export const useFinanceData = (forceDemo = false) => {
     onConfirm: () => void;
   } | null>(null);
 
-  const showToast = (message: string, type: 'error' | 'success' = 'error') => {
+  const showToast = useCallback((message: string, type: 'error' | 'success' = 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
-  };
+  }, []);
+
+  const loadOlderMovements = useCallback(async () => {
+    if (!uid || !isFirebaseConfigured || forceDemo || isLocked || !olderSession.active || olderSession.requested) return;
+    olderSession.requested = true;
+    setOlderState({ session: olderSession, movements: [], status: 'loading' });
+    try {
+      const snapshot = await getDocs(query(
+        collection(db, 'movimientos'),
+        where('id_propietario', '==', uid),
+        where('fecha_operacion', '<', windowStart),
+        orderBy('fecha_operacion', 'desc'),
+      ));
+      if (!olderSession.active) return;
+      setOlderState({
+        session: olderSession,
+        movements: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Movimiento)),
+        status: 'loaded',
+      });
+    } catch (error) {
+      console.error('Error loading older movements:', error);
+      if (!olderSession.active) return;
+      olderSession.requested = false;
+      setOlderState({ session: olderSession, movements: [], status: 'error' });
+      showToast('No se pudieron cargar los movimientos históricos.');
+    }
+  }, [uid, isFirebaseConfigured, forceDemo, isLocked, olderSession, windowStart, showToast]);
 
   /** Helper: loads demo data from localStorage or falls back to mocks */
   const loadDemoData = () => {
@@ -177,6 +211,7 @@ export const useFinanceData = (forceDemo = false) => {
       localStorage.setItem('flowt-demo-stats', JSON.stringify(initialStats));
       localStorage.setItem('flowt-demo-pending', JSON.stringify(MOCK_PENDING_EMAILS));
     }
+    setChartMovementsLoading(false);
     setLoading(false);
   };
 
@@ -209,10 +244,11 @@ export const useFinanceData = (forceDemo = false) => {
 
   // Firebase Real-time subscriptions
   useEffect(() => {
-    if (!user || !isFirebaseConfigured) return;
+    if (forceDemo || !import.meta.env.VITE_FIREBASE_API_KEY || !isFirebaseConfigured) return;
 
-    if (isLocked) {
-      // Clear data states when locked to prevent network & memory exposure
+    setChartMovementsLoading(true);
+    if (!user || isLocked) {
+      // Clear data states when locked or signed out to prevent network & memory exposure
       setMovimientos([]);
       setChartMovements([]);
       setHuchas([]);
@@ -241,12 +277,12 @@ export const useFinanceData = (forceDemo = false) => {
       setMovimientos(sorted);
     });
 
-    // Load chart movements (last 150)
+    // Load the complete date-bounded dashboard window
     const qChart = query(
       collection(db, 'movimientos'),
       where('id_propietario', '==', user.uid),
-      orderBy('fecha_operacion', 'desc'),
-      limit(150)
+      where('fecha_operacion', '>=', windowStart),
+      orderBy('fecha_operacion', 'desc')
     );
 
     const unsubChart = onSnapshot(qChart, (snapshot) => {
@@ -257,6 +293,12 @@ export const useFinanceData = (forceDemo = false) => {
         return dB - dA;
       });
       setChartMovements(sorted);
+      setChartMovementsLoading(false);
+    }, (error) => {
+      // Without this a failed listener would leave the dashboard loading for ever.
+      console.error('Error loading dashboard movements:', error);
+      setChartMovementsLoading(false);
+      showToast('No se pudieron cargar los movimientos.');
     });
 
     // Load huchas ordered
@@ -349,7 +391,7 @@ export const useFinanceData = (forceDemo = false) => {
       unsubPending();
       unsubHistorico();
     };
-  }, [user, isFirebaseConfigured, isLocked]);
+  }, [user, isFirebaseConfigured, isLocked, forceDemo, windowStart, showToast]);
 
   const hasRepairedStats = useRef(false);
 
@@ -2689,22 +2731,7 @@ export const useFinanceData = (forceDemo = false) => {
   const totalGastos = userStats?.total_gastos ?? 0;
   const balance = totalIngresos - totalGastos;
 
-  const mediaIngresos = useMemo(() => {
-    const monthlyIngresos: Record<string, number> = {};
-    chartMovements.forEach((m) => {
-      if (m.tipo !== 'ingreso') return;
-      const date = parseMovimientoDate(m.fecha_operacion);
-      if (!date) return;
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
-      monthlyIngresos[key] = (monthlyIngresos[key] || 0) + m.importe;
-    });
-
-    const validMonths = Object.values(monthlyIngresos).filter((amount) => amount > 900);
-    if (validMonths.length === 0) return 0;
-
-    const sum = validMonths.reduce((a, b) => a + b, 0);
-    return Number((sum / validMonths.length).toFixed(2));
-  }, [chartMovements]);
+  const mediaIngresos = useMemo(() => typicalMonthlyIncome(chartMovements), [chartMovements]);
 
   const huchaMonthlyBudgets = useMemo(() => {
     const budgets: Record<string, number> = {};
@@ -2757,23 +2784,9 @@ export const useFinanceData = (forceDemo = false) => {
   );
 
   const chartData = useMemo(() => {
-    const months: Record<string, { name: string; ingresos: number; gastos: number }> = {};
     const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      const name = d.toLocaleDateString('es-ES', { month: 'short' });
-      months[key] = { name, ingresos: 0, gastos: 0 };
-    }
-    chartMovements.filter(cuentaEnEstadisticas).forEach((m) => {
-      const date = parseMovimientoDate(m.fecha_operacion) || new Date();
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
-      if (months[key]) {
-        if (m.tipo === 'ingreso') months[key].ingresos += importeEnEstadisticas(m);
-        else months[key].gastos += importeEnEstadisticas(m);
-      }
-    });
-    return Object.values(months);
+    const months = Array.from({ length: 6 }, (_, i) => new Date(now.getFullYear(), now.getMonth() - 5 + i, 1));
+    return groupMovementsByMonth(chartMovements, months);
   }, [chartMovements]);
 
   return {
@@ -2782,6 +2795,12 @@ export const useFinanceData = (forceDemo = false) => {
     isFirebaseConfigured,
     movimientos,
     chartMovements,
+    chartMovementsLoading,
+    olderMovements,
+    olderMovementsLoading,
+    olderMovementsLoaded,
+    olderMovementsError,
+    loadOlderMovements,
     huchas,
     suscripciones,
     pendingEmails,
