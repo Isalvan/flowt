@@ -77,8 +77,9 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
     [huchas],
   );
   const estimates = useMemo(
-    () => calculateProjectionEstimates(allMovimientos, suscripciones),
-    [allMovimientos, suscripciones],
+    () =>
+      calculateProjectionEstimates(allMovimientos, suscripciones, new Date(), huchas),
+    [allMovimientos, suscripciones, huchas],
   );
   const projectionData = useMemo(
     () =>
@@ -125,7 +126,7 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
             <h3 className="dashboard-heading">Proyección de saldo</h3>
             <p className="dashboard-subtitle">
               {estimates
-                ? `${horizonLabel}, según tu ritmo de los últimos ${estimates.observedDays} días`
+                ? `${horizonLabel}, según tu ritmo ${estimates.observedMonths === 1 ? "del último mes" : `de los últimos ${estimates.observedMonths} meses`}`
                 : horizonLabel}
             </p>
           </div>
