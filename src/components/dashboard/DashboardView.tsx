@@ -184,6 +184,11 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
     (sum, h) => sum + Math.max(0, h.saldo_acumulado),
     0,
   );
+  // Cash is not in any bank, so it stays out of the comparison with the banks.
+  const cashTotal = wallets.reduce(
+    (sum, h) => sum + (h.es_metalico ? Math.max(0, h.saldo_acumulado) : 0),
+    0,
+  );
   const now = new Date();
   const today = now.toLocaleDateString("es-ES", {
     weekday: "long",
@@ -435,7 +440,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         </div>
         {/* On a phone, what you check most often comes before the charts. */}
         <div className={`${column} order-first lg:order-none`}>
-          <BanksCard movimientos={props.chartMovements} walletsTotal={walletsTotal} />
+          <BanksCard movimientos={props.chartMovements} walletsTotal={Math.round((walletsTotal - cashTotal) * 100) / 100} cashExcluded={cashTotal > 0} />
           <section className="dashboard-surface min-w-0 p-5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">

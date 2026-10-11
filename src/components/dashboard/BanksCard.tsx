@@ -7,7 +7,8 @@ import type { Movimiento } from '../../types';
 import { anchorAge, anchorDateLabel, banksSummary, estimateBankBalance } from '../../utils/banks';
 import { AnchorBalanceModal } from '../modals/AnchorBalanceModal';
 
-export function BanksCard({ movimientos, walletsTotal }: { movimientos: Movimiento[]; walletsTotal: number }) {
+/** `walletsTotal` is what should be in the banks: the wallets without the cash one, which `cashExcluded` says out loud. */
+export function BanksCard({ movimientos, walletsTotal, cashExcluded = false }: { movimientos: Movimiento[]; walletsTotal: number; cashExcluded?: boolean }) {
   const { banks } = useBanks();
   const { formatCurrency, isLocked } = usePrivacy();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -33,7 +34,7 @@ export function BanksCard({ movimientos, walletsTotal }: { movimientos: Movimien
     })}</div>
     {summary.missing < banks.length && <div className="mt-1 border-t border-line pt-3">
       <div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-ink-soft">Total en bancos</span><span className="text-sm font-extrabold tabular-nums text-ink">{formatCurrency(summary.total)}</span></div>
-      {summary.missing > 0 ? <p className="mt-1 text-[11px] leading-relaxed text-ink-faint">Falta anotar {summary.missing} {summary.missing === 1 ? 'banco' : 'bancos'} para comparar con tus carteras.</p> : summary.difference !== null && Math.abs(summary.difference) >= 0.01 && <p className="mt-1 text-[11px] leading-relaxed text-ink-faint">Tus carteras suman {formatCurrency(walletsTotal)}: {formatCurrency(Math.abs(summary.difference))} {summary.difference > 0 ? 'sin repartir.' : 'más de lo que hay en tus bancos.'}</p>}
+      {summary.missing > 0 ? <p className="mt-1 text-[11px] leading-relaxed text-ink-faint">Falta anotar {summary.missing} {summary.missing === 1 ? 'banco' : 'bancos'} para comparar con tus carteras.</p> : summary.difference !== null && Math.abs(summary.difference) >= 0.01 && <p className="mt-1 text-[11px] leading-relaxed text-ink-faint">Tus carteras{cashExcluded ? ', sin el efectivo,' : ''} suman {formatCurrency(walletsTotal)}: {formatCurrency(Math.abs(summary.difference))} {summary.difference > 0 ? 'sin repartir.' : 'más de lo que hay en tus bancos.'}</p>}
     </div>}
     {selected && <AnchorBalanceModal key={selected.id} bank={selected} movimientos={movimientos} onClose={() => setSelectedId(null)} />}
   </section>;

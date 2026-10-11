@@ -21,6 +21,11 @@ vi.mock("./MonthlySummary", () => ({
   MonthlySummary: () => <div>Resumen</div>,
 }));
 vi.mock("./ServiceIcon", () => ({ ServiceIcon: () => <div>Servicio</div> }));
+vi.mock("./BanksCard", () => ({
+  BanksCard: ({ walletsTotal, cashExcluded }: { walletsTotal: number; cashExcluded?: boolean }) => (
+    <div data-testid="banks" data-total={walletsTotal} data-cash-excluded={String(!!cashExcluded)} />
+  ),
+}));
 vi.mock("../common/EmptyIllustration", () => ({
   EmptyIllustration: () => <div />,
 }));
@@ -158,6 +163,14 @@ describe("Dashboard period selector", () => {
     }
     expect(JSON.parse(localStorage.getItem('flowt:prefs:demo')!).cifraDestacada).toBe(selected);
     localStorage.clear();
+  });
+  it("leaves the cash wallet out of what it compares with the banks", () => {
+    renderDashboard({ huchas: [
+      { id: 'dia', nombre: 'Día a día', saldo_acumulado: 70.1, objetivo: null, tipo_aportacion: 'resto', orden: 0 },
+      { id: 'efectivo', nombre: 'Efectivo', es_metalico: true, saldo_acumulado: 30.2, objetivo: null, tipo_aportacion: 'flat', orden: 1 },
+    ] });
+    expect(screen.getByTestId('banks')).toHaveAttribute('data-total', '70.1');
+    expect(screen.getByTestId('banks')).toHaveAttribute('data-cash-excluded', 'true');
   });
   it("renders complete historical figures from the demo mocks", async () => {
     localStorage.clear();
