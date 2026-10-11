@@ -417,95 +417,72 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             allMovimientos={props.chartMovements}
           />
         </div>
-        <section className="dashboard-surface min-w-0 p-5">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="dashboard-icon bg-brand-tint text-brand-ink">
-                <CalendarClock size={18} />
-              </span>
-              <div className="min-w-0">
-                <h3 className="dashboard-heading">Próximos cargos</h3>
-                <p className="dashboard-subtitle">Movimientos programados</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={props.onOpenCalendar}
-              className="shrink-0 rounded-lg py-1 text-xs font-bold text-brand-ink underline-offset-4 hover:underline"
-            >
-              Ver calendario
-            </button>
-          </div>
-          {upcoming.length ? (
-            <div className="divide-y divide-line">
-              {upcoming.map(({ sub, date, daysLeft }) => (
-                <div key={sub.id} className="flex items-center gap-3 py-3">
-                  <ServiceIcon name={sub.nombre} color={sub.color} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-bold text-ink">
-                      {sub.nombre}
-                    </p>
-                    <p className="text-[11px] text-ink-soft">
-                      <span
-                        className={
-                          daysLeft <= 3
-                            ? "font-bold text-sun-600 dark:text-sun-300"
-                            : ""
-                        }
-                      >
-                        {dueLabel(daysLeft)}
-                      </span>{" "}
-                      ·{" "}
-                      {date.toLocaleDateString("es-ES", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </p>
-                  </div>
-                  <span className="text-[13px] font-extrabold tabular-nums text-ink">
-                    {isLocked
-                      ? "•• €"
-                      : formatCurrency(sub.mi_parte ?? sub.importe)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="dashboard-empty">
-              <p>No hay cargos próximos</p>
-            </div>
-          )}
-          {upcoming.length > 0 && (
-            <p className="mt-2 text-[11px] leading-relaxed text-ink-faint">
-              Las fechas se calculan desde tus suscripciones activas.
-            </p>
-          )}
-        </section>
-      </div>
-
-      <div
-        className="rise grid grid-cols-1 items-start gap-4 lg:grid-cols-3"
-        style={step(4)}
-      >
-        <div className="min-w-0 lg:col-span-2">
-          <ActivityList
-            movimientos={props.movimientos}
-            allMovimientos={props.chartMovements}
-            huchas={props.huchas}
-            huchaMonthlyBudgets={props.huchaMonthlyBudgets}
-            onUpdateConcepto={props.onUpdateConcepto}
-            onUpdateCategoria={props.onUpdateCategoria}
-            onAcceptCompensation={props.onAcceptCompensation}
-            onDismissCompensation={props.onDismissCompensation}
-          onDismissDuplicate={props.onDismissDuplicate}
-            onConvert={props.onConvert}
-            onLink={props.onLink}
-            onUnlink={props.onUnlink}
-            onChangeHucha={props.onChangeHucha}
-            onDeleteMovimiento={props.onDeleteMovimiento}
-          />
-        </div>
+        {/* Everything that summarises the period sits beside the charts, so the column never ends in a gap. */}
         <div className="min-w-0 space-y-4">
+          <section className="dashboard-surface min-w-0 p-5">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="dashboard-icon bg-brand-tint text-brand-ink">
+                  <CalendarClock size={18} />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="dashboard-heading">Próximos cargos</h3>
+                  <p className="dashboard-subtitle">Movimientos programados</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={props.onOpenCalendar}
+                className="shrink-0 rounded-lg py-1 text-xs font-bold text-brand-ink underline-offset-4 hover:underline"
+              >
+                Ver calendario
+              </button>
+            </div>
+            {upcoming.length ? (
+              <div className="divide-y divide-line">
+                {upcoming.map(({ sub, date, daysLeft }) => (
+                  <div key={sub.id} className="flex items-center gap-3 py-3">
+                    <ServiceIcon name={sub.nombre} color={sub.color} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-bold text-ink">
+                        {sub.nombre}
+                      </p>
+                      <p className="text-[11px] text-ink-soft">
+                        <span
+                          className={
+                            daysLeft <= 3
+                              ? "font-bold text-sun-600 dark:text-sun-300"
+                              : ""
+                          }
+                        >
+                          {dueLabel(daysLeft)}
+                        </span>{" "}
+                        ·{" "}
+                        {date.toLocaleDateString("es-ES", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </p>
+                    </div>
+                    <span className="text-[13px] font-extrabold tabular-nums text-ink">
+                      {isLocked
+                        ? "•• €"
+                        : formatCurrency(sub.mi_parte ?? sub.importe)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="dashboard-empty">
+                <p>No hay cargos próximos</p>
+              </div>
+            )}
+            {upcoming.length > 0 && (
+              <p className="mt-2 text-[11px] leading-relaxed text-ink-faint">
+                Las fechas se calculan desde tus suscripciones activas.
+              </p>
+            )}
+          </section>
           <MonthlySummary movimientos={props.chartMovements} />
           <SmallPurchasesCard
             movimientos={filtered}
@@ -513,6 +490,25 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             totalGastos={gastos}
           />
         </div>
+      </div>
+
+      <div className="rise" style={step(4)}>
+        <ActivityList
+          movimientos={props.movimientos}
+          allMovimientos={props.chartMovements}
+          huchas={props.huchas}
+          huchaMonthlyBudgets={props.huchaMonthlyBudgets}
+          onUpdateConcepto={props.onUpdateConcepto}
+          onUpdateCategoria={props.onUpdateCategoria}
+          onAcceptCompensation={props.onAcceptCompensation}
+          onDismissCompensation={props.onDismissCompensation}
+          onDismissDuplicate={props.onDismissDuplicate}
+          onConvert={props.onConvert}
+          onLink={props.onLink}
+          onUnlink={props.onUnlink}
+          onChangeHucha={props.onChangeHucha}
+          onDeleteMovimiento={props.onDeleteMovimiento}
+        />
       </div>
     </div>
   );
