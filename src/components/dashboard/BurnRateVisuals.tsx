@@ -60,14 +60,14 @@ export const GlobalBurnBar = ({
       <div className="flex justify-between items-end mb-1">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <h4 className="dashboard-heading text-sm">
+            <h4 className="dashboard-heading">
               Vaporizer
             </h4>
             <span className="rounded-md bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-ink-soft">
               {period === 'este_mes' ? 'Este mes' : period === 'mes_pasado' ? 'Mes pasado' : period === 'este_anio' ? 'Anual' : 'Histórico'}
             </span>
           </div>
-          <p className="dashboard-subtitle text-xs">
+          <p className="dashboard-subtitle">
             {percentage === 0 ? 'Sin datos de gasto' : `Has consumido el ${percentage}% de los ingresos`}
           </p>
         </div>

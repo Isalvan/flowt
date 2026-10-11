@@ -77,7 +77,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="dashboard-heading truncate text-lg">
+              <h2 className="dashboard-heading truncate">
                 {user?.displayName || 'Usuario'}
               </h2>
               <p className="dashboard-subtitle truncate">

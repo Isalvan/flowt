@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PiggyBank, Target, Info, Sparkles } from 'lucide-react';
+import { Target, Info, Sparkles } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { type Hucha } from '../../types';
 
@@ -80,35 +80,31 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={
-        <div className="flex items-center gap-2">
-          <PiggyBank className="text-sky-500" size={24} />
-          <span>{editingHucha ? 'Editar Cartera de Ahorro' : 'Nueva Cartera de Ahorro'}</span>
-        </div>
-      }
+      title={editingHucha ? 'Editar cartera de ahorro' : 'Nueva cartera de ahorro'}
       size="md"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Nombre */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-            Nombre de la Cartera
+          <label htmlFor="hucha-nombre" className="field-label">
+            Nombre de la cartera
           </label>
           <input
+            id="hucha-nombre"
             type="text"
             required
-            placeholder="Ej. Vacaciones, Coche, Emergencias..."
+            placeholder="Ej. Vacaciones, coche, emergencias…"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             disabled={editingHucha?.es_suscripciones}
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all disabled:opacity-50"
+            className="field"
           />
         </div>
 
         {/* Info label for system pockets */}
         {editingHucha?.es_suscripciones && (
-          <div className="flex gap-2 p-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-800 dark:text-indigo-300 rounded-xl text-xs">
-            <Info size={16} className="shrink-0" />
+          <div className="notice">
+            <Info size={16} className="shrink-0 mt-0.5 text-brand-ink" />
             <span>Esta cartera está protegida porque gestiona tus cargos de suscripciones.</span>
           </div>
         )}
@@ -116,41 +112,23 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
         {/* Tipo de aportación */}
         {!editingHucha?.es_suscripciones && (
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-              Regla de Distribución de Ingresos
-            </label>
+            <span className="field-label">
+              Regla de distribución de ingresos
+            </span>
             <div className="grid grid-cols-3 gap-2">
               {(['porcentaje', 'flat', 'resto'] as const).map((mode) => (
                 <button
                   key={mode}
                   type="button"
                   onClick={() => setTipoAportacion(mode)}
-                  className={`
-                    py-3.5 
-                    px-2 
-                    rounded-xl 
-                    border 
-                    text-xs 
-                    font-bold 
-                    capitalize 
-                    transition-all 
-                    duration-200
-                    flex 
-                    flex-col 
-                    items-center 
-                    justify-center 
-                    gap-1
-                    ${tipoAportacion === mode
-                      ? 'border-sky-500 bg-sky-500/10 text-sky-600 dark:text-sky-400 shadow-sm'
-                      : 'border-slate-200 dark:border-slate-800 bg-white/20 dark:bg-slate-950/20 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/40'
-                    }
-                  `}
+                  aria-pressed={tipoAportacion === mode}
+                  className="choice-card items-center justify-center text-center p-3"
                 >
-                  <span className="text-sm font-extrabold">
+                  <span className="text-sm font-bold text-ink">
                     {mode === 'porcentaje' ? '%' : mode === 'flat' ? '€' : 'Resto'}
                   </span>
-                  <span className="text-[10px] tracking-wide text-slate-400">
-                    {mode === 'porcentaje' ? 'Porcentaje' : mode === 'flat' ? 'Importe Fijo' : 'Sobrante'}
+                  <span className="text-[11px] text-ink-faint">
+                    {mode === 'porcentaje' ? 'Porcentaje' : mode === 'flat' ? 'Importe fijo' : 'Sobrante'}
                   </span>
                 </button>
               ))}
@@ -161,10 +139,11 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
         {/* Valor de aportación */}
         {tipoAportacion !== 'resto' && !editingHucha?.es_suscripciones && (
           <div className="animate-appear-up">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-              {tipoAportacion === 'porcentaje' ? 'Porcentaje Asignado (%)' : 'Cantidad Fija por Ingreso (€)'}
+            <label htmlFor="hucha-valor-aportacion" className="field-label">
+              {tipoAportacion === 'porcentaje' ? 'Porcentaje asignado (%)' : 'Cantidad fija por ingreso (€)'}
             </label>
             <input
+              id="hucha-valor-aportacion"
               type="number"
               required
               min="0"
@@ -173,47 +152,49 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
               placeholder={tipoAportacion === 'porcentaje' ? 'Ej. 15' : 'Ej. 100'}
               value={valorAportacion}
               onChange={(e) => setValorAportacion(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all"
+              className="field tabular-nums"
             />
           </div>
         )}
 
         {/* Objetivo (Savings Goal) */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-              Objetivo de Ahorro (€)
+          <div className="flex items-center justify-between mb-1">
+            <label htmlFor="hucha-objetivo" className="field-label mb-0">
+              Objetivo de ahorro (€)
             </label>
-            <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">(Opcional)</span>
+            <span className="text-[11px] font-semibold text-ink-faint">(Opcional)</span>
           </div>
           <div className="relative">
-            <Target className="absolute left-4 top-3.5 text-slate-400" size={16} />
+            <Target className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" size={16} />
             <input
+              id="hucha-objetivo"
               type="number"
               min="0"
               step="any"
               placeholder="Sin objetivo"
               value={objetivo}
               onChange={(e) => setObjetivo(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all"
+              className="field pl-9 tabular-nums"
             />
           </div>
         </div>
 
         {/* Options grid (Principal & Limit) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
           {/* Es Principal */}
           {!editingHucha?.es_suscripciones && (
-            <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/20 dark:bg-slate-950/20 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
+            <label htmlFor="hucha-es-principal" className="flex items-start gap-3 rounded-2xl bg-surface-2 p-3.5 cursor-pointer">
               <input
+                id="hucha-es-principal"
                 type="checkbox"
                 checked={esPrincipal}
                 onChange={(e) => setEsPrincipal(e.target.checked)}
-                className="mt-1 rounded text-sky-500 focus:ring-sky-500"
+                className="mt-0.5 h-4 w-4 rounded accent-brand"
               />
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Cartera Principal</span>
-                <span className="text-[10px] text-slate-400 leading-normal">
+                <span className="text-xs font-bold text-ink">Cartera principal</span>
+                <span className="text-[11px] text-ink-soft leading-normal">
                   Aquí se restarán todos los gastos generales por defecto.
                 </span>
               </div>
@@ -222,16 +203,17 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
 
           {/* Tope Objetivo */}
           {objetivo && Number(objetivo) > 0 && (
-            <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/20 dark:bg-slate-950/20 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors animate-appear-up">
+            <label htmlFor="hucha-tope-objetivo" className="flex items-start gap-3 rounded-2xl bg-surface-2 p-3.5 cursor-pointer animate-appear-up">
               <input
+                id="hucha-tope-objetivo"
                 type="checkbox"
                 checked={topeObjetivo}
                 onChange={(e) => setTopeObjetivo(e.target.checked)}
-                className="mt-1 rounded text-sky-500 focus:ring-sky-500"
+                className="mt-0.5 h-4 w-4 rounded accent-brand"
               />
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Tope de Objetivo</span>
-                <span className="text-[10px] text-slate-400 leading-normal">
+                <span className="text-xs font-bold text-ink">Tope de objetivo</span>
+                <span className="text-[11px] text-ink-soft leading-normal">
                   Frenar ingresos al alcanzar el objetivo. El exceso se enviará a "Resto".
                 </span>
               </div>
@@ -241,34 +223,36 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
 
         {/* Opciones de Subsanación (Deuda) */}
         {!editingHucha?.es_suscripciones && (
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800/60">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
-              Opciones de Subsanación Automática
+          <div className="pt-4 border-t border-line space-y-3">
+            <h4 className="dashboard-heading">
+              Opciones de subsanación automática
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                <label htmlFor="hucha-subsanar-hasta" className="field-label">
                   Subsanar hasta (€)
                 </label>
                 <input
+                  id="hucha-subsanar-hasta"
                   type="number"
                   step="any"
                   value={subsanarHasta}
                   onChange={(e) => setSubsanarHasta(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all"
+                  className="field tabular-nums"
                   title="Balance objetivo cuando pulses 'Subsanar' por saldo negativo"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                  Tomar dinero de (Prestamista)
+                <label htmlFor="hucha-subsanar-con" className="field-label">
+                  Tomar dinero de (prestamista)
                 </label>
                 <select
+                  id="hucha-subsanar-con"
                   value={subsanarCon || ''}
                   onChange={(e) => setSubsanarCon(e.target.value || null)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all"
+                  className="field"
                 >
-                  <option value="">Por defecto (Resto/Principal)</option>
+                  <option value="">Por defecto (resto/principal)</option>
                   {allHuchas
                     .filter(h => h.id !== editingHucha?.id)
                     .map(h => (
@@ -278,25 +262,25 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
                 </select>
               </div>
             </div>
-            <p className="text-[9px] text-slate-400 mt-2 leading-relaxed">
+            <p className="field-hint">
               Si tu saldo cae en negativo, podrás subsanarlo. Los próximos ingresos irán destinados a pagar la deuda a la cartera prestamista automáticamente.
             </p>
           </div>
         )}
 
         {/* Buttons */}
-        <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+        <div className="modal-actions">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold tracking-wide uppercase hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors"
+            className="dashboard-secondary-button"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isLoading || !nombre.trim()}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-bold tracking-wide uppercase shadow-md hover:shadow-sky-500/10 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="dashboard-primary-button"
           >
             {isLoading ? (
               <>
@@ -304,12 +288,12 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Guardando...
+                Guardando…
               </>
             ) : (
               <>
                 <Sparkles size={14} />
-                {editingHucha ? 'Guardar Cambios' : 'Crear Cartera'}
+                {editingHucha ? 'Guardar cambios' : 'Crear cartera'}
               </>
             )}
           </button>

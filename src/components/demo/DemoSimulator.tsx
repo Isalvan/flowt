@@ -58,7 +58,7 @@ export const DemoSimulator: React.FC<DemoSimulatorProps> = ({ injectDemoMovement
             <div className="flex items-center justify-between border-b border-line pb-3 mb-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-brand-ink" />
-                <h3 className="dashboard-heading text-sm">Simulador de transacciones</h3>
+                <h3 className="dashboard-heading">Simulador de transacciones</h3>
               </div>
               <button
                 type="button"

@@ -206,10 +206,10 @@ export const PinModal: React.FC = () => {
             {isSuccess ? <Sparkles size={18} /> : <Lock size={18} />}
           </div>
           
-          <h3 className="dashboard-heading mt-1 text-xl">
+          <h3 className="dashboard-heading mt-1">
             {getHeading()}
           </h3>
-          <p className="dashboard-subtitle max-w-[260px] mx-auto text-xs">
+          <p className="dashboard-subtitle max-w-[260px] mx-auto">
             {getSubtitle()}
           </p>
         </div>

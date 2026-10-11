@@ -46,29 +46,32 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
         <div className="segmented">
           
           <button
+            type="button"
             onClick={() => setSubTab('suscripciones')}
             aria-pressed={subTab === 'suscripciones'}
             className="segmented-item"
           >
-            <Layers size={16} className={subTab === 'suscripciones' ? 'text-brand-ink' : ''} />
+            <Layers size={16} />
             Suscripciones
           </button>
           
           <button
+            type="button"
             onClick={() => setSubTab('exportar')}
             aria-pressed={subTab === 'exportar'}
             className="segmented-item"
           >
-            <Download size={16} className={subTab === 'exportar' ? 'text-brand-ink' : ''} />
+            <Download size={16} />
             Exportar datos
           </button>
 
           <button
+            type="button"
             onClick={() => setSubTab('carteras_inactivas')}
             aria-pressed={subTab === 'carteras_inactivas'}
             className="segmented-item"
           >
-            <Archive size={16} className={subTab === 'carteras_inactivas' ? 'text-brand-ink' : ''} />
+            <Archive size={16} />
             Carteras inactivas
           </button>
 
@@ -88,28 +91,31 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
             onUndoCancelSuscripcion={onUndoCancelSuscripcion}
           />
         ) : subTab === 'carteras_inactivas' ? (
-          <div className="w-full max-w-2xl mx-auto bg-white/40 dark:bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/20 dark:border-white/5 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Carteras inactivas</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+          <div className="w-full max-w-2xl mx-auto dashboard-surface p-5 animate-in fade-in">
+            <h3 className="dashboard-heading mb-1">Carteras inactivas</h3>
+            <p className="dashboard-subtitle mb-6">
               Aquí puedes ver y restaurar las carteras que has ocultado o desactivado. Al restaurarlas, volverán a estar disponibles en tu dashboard.
             </p>
             <div className="flex flex-col gap-3">
               {huchas.filter(h => h.activa === false).length === 0 ? (
-                <div className="text-center py-8 text-slate-400 dark:text-slate-500 font-medium">
+                <div className="dashboard-empty py-8">
                   No tienes carteras inactivas.
                 </div>
               ) : (
                 huchas.filter(h => h.activa === false).map(h => (
-                  <div key={h.id} className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                  <div key={h.id} className="flex items-center justify-between rounded-2xl bg-surface-2 p-4">
                     <div className="flex flex-col">
-                      <span className="font-bold text-slate-800 dark:text-white">{h.nombre}</span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Saldo oculto: {formatCurrency(h.saldo_acumulado)}</span>
+                      <span className="font-bold text-ink">{h.nombre}</span>
+                      <span className="text-xs text-ink-soft">
+                        Saldo oculto: <span className="tabular-nums">{formatCurrency(h.saldo_acumulado)}</span>
+                      </span>
                     </div>
                     <button
+                      type="button"
                       onClick={() => onRestoreHucha(h.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors"
+                      className="dashboard-secondary-button !py-1.5 !px-3 text-xs"
                     >
-                      <RefreshCw size={12} />
+                      <RefreshCw size={14} />
                       Restaurar
                     </button>
                   </div>

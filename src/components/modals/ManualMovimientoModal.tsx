@@ -111,64 +111,57 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={
-        <div className="flex items-center gap-2">
-          <Plus className="text-sky-500" size={24} />
-          <span>Registrar Movimiento Manual</span>
-        </div>
-
-      }
+      title="Registrar movimiento manual"
       size="md"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* 1. Sliding Tabs: Gasto vs Ingreso */}
-        <div className="p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200/40 dark:border-white/5 rounded-2xl flex gap-1 relative overflow-hidden">
+        <div className="segmented flex w-full">
           <button
             type="button"
             onClick={() => setTipo('gasto')}
-            className={`flex-1 py-3 text-xs font-extrabold uppercase tracking-widest rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
-              tipo === 'gasto'
-                ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
-                : 'text-slate-400 hover:text-slate-650 dark:hover:text-slate-200'
-            }`}
+            aria-pressed={tipo === 'gasto'}
+            className="segmented-item flex-1 justify-center"
           >
-            <span>Gasto</span>
+            Gasto
           </button>
           <button
             type="button"
             onClick={() => setTipo('ingreso')}
-            className={`flex-1 py-3 text-xs font-extrabold uppercase tracking-widest rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
-              tipo === 'ingreso'
-                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                : 'text-slate-400 hover:text-slate-650 dark:hover:text-slate-200'
-            }`}
+            aria-pressed={tipo === 'ingreso'}
+            className="segmented-item flex-1 justify-center"
           >
-            <span>Ingreso</span>
+            Ingreso
           </button>
         </div>
 
         {/* 2. Concept & Amount Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
+            <label htmlFor="manual-concepto" className="field-label">
               Concepto
             </label>
             <input
+              id="manual-concepto"
               type="text"
               required
-              placeholder="Ej. Compra súper, Cena amigos, Bizum cobrado"
+              placeholder="Ej. Compra súper, cena amigos, Bizum cobrado"
               value={concepto}
               onChange={(e) => setConcepto(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all font-semibold text-sm"
+              className="field"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
+            <label htmlFor="manual-importe" className="field-label">
               Importe (€)
             </label>
             <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-ink-faint">
+                €
+              </span>
               <input
+                id="manual-importe"
                 type="number"
                 required
                 min="0.01"
@@ -176,52 +169,47 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
                 placeholder="0.00"
                 value={importe}
                 onChange={(e) => setImporte(e.target.value)}
-                className="w-full pl-8 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all font-bold text-sm"
+                className="field pl-8 tabular-nums"
               />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
-                €
-              </span>
             </div>
           </div>
         </div>
 
         {/* 3. Date Selection */}
         <div>
-          <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1">
-            <Calendar size={13} />
-            Fecha de Operación
+          <label htmlFor="manual-fecha" className="field-label flex items-center gap-1.5">
+            <Calendar size={14} />
+            Fecha de operación
           </label>
           <input
+            id="manual-fecha"
             type="date"
             required
             value={fechaOperacion}
             onChange={(e) => setFechaOperacion(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all font-semibold"
+            className="field"
           />
         </div>
 
         {/* 4. Payment Method Visual Selector Cards */}
         <div>
-          <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
-            Método de Pago
-          </label>
-          <div className="grid grid-cols-2 gap-4">
+          <span className="field-label">
+            Método de pago
+          </span>
+          <div className="grid grid-cols-2 gap-3">
             {/* Metálico Card */}
             <button
               type="button"
               onClick={() => setMetodo('efectivo')}
-              className={`p-4 rounded-2xl border text-left flex flex-col justify-between transition-all hover:scale-[1.02] cursor-pointer ${
-                metodo === 'efectivo'
-                  ? 'bg-sky-500/10 border-sky-500 text-sky-600 dark:text-sky-400 shadow-md shadow-sky-500/5'
-                  : 'bg-white/40 dark:bg-slate-900/20 border-slate-200 dark:border-slate-850 text-slate-450 hover:border-slate-350 dark:hover:border-white/10'
-              }`}
+              aria-pressed={metodo === 'efectivo'}
+              className="choice-card w-full"
             >
-              <Banknote size={24} className={metodo === 'efectivo' ? 'text-sky-500' : 'text-slate-400'} />
-              <div className="mt-4">
-                <span className="block font-black text-xs uppercase tracking-wide">
+              <Banknote size={18} />
+              <div>
+                <span className="block text-xs font-bold text-ink">
                   Efectivo
                 </span>
-                <span className="block text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-0.5">
+                <span className="block text-[11px] text-ink-faint font-medium mt-0.5">
                   Dinero en metálico
                 </span>
               </div>
@@ -231,18 +219,15 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
             <button
               type="button"
               onClick={() => setMetodo('banco')}
-              className={`p-4 rounded-2xl border text-left flex flex-col justify-between transition-all hover:scale-[1.02] cursor-pointer ${
-                metodo === 'banco'
-                  ? 'bg-indigo-500/10 border-indigo-500 text-indigo-600 dark:text-indigo-400 shadow-md shadow-indigo-500/5'
-                  : 'bg-white/40 dark:bg-slate-900/20 border-slate-200 dark:border-slate-850 text-slate-450 hover:border-slate-350 dark:hover:border-white/10'
-              }`}
+              aria-pressed={metodo === 'banco'}
+              className="choice-card w-full"
             >
-              <CreditCard size={24} className={metodo === 'banco' ? 'text-indigo-500' : 'text-slate-400'} />
-              <div className="mt-4">
-                <span className="block font-black text-xs uppercase tracking-wide">
+              <CreditCard size={18} />
+              <div>
+                <span className="block text-xs font-bold text-ink">
                   Banco
                 </span>
-                <span className="block text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-0.5">
+                <span className="block text-[11px] text-ink-faint font-medium mt-0.5">
                   Tarjeta o cuenta bancaria
                 </span>
               </div>
@@ -251,44 +236,51 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
         </div>
 
         {metodo === 'efectivo' && tipo === 'ingreso' && (
-          <div className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-4 dark:border-amber-500/20 dark:bg-amber-500/5">
-            <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-700 dark:text-slate-200">
+          <div className="rounded-2xl bg-surface-2 p-4 space-y-3">
+            <label htmlFor="manual-retirada" className="flex cursor-pointer items-start gap-3 text-sm text-ink">
               <input
+                id="manual-retirada"
                 type="checkbox"
                 checked={esRetiradaEfectivo}
                 onChange={(e) => setEsRetiradaEfectivo(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                className="mt-0.5 h-4 w-4 rounded accent-brand"
               />
               <span>
                 <span className="block font-bold">Es una retirada de efectivo desde una cartera</span>
-                <span className="block text-xs text-slate-500 dark:text-slate-400">Se registrarán dos patas internas y no afectará a ingresos ni gastos.</span>
+                <span className="block text-xs text-ink-soft">Se registrarán dos patas internas y no afectará a ingresos ni gastos.</span>
               </span>
             </label>
 
             {esRetiradaEfectivo && (
-              <select
-                required
-                value={huchaOrigenId}
-                onChange={(e) => setHuchaOrigenId(e.target.value)}
-                className="mt-3 w-full rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 focus:outline-none dark:border-amber-500/20 dark:bg-slate-900 dark:text-white"
-              >
-                <option value="" disabled>Selecciona la cartera de origen...</option>
-                {huchas.filter(h => !h.es_metalico && !h.es_suscripciones && h.activa !== false).map(h => (
-                  <option key={h.id} value={h.id}>{h.nombre}</option>
-                ))}
-              </select>
+              <div>
+                <label htmlFor="manual-hucha-origen" className="sr-only">
+                  Cartera de origen
+                </label>
+                <select
+                  id="manual-hucha-origen"
+                  required
+                  value={huchaOrigenId}
+                  onChange={(e) => setHuchaOrigenId(e.target.value)}
+                  className="field"
+                >
+                  <option value="" disabled>Selecciona la cartera de origen…</option>
+                  {huchas.filter(h => !h.es_metalico && !h.es_suscripciones && h.activa !== false).map(h => (
+                    <option key={h.id} value={h.id}>{h.nombre}</option>
+                  ))}
+                </select>
+              </div>
             )}
           </div>
         )}
 
         {/* 5. Dynamic Wallet Allocator */}
-        <div className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/20 animate-in fade-in duration-300">
+        <div className="rounded-2xl bg-surface-2 p-4 animate-in fade-in">
           {metodo === 'efectivo' ? (
-            <div className="flex gap-3 text-xs leading-relaxed text-sky-700 dark:text-sky-300">
-              <Info size={16} className="shrink-0 mt-0.5 text-sky-500" />
+            <div className="notice">
+              <Info size={16} className="shrink-0 mt-0.5 text-brand-ink" />
               <div>
-                <p className="font-extrabold uppercase text-[10px] tracking-wider mb-0.5">Asignación Automática de Efectivo</p>
-                <p className="font-semibold text-slate-500 dark:text-slate-400">
+                <p className="font-bold text-ink mb-0.5">Asignación automática de efectivo</p>
+                <p className="text-ink-soft">
                   {tipo === 'gasto'
                     ? 'Este gasto se restará directamente del saldo acumulado de tu cartera de Efectivo.'
                     : esRetiradaEfectivo
@@ -298,22 +290,21 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="flex gap-2 items-center mb-1">
-                <Info size={14} className="text-indigo-500" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  {tipo === 'gasto' ? 'Cartera de Deducción' : 'Cartera de Depósito'}
-                </span>
-              </div>
+            <div className="space-y-2">
+              <label htmlFor="manual-hucha-id" className="field-label flex items-center gap-1.5">
+                <Info size={14} className="text-brand-ink" />
+                {tipo === 'gasto' ? 'Cartera de deducción' : 'Cartera de depósito'}
+              </label>
 
               {tipo === 'gasto' ? (
                 <div>
                   <select
+                    id="manual-hucha-id"
                     value={huchaId}
                     onChange={(e) => setHuchaId(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-white text-xs font-bold focus:outline-none cursor-pointer"
+                    className="field"
                   >
-                    <option value="" disabled>Seleccionar cartera...</option>
+                    <option value="" disabled>Seleccionar cartera…</option>
                     {huchas
                       .filter(h => !h.es_suscripciones && !h.es_metalico && h.activa !== false)
                       .map(h => (
@@ -322,29 +313,30 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
                         </option>
                       ))}
                   </select>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-1.5 ml-0.5">
+                  <p className="field-hint">
                     El gasto se descontará del saldo acumulado en la cartera seleccionada.
                   </p>
                 </div>
               ) : (
                 <div>
                   <select
+                    id="manual-hucha-id"
                     value={huchaId}
                     onChange={(e) => setHuchaId(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-white text-xs font-bold focus:outline-none cursor-pointer"
+                    className="field"
                   >
-                    <option value="" className="font-extrabold text-indigo-500">
-                      ★ Autoreparto estándar (Repartir automáticamente)
+                    <option value="">
+                      ★ Autoreparto estándar (repartir automáticamente)
                     </option>
                     {huchas
                       .filter(h => !h.es_suscripciones && !h.es_metalico && h.activa !== false)
                       .map(h => (
-                        <option key={h.id} value={h.id} className="font-semibold">
+                        <option key={h.id} value={h.id}>
                           Ingresar 100% en: {h.nombre}
                         </option>
                       ))}
                   </select>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-1.5 ml-0.5">
+                  <p className="field-hint">
                     {huchaId === ''
                       ? 'El dinero se dividirá automáticamente entre tus carteras de ahorro activas según las reglas definidas (porcentajes o cantidades fijas).'
                       : 'El ingreso se asignará íntegramente a la cartera seleccionada.'}
@@ -356,22 +348,18 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
         </div>
 
         {/* 6. Form Submission Actions */}
-        <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+        <div className="modal-actions">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold tracking-wide uppercase hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors"
+            className="dashboard-secondary-button"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isLoading || !concepto.trim() || !importe || parseFloat(importe) <= 0 || (esRetiradaEfectivo && !huchaOrigenId)}
-            className={`flex-1 py-3 rounded-xl text-white text-xs font-bold tracking-wide uppercase shadow-md flex items-center justify-center gap-2 disabled:opacity-50 ${
-              tipo === 'gasto'
-                ? 'bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 shadow-rose-500/10 hover:shadow-rose-500/20'
-                : 'bg-gradient-to-r from-emerald-500 to-teal-650 hover:from-emerald-600 hover:to-teal-700 shadow-emerald-500/10 hover:shadow-emerald-500/20'
-            }`}
+            className="dashboard-primary-button"
           >
             {isLoading ? (
               <>
@@ -379,12 +367,12 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Guardando...
+                Guardando…
               </>
             ) : (
               <>
                 <Plus size={14} />
-                Registrar Movimiento
+                Registrar movimiento
               </>
             )}
           </button>
