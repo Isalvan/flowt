@@ -8,11 +8,11 @@ import { cuentaEnEstadisticas, importeEnEstadisticas } from "../../utils/movemen
 import { EmptyIllustration } from "../common/EmptyIllustration";
 import { HuchaCard } from "./HuchaCard";
 import { ActivityList } from "./ActivityList";
-import { AnalyticsSection } from "./AnalyticsSection";
+import { AnalyticsSection } from "./LazyCharts";
 import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
 import { MoreActionsMenu } from "./MoreActionsMenu";
-import { PredictiveChart } from "./PredictiveChart";
+import { PredictiveChart } from "./LazyCharts";
 import { ServiceIcon } from "./ServiceIcon";
 import { walletAccent } from "../../utils/walletAccent";
 

@@ -138,7 +138,7 @@ const choosePeriod = (name: string) => {
 };
 
 describe("Dashboard period selector", () => {
-  it("renders complete historical figures from the demo mocks", () => {
+  it("renders complete historical figures from the demo mocks", async () => {
     localStorage.clear();
     const { result } = renderHook(() => useFinanceData(true));
     renderDashboard({
@@ -150,10 +150,10 @@ describe("Dashboard period selector", () => {
     });
     expect(screen.getByTestId("overview")).toHaveAttribute("data-income", "2570");
     expect(screen.getByTestId("overview")).toHaveAttribute("data-expense", "124.99");
-    expect(screen.getByTestId("chart-data").textContent).toContain("2450");
+    expect((await screen.findByTestId("chart-data")).textContent).toContain("2450");
   });
 
-  it("requests older movements for histórico and hides partial figures until they arrive", () => {
+  it("requests older movements for histórico and hides partial figures until they arrive", async () => {
     const loadOlderMovements = vi.fn().mockResolvedValue(undefined);
     const view = renderDashboard({ loadOlderMovements, olderMovementsLoading: true, olderMovementsLoaded: false });
     expect(loadOlderMovements).toHaveBeenCalledTimes(1);
@@ -177,7 +177,7 @@ describe("Dashboard period selector", () => {
     });
     expect(screen.queryByText(/Cargando movimientos/)).not.toBeInTheDocument();
     expect(screen.getByTestId("overview")).toHaveAttribute("data-income", "2000");
-    expect(screen.getByTestId("chart-data").textContent).toContain("300");
+    expect((await screen.findByTestId("chart-data")).textContent).toContain("300");
   });
 
   it("shows a historical error without partial totals or charts", () => {
@@ -198,7 +198,7 @@ describe("Dashboard period selector", () => {
     expect(loadOlderMovements).not.toHaveBeenCalled();
   });
 
-  it("retries after returning to histórico and shows the successful totals without a retry loop", () => {
+  it("retries after returning to histórico and shows the successful totals without a retry loop", async () => {
     const loadOlderMovements = vi.fn().mockResolvedValue(undefined);
     const view = renderDashboard({ loadOlderMovements, olderMovementsLoading: true });
     expect(loadOlderMovements).toHaveBeenCalledTimes(1);
@@ -217,11 +217,11 @@ describe("Dashboard period selector", () => {
       olderMovements: [movement("old", "ingreso", 300, new Date(2020, 0, 1))],
     });
     expect(screen.getByTestId("overview")).toHaveAttribute("data-income", "2000");
-    expect(screen.getByTestId("chart-data").textContent).toContain("300");
+    expect((await screen.findByTestId("chart-data")).textContent).toContain("300");
     expect(loadOlderMovements).toHaveBeenCalledTimes(2);
   });
 
-  it("starts with historical figures and chart data", () => {
+  it("starts with historical figures and chart data", async () => {
     renderDashboard();
     expect(screen.getByTestId("overview")).toHaveAttribute(
       "data-income",
@@ -231,10 +231,10 @@ describe("Dashboard period selector", () => {
       "data-expense",
       "150",
     );
-    expect(screen.getByTestId("chart-data").textContent).toContain("200");
+    expect((await screen.findByTestId("chart-data")).textContent).toContain("200");
   });
 
-  it("filters this month and preserves the current balance", () => {
+  it("filters this month and preserves the current balance", async () => {
     renderDashboard();
     choosePeriod("Este mes");
     expect(screen.getByTestId("overview")).toHaveAttribute(
@@ -250,10 +250,10 @@ describe("Dashboard period selector", () => {
       "4321",
     );
     expect(screen.getByText("Saldo actual")).toBeInTheDocument();
-    expect(screen.getByTestId("chart-data").textContent).not.toContain("500");
+    expect((await screen.findByTestId("chart-data")).textContent).not.toContain("500");
   });
 
-  it("filters last month figures and chart data", () => {
+  it("filters last month figures and chart data", async () => {
     renderDashboard();
     choosePeriod("Mes pasado");
     expect(screen.getByTestId("overview")).toHaveAttribute(
@@ -264,7 +264,7 @@ describe("Dashboard period selector", () => {
       "data-expense",
       "50",
     );
-    expect(screen.getByTestId("chart-data").textContent).toContain("500");
-    expect(screen.getByTestId("chart-data").textContent).not.toContain("1000");
+    expect((await screen.findByTestId("chart-data")).textContent).toContain("500");
+    expect((await screen.findByTestId("chart-data")).textContent).not.toContain("1000");
   });
 });
