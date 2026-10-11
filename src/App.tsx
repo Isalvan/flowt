@@ -92,6 +92,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     pendingEmails,
     historicoCorreos,
     userStats,
+    mediaIngresos,
     balance,
     chartData,
     huchaMonthlyBudgets,
@@ -545,6 +546,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             <AjustesOrchestrator
               suscripciones={suscripciones}
               huchas={huchas}
+              ingresoMensualHabitual={chartMovementsLoading ? undefined : mediaIngresos}
               onOpenSuscripcionModal={(s) => {
                 setEditingSuscripcion(s || null);
                 setIsSuscripcionModalOpen(true);

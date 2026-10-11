@@ -12,6 +12,7 @@ interface AjustesOrchestratorProps {
   // Suscripciones props
   suscripciones: Suscripcion[];
   huchas: Hucha[];
+  ingresoMensualHabitual?: number;
   onOpenSuscripcionModal: (suscripcion: Suscripcion | null) => void;
   onDeleteSuscripcion: (s: Suscripcion) => void;
   onToggleSuscripcion: (s: Suscripcion) => void;
@@ -34,6 +35,7 @@ interface AjustesOrchestratorProps {
 export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
   suscripciones,
   huchas,
+  ingresoMensualHabitual,
   onOpenSuscripcionModal,
   onDeleteSuscripcion,
   onToggleSuscripcion,
@@ -109,6 +111,7 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
           <SuscripcionesView
             suscripciones={suscripciones}
             huchas={huchas}
+            ingresoMensualHabitual={ingresoMensualHabitual}
             onOpenSuscripcionModal={onOpenSuscripcionModal}
             onDeleteSuscripcion={onDeleteSuscripcion}
             onToggleSuscripcion={onToggleSuscripcion}

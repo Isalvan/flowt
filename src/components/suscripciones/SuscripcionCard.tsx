@@ -11,11 +11,12 @@ import {
   AlertCircle,
   RotateCcw
 } from 'lucide-react';
-import { getCancellationDate, getNextSubscriptionChargeDate } from '../../utils/subscriptions';
+import { calcAnual, getCancellationDate, getNextSubscriptionChargeDate } from '../../utils/subscriptions';
 import { usePrivacy } from '../../context/PrivacyContext';
 
 interface SuscripcionCardProps {
   suscripcion: Suscripcion;
+  totalAnualActivo: number;
   onEdit: (sub: Suscripcion) => void;
   onDelete: (sub: Suscripcion) => void;
   onToggle: (sub: Suscripcion) => void;
@@ -25,6 +26,7 @@ interface SuscripcionCardProps {
 
 export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
   suscripcion,
+  totalAnualActivo,
   onEdit,
   onDelete,
   onToggle,
@@ -32,6 +34,8 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
   onUndoCancel,
 }) => {
   const { formatCurrency } = usePrivacy();
+  const costeAnual = calcAnual(suscripcion);
+  const pesoAnual = totalAnualActivo > 0 ? costeAnual / totalAnualActivo * 100 : 0;
 
   const nextPayment = suscripcion.cancelando
     ? getCancellationDate(suscripcion) ?? getNextSubscriptionChargeDate(suscripcion)
@@ -116,6 +120,12 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
           <span className="text-xs text-ink-soft lowercase ml-1">
             /{divisor}
           </span>
+          {suscripcion.activa && (
+            <div className="text-[11px] text-ink-soft mt-1 space-y-1">
+              <p>{formatCurrency(costeAnual)} al año</p>
+              <p>{pesoAnual.toLocaleString('es-ES', { maximumFractionDigits: 1 })} % de tus suscripciones</p>
+            </div>
+          )}
           
           {isShared && (
             <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-0.5">
