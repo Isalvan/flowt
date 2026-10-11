@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['flowt-logo.png'],
+      includeAssets: ['icons/favicon-64.png', 'icons/apple-touch-icon.png'],
       manifest: {
         name: 'Flowt - Tracker Financiero',
         short_name: 'Flowt',
@@ -23,14 +23,21 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: '/flowt-logo.png',
-            sizes: '1254x1254',
+            src: '/icons/icon-192.png',
+            sizes: '192x192',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: '/flowt-logo.png',
-            sizes: '1254x1254',
+            src: '/icons/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            // The drawing sits inside the safe zone, on the app's background colour.
+            src: '/icons/icon-maskable-512.png',
+            sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
           }
@@ -38,12 +45,28 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // The 950 kB source logo is still served, but no screen shows it: keep it out of the precache.
+        globIgnores: ['**/node_modules/**/*', 'flowt-logo.png'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true
       }
     })
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            { name: 'react-vendor', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+            { name: 'firebase-auth', test: /node_modules[\\/]@firebase[\\/]auth[\\/]/ },
+            { name: 'firebase-firestore', test: /node_modules[\\/]@firebase[\\/]firestore[\\/]/ },
+            { name: 'firebase-vendor', test: /node_modules[\\/](@firebase|firebase)[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',
