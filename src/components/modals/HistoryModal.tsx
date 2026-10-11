@@ -1,16 +1,19 @@
-import React, { useState, useMemo } from 'react';
-import { History, Search, ArrowUpRight, ArrowDownRight, Edit, Check, X, ShieldCheck, RefreshCw, Calendar, Banknote, Trash2 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ArrowUpRight, ArrowDownRight, Edit, Check, X, ShieldCheck, RefreshCw, Calendar, Banknote, Trash2 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { type Movimiento } from '../../types';
 import { CategoryPicker } from '../dashboard/CategoryPicker';
+import { matchesHistoryMovement, type HistoryFilter } from '../../utils/historySearch';
 
 interface HistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  history: Movimiento[];
-  onLoadMore: () => Promise<void>;
-  hasMore: boolean;
-  isLoading: boolean;
+  chartMovements: Movimiento[];
+  olderMovements: Movimiento[];
+  olderMovementsLoading: boolean;
+  olderMovementsLoaded: boolean;
+  olderMovementsError: boolean;
+  loadOlderMovements: () => Promise<void>;
   onUpdateConcepto: (movId: string, newConcepto: string) => Promise<void>;
   onUpdateCategoria?: (id: string, categoria: string) => Promise<void>;
   onUnlink: (mov: Movimiento) => Promise<void>;
@@ -18,53 +21,42 @@ interface HistoryModalProps {
 }
 
 export const HistoryModal: React.FC<HistoryModalProps> = ({
-  isOpen,
-  onClose,
-  history,
-  onLoadMore,
-  hasMore,
-  isLoading,
-  onUpdateConcepto,
-  onUpdateCategoria,
-  onUnlink,
-  onDeleteMovimiento,
+  isOpen, onClose, chartMovements, olderMovements, olderMovementsLoading,
+  olderMovementsLoaded, olderMovementsError, loadOlderMovements,
+  onUpdateConcepto, onUpdateCategoria, onUnlink, onDeleteMovimiento,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'ingreso' | 'gasto'>('all');
-  
-  // Inline editing state
+  const [filterType, setFilterType] = useState<HistoryFilter>('all');
+  const [visibleCount, setVisibleCount] = useState(15);
+  // DeferredOverlay preserves state between openings; reset only the page.
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (wasOpen !== isOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) setVisibleCount(15);
+  }
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tempConcepto, setTempConcepto] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const isFiltering = Boolean(searchTerm.trim()) || filterType !== 'all';
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore && !isLoading) {
-      onLoadMore();
+  useEffect(() => {
+    if (isOpen && isFiltering && !olderMovementsLoaded && !olderMovementsLoading && !olderMovementsError) {
+      void loadOlderMovements();
+    }
+  }, [isOpen, isFiltering, olderMovementsLoaded, olderMovementsLoading, olderMovementsError, loadOlderMovements]);
+
+  const history = useMemo(() => [...chartMovements, ...olderMovements], [chartMovements, olderMovements]);
+  const filteredHistory = useMemo(() => history.filter(m => matchesHistoryMovement(m, searchTerm, filterType)),
+    [history, searchTerm, filterType]);
+  const displayedHistory = isFiltering ? filteredHistory : history.slice(0, visibleCount);
+  const hasMore = !isFiltering && (visibleCount < history.length || !olderMovementsLoaded);
+  const handleLoadMore = () => {
+    const nextCount = visibleCount + 15;
+    setVisibleCount(nextCount);
+    if (nextCount >= chartMovements.length && !olderMovementsLoaded && !olderMovementsLoading && !olderMovementsError) {
+      void loadOlderMovements();
     }
   };
-
-  // Search & Type filters
-  const filteredHistory = useMemo(() => {
-    return history.filter(m => {
-      const matchesType = filterType === 'all' || m.tipo === filterType;
-      const matchesSearch = !searchTerm.trim() || 
-        m.concepto.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        m.importe.toString().includes(searchTerm);
-      return matchesType && matchesSearch;
-    });
-  }, [history, searchTerm, filterType]);
-
-  const handleStartEdit = (m: Movimiento) => {
-    setEditingId(m.id);
-    setTempConcepto(m.concepto);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setTempConcepto('');
-  };
-
   const handleSaveConcepto = async (id: string) => {
     if (!tempConcepto.trim()) return;
     setIsSaving(true);
@@ -77,226 +69,113 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
       setIsSaving(false);
     }
   };
-
-  const formatCurrency = (val: number) =>
-    val.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
-
-  const formatDate = (dateValue: any) => {
-    if (!dateValue) return '---';
-    if (dateValue?.toDate instanceof Function) {
-      return dateValue.toDate().toLocaleDateString('es-ES');
-    }
-    if (dateValue instanceof Date) {
-      return dateValue.toLocaleDateString('es-ES');
-    }
-    if (typeof dateValue === 'string') {
-      return new Date(dateValue).toLocaleDateString('es-ES');
+  const formatCurrency = (val: number) => val.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+  const formatDate = (value: unknown): string => {
+    if (value instanceof Date) return value.toLocaleDateString('es-ES');
+    if (typeof value === 'string') return new Date(value).toLocaleDateString('es-ES');
+    if (value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
+      const date: unknown = value.toDate();
+      if (date instanceof Date) return date.toLocaleDateString('es-ES');
     }
     return '---';
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={
-        <div className="flex items-center gap-2">
-          <History className="text-sky-500" size={24} />
-          <span>Histórico de Movimientos</span>
-        </div>
-      }
-      size="lg"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} size="lg" title="Historial completo">
       <div className="space-y-4">
-        {/* Controls: Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-3.5 text-slate-400" size={16} />
-            <input
-              type="text"
-              placeholder="Buscar por concepto o importe..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all"
-            />
+        <div className="flex flex-col gap-3">
+          <div>
+            <label htmlFor="history-search" className="field-label">Buscar movimientos</label>
+            <input id="history-search" type="search" placeholder="Buscar por concepto o importe…"
+              value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="field" />
           </div>
-
-          <div className="flex rounded-xl p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 shrink-0">
+          <div className="segmented" role="group" aria-label="Tipo de movimiento">
             {(['all', 'ingreso', 'gasto'] as const).map(type => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setFilterType(type)}
-                className={`
-                  px-3 
-                  py-1.5 
-                  rounded-lg 
-                  text-[10px] 
-                  font-extrabold 
-                  uppercase 
-                  tracking-wider 
-                  transition-all
-                  ${filterType === type
-                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-                  }
-                `}
-              >
+              <button key={type} type="button" onClick={() => setFilterType(type)}
+                className="segmented-item" aria-pressed={filterType === type}>
                 {type === 'all' ? 'Todos' : type === 'ingreso' ? 'Ingresos' : 'Gastos'}
               </button>
             ))}
           </div>
         </div>
-
-        {/* History Ledger List */}
-        <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar" onScroll={handleScroll}>
-          {filteredHistory.length > 0 ? (
-            filteredHistory.map(m => {
-              const isGasto = m.tipo === 'gasto';
-              const isEditing = editingId === m.id;
-
-              return (
-                <div
-                  key={m.id}
-                  className="group flex items-center justify-between gap-4 p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white/20 dark:bg-slate-950/10 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    {/* Direction Icon Badge */}
-                    <div className={`
-                      w-8 h-8 
-                      rounded-lg 
-                      flex items-center justify-center 
-                      shrink-0
-                      ${m.es_metalico
-                        ? 'bg-sky-500/10 text-sky-500'
-                        : isGasto 
-                          ? 'bg-rose-500/10 text-rose-500' 
-                          : 'bg-emerald-500/10 text-emerald-500'
-                      }
-                    `}>
-                      {m.es_metalico ? <Banknote size={18} /> : isGasto ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
-                    </div>
-
-                    {/* Concept and Subtitle */}
-                    <div className="flex-1 min-w-0">
-                      {isEditing ? (
-                        <div className="flex items-center gap-1.5 w-full">
-                          <input
-                            type="text"
-                            value={tempConcepto}
-                            onChange={(e) => setTempConcepto(e.target.value)}
-                            disabled={isSaving}
-                            className="flex-1 px-2.5 py-1 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => handleSaveConcepto(m.id)}
-                            disabled={isSaving || !tempConcepto.trim()}
-                            className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors"
-                          >
-                            <Check size={14} />
-                          </button>
-                          <button
-                            onClick={handleCancelEdit}
-                            disabled={isSaving}
-                            className="p-1 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate max-w-[180px] sm:max-w-xs">
-                            {m.concepto}
-                          </span>
-                          <button
-                            onClick={() => handleStartEdit(m)}
-                            className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 transition-opacity p-0.5"
-                            aria-label="Editar concepto"
-                          >
-                            <Edit size={10} />
-                          </button>
-                          <button
-                            onClick={() => onDeleteMovimiento(m)}
-                            className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-rose-500 hover:text-rose-700 transition-opacity p-0.5 ml-1.5 cursor-pointer"
-                            title="Eliminar movimiento"
-                          >
-                            <Trash2 size={10} />
-                          </button>
-                        </div>
-                      )}
-
-                      {onUpdateCategoria && <CategoryPicker movimiento={m} onSave={onUpdateCategoria} />}
-                      {/* Info badges/Dates */}
-                      <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
-                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                          <Calendar size={10} />
-                          {formatDate(m.fecha_operacion)}
-                        </span>
-
-                        {/* Compensated visual badges */}
-                        {m.tipo === 'ingreso' && (m.compensa_movimiento_id || (m.compensaciones_destinos?.length ?? 0) > 0) && (
-                          <div className="flex items-center gap-1 py-0.5 px-1.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-extrabold tracking-wide">
-                            <ShieldCheck size={8} />
-                            Repartido
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onUnlink(m);
-                              }}
-                              className="text-rose-500 hover:text-rose-700 ml-0.5"
-                              title="Deshacer todos los repartos de este ingreso"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        )}
-                        {m.tipo === 'gasto' && ((m.compensado_por?.length ?? 0) > 0 || (m.compensado_por_detalles?.length ?? 0) > 0) && (
-                          <div className="flex items-center gap-1 py-0.5 px-1.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[9px] font-extrabold tracking-wide">
-                            <ShieldCheck size={8} />
-                            Compensado
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onUnlink(m);
-                              }}
-                              className="text-rose-500 hover:text-rose-700 ml-0.5"
-                              title="Deshacer todas las compensaciones de este gasto"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+        {isFiltering && !olderMovementsLoaded && !olderMovementsError && (
+          <p role="status" className="dashboard-label flex items-center gap-2">
+            <RefreshCw className="animate-spin shrink-0" size={14} />Buscando en movimientos antiguos…
+          </p>
+        )}
+        {olderMovementsError && (
+          <div className="notice is-danger" role="alert">
+            <div className="space-y-2">
+              <p>No se pudieron cargar los movimientos antiguos. Los resultados pueden estar incompletos.</p>
+              <button type="button" className="dashboard-secondary-button" disabled={olderMovementsLoading}
+                onClick={() => void loadOlderMovements()}>Reintentar</button>
+            </div>
+          </div>
+        )}
+        <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
+          {displayedHistory.length > 0 ? displayedHistory.map(m => {
+            const isGasto = m.tipo === 'gasto';
+            const isEditing = editingId === m.id;
+            const isLinked = m.tipo === 'ingreso'
+              ? Boolean(m.compensa_movimiento_id || (m.compensaciones_destinos?.length ?? 0) > 0)
+              : (m.compensado_por?.length ?? 0) > 0 || (m.compensado_por_detalles?.length ?? 0) > 0;
+            return (
+              <div key={m.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-line bg-surface hover:bg-surface-2 transition-colors">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${m.es_metalico ? 'bg-brand-tint text-brand-ink' : isGasto ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}`}>
+                    {m.es_metalico ? <Banknote size={18} /> : isGasto ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
                   </div>
-
-                  {/* Amounts */}
-                  <div className="text-right shrink-0">
-                    <div className={`text-xs font-extrabold ${isGasto ? 'text-rose-500' : 'text-emerald-500'}`}>
-                      {isGasto ? '-' : '+'}{formatCurrency(m.importe)}
-                    </div>
-                    {m.importe_neto !== undefined && m.importe_neto !== null && m.importe_neto < m.importe && (
-                      <div className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500">
-                        Neto: {formatCurrency(m.importe_neto)}
+                  <div className="flex-1 min-w-0">
+                    {isEditing ? (
+                      <div className="flex items-center gap-1.5">
+                        <input aria-label="Concepto" value={tempConcepto} onChange={e => setTempConcepto(e.target.value)}
+                          disabled={isSaving} className="field min-w-0" autoFocus />
+                        <button type="button" aria-label="Guardar concepto" onClick={() => void handleSaveConcepto(m.id)}
+                          disabled={isSaving || !tempConcepto.trim()} className="dashboard-icon-button"><Check size={14} /></button>
+                        <button type="button" aria-label="Cancelar edición" onClick={() => { setEditingId(null); setTempConcepto(''); }}
+                          disabled={isSaving} className="dashboard-icon-button"><X size={14} /></button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-bold text-ink truncate">{m.concepto}</span>
+                        <button type="button" onClick={() => { setEditingId(m.id); setTempConcepto(m.concepto); }}
+                          className="dashboard-icon-button shrink-0" aria-label="Editar concepto"><Edit size={12} /></button>
+                        <button type="button" onClick={() => onDeleteMovimiento(m)} className="dashboard-icon-button is-danger shrink-0"
+                          aria-label="Eliminar movimiento" title="Eliminar movimiento"><Trash2 size={12} /></button>
                       </div>
                     )}
+                    {onUpdateCategoria && <CategoryPicker movimiento={m} onSave={onUpdateCategoria} />}
+                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1 text-[10px] text-ink-soft">
+                      <span className="flex items-center gap-1"><Calendar size={10} />{formatDate(m.fecha_operacion)}</span>
+                      {isLinked && (
+                        <div className="flex items-center gap-1 px-1.5 rounded-full bg-brand-tint text-brand-ink">
+                          <ShieldCheck size={10} />{isGasto ? 'Compensado' : 'Repartido'}
+                          <button type="button" onClick={e => { e.stopPropagation(); void onUnlink(m); }} className="dashboard-icon-button is-danger"
+                            title={isGasto ? 'Deshacer todas las compensaciones de este gasto' : 'Deshacer todos los repartos de este ingreso'}
+                            aria-label={isGasto ? 'Deshacer todas las compensaciones de este gasto' : 'Deshacer todos los repartos de este ingreso'}><X size={12} /></button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              );
-            })
-          ) : (
-            <div className="text-center py-10 text-slate-400 text-xs">
-              No se han encontrado movimientos cargados.
-            </div>
-          )}
+                <div className="text-right shrink-0 tabular-nums">
+                  <div className={`text-xs font-extrabold ${isGasto ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                    {isGasto ? '-' : '+'}{formatCurrency(m.importe)}
+                  </div>
+                  {m.importe_neto !== undefined && m.importe_neto !== null && m.importe_neto < m.importe && (
+                    <div className="text-[10px] text-ink-faint">Neto: {formatCurrency(m.importe_neto)}</div>
+                  )}
+                </div>
+              </div>
+            );
+          }) : <div className="dashboard-empty">No se han encontrado movimientos.</div>}
         </div>
-
-        {/* Infinite Scroll Loader */}
-        {isLoading && hasMore && (
-          <div className="flex justify-center py-4">
-            <RefreshCw className="animate-spin text-slate-400" size={18} />
-          </div>
+        {!isFiltering && olderMovementsLoading && (
+          <p role="status" className="dashboard-label flex items-center gap-2"><RefreshCw className="animate-spin" size={14} />Cargando movimientos antiguos…</p>
+        )}
+        {hasMore && (!olderMovementsError || visibleCount < history.length) && (
+          <button type="button" className="dashboard-secondary-button w-full" onClick={handleLoadMore}
+            disabled={olderMovementsLoading && visibleCount >= history.length}>Cargar más</button>
         )}
       </div>
     </Modal>
