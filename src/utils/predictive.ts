@@ -1,5 +1,5 @@
 import type { Hucha, Movimiento, Suscripcion } from "../types";
-import { parseMovimientoDate } from "../hooks/useFinanceData";
+import { parseMovimientoDate } from "./periodStats";
 import { toUtcCalendarDay } from "./financialDates";
 import { cuentaEnEstadisticas, importeEnEstadisticas } from "./movements";
 import { isSubscriptionMovement, normalizeServiceName } from "./serviceNames";

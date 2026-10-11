@@ -125,12 +125,19 @@
       "count": 1
     }
   },
-  "src/hooks/useFinanceData.ts": {
+  "src/hooks/finance/movementWrites.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 14
-    },
-    "prefer-const": {
-      "count": 8
+      "count": 4
+    }
+  },
+  "src/hooks/finance/pendingEmails.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "src/hooks/finance/wallets.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 7
     }
   },
   "src/test/setup.tsx": {
