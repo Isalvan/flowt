@@ -36,6 +36,8 @@ import { detectPayroll, formatWorkTime, hourlyRate } from '../../utils/payroll';
 import { usePreferences } from '../../context/PreferencesContext';
 import { findDuplicateCharges, suggestCompensations } from '../../utils/movementSuggestions';
 import { useCategories } from '../../hooks/useCategories';
+import { useBanks } from '../../hooks/useBanks';
+import { BANK_CATALOG, detectedBanks } from '../../utils/banks';
 
 interface ActivityListProps {
   movimientos: Movimiento[];
@@ -71,6 +73,10 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   onDeleteMovimiento,
 }) => {
   const { categories: MOVEMENT_CATEGORIES, categoryLabel, suggestCategory } = useCategories();
+  const { banks } = useBanks();
+  const bankOptions = [...banks.map(b => b.nombre), ...detectedBanks(allMovimientos)].filter((name, i, names) => names.findIndex(n => n.toLowerCase() === name.toLowerCase()) === i);
+  if (!bankOptions.length) bankOptions.push(...BANK_CATALOG.map(b => b.nombre));
+  bankOptions.sort((a, b) => a.localeCompare(b, 'es'));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tempConcepto, setTempConcepto] = useState('');
   const [hoveredMovId, setHoveredMovId] = useState<string | null>(null);
@@ -391,14 +397,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
               <span className="field-label !mb-0">Banco</span>
               <select value={selectedBanco} onChange={(e) => setSelectedBanco(e.target.value)} className={field}>
                 <option value="all">Todos los bancos</option>
-                <option value="Unicaja">Unicaja</option>
-                <option value="Revolut">Revolut</option>
-                <option value="BBVA">BBVA</option>
-                <option value="Santander">Santander</option>
-                <option value="CaixaBank">CaixaBank</option>
-                <option value="ING">ING</option>
-                <option value="Sabadell">Sabadell</option>
-                <option value="N26">N26</option>
+                {bankOptions.map(nombre => <option key={nombre} value={nombre}>{nombre}</option>)}
               </select>
             </label>
 

@@ -55,6 +55,15 @@ service cloud.firestore {
         request.resource.data.created_at == request.time;
     }
 
+    match /bancos/{userId}/items/{bancoId} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        request.resource.data.keys().hasOnly(['nombre', 'created_at']) &&
+        request.resource.data.keys().hasAll(['nombre', 'created_at']) &&
+        isStringWithLength('nombre', 1, 40) &&
+        request.resource.data.created_at == request.time;
+    }
+
     function validMovementCategories() {
       return (!('categoria' in request.resource.data) || validCategoryValue(request.resource.data.categoria)) &&
         (!('categoria_sugerida' in request.resource.data) || validCategoryValue(request.resource.data.categoria_sugerida)) &&

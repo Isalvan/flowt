@@ -6,6 +6,22 @@ from unittest.mock import patch, MagicMock
 
 import main
 
+@pytest.mark.parametrize("sender,expected", [
+    ("Alertas <INFO@REVOLUT.COM>", "Revolut"),
+    ("avisos@unicaja.es", "Unicaja"),
+    ("avisos@bbva.es", "BBVA"),
+    ("avisos@santander.es", "Santander"),
+    ("avisos@caixa.es", "CaixaBank"),
+    ("avisos@ing.es", "ING"),
+    ("avisos@sabadell.es", "Sabadell"),
+    ("avisos@n26.com", "N26"),
+    ("unknown@example.com", "Banco"),
+    ("", "Banco"),
+    ("revolut-unicaja@example.com", "Revolut"),
+])
+def test_infer_bank_from_sender(sender, expected):
+    assert main.infer_bank_from_sender(sender) == expected
+
 @pytest.fixture(autouse=True)
 def mock_config():
     # Setup test environment variables

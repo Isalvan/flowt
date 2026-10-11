@@ -32,6 +32,7 @@ import {
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { PreferencesProvider } from './context/PreferencesContext';
 import { CategoriesProvider } from './context/CategoriesContext';
+import { BanksProvider } from './context/BanksContext';
 // The app always starts locked, so the PIN modal is on the critical path: keep it in the entry chunk.
 import { PinModal } from './components/common/PinModal';
 import { DeferredOverlay } from './components/common/DeferredOverlay';
@@ -811,7 +812,9 @@ const App: React.FC = () => {
     <PrivacyProvider>
       <PreferencesProvider forceDemo={forceDemo}>
         <CategoriesProvider forceDemo={forceDemo}>
+          <BanksProvider forceDemo={forceDemo}>
           <AppContent forceDemo={forceDemo} setForceDemo={setForceDemo} />
+          </BanksProvider>
         </CategoriesProvider>
       </PreferencesProvider>
     </PrivacyProvider>

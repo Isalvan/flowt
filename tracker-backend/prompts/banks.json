@@ -1,0 +1,10 @@
+[
+  { "id": "revolut", "nombre": "Revolut", "coincide": ["revolut"] },
+  { "id": "unicaja", "nombre": "Unicaja", "coincide": ["unicaja"] },
+  { "id": "bbva", "nombre": "BBVA", "coincide": ["bbva"] },
+  { "id": "santander", "nombre": "Santander", "coincide": ["santander"] },
+  { "id": "caixabank", "nombre": "CaixaBank", "coincide": ["caixa"] },
+  { "id": "ing", "nombre": "ING", "coincide": ["ing"] },
+  { "id": "sabadell", "nombre": "Sabadell", "coincide": ["sabadell"] },
+  { "id": "n26", "nombre": "N26", "coincide": ["n26"] }
+]

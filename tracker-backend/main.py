@@ -1,5 +1,7 @@
 # -*- coding: cp1252 -*-
 import os
+import json
+from pathlib import Path
 import subprocess
 import hashlib
 import hmac
@@ -45,29 +47,15 @@ args = None
 logger = logging.getLogger(__name__)
 
 
+with (Path(__file__).parent / "prompts" / "banks.json").open(encoding="utf-8") as bank_catalog_file:
+    BANK_CATALOG = json.load(bank_catalog_file)
+
+
 def infer_bank_from_sender(sender_str: str) -> str:
-    """
-    Infiere la entidad bancaria según el remitente del correo.
-    """
-    if not sender_str:
-        return "Banco"
-    s = sender_str.lower()
-    if "revolut" in s:
-        return "Revolut"
-    if "unicaja" in s:
-        return "Unicaja"
-    if "bbva" in s:
-        return "BBVA"
-    if "santander" in s:
-        return "Santander"
-    if "caixa" in s:
-        return "CaixaBank"
-    if "ing" in s:
-        return "ING"
-    if "sabadell" in s:
-        return "Sabadell"
-    if "n26" in s:
-        return "N26"
+    sender = (sender_str or "").lower()
+    for bank in BANK_CATALOG:
+        if any(fragment in sender for fragment in bank["coincide"]):
+            return bank["nombre"]
     return "Banco"
 
 def setup_config(cli_args=None):
