@@ -17,6 +17,11 @@ interface AjustesOrchestratorProps {
   
   // Export props
   chartMovements: Movimiento[];
+  olderMovements: Movimiento[];
+  olderMovementsLoading: boolean;
+  olderMovementsLoaded: boolean;
+  olderMovementsError: boolean;
+  loadOlderMovements: () => Promise<void>;
   userStats: any;
   userId: string | undefined;
   onRestoreHucha: (huchaId: string) => void;
@@ -31,6 +36,11 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
   onCancelSuscripcion,
   onUndoCancelSuscripcion,
   chartMovements,
+  olderMovements,
+  olderMovementsLoading,
+  olderMovementsLoaded,
+  olderMovementsError,
+  loadOlderMovements,
   userStats,
   userId,
   onRestoreHucha
@@ -126,6 +136,11 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
         ) : (
           <ExportView
             movimientos={chartMovements}
+            olderMovements={olderMovements}
+            olderMovementsLoading={olderMovementsLoading}
+            olderMovementsLoaded={olderMovementsLoaded}
+            olderMovementsError={olderMovementsError}
+            loadOlderMovements={loadOlderMovements}
             huchas={huchas}
             suscripciones={suscripciones}
             userStats={userStats}
