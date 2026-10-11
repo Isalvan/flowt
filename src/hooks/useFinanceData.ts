@@ -23,6 +23,8 @@ import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type 
 import { usePrivacy } from '../context/PrivacyContext';
 import { crearRetiradaEfectivo, cuentaEnEstadisticas } from '../utils/movements';
 import { getMovementWindowStart, groupMovementsByMonth, typicalMonthlyIncome, parseMovimientoDate } from '../utils/periodStats';
+import { usePreferences } from '../context/PreferencesContext';
+import { payrollDates, periodOf, previousPeriod } from '../utils/periods';
 import { sanitizeConcepto } from '../utils/sanitize';
 import { tryEditReviewedMovement } from '../utils/reviewApi';
 import { compensationUpdates, unlinkCompensationUpdates, validCategory as validCatalogCategory } from '../utils/movementSuggestions';
@@ -115,6 +117,7 @@ const MOCK_PENDING_EMAILS: PendingEmail[] = [
 ];
 
 export const useFinanceData = (forceDemo = false) => {
+  const { inicioPeriodo } = usePreferences();
   const { isLocked } = usePrivacy();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,11 +132,16 @@ export const useFinanceData = (forceDemo = false) => {
   const [historicoCorreos, setHistoricoCorreos] = useState<CorreoHistorico[]>([]);
   const [userStats, setUserStats] = useState<{ total_ingresos: number; total_gastos: number } | null>(null);
 
-  const [windowStart] = useState(() => getMovementWindowStart());
+  const [windowAnchor] = useState(() => new Date());
+  const windowStart = useMemo(() => {
+    // Payroll dates are not loaded yet: include one extra month to retain the boundary payroll.
+    if (inicioPeriodo === 'nomina') return new Date(windowAnchor.getFullYear(), windowAnchor.getMonth() - 13, 1);
+    return getMovementWindowStart(windowAnchor, { inicioPeriodo, nominas: [] });
+  }, [windowAnchor, inicioPeriodo]);
   const [chartMovementsLoading, setChartMovementsLoading] = useState(true);
   const uid = user?.uid;
   // Each unlocked user session owns its older-movements listener.
-  const olderSession = useMemo(() => ({ uid, isFirebaseConfigured, isLocked, forceDemo }), [uid, isFirebaseConfigured, isLocked, forceDemo]);
+  const olderSession = useMemo(() => ({ uid, isFirebaseConfigured, isLocked, forceDemo, windowStart }), [uid, isFirebaseConfigured, isLocked, forceDemo, windowStart]);
   const [olderState, setOlderState] = useState<{
     session: typeof olderSession;
     movements: Movimiento[];
@@ -2843,7 +2851,8 @@ export const useFinanceData = (forceDemo = false) => {
   const totalGastos = userStats?.total_gastos ?? 0;
   const balance = totalIngresos - totalGastos;
 
-  const mediaIngresos = useMemo(() => typicalMonthlyIncome(chartMovements), [chartMovements]);
+  const periodConfig = useMemo(() => ({ inicioPeriodo, nominas: payrollDates(chartMovements) }), [inicioPeriodo, chartMovements]);
+  const mediaIngresos = useMemo(() => typicalMonthlyIncome(chartMovements, new Date(), periodConfig), [chartMovements, periodConfig]);
 
   const huchaMonthlyBudgets = useMemo(() => {
     const budgets: Record<string, number> = {};
@@ -2899,8 +2908,15 @@ export const useFinanceData = (forceDemo = false) => {
   const chartData = useMemo(() => {
     const now = new Date();
     const months = Array.from({ length: 6 }, (_, i) => new Date(now.getFullYear(), now.getMonth() - 5 + i, 1));
-    return groupMovementsByMonth(chartMovements, months);
-  }, [chartMovements]);
+    if (inicioPeriodo !== 1) {
+      let period = periodOf(now, inicioPeriodo, periodConfig.nominas);
+      for (let i = 5; i >= 0; i--) {
+        months[i] = period.start;
+        period = previousPeriod(period, inicioPeriodo, periodConfig.nominas);
+      }
+    }
+    return groupMovementsByMonth(chartMovements, months, periodConfig);
+  }, [chartMovements, inicioPeriodo, periodConfig]);
 
   return {
     user,

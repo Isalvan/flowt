@@ -652,6 +652,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
           onClose={() => setIsProfilePanelOpen(false)}
           user={user}
           onLogout={handleLogout}
+          movimientos={chartMovements}
         />
       </DeferredOverlay>
 

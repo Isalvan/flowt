@@ -16,6 +16,8 @@ import { MoreActionsMenu } from "./MoreActionsMenu";
 import { PredictiveChart } from "./LazyCharts";
 import { ServiceIcon } from "./ServiceIcon";
 import { walletAccent } from "../../utils/walletAccent";
+import { usePreferences } from "../../context/PreferencesContext";
+import { payrollDates, periodOf, previousPeriod } from "../../utils/periods";
 
 type TimePeriod = "este_mes" | "mes_pasado" | "este_anio" | "historico";
 const PERIODS: { value: TimePeriod; label: string }[] = [
@@ -77,6 +79,13 @@ interface DashboardViewProps {
 
 export const DashboardView: React.FC<DashboardViewProps> = (props) => {
   const { isLocked, formatCurrency } = usePrivacy();
+  const { inicioPeriodo } = usePreferences();
+  const periodConfig = useMemo(() => ({
+    inicioPeriodo, nominas: payrollDates([...props.chartMovements, ...(props.olderMovements ?? [])]),
+  }), [inicioPeriodo, props.chartMovements, props.olderMovements]);
+  const periods = PERIODS.map(p => inicioPeriodo === 1 ? p : {
+    ...p, label: p.value === "este_mes" ? "Este periodo" : p.value === "mes_pasado" ? "Periodo anterior" : p.label,
+  });
   const [period, setPeriod] = useState<TimePeriod>("historico");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -110,30 +119,23 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
     if (period === "historico")
       return [...props.chartMovements, ...(props.olderMovements ?? [])].filter(cuentaEnEstadisticas);
     const now = new Date();
+    const current = periodOf(now, inicioPeriodo, periodConfig.nominas);
+    const selected = period === "mes_pasado" ? previousPeriod(current, inicioPeriodo, periodConfig.nominas) : current;
     return props.chartMovements.filter((m) => {
       if (!cuentaEnEstadisticas(m)) return false;
       const d = parseMovimientoDate(m.fecha_operacion);
       if (!d) return false;
-      if (period === "este_mes")
-        return (
-          d.getMonth() === now.getMonth() &&
-          d.getFullYear() === now.getFullYear()
-        );
       if (period === "este_anio") return d.getFullYear() === now.getFullYear();
-      const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      return (
-        d.getMonth() === previous.getMonth() &&
-        d.getFullYear() === previous.getFullYear()
-      );
+      return d >= selected.start && d < selected.end;
     });
-  }, [props.chartMovements, props.olderMovements, period]);
+  }, [props.chartMovements, props.olderMovements, period, inicioPeriodo, periodConfig]);
   const ingresos = filtered
     .filter((m) => m.tipo === "ingreso")
     .reduce((sum, m) => sum + importeEnEstadisticas(m), 0);
   const gastos = filtered
     .filter((m) => m.tipo === "gasto")
     .reduce((sum, m) => sum + importeEnEstadisticas(m), 0);
-  const periodChartData = useMemo(() => groupMovementsByMonth(filtered), [filtered]);
+  const periodChartData = useMemo(() => groupMovementsByMonth(filtered, [], periodConfig), [filtered, periodConfig]);
   const trend = useMemo(
     () =>
       filtered
@@ -172,7 +174,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
     [props.suscripciones],
   );
   const periodLabel =
-    PERIODS.find((p) => p.value === period)?.label ?? "Histórico";
+    periods.find((p) => p.value === period)?.label ?? "Histórico";
   const wallets = props.huchas.filter((h) => h.activa !== false);
   const walletsTotal = wallets.reduce(
     (sum, h) => sum + Math.max(0, h.saldo_acumulado),
@@ -280,7 +282,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
                 aria-label="Periodo"
                 className="glass-panel animate-in fade-in slide-in-from-top-1 absolute right-0 top-[calc(100%+6px)] z-40 w-40 rounded-2xl p-1 duration-150 md:left-0 md:right-auto"
               >
-                {PERIODS.map(({ value, label }) => (
+                {periods.map(({ value, label }) => (
                   <button
                     role="option"
                     aria-selected={period === value}

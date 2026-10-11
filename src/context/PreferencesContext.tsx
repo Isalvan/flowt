@@ -2,17 +2,19 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import type { InicioPeriodo } from '../utils/periods';
 
 interface Preferences {
   horasSemanales: number | null;
   umbralCompraPequena: number;
+  inicioPeriodo: InicioPeriodo;
 }
 
 interface PreferencesContextType extends Preferences {
   updatePreferences: (partial: Partial<Preferences>) => Promise<void>;
 }
 
-const defaults: Preferences = { horasSemanales: null, umbralCompraPequena: 5 };
+const defaults: Preferences = { horasSemanales: null, umbralCompraPequena: 5, inicioPeriodo: 1 };
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
 // Outside a provider (isolated component tests) the defaults apply and nothing is saved.
 const fallback: PreferencesContextType = { ...defaults, updatePreferences: async () => {} };
@@ -25,6 +27,7 @@ function validated(partial: Partial<Preferences>): Partial<Preferences> {
   const result: Partial<Preferences> = {};
   if (partial.horasSemanales === null || inRange(partial.horasSemanales, 80)) result.horasSemanales = partial.horasSemanales;
   if (inRange(partial.umbralCompraPequena, 100)) result.umbralCompraPequena = partial.umbralCompraPequena;
+  if (partial.inicioPeriodo === 'nomina' || (inRange(partial.inicioPeriodo, 28) && Number.isInteger(partial.inicioPeriodo))) result.inicioPeriodo = partial.inicioPeriodo;
   return result;
 }
 
@@ -36,7 +39,8 @@ function loadLocal(uid: string | null): Preferences {
 }
 
 function saveLocal(uid: string | null, preferences: Preferences) {
-  try { localStorage.setItem(storageKey(uid), JSON.stringify(preferences)); }
+  const { inicioPeriodo, ...existing } = preferences;
+  try { localStorage.setItem(storageKey(uid), JSON.stringify(inicioPeriodo === 1 ? existing : preferences)); }
   catch { /* Storage may be unavailable; preferences still work in memory. */ }
 }
 
@@ -61,6 +65,7 @@ export function PreferencesProvider({ children, forceDemo = false }: { children:
         current.current = { ...current.current, ...validated({
           horasSemanales: data.horas_semanales,
           umbralCompraPequena: data.umbral_compra_pequena,
+          inicioPeriodo: data.inicio_periodo,
         }) };
         setPreferences(current.current);
         saveLocal(uid, current.current);
@@ -82,6 +87,7 @@ export function PreferencesProvider({ children, forceDemo = false }: { children:
     const data = {
       ...('horasSemanales' in changes ? { horas_semanales: changes.horasSemanales } : {}),
       ...('umbralCompraPequena' in changes ? { umbral_compra_pequena: changes.umbralCompraPequena } : {}),
+      ...('inicioPeriodo' in changes ? { inicio_periodo: changes.inicioPeriodo } : {}),
     };
     try { await setDoc(doc(db, 'settings', uid), data, { merge: true }); }
     catch { /* The local copy remains available until rules are deployed. */ }

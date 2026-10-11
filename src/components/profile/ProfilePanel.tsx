@@ -2,22 +2,26 @@ import React, { useEffect } from 'react';
 import { User, LogOut, Key, ShieldOff, X } from 'lucide-react';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { usePreferences } from '../../context/PreferencesContext';
+import type { Movimiento } from '../../types';
+import { payrollDates } from '../../utils/periods';
 
 interface ProfilePanelProps {
   isOpen: boolean;
   onClose: () => void;
   user: any;
   onLogout: () => void;
+  movimientos?: Movimiento[];
 }
 
 export const ProfilePanel: React.FC<ProfilePanelProps> = ({
   isOpen,
   onClose,
   user,
-  onLogout
+  onLogout,
+  movimientos = [],
 }) => {
   const { hasPin, openCreateModal, removePin, isLocked } = usePrivacy();
-  const { horasSemanales, umbralCompraPequena, updatePreferences } = usePreferences();
+  const { horasSemanales, umbralCompraPequena, inicioPeriodo, updatePreferences } = usePreferences();
 
   const savePreference = (input: HTMLInputElement, field: 'horasSemanales' | 'umbralCompraPequena') => {
     const previous = field === 'horasSemanales' ? horasSemanales : umbralCompraPequena;
@@ -106,6 +110,31 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
           <section className="flex flex-col gap-3">
             <h3 className="dashboard-label">Preferencias</h3>
             <div className="rounded-2xl bg-surface-2 p-5 flex flex-col gap-5">
+              <div>
+                <label className="field-label" htmlFor="profile-period-start">Inicio de tu periodo</label>
+                <select id="profile-period-start" className="field"
+                  value={inicioPeriodo === 'nomina' ? 'nomina' : inicioPeriodo === 1 ? 'natural' : 'fixed'}
+                  aria-describedby="profile-period-hint"
+                  onChange={event => { void updatePreferences({ inicioPeriodo: event.target.value === 'nomina' ? 'nomina' : event.target.value === 'fixed' ? 28 : 1 }); }}>
+                  <option value="natural">Día 1 (mes natural)</option>
+                  <option value="nomina">Cuando cobro la nómina</option>
+                  <option value="fixed">Un día fijo</option>
+                </select>
+                {typeof inicioPeriodo === 'number' && inicioPeriodo !== 1 && <>
+                  <label className="field-label mt-3" htmlFor="profile-period-day">Día de inicio</label>
+                  <input key={`period-${inicioPeriodo}`} id="profile-period-day" className="field" type="number"
+                    min={2} max={28} step={1} required defaultValue={inicioPeriodo} aria-describedby="profile-period-hint"
+                    onBlur={event => {
+                      const input = event.currentTarget;
+                      if (input.validity.valid && Number.isInteger(input.valueAsNumber)) void updatePreferences({ inicioPeriodo: input.valueAsNumber });
+                      else input.value = String(inicioPeriodo);
+                    }}
+                    onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
+                </>}
+                <p id="profile-period-hint" className="field-hint">{inicioPeriodo === 'nomina' && !payrollDates(movimientos).length
+                  ? 'Aún no hemos visto ninguna nómina; mientras tanto se usa el mes natural.'
+                  : 'Tus resúmenes y comparativas irán de este día al mismo del mes siguiente.'}</p>
+              </div>
               <div>
                 <label className="field-label" htmlFor="profile-weekly-hours">Horas de trabajo a la semana</label>
                 <input

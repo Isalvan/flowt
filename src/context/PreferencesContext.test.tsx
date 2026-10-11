@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PreferencesProvider, usePreferences } from './PreferencesContext';
 import { ProfilePanel } from '../components/profile/ProfilePanel';
+import type { InicioPeriodo } from '../utils/periods';
 
 const mocks = vi.hoisted(() => ({
   uid: 'user-1' as string | null,
@@ -41,6 +42,43 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('PreferencesProvider and profile fields', () => {
+  it('loads, saves and validates period preferences, including rejected strings and days', async () => {
+    mocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ inicio_periodo: 'nomina' }) });
+    function PeriodProbe() {
+      const prefs = usePreferences();
+      return <>
+        <output>{prefs.inicioPeriodo}</output>
+        {[1, 28, 'nomina', 0, 29, 2.5, 'other'].map(value => <button key={value}
+          onClick={() => { void prefs.updatePreferences({ inicioPeriodo: value as InicioPeriodo }); }}>{value}</button>)}
+      </>;
+    }
+    render(<PreferencesProvider><PeriodProbe /></PreferencesProvider>);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('nomina'));
+    fireEvent.click(screen.getByRole('button', { name: '28' }));
+    expect(mocks.setDoc).toHaveBeenLastCalledWith('settings/user-1', { inicio_periodo: 28 }, { merge: true });
+    expect(JSON.parse(localStorage.getItem('flowt:prefs:user-1')!).inicioPeriodo).toBe(28);
+    for (const invalid of ['0', '29', '2.5', 'other']) fireEvent.click(screen.getByRole('button', { name: invalid }));
+    expect(screen.getByRole('status')).toHaveTextContent('28');
+    expect(mocks.setDoc).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'nomina' }));
+    expect(mocks.setDoc).toHaveBeenLastCalledWith('settings/user-1', { inicio_periodo: 'nomina' }, { merge: true });
+    fireEvent.click(screen.getByRole('button', { name: '1' }));
+    expect(mocks.setDoc).toHaveBeenLastCalledWith('settings/user-1', { inicio_periodo: 1 }, { merge: true });
+  });
+
+  it('offers period choices, validates the fixed day and explains missing payroll', () => {
+    render(<PreferencesProvider forceDemo><ProfilePanel isOpen onClose={vi.fn()} user={null} onLogout={vi.fn()} /></PreferencesProvider>);
+    fireEvent.change(screen.getByLabelText('Inicio de tu periodo'), { target: { value: 'nomina' } });
+    expect(screen.getByText('Aún no hemos visto ninguna nómina; mientras tanto se usa el mes natural.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Inicio de tu periodo'), { target: { value: 'fixed' } });
+    const day = screen.getByLabelText('Día de inicio');
+    fireEvent.change(day, { target: { value: '15' } });
+    fireEvent.blur(day);
+    expect(screen.getByLabelText('Día de inicio')).toHaveValue(15);
+    fireEvent.change(screen.getByLabelText('Día de inicio'), { target: { value: '29' } });
+    fireEvent.blur(screen.getByLabelText('Día de inicio'));
+    expect(screen.getByLabelText('Día de inicio')).toHaveValue(15);
+  });
   it('loads local preferences first and keeps them when Firestore denies access', async () => {
     localStorage.setItem('flowt:prefs:user-1', JSON.stringify({ horasSemanales: 35, umbralCompraPequena: 8 }));
     mocks.getDoc.mockRejectedValue(new Error('permission-denied'));

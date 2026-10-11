@@ -9,11 +9,15 @@ export interface Payroll {
   diaHabitual: number;
 }
 
+export function isPayrollMovement(movimiento: Movimiento): boolean {
+  return movimiento.tipo === 'ingreso' && cuentaEnEstadisticas(movimiento) &&
+    (movimiento.categoria === 'nomina' || (!movimiento.categoria && isPayrollConcept(movimiento.concepto)));
+}
+
 export function detectPayroll(movimientos: Movimiento[], now = new Date()): Payroll | null {
   const start = now.getTime() - 190 * 24 * 60 * 60 * 1000;
   const candidates = movimientos.flatMap(movimiento => {
-    if (movimiento.tipo !== 'ingreso' || !cuentaEnEstadisticas(movimiento) ||
-      !(movimiento.categoria === 'nomina' || (!movimiento.categoria && isPayrollConcept(movimiento.concepto)))) return [];
+    if (!isPayrollMovement(movimiento)) return [];
     const fecha = parseMovimientoDate(movimiento.fecha_operacion);
     if (!fecha || fecha.getTime() < start || fecha > now) return [];
     return [{ importe: importeEnEstadisticas(movimiento), fecha }];
