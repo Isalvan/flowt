@@ -151,11 +151,18 @@ service cloud.firestore {
     }
 
     match /settings/{userId} {
+      function validPreferences() {
+        let data = request.resource.data;
+        return (!('horas_semanales' in data) || data.horas_semanales == null ||
+          (data.horas_semanales is number && data.horas_semanales >= 1 && data.horas_semanales <= 80)) &&
+          (!('umbral_compra_pequena' in data) ||
+          (data.umbral_compra_pequena is number && data.umbral_compra_pequena >= 1 && data.umbral_compra_pequena <= 100));
+      }
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) &&
-                       request.resource.data.keys().hasOnly(['tema', 'notificaciones', 'updated_at', 'divisa', 'pin_hash', 'pin_salt']);
+                       request.resource.data.keys().hasOnly(['tema', 'notificaciones', 'updated_at', 'divisa', 'pin_hash', 'pin_salt', 'horas_semanales', 'umbral_compra_pequena']) && validPreferences();
       allow update: if isOwner(userId) &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tema', 'notificaciones', 'updated_at', 'divisa', 'pin_hash', 'pin_salt']);
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tema', 'notificaciones', 'updated_at', 'divisa', 'pin_hash', 'pin_salt', 'horas_semanales', 'umbral_compra_pequena']) && validPreferences();
       allow delete: if false;
     }
 

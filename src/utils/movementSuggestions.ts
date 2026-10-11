@@ -32,6 +32,9 @@ const incomeRules: [RegExp, string][] = [
   [/\b(freelance|honorarios|trabajo extra)\b/, 'trabajos'],
 ];
 
+export const isPayrollConcept = (concepto: string): boolean =>
+  incomeRules.some(([pattern, category]) => category === 'nomina' && pattern.test(normalize(concepto)));
+
 export interface CategorySuggestion {
   categoria: string;
   confianza: 'alta' | 'media' | 'baja';

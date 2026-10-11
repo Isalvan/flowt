@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { User, LogOut, Key, ShieldOff, X } from 'lucide-react';
 import { usePrivacy } from '../../context/PrivacyContext';
+import { usePreferences } from '../../context/PreferencesContext';
 
 interface ProfilePanelProps {
   isOpen: boolean;
@@ -16,6 +17,17 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
   onLogout
 }) => {
   const { hasPin, openCreateModal, removePin, isLocked } = usePrivacy();
+  const { horasSemanales, umbralCompraPequena, updatePreferences } = usePreferences();
+
+  const savePreference = (input: HTMLInputElement, field: 'horasSemanales' | 'umbralCompraPequena') => {
+    const previous = field === 'horasSemanales' ? horasSemanales : umbralCompraPequena;
+    const value = input.value === '' && field === 'horasSemanales' ? null : input.valueAsNumber;
+    if (!input.validity.valid || (value !== null && !Number.isFinite(value))) {
+      input.value = previous === null ? '' : String(previous);
+      return;
+    }
+    if (value !== previous) void updatePreferences({ [field]: value });
+  };
 
   // Close on escape key
   useEffect(() => {
@@ -90,6 +102,51 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar">
           
+          {/* Preferences Section */}
+          <section className="flex flex-col gap-3">
+            <h3 className="dashboard-label">Preferencias</h3>
+            <div className="rounded-2xl bg-surface-2 p-5 flex flex-col gap-5">
+              <div>
+                <label className="field-label" htmlFor="profile-weekly-hours">Horas de trabajo a la semana</label>
+                <input
+                  key={`hours-${horasSemanales}`}
+                  id="profile-weekly-hours"
+                  className="field"
+                  type="number"
+                  min={1}
+                  max={80}
+                  step="any"
+                  defaultValue={horasSemanales ?? ''}
+                  aria-describedby="profile-weekly-hours-hint"
+                  onBlur={event => savePreference(event.currentTarget, 'horasSemanales')}
+                  onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                />
+                <p id="profile-weekly-hours-hint" className="field-hint">Para ver cuánto tiempo de trabajo cuesta un gasto. Déjalo vacío para no mostrarlo.</p>
+              </div>
+              <div>
+                <label className="field-label" htmlFor="profile-small-purchase">Compra pequeña</label>
+                <div className="relative">
+                  <input
+                    key={`threshold-${umbralCompraPequena}`}
+                    id="profile-small-purchase"
+                    className="field pr-9"
+                    type="number"
+                    min={1}
+                    max={100}
+                    step="any"
+                    required
+                    defaultValue={umbralCompraPequena}
+                    aria-describedby="profile-small-purchase-hint"
+                    onBlur={event => savePreference(event.currentTarget, 'umbralCompraPequena')}
+                    onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-soft">€</span>
+                </div>
+                <p id="profile-small-purchase-hint" className="field-hint">Las compras por debajo de este importe se suman aparte.</p>
+              </div>
+            </div>
+          </section>
+
           {/* Security Section */}
           <section className="flex flex-col gap-3">
             <h3 className="dashboard-label">

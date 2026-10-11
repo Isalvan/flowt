@@ -30,6 +30,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
+import { PreferencesProvider } from './context/PreferencesContext';
 import { CategoriesProvider } from './context/CategoriesContext';
 // The app always starts locked, so the PIN modal is on the critical path: keep it in the entry chunk.
 import { PinModal } from './components/common/PinModal';
@@ -431,7 +432,14 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             {!isFirebaseConfigured ? (
               <div className="ml-1 flex items-center gap-1 rounded-full bg-sun-500/12 py-1 pl-3 pr-1 text-xs font-bold text-sun-600 dark:text-sun-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-sun-500" />
-                <span className={forceDemo ? '' : 'pr-2'}>Demo</span>
+                <button
+                  type="button"
+                  onClick={() => setIsProfilePanelOpen(true)}
+                  aria-label="Abrir perfil"
+                  className={`rounded-full underline-offset-4 hover:underline ${forceDemo ? '' : 'pr-2'}`}
+                >
+                  Demo
+                </button>
                 {forceDemo && (
                   <button
                     type="button"
@@ -796,9 +804,11 @@ const App: React.FC = () => {
   const [forceDemo, setForceDemo] = useState(false);
   return (
     <PrivacyProvider>
-      <CategoriesProvider forceDemo={forceDemo}>
-        <AppContent forceDemo={forceDemo} setForceDemo={setForceDemo} />
-      </CategoriesProvider>
+      <PreferencesProvider forceDemo={forceDemo}>
+        <CategoriesProvider forceDemo={forceDemo}>
+          <AppContent forceDemo={forceDemo} setForceDemo={setForceDemo} />
+        </CategoriesProvider>
+      </PreferencesProvider>
     </PrivacyProvider>
   );
 };
