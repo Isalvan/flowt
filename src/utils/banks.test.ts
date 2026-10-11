@@ -48,6 +48,6 @@ describe('banks', () => {
   });
   it('detects distinct names by frequency, ignoring generic and blank names', () => {
     expect(detectedBanks([{ banco: 'Unicaja' }, { banco: 'revolut' }, { banco: 'Revolut' }, { banco: ' Banco ' }, { banco: ' ' }, {}])).toEqual(['revolut', 'Unicaja']);
-    expect(BANK_CATALOG).toHaveLength(8);
+    expect(BANK_CATALOG).toHaveLength(9);
   });
 });

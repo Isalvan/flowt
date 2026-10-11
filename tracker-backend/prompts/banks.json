@@ -6,5 +6,6 @@
   { "id": "caixabank", "nombre": "CaixaBank", "coincide": ["caixa"] },
   { "id": "ing", "nombre": "ING", "coincide": ["ing"] },
   { "id": "sabadell", "nombre": "Sabadell", "coincide": ["sabadell"] },
-  { "id": "n26", "nombre": "N26", "coincide": ["n26"] }
+  { "id": "n26", "nombre": "N26", "coincide": ["n26"] },
+  { "id": "trade_republic", "nombre": "Trade Republic", "coincide": ["traderepublic", "trade republic"] }
 ]

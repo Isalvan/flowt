@@ -15,6 +15,7 @@ import main
     ("avisos@ing.es", "ING"),
     ("avisos@sabadell.es", "Sabadell"),
     ("avisos@n26.com", "N26"),
+    ("no-reply@traderepublic.com", "Trade Republic"),
     ("unknown@example.com", "Banco"),
     ("", "Banco"),
     ("revolut-unicaja@example.com", "Revolut"),

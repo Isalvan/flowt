@@ -31,14 +31,14 @@ describe('BancosView', () => {
     expect(screen.queryByRole('button', { name: /^Unicaja/ })).not.toBeInTheDocument();
   });
   it('offers detected custom names first, by frequency, then remaining catalog banks', async () => {
-    setup([], ['Trade Republic', 'N26', 'Trade Republic']);
+    setup([], ['Caja Rural', 'N26', 'Caja Rural']);
     expect(screen.getByText('Aún no has añadido ningún banco')).toBeInTheDocument();
     const buttons = screen.getAllByRole('button');
-    expect(buttons[0]).toHaveTextContent('Trade Republic · detectado');
+    expect(buttons[0]).toHaveTextContent('Caja Rural · detectado');
     expect(buttons[1]).toHaveTextContent('N26 · detectado');
     expect(buttons[2]).toHaveTextContent('Revolut');
     fireEvent.click(buttons[0]);
-    await waitFor(() => expect(addBank).toHaveBeenCalledWith('Trade Republic'));
+    await waitFor(() => expect(addBank).toHaveBeenCalledWith('Caja Rural'));
   });
   it('adds from Otro on submit, validates accent-insensitive duplicates and cancels with Escape', async () => {
     render(<BanksProvider forceDemo><BancosView chartMovements={[]} /></BanksProvider>);
