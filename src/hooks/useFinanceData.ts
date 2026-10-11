@@ -24,7 +24,7 @@ import { usePrivacy } from '../context/PrivacyContext';
 import { crearRetiradaEfectivo, cuentaEnEstadisticas } from '../utils/movements';
 import { getMovementWindowStart, groupMovementsByMonth, typicalMonthlyIncome, parseMovimientoDate } from '../utils/periodStats';
 import { sanitizeConcepto } from '../utils/sanitize';
-import { editReviewedMovement, hasReviewApi } from '../utils/reviewApi';
+import { tryEditReviewedMovement } from '../utils/reviewApi';
 import { compensationUpdates, unlinkCompensationUpdates, validCategory as validCatalogCategory } from '../utils/movementSuggestions';
 import {
   getMonthlySubscriptionAmount,
@@ -1244,8 +1244,7 @@ export const useFinanceData = (forceDemo = false) => {
     }
 
     try {
-      if (hasReviewApi()) {
-        await editReviewedMovement(movId, { name: cleanConcepto });
+      if (await tryEditReviewedMovement(movId, { name: cleanConcepto })) {
         showToast('Concepto actualizado', 'success');
         return;
       }
@@ -1525,8 +1524,7 @@ export const useFinanceData = (forceDemo = false) => {
         saveDemoState(movimientos.map(m => m.id === movId ? { ...m, categoria, review_protected_fields: Array.from(new Set([...(m.review_protected_fields ?? []), 'categoria'])) } : m), huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
       } else {
         if (!user) throw new Error('Inicia sesión para guardar');
-        if (hasReviewApi()) {
-          await editReviewedMovement(movId, { category: categoria });
+        if (await tryEditReviewedMovement(movId, { category: categoria })) {
           showToast('Categoría confirmada', 'success');
           return;
         }
@@ -1665,8 +1663,7 @@ export const useFinanceData = (forceDemo = false) => {
     }
 
     try {
-      if (hasReviewApi()) {
-        await editReviewedMovement(mov.id, { hucha_id: newHuchaId });
+      if (await tryEditReviewedMovement(mov.id, { hucha_id: newHuchaId })) {
         showToast('Gasto reasignado', 'success');
         return;
       }
