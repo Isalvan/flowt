@@ -13,9 +13,12 @@ import {
 import { AlertTriangle, LineChart } from "lucide-react";
 import type { Hucha, Movimiento, Suscripcion } from "../../types";
 import { usePrivacy } from "../../context/PrivacyContext";
+import { usePreferences } from "../../context/PreferencesContext";
+import { payrollDates } from "../../utils/periods";
 import {
   buildProjectionData,
   calculateProjectionEstimates,
+  netVariability,
 } from "../../utils/predictive";
 
 interface PredictiveChartProps {
@@ -44,21 +47,13 @@ const daysUntil = (months: number) => {
   return Math.round((end.getTime() - start.getTime()) / 86400000);
 };
 
-const toNumericValue =(value: TooltipValueType | undefined): number => {
-  if (typeof value === "number") return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
-};
-
 export const PredictiveChart: React.FC<PredictiveChartProps> = ({
   huchas,
   suscripciones,
   allMovimientos,
 }) => {
   const { isLocked, formatCurrency } = usePrivacy();
+  const { inicioPeriodo } = usePreferences();
   const [months, setMonths] = useState(readStoredMonths);
   // Kept apart from `months` so the field can be emptied while typing.
   const [monthsDraft, setMonthsDraft] = useState(String(months));
@@ -81,6 +76,17 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
       calculateProjectionEstimates(allMovimientos, suscripciones, new Date(), huchas),
     [allMovimientos, suscripciones, huchas],
   );
+  const variability = useMemo(
+    () => {
+      const result = netVariability(allMovimientos, new Date(), {
+        inicioPeriodo,
+        nominas: payrollDates(allMovimientos),
+      });
+      // Identical periods give a band with no width, which would read as false certainty.
+      return result && result.standardDeviation >= 0.01 ? result : null;
+    },
+    [allMovimientos, inicioPeriodo],
+  );
   const projectionData = useMemo(
     () =>
       estimates
@@ -89,31 +95,45 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
             estimates,
             new Date(),
             daysUntil(months),
+            variability,
           )
         : [],
-    [estimates, totalSavings, months],
+    [estimates, totalSavings, months, variability],
   );
   const horizonLabel = months === 1 ? "Próximo mes" : `Próximos ${months} meses`;
 
   const balances = projectionData.map((point) => point.balance);
   const min = Math.min(...balances);
   const max = Math.max(...balances);
-  const end = projectionData.at(-1)?.balance ?? totalSavings;
-  const diff = end - totalSavings;
+  const lastPoint = projectionData.at(-1);
+  const end = lastPoint?.balance ?? totalSavings;
+  const diff = Math.round((end - totalSavings) * 100) / 100;
+  const domainMin = Math.min(...projectionData.map((point) => point.low ?? point.balance));
+  const domainMax = Math.max(...projectionData.map((point) => point.high ?? point.balance));
+  const figures = variability
+    ? [["Prudente", lastPoint?.low ?? end], ["Esperado", end], ["Optimista", lastPoint?.high ?? end]] as const
+    : [["Mínimo", min], ["Máximo", max], ["Variación", diff]] as const;
   const isAlert = min < totalSavings * 0.15 || min < 50;
   const tooltip = ({
     active,
     payload,
     label,
-  }: TooltipContentProps<TooltipValueType, string | number>) =>
-    active && payload?.length ? (
+  }: TooltipContentProps<TooltipValueType, string | number>) => {
+    const point: (typeof projectionData)[number] | undefined = payload?.[0]?.payload;
+    return active && point ? (
       <div className="glass-panel rounded-xl p-3 text-xs">
         <p className="mb-1.5 font-bold text-ink-soft">{String(label ?? "")}</p>
         <p className="font-semibold tabular-nums text-brand-ink">
-          Saldo previsto: {formatCurrency(toNumericValue(payload[0]?.value))}
+          Saldo esperado: {formatCurrency(point.balance)}
         </p>
+        {point.low !== undefined && point.high !== undefined && (
+          <p className="mt-1 text-ink-soft">
+            entre {formatCurrency(point.low)} y {formatCurrency(point.high)}
+          </p>
+        )}
       </div>
     ) : null;
+  };
 
   return (
     <section className="dashboard-surface p-5">
@@ -185,13 +205,7 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
       ) : (
         <>
           <div className="grid grid-cols-3 gap-2">
-            {(
-              [
-                ["Mínimo", min],
-                ["Máximo", max],
-                ["Variación", diff],
-              ] as const
-            ).map(([label, value]) => (
+            {figures.map(([label, value]) => (
               <div key={label} className="rounded-xl bg-surface-2 px-3 py-2">
                 <p className="text-[11px] font-semibold text-ink-soft">
                   {label}
@@ -205,7 +219,11 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
               </div>
             ))}
           </div>
-          <div className="mt-3 h-56 w-full">
+          <div
+            className="mt-3 h-56 w-full"
+            role="img"
+            aria-label={`Proyección de saldo a ${months} meses: saldo esperado ${formatCurrency(end)}${variability ? `, entre ${formatCurrency(lastPoint?.low ?? end)} y ${formatCurrency(lastPoint?.high ?? end)}` : `, mínimo ${formatCurrency(min)} y máximo ${formatCurrency(max)}`}.`}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={projectionData}
@@ -244,6 +262,8 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
                   tick={{ fill: "var(--ink-faint)", fontSize: 11 }}
                 />
                 <YAxis
+                  domain={[Math.floor(domainMin), Math.ceil(domainMax)]}
+                  tickFormatter={(value: number) => value.toLocaleString("es-ES", { maximumFractionDigits: 2 })}
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: "var(--ink-faint)", fontSize: 11 }}
@@ -252,17 +272,33 @@ export const PredictiveChart: React.FC<PredictiveChartProps> = ({
                   content={tooltip}
                   cursor={{ stroke: "var(--line-strong)" }}
                 />
+                {variability && (
+                  <Area
+                    type="monotone"
+                    dataKey={(point: (typeof projectionData)[number]) => [point.low, point.high]}
+                    stroke="none"
+                    fill="var(--brand)"
+                    fillOpacity={0.14}
+                    activeDot={false}
+                    isAnimationActive={false}
+                  />
+                )}
                 <Area
                   type="monotone"
                   dataKey="balance"
                   stroke="var(--brand)"
                   strokeWidth={2.25}
-                  fill="url(#flowtProjectionFill)"
+                  fill={variability ? "none" : "url(#flowtProjectionFill)"}
                   activeDot={{ r: 4, strokeWidth: 0 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          <p className="mt-3 text-xs text-ink-soft">
+            {variability
+              ? `La franja refleja lo que ha variado tu ahorro en tus últimos ${variability.periods} periodos.`
+              : "Con tres periodos completos de historial verás también una franja de incertidumbre."}
+          </p>
           {isAlert && (
             <p className="mt-3 flex gap-2 rounded-xl bg-rose-500/10 p-3 text-xs font-semibold text-rose-700 dark:text-rose-300">
               <AlertTriangle size={15} className="shrink-0" />
