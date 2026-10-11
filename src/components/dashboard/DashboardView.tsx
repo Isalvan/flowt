@@ -58,6 +58,7 @@ interface DashboardViewProps {
   onUpdateCategoria?: (id: string, categoria: string) => Promise<void>;
   onAcceptCompensation?: (base: Movimiento, allocations: { mov: Movimiento; importe: number }[]) => Promise<void>;
   onDismissCompensation?: (ingresoId: string, gastoId: string) => Promise<void>;
+  onDismissDuplicate?: (aId: string, bId: string) => Promise<void>;
   onConvert: (m: Movimiento) => void;
   onLink: (m: Movimiento) => void;
   onUnlink: (m: Movimiento) => void;
@@ -495,6 +496,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             onUpdateCategoria={props.onUpdateCategoria}
             onAcceptCompensation={props.onAcceptCompensation}
             onDismissCompensation={props.onDismissCompensation}
+          onDismissDuplicate={props.onDismissDuplicate}
             onConvert={props.onConvert}
             onLink={props.onLink}
             onUnlink={props.onUnlink}

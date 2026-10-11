@@ -108,6 +108,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     handleUpdateMovimientoConcepto,
     handleUpdateMovimientoCategoria,
     handleDismissCompensation,
+    dismissDuplicate,
     handleConvertMovimiento,
     handleLinkMovimiento,
     handleUnlinkMovimiento,
@@ -507,6 +508,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             onUpdateCategoria={handleUpdateMovimientoCategoria}
             onAcceptCompensation={handleLinkMovimiento}
             onDismissCompensation={handleDismissCompensation}
+            onDismissDuplicate={dismissDuplicate}
             onConvert={handleOpenConvertModal}
             onLink={handleOpenLinkModal}
             onUnlink={handleUnlinkMovimiento}

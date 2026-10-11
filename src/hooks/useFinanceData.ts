@@ -1547,6 +1547,26 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
+  const dismissDuplicate = async (aId: string, bId: string) => {
+    if (aId === bId) throw new Error('Selecciona dos movimientos distintos');
+    if (!isFirebaseConfigured) {
+      if (![aId, bId].every(id => movimientos.some(m => m.id === id))) throw new Error('El movimiento no está disponible');
+      const updated = movimientos.map(m => m.id === aId || m.id === bId ? {
+        ...m, duplicados_descartados: Array.from(new Set([...(m.duplicados_descartados ?? []), m.id === aId ? bId : aId])),
+      } : m);
+      saveDemoState(updated, huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      return;
+    }
+    if (!user) throw new Error('Inicia sesión para guardar');
+    await runTransaction(db, async transaction => {
+      const aRef = doc(db, 'movimientos', aId), bRef = doc(db, 'movimientos', bId);
+      const a = await transaction.get(aRef), b = await transaction.get(bRef);
+      if (!a.exists() || !b.exists() || a.data().id_propietario !== user.uid || b.data().id_propietario !== user.uid) throw new Error('El movimiento no está disponible');
+      transaction.update(aRef, { duplicados_descartados: arrayUnion(bId), updated_at: serverTimestamp() });
+      transaction.update(bRef, { duplicados_descartados: arrayUnion(aId), updated_at: serverTimestamp() });
+    });
+  };
+
   const handleDismissCompensation = async (ingresoId: string, gastoId: string) => {
     if (!isFirebaseConfigured) {
       const updated = movimientos.map(m => m.id === ingresoId ? { ...m, compensaciones_descartadas: Array.from(new Set([...(m.compensaciones_descartadas || []), gastoId])) } : m);
@@ -2919,6 +2939,7 @@ export const useFinanceData = (forceDemo = false) => {
     handleUpdateMovimientoConcepto,
     handleUpdateMovimientoCategoria,
     handleDismissCompensation,
+    dismissDuplicate,
     handleConvertMovimiento,
     handleLinkMovimiento,
     handleUnlinkMovimiento,

@@ -16,6 +16,7 @@ export interface Movimiento {
   categoria_sugerida?: string;
   categoria_confianza?: 'alta' | 'media' | 'baja';
   compensaciones_descartadas?: string[];
+  duplicados_descartados?: string[];
   importe: number;
   fecha_operacion: any; // Firestore Timestamp, Date, or string representation
   hucha_id?: string;

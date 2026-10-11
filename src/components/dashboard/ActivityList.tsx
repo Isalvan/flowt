@@ -29,8 +29,9 @@ import { ServiceIcon } from './ServiceIcon';
 import { resolveServiceKey } from '../../utils/serviceNames';
 import { CategoryPicker } from './CategoryPicker';
 import { MovementReview } from './MovementReview';
+import { DuplicateChargeReview } from './DuplicateChargeReview';
 import { importeEnEstadisticas } from '../../utils/movements';
-import { suggestCompensations } from '../../utils/movementSuggestions';
+import { findDuplicateCharges, suggestCompensations } from '../../utils/movementSuggestions';
 import { useCategories } from '../../hooks/useCategories';
 
 interface ActivityListProps {
@@ -42,6 +43,7 @@ interface ActivityListProps {
   onUpdateCategoria?: (id: string, categoria: string) => Promise<void>;
   onAcceptCompensation?: (base: Movimiento, allocations: { mov: Movimiento; importe: number }[]) => Promise<void>;
   onDismissCompensation?: (ingresoId: string, gastoId: string) => Promise<void>;
+  onDismissDuplicate?: (aId: string, bId: string) => Promise<void>;
   onConvert: (mov: Movimiento) => void;
   onLink: (mov: Movimiento) => void;
   onUnlink: (ingreso: Movimiento) => void;
@@ -58,6 +60,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   onUpdateCategoria,
   onAcceptCompensation,
   onDismissCompensation,
+  onDismissDuplicate,
   onConvert,
   onLink,
   onUnlink,
@@ -86,7 +89,10 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   const compensations = React.useMemo(() => new Map(
     onAcceptCompensation && onDismissCompensation ? suggestCompensations(allMovimientos).map(s => [s.ingreso.id, s]) : []
   ), [allMovimientos, onAcceptCompensation, onDismissCompensation]);
-  const pendingCount = allMovimientos.filter(m => (onUpdateCategoria && suggestCategory(m)) || compensations.has(m.id)).length;
+  const duplicates = React.useMemo(() => new Map(
+    onDismissDuplicate ? findDuplicateCharges(allMovimientos).flatMap(pair => [[pair.a.id, pair], [pair.b.id, pair]] as const) : []
+  ), [allMovimientos, onDismissDuplicate]);
+  const pendingCount = allMovimientos.filter(m => (onUpdateCategoria && suggestCategory(m)) || compensations.has(m.id) || duplicates.get(m.id)?.b.id === m.id).length;
 
   const formatDate = (dateValue: unknown) => {
     const d = parseMovimientoDate(dateValue);
@@ -139,7 +145,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
     const baseList = isFilterActive ? allMovimientos : movimientos;
 
     return baseList.filter(m => {
-      if (selectedCategoria === 'pending' && !suggestCategory(m) && !compensations.has(m.id)) return false;
+      if (selectedCategoria === 'pending' && !suggestCategory(m) && !compensations.has(m.id) && duplicates.get(m.id)?.b.id !== m.id) return false;
       if (selectedCategoria !== 'all' && selectedCategoria !== 'pending' && (m.categoria || suggestCategory(m)?.categoria || 'sin_categorizar') !== selectedCategoria) return false;
       // 1. Text Search
       if (searchTerm) {
@@ -216,7 +222,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
 
       return true;
     });
-  }, [movimientos, allMovimientos, compensations, suggestCategory, searchTerm, selectedHucha, selectedTipo, selectedCategoria, selectedBanco, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
+  }, [movimientos, allMovimientos, compensations, duplicates, suggestCategory, searchTerm, selectedHucha, selectedTipo, selectedCategoria, selectedBanco, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
 
   // CSV Exporter using currently filtered items
   const exportToCSV = () => {
@@ -446,6 +452,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             const linkedMovs = hasCompensaciones ? getLinkedMovements(m) : [];
             const isEditing = editingId === m.id;
             const compensation = compensations.get(m.id);
+            const duplicate = duplicates.get(m.id);
             const reassignable = huchas.filter(h => !h.es_suscripciones && h.activa !== false);
 
             let expensePercentage = 0;
@@ -562,6 +569,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                             >
                               {m.concepto}
                             </p>
+                            {!isLocked && duplicate && <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">Posible duplicado</span>}
                             <button
                               type="button"
                               onClick={() => handleStartEdit(m)}
@@ -681,6 +689,11 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                     </div>
                   </div>
                 </div>
+                {duplicate?.b.id === m.id && onDismissDuplicate && (
+                  <div className="mt-3 sm:pl-[3.25rem]">
+                    <DuplicateChargeReview key={`${duplicate.a.id}:${duplicate.b.id}`} pair={duplicate} onDismiss={onDismissDuplicate} />
+                  </div>
+                )}
                 {compensation && onAcceptCompensation && onDismissCompensation && (
                   <div className="mt-3 sm:pl-[3.25rem]">
                     <MovementReview key={compensation.id} suggestion={compensation} onAccept={onAcceptCompensation} onDismiss={onDismissCompensation} onAdjust={onLink} />
