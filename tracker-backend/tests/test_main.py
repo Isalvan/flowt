@@ -387,3 +387,100 @@ def test_gmail_webhook_authorized(mock_process, mock_config):
         response, status = main.gmail_webhook(request)
         assert status == 200
         mock_process.assert_called_once()
+
+
+def hucha_doc(doc_id, **data):
+    doc = MagicMock()
+    doc.id = doc_id
+    doc.reference = MagicMock(name=f"{doc_id}-ref")
+    doc.to_dict.return_value = data
+    return doc
+
+
+def process_single_movement(mock_config, mock_gmail_client, mock_gemini, tipo, importe, huchas):
+    """Run the synchroniser over one bank email and return the wallet updates by reference."""
+    mock_get, _ = mock_gmail_client
+    mock_firestore, mock_collection = mock_config
+    mock_get.return_value = [{"id": f"mail-{tipo}", "message_id": "m", "from": "test@bank.com",
+                              "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200", "body": f"Movimiento {importe}"}]
+    mock_gemini.return_value = [{"tipo": tipo, "importe": importe, "fecha": "2026-04-11", "descripcion": "M",
+                                 "moneda": "EUR", "confianza": "alta"}]
+    mock_collection.document.return_value.get.return_value.exists = False
+    mock_query = MagicMock()
+    mock_query.stream.return_value = huchas
+    mock_collection.where.return_value.order_by.return_value = mock_query
+    main.process_emails()
+    references = {hucha.reference: hucha.id for hucha in huchas}
+    return {references[call.args[0]]: call.args[1]
+            for call in mock_firestore.transaction.return_value.update.call_args_list if call.args[0] in references}
+
+
+def test_archived_wallets_receive_no_income(mock_config, mock_gmail_client, mock_gemini):
+    huchas = [
+        hucha_doc("h-fija-archivada", tipo_aportacion="flat", valor_aportacion=30, saldo_acumulado=0, activa=False),
+        hucha_doc("h-porcentaje-archivada", tipo_aportacion="porcentaje", valor_aportacion=40, saldo_acumulado=0, activa=False),
+        hucha_doc("h-viaje", tipo_aportacion="porcentaje", valor_aportacion=10, saldo_acumulado=0, activa=True),
+        hucha_doc("h-resto", tipo_aportacion="resto", saldo_acumulado=0),
+    ]
+    updates = process_single_movement(mock_config, mock_gmail_client, mock_gemini, "ingreso", 100.0, huchas)
+    assert updates == {
+        "h-viaje": {"saldo_acumulado": 10.0, "updated_at": main.firestore.SERVER_TIMESTAMP},
+        "h-resto": {"saldo_acumulado": 90.0, "updated_at": main.firestore.SERVER_TIMESTAMP},
+    }
+
+
+def test_archived_wallets_do_not_block_income_when_their_percentages_exceed_the_limit(mock_config, mock_gmail_client, mock_gemini):
+    huchas = [
+        hucha_doc("h-archivada", tipo_aportacion="porcentaje", valor_aportacion=95, saldo_acumulado=0, activa=False),
+        hucha_doc("h-viaje", tipo_aportacion="porcentaje", valor_aportacion=10, saldo_acumulado=0),
+        hucha_doc("h-resto", tipo_aportacion="resto", saldo_acumulado=0),
+    ]
+    updates = process_single_movement(mock_config, mock_gmail_client, mock_gemini, "ingreso", 100.0, huchas)
+    assert {key: value["saldo_acumulado"] for key, value in updates.items()} == {"h-viaje": 10.0, "h-resto": 90.0}
+
+
+def test_archived_rest_wallet_is_not_the_income_fallback(mock_config, mock_gmail_client, mock_gemini):
+    huchas = [
+        hucha_doc("h-resto-archivado", tipo_aportacion="resto", saldo_acumulado=0, activa=False),
+        hucha_doc("h-principal", tipo_aportacion="flat", valor_aportacion=0, es_principal=True, saldo_acumulado=5),
+    ]
+    updates = process_single_movement(mock_config, mock_gmail_client, mock_gemini, "ingreso", 100.0, huchas)
+    assert updates == {"h-principal": {"saldo_acumulado": 105.0, "updated_at": main.firestore.SERVER_TIMESTAMP}}
+
+
+def test_archived_main_wallet_is_not_charged_expenses(mock_config, mock_gmail_client, mock_gemini):
+    huchas = [
+        hucha_doc("h-principal-archivada", tipo_aportacion="flat", valor_aportacion=0, es_principal=True, saldo_acumulado=0, activa=False),
+        hucha_doc("h-resto", tipo_aportacion="resto", es_principal=False, saldo_acumulado=100),
+    ]
+    updates = process_single_movement(mock_config, mock_gmail_client, mock_gemini, "gasto", 30.0, huchas)
+    assert updates == {"h-resto": {"saldo_acumulado": 70.0, "updated_at": main.firestore.SERVER_TIMESTAMP}}
+
+
+def test_debt_is_repaid_to_an_active_lender(mock_config, mock_gmail_client, mock_gemini):
+    huchas = [
+        hucha_doc("h-fija", tipo_aportacion="flat", valor_aportacion=40, saldo_acumulado=0, deuda_pendiente=20, deuda_con="h-resto"),
+        hucha_doc("h-resto", tipo_aportacion="resto", saldo_acumulado=0),
+    ]
+    updates = process_single_movement(mock_config, mock_gmail_client, mock_gemini, "ingreso", 100.0, huchas)
+    assert updates == {
+        "h-fija": {"saldo_acumulado": 20.0, "updated_at": main.firestore.SERVER_TIMESTAMP,
+                   "deuda_pendiente": 0.0, "deuda_con": main.firestore.DELETE_FIELD},
+        "h-resto": {"saldo_acumulado": 80.0, "updated_at": main.firestore.SERVER_TIMESTAMP},
+    }
+
+
+@pytest.mark.parametrize("lender", [
+    [hucha_doc("h-prestamista", tipo_aportacion="flat", valor_aportacion=0, saldo_acumulado=0, activa=False)],
+    [],
+], ids=["archived lender", "missing lender"])
+def test_debt_to_an_unavailable_lender_stays_pending_and_no_money_is_lost(mock_config, mock_gmail_client, mock_gemini, lender):
+    huchas = lender + [
+        hucha_doc("h-fija", tipo_aportacion="flat", valor_aportacion=40, saldo_acumulado=0, deuda_pendiente=20, deuda_con="h-prestamista"),
+        hucha_doc("h-resto", tipo_aportacion="resto", saldo_acumulado=0),
+    ]
+    updates = process_single_movement(mock_config, mock_gmail_client, mock_gemini, "ingreso", 100.0, huchas)
+    assert updates == {
+        "h-fija": {"saldo_acumulado": 40.0, "updated_at": main.firestore.SERVER_TIMESTAMP},
+        "h-resto": {"saldo_acumulado": 60.0, "updated_at": main.firestore.SERVER_TIMESTAMP},
+    }

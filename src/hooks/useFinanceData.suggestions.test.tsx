@@ -27,7 +27,19 @@ describe('persistencia de propuestas en demo', () => {
     const reloaded = renderHook(() => useFinanceData(true));
     await waitFor(() => expect(reloaded.result.current.loading).toBe(false));
     expect(reloaded.result.current.movimientos.find(m => m.id === 'g')?.categoria).toBe('restaurantes');
+    expect(reloaded.result.current.movimientos.find(m => m.id === 'g')?.review_protected_fields).toContain('categoria');
     expect(suggestCompensations(reloaded.result.current.movimientos)).toHaveLength(0);
+  });
+  it('protege nombres corregidos manualmente tras recargar', async () => {
+    const { result, unmount } = renderHook(() => useFinanceData(true));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(() => result.current.handleUpdateMovimientoConcepto('g', 'Cena compartida'));
+    unmount();
+    const reloaded = renderHook(() => useFinanceData(true));
+    await waitFor(() => expect(reloaded.result.current.loading).toBe(false));
+    const gasto = reloaded.result.current.movimientos.find(m => m.id === 'g');
+    expect(gasto?.concepto).toBe('Cena compartida');
+    expect(gasto?.review_protected_fields).toContain('concepto');
   });
   it('solo vincula tras aceptar y no permite repetir la aceptación', async () => {
     const { result } = renderHook(() => useFinanceData(true));

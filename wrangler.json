@@ -1,0 +1,9 @@
+{
+  "name": "flowt-mcp",
+  "main": "mcp-worker/src/worker.js",
+  "compatibility_date": "2026-03-01",
+  "vars": {
+    "FIREBASE_PROJECT_ID": "flowt-63536",
+    "APP_URL": "https://flowt-63536.web.app"
+  }
+}

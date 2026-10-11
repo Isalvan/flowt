@@ -12,6 +12,7 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { Toast } from './components/common/Toast';
 import { DashboardSkeleton } from './components/dashboard/DashboardSkeleton';
 import { MANUAL_LOGIN_PATH } from './components/auth/manualLoginPath';
+import { ConnectConsent, CONNECT_PATH } from './components/auth/ConnectConsent';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { FlowtLogo } from './components/common/FlowtLogo';
 
@@ -347,6 +348,11 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     return <LoginScreen onLogin={handleLogin} onDemo={() => setForceDemo(true)} />;
   }
 
+  // An assistant sent the user here to approve its access; no financial data is shown.
+  if (isFirebaseConfigured && user && window.location.pathname.replace(/\/$/, '') === CONNECT_PATH) {
+    return <ConnectConsent email={user.email} onLogout={handleLogout} />;
+  }
+
   const firstName = !isLocked ? user?.displayName?.trim().split(/\s+/)[0] : undefined;
 
   return (
@@ -547,6 +553,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
               loadOlderMovements={loadOlderMovements}
               userStats={userStats}
               userId={user?.uid}
+              demo={!isFirebaseConfigured}
               onRestoreHucha={handleRestoreHucha}
             />
           </React.Suspense>

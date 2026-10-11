@@ -124,9 +124,6 @@
     "@typescript-eslint/no-explicit-any": {
       "count": 14
     },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
-    },
     "prefer-const": {
       "count": 8
     }
