@@ -91,7 +91,7 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
         if (merchantMatch && merchantMatch[1]) {
           inferredConcept = `Cargo ${merchantMatch[1].trim()}`;
         } else {
-          inferredConcept = 'Gasto Manual';
+          inferredConcept = 'Gasto manual';
         }
       } else {
         const bizumSenderRegex = /(?:bizum de|de)\s+([A-Z\s]{3,25})(?:\s+el|\.|\n)/i;
@@ -99,7 +99,7 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
         if (bizumMatch && bizumMatch[1]) {
           inferredConcept = `Bizum de ${bizumMatch[1].trim()}`;
         } else {
-          inferredConcept = 'Abono Manual';
+          inferredConcept = 'Abono manual';
         }
       }
 
@@ -175,7 +175,7 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
         <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink sm:text-4xl">
           Revisión manual
         </h2>
-        <p className="mt-1 text-sm text-ink-soft">
+        <p className="dashboard-subtitle">
           Correos bancarios que requirieron revisión o tuvieron baja confianza en el parseo automático
         </p>
       </div>
@@ -196,36 +196,34 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
                 return (
                   <button
                     key={email.id}
+                    type="button"
                     onClick={() => setSelectedEmail(email)}
-                    className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 cursor-pointer ${
-                      selectedEmail?.id === email.id
-                        ? 'bg-indigo-500/10 border-indigo-500/30 text-slate-800 dark:text-slate-100 shadow-md ring-2 ring-indigo-500/10'
-                        : 'bg-white/40 dark:bg-slate-900/20 border-white/5 hover:border-slate-350 dark:hover:border-white/10 hover:bg-white/80 dark:hover:bg-slate-950/20'
-                    }`}
+                    aria-pressed={selectedEmail?.id === email.id}
+                    className="choice-card w-full"
                   >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-indigo-500 dark:text-indigo-400 bg-indigo-500/5 px-2 py-0.5 rounded-lg border border-indigo-500/10 shrink-0">
-                        <Mail className="w-3 h-3" /> Gmail ID
+                    <div className="flex w-full items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold text-brand-ink bg-brand-tint px-2 py-0.5 rounded-lg shrink-0">
+                        <Mail className="w-3.5 h-3.5" /> Gmail ID
                       </span>
-                      <span className="text-[10px] font-bold text-slate-400 tabular-nums">{dateLabel}</span>
+                      <span className="text-[11px] font-semibold text-ink-faint tabular-nums">{dateLabel}</span>
                     </div>
                     
-                    <p className="text-xs text-slate-500 dark:text-slate-450 line-clamp-2 leading-relaxed font-semibold italic mt-2">
-                      "{email.cuerpo.slice(0, 120)}..."
+                    <p className="text-xs text-ink-soft line-clamp-2 leading-relaxed font-semibold italic mt-1">
+                      "{email.cuerpo.slice(0, 120)}…"
                     </p>
                     
-                    <div className="flex items-center gap-1 text-[8.5px] font-bold text-rose-500 dark:text-rose-400 mt-3 uppercase tracking-wider bg-rose-500/5 px-2.5 py-1 rounded-xl border border-rose-500/10 w-fit">
-                      <AlertTriangle className="w-3 h-3" />
+                    <div className="flex items-center gap-1 text-[11px] font-bold text-rose-500 dark:text-rose-400 mt-2 bg-rose-500/10 px-2.5 py-1 rounded-xl">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                       {email.motivo}
                     </div>
                   </button>
                 );
               })
             ) : (
-              <div className="flex flex-col items-center justify-center p-12 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 text-center">
-                <CheckCircle className="w-10 h-10 text-emerald-500 mb-3 animate-pulse" />
-                <p className="font-extrabold text-sm text-slate-400 dark:text-slate-600 uppercase tracking-widest">¡Todo al día!</p>
-                <p className="text-xs text-slate-400 mt-1">No hay correos pendientes de revisión manual.</p>
+              <div className="dashboard-empty p-8">
+                <CheckCircle className="w-8 h-8 text-emerald-500" />
+                <p className="dashboard-heading">¡Todo al día!</p>
+                <p className="text-xs text-ink-soft">No hay correos pendientes de revisión manual.</p>
               </div>
             )}
           </div>
@@ -237,38 +235,32 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
             <div className="grid gap-6 md:grid-cols-2 h-full">
               
               {/* Left Workspace Panel: Raw Email Content */}
-              <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-xl p-5 flex flex-col justify-between h-full">
+              <Card className="flex flex-col justify-between h-full">
                 <div className="h-full flex flex-col">
-                  <div className="flex items-center justify-between gap-4 mb-4 border-b border-slate-150/40 dark:border-white/5 pb-3 shrink-0">
-                    <div className="flex items-center gap-1.5 font-extrabold text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                      <FileText className="w-4 h-4 text-indigo-500" />
-                      Correo Bancario
+                  <div className="flex items-center justify-between gap-4 mb-4 border-b border-line pb-3 shrink-0">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-ink-soft">
+                      <FileText className="w-4 h-4 text-brand-ink" />
+                      Correo bancario
                     </div>
                     
                     {isHtml && (
-                      <div className="flex items-center bg-slate-100/70 dark:bg-slate-900/50 p-0.5 rounded-xl border border-slate-200/40 dark:border-white/5 shadow-inner">
+                      <div role="group" aria-label="Modo de vista" className="segmented">
                         <button
                           type="button"
                           onClick={() => setViewMode('html')}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
-                            viewMode === 'html'
-                              ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                              : 'text-slate-400 hover:text-slate-600 dark:text-slate-505 dark:hover:text-slate-300'
-                          }`}
+                          aria-pressed={viewMode === 'html'}
+                          className="segmented-item"
                         >
-                          <Sparkles className="w-3 h-3" />
+                          <Sparkles className="w-3.5 h-3.5" />
                           Formateado
                         </button>
                         <button
                           type="button"
                           onClick={() => setViewMode('text')}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
-                            viewMode === 'text'
-                              ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                              : 'text-slate-400 hover:text-slate-600 dark:text-slate-505 dark:hover:text-slate-300'
-                          }`}
+                          aria-pressed={viewMode === 'text'}
+                          className="segmented-item"
                         >
-                          <FileText className="w-3 h-3" />
+                          <FileText className="w-3.5 h-3.5" />
                           Plano
                         </button>
                       </div>
@@ -279,20 +271,20 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
                     {viewMode === 'html' ? (
                       <iframe
                         srcDoc={`<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: cid:"><style>body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:1.5rem;color:#334155;}@media(prefers-color-scheme:dark){body{color:#cbd5e1;}}</style></head><body>${selectedEmail.cuerpo}</body></html>`}
-                        title="Formatted Email Preview"
+                        title="Vista previa del correo"
                         sandbox=""
-                        className="w-full h-full bg-white rounded-2xl border border-slate-200/50 dark:border-slate-800 shadow-inner overflow-hidden select-text"
+                        className="w-full h-full bg-surface rounded-2xl border border-line shadow-inner overflow-hidden select-text"
                       />
                     ) : (
-                      <div className="w-full h-full overflow-y-auto pr-1 bg-slate-100/40 dark:bg-slate-950/20 border border-slate-200/50 dark:border-white/5 p-4 rounded-2xl text-[11px] leading-relaxed font-mono whitespace-pre-wrap select-text text-slate-700 dark:text-slate-300">
+                      <div className="w-full h-full overflow-y-auto pr-1 bg-surface-2 border border-line p-4 rounded-2xl text-[11px] leading-relaxed font-mono whitespace-pre-wrap select-text text-ink">
                         {selectedEmail.cuerpo}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-white/5 flex gap-2.5 bg-indigo-500/5 rounded-2xl border border-indigo-500/10 text-[9.5px] leading-relaxed text-indigo-700 dark:text-indigo-300 shrink-0">
-                  <Info size={14} className="shrink-0 mt-0.5" />
+                <div className="mt-4 pt-3 border-t border-line flex gap-2 rounded-2xl bg-surface-2 p-3 text-[11px] leading-relaxed text-ink-soft shrink-0">
+                  <Info size={14} className="shrink-0 mt-0.5 text-brand-ink" />
                   <span>
                     El remitente y la fecha del correo (`{new Date(selectedEmail.fecha_envio).toLocaleString()}`) se utilizan como metadatos de validación.
                   </span>
@@ -300,41 +292,35 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
               </Card>
 
               {/* Right Workspace Panel: Approval and Adjustment Form */}
-              <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-xl p-5 flex flex-col justify-between h-full">
+              <Card className="flex flex-col justify-between h-full">
                 <form onSubmit={handleApproveClick} className="space-y-4 h-full flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center gap-1.5 font-extrabold text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 border-b border-white/5 pb-3">
-                      <Sparkles className="w-4 h-4 text-indigo-500 animate-pulse" />
-                      Ajuste de Transacción
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-ink-soft mb-4 border-b border-line pb-3">
+                      <Sparkles className="w-4 h-4 text-brand-ink" />
+                      Ajuste de transacción
                     </div>
 
                     <div className="space-y-4">
                       {/* Type toggle selection */}
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo de Movimiento</label>
-                        <div className="flex bg-slate-100/60 dark:bg-slate-900 p-1 rounded-2xl border border-slate-200/40 dark:border-white/5">
+                        <label className="field-label">Tipo de movimiento</label>
+                        <div role="group" aria-label="Tipo de movimiento" className="segmented w-full">
                           <button
                             type="button"
                             onClick={() => setTipo('gasto')}
-                            className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 ${
-                              tipo === 'gasto'
-                                ? 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-sm'
-                                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-350'
-                            }`}
+                            aria-pressed={tipo === 'gasto'}
+                            className="segmented-item flex-1 justify-center"
                           >
-                            <ArrowDownRight size={14} />
+                            <ArrowDownRight size={14} className="text-rose-500" />
                             Gasto
                           </button>
                           <button
                             type="button"
                             onClick={() => setTipo('ingreso')}
-                            className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 ${
-                              tipo === 'ingreso'
-                                ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-350'
-                            }`}
+                            aria-pressed={tipo === 'ingreso'}
+                            className="segmented-item flex-1 justify-center"
                           >
-                            <ArrowUpRight size={14} />
+                            <ArrowUpRight size={14} className="text-emerald-600 dark:text-emerald-400" />
                             Ingreso
                           </button>
                         </div>
@@ -342,57 +328,61 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
 
                       {/* Concept input */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black uppercase tracking-wider text-slate-400">Concepto</label>
+                        <label htmlFor="manual-concepto" className="field-label">Concepto</label>
                         <input
+                          id="manual-concepto"
                           type="text"
                           required
                           value={concepto}
                           onChange={(e) => setConcepto(e.target.value)}
-                          placeholder="Ej: Nómina Mayo, Compra Super..."
-                          className="w-full text-xs font-bold bg-white/40 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          placeholder="Ej: Nómina mayo, compra super…"
+                          className="field"
                         />
                       </div>
 
                       {/* Import and Date row */}
                       <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black uppercase tracking-wider text-slate-400">Importe (€)</label>
+                          <label htmlFor="manual-importe" className="field-label">Importe (€)</label>
                           <input
+                            id="manual-importe"
                             type="number"
                             step="0.01"
                             required
                             placeholder="0.00"
                             value={importe}
                             onChange={(e) => setImporte(e.target.value)}
-                            className="w-full text-xs font-bold bg-white/40 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="field tabular-nums"
                           />
                         </div>
 
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black uppercase tracking-wider text-slate-400">Fecha Operación</label>
+                          <label htmlFor="manual-fecha" className="field-label">Fecha operación</label>
                           <input
+                            id="manual-fecha"
                             type="date"
                             required
                             value={fecha}
                             onChange={(e) => setFecha(e.target.value)}
-                            className="w-full text-xs font-bold bg-white/40 dark:bg-slate-950/20 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="field"
                           />
                         </div>
                       </div>
 
                       {/* Hucha selector */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                          {tipo === 'gasto' ? 'Cartera Destino (Gasto)' : 'Cartera Destino (Ingreso)'}
+                        <label htmlFor="manual-hucha" className="field-label">
+                          {tipo === 'gasto' ? 'Cartera destino (gasto)' : 'Cartera destino (ingreso)'}
                         </label>
                         <select
+                          id="manual-hucha"
                           value={selectedHuchaId}
                           onChange={(e) => setSelectedHuchaId(e.target.value)}
-                          className="w-full text-xs font-bold bg-white/40 dark:bg-slate-950/20 text-slate-755 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 rounded-xl px-3 py-2.5 focus:outline-none cursor-pointer"
+                          className="field"
                         >
                           {tipo === 'ingreso' ? (
                             <>
-                              <option value="">Distribuir automáticamente (Nómina)</option>
+                              <option value="">Distribuir automáticamente (nómina)</option>
                               {huchas.map(h => (
                                 <option key={h.id} value={h.id}>Meter todo en: {h.nombre}</option>
                               ))}
@@ -410,11 +400,11 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
                   </div>
 
                   {/* Actions buttons */}
-                  <div className="flex gap-2.5 pt-4 border-t border-white/5 mt-4">
+                  <div className="flex gap-2.5 pt-4 border-t border-line mt-4">
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-450 hover:to-teal-500 text-white font-extrabold text-xs uppercase tracking-widest rounded-2xl active:scale-95 shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="dashboard-primary-button flex-1"
                     >
                       <CheckCircle className="w-4 h-4" />
                       Registrar
@@ -424,8 +414,9 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
                       type="button"
                       disabled={isSubmitting}
                       onClick={handleDiscardClick}
-                      className="py-3 px-4 border border-rose-500/20 hover:bg-rose-500 text-rose-500 hover:text-white font-bold text-xs uppercase tracking-widest rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="dashboard-icon-button is-danger h-auto w-11 rounded-xl"
                       title="Descartar correo"
+                      aria-label="Descartar correo"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -435,10 +426,10 @@ export const ManualReviewView: React.FC<ManualReviewViewProps> = ({
 
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 text-center h-[520px]">
-              <Mail className="mb-4 h-12 w-12 text-ink-faint" />
+            <div className="dashboard-empty h-[520px]">
+              <Mail className="mb-2 h-10 w-10 text-ink-faint" />
               <h3 className="dashboard-heading">Elige un correo para revisarlo</h3>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm">
+              <p className="text-xs text-ink-soft mt-1 max-w-sm">
                 Selecciona un correo bancario de la bandeja de entrada de la izquierda para analizarlo y registrarlo manualmente.
               </p>
             </div>

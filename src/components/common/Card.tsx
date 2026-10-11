@@ -5,7 +5,7 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
   hoverable?: boolean;
   glow?: boolean;
-  glowColor?: string; // e.g., 'rgba(56, 189, 248, 0.15)'
+  glowColor?: string;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -13,49 +13,17 @@ export const Card: React.FC<CardProps> = ({
   className = '',
   hoverable = false,
   glow = false,
-  glowColor = 'rgba(56, 189, 248, 0.08)',
+  glowColor = '',
   ...props
 }) => {
-  const isGradient = className.includes('bg-gradient-');
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!glow) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    e.currentTarget.style.setProperty('--x', `${x}px`);
-    e.currentTarget.style.setProperty('--y', `${y}px`);
-  };
+  void glow;
+  void glowColor;
 
   return (
     <div
-      onMouseMove={handleMouseMove}
-      className={`
-        ${isGradient ? 'rounded-[1.25rem] shadow-sm' : 'flowt-card'}
-        p-6 
-        relative 
-        overflow-hidden
-        group
-        ${hoverable ? 'is-liftable cursor-pointer' : ''}
-        ${className}
-      `}
-      style={{
-        boxShadow: glow 
-          ? `0 10px 30px -10px rgba(0,0,0,0.04), 0 1px 1px rgba(0,0,0,0.01), 0 0 20px ${glowColor}`
-          : undefined,
-        ...props.style,
-      }}
+      className={`dashboard-surface p-5 relative overflow-hidden group ${hoverable ? 'is-liftable cursor-pointer' : ''} ${className}`}
       {...props}
     >
-      {/* Background radial gradient element for subtle internal glows */}
-      {glow && (
-        <div 
-          className="absolute -inset-px -z-10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-          style={{
-            background: `radial-gradient(400px circle at var(--x, 0px) var(--y, 0px), ${glowColor}, transparent 80%)`
-          }}
-        />
-      )}
       {children}
     </div>
   );

@@ -129,24 +129,19 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={
-        <div className="flex items-center gap-2">
-          <ArrowRightLeft className="text-indigo-500" size={24} />
-          <span>Convertir Movimiento</span>
-        </div>
-      }
+      title="Convertir movimiento"
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Info card of current transaction */}
-        <div className="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 flex items-center justify-between">
+        <div className="rounded-2xl bg-surface-2 p-4 flex items-center justify-between">
           <div className="flex flex-col truncate pr-3">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Concepto del movimiento</span>
-            <span className="text-sm font-bold text-slate-800 dark:text-white truncate">{movimiento?.concepto}</span>
+            <span className="dashboard-label">Concepto del movimiento</span>
+            <span className="text-sm font-bold text-ink truncate">{movimiento?.concepto}</span>
           </div>
           <div className="text-right shrink-0">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Importe actual</span>
-            <div className={`text-base font-extrabold ${movimiento?.tipo === 'gasto' ? 'text-rose-500' : 'text-emerald-500'}`}>
+            <span className="dashboard-label">Importe actual</span>
+            <div className={`text-base font-extrabold tabular-nums ${movimiento?.tipo === 'gasto' ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
               {movimiento?.tipo === 'gasto' ? '-' : '+'}{formatCurrency(amount)}
             </div>
           </div>
@@ -155,25 +150,26 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
         {movimiento?.tipo === 'ingreso' ? (
           /* INGRESO -> GASTO */
           <div className="space-y-4 animate-appear-up">
-            <div className="flex gap-2.5 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 rounded-2xl text-xs leading-normal">
-              <Info size={18} className="shrink-0 text-amber-500" />
+            <div className="notice is-warning">
+              <Info size={16} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
               <span>
-                Convertirás este <strong>Ingreso</strong> en un <strong>Gasto</strong>.
+                Convertirás este <strong>ingreso</strong> en un <strong>gasto</strong>.
                 Esto restará el importe del saldo de la cartera que elijas a continuación, y anulará el reparto original que tuvo este ingreso.
               </span>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+              <label htmlFor="convert-target-hucha" className="field-label">
                 Cartera a la que imputar el gasto
               </label>
               <select
+                id="convert-target-hucha"
                 value={targetHuchaId}
                 onChange={(e) => setTargetHuchaId(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all cursor-pointer"
+                className="field"
               >
                 {huchas.filter(h => h.activa !== false).map(h => (
-                  <option key={h.id} value={h.id} className="text-slate-800 dark:text-slate-200">
+                  <option key={h.id} value={h.id}>
                     {h.nombre} (Saldo: {formatCurrency(h.saldo_acumulado)})
                   </option>
                 ))}
@@ -183,26 +179,26 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
         ) : (
           /* GASTO -> INGRESO */
           <div className="space-y-4 animate-appear-up">
-            <div className="flex gap-2.5 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 rounded-2xl text-xs leading-normal">
-              <Info size={18} className="shrink-0 text-amber-500" />
+            <div className="notice is-warning">
+              <Info size={16} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
               <span>
-                Convertirás este <strong>Gasto</strong> en un <strong>Ingreso</strong>.
+                Convertirás este <strong>gasto</strong> en un <strong>ingreso</strong>.
                 Esto revertirá la sustracción original del gasto (+{formatCurrency(amount)} en su cartera original) y distribuirá el importe como un nuevo ingreso entre tus carteras.
               </span>
             </div>
 
             {/* Distribution rules ledger */}
             <div className="space-y-3.5">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/60">
-                <span className="text-xs font-bold text-slate-400">Reglas de Distribución del Ingreso</span>
-                <div className="flex items-center gap-1.5 text-xs font-extrabold">
+              <div className="flex items-center justify-between pb-2 border-b border-line">
+                <span className="field-label mb-0">Reglas de distribución del ingreso</span>
+                <div className="flex items-center gap-1.5 text-xs font-bold tabular-nums">
                   {isBalanced ? (
-                    <span className="text-emerald-500 dark:text-emerald-400 flex items-center gap-1">
+                    <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                       <CheckCircle2 size={14} />
                       Asignación balanceada
                     </span>
                   ) : (
-                    <span className="text-amber-500 flex items-center gap-1">
+                    <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
                       <AlertCircle size={14} />
                       Restante: {formatCurrency(remainingAmount)}
                     </span>
@@ -211,14 +207,14 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
               </div>
 
               {/* Rows */}
-              <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+              <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
                 {rows.map((row, idx) => (
-                  <div key={idx} className="flex flex-col md:flex-row items-stretch md:items-center gap-2 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white/20 dark:bg-slate-950/10">
+                  <div key={idx} className="flex flex-col md:flex-row items-stretch md:items-center gap-2 p-2.5 rounded-2xl bg-surface-2">
                     {/* Hucha */}
                     <select
                       value={row.huchaId}
                       onChange={(e) => handleRowChange(idx, 'huchaId', e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-800 dark:text-white"
+                      className="field flex-1 py-1.5 text-xs"
                     >
                       {huchas.filter(h => h.activa !== false).map(h => (
                         <option key={h.id} value={h.id}>{h.nombre}</option>
@@ -229,7 +225,7 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
                     <select
                       value={row.tipoAportacion}
                       onChange={(e) => handleRowChange(idx, 'tipoAportacion', e.target.value as any)}
-                      className="w-28 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-800 dark:text-white"
+                      className="field w-28 py-1.5 text-xs"
                     >
                       <option value="porcentaje">Porcentaje</option>
                       <option value="flat">Fijo (€)</option>
@@ -240,7 +236,7 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
                     <div className="relative w-32 shrink-0">
                       {row.tipoAportacion !== 'resto' ? (
                         <>
-                          <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-400">
+                          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-ink-faint">
                             {row.tipoAportacion === 'porcentaje' ? '%' : '€'}
                           </span>
                           <input
@@ -249,18 +245,18 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
                             step="any"
                             value={row.value || ''}
                             onChange={(e) => handleRowChange(idx, 'value', Number(e.target.value) || 0)}
-                            className="w-full pl-6 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs font-bold text-slate-800 dark:text-white text-right"
+                            className="field py-1.5 pl-6 pr-3 text-right tabular-nums text-xs font-bold"
                           />
                         </>
                       ) : (
-                        <div className="w-full text-center text-xs font-bold py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-400">
+                        <div className="w-full text-center text-xs font-bold py-1.5 bg-surface rounded-lg text-ink-faint">
                           Sobrante
                         </div>
                       )}
                     </div>
 
                     {/* calculated yield */}
-                    <div className="w-20 text-right text-xs font-bold text-slate-500 shrink-0 px-1">
+                    <div className="w-20 text-right text-xs font-bold text-ink-soft shrink-0 px-1 tabular-nums">
                       {formatCurrency(calculatedShares[idx]?.share || 0)}
                     </div>
 
@@ -269,7 +265,8 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
                       type="button"
                       onClick={() => handleRemoveRow(idx)}
                       disabled={rows.length === 1}
-                      className="p-2 text-slate-400 hover:text-rose-500 disabled:opacity-30 transition-colors shrink-0"
+                      className="dashboard-icon-button is-danger shrink-0"
+                      aria-label="Eliminar cartera"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -282,10 +279,10 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddRow}
-                  className="flex items-center gap-1.5 text-xs font-bold text-sky-500 hover:text-sky-600 transition-colors py-1 px-2"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-ink hover:underline py-1 px-2 cursor-pointer"
                 >
                   <Plus size={14} />
-                  Añadir Cartera de Asignación
+                  Añadir cartera de asignación
                 </button>
               )}
             </div>
@@ -294,25 +291,25 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
 
         {/* Error banner */}
         {error && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-800 dark:text-rose-300 rounded-xl text-xs flex gap-2">
-            <AlertCircle size={16} className="shrink-0 text-rose-500" />
+          <div role="alert" className="notice is-danger">
+            <AlertCircle size={15} className="shrink-0 mt-0.5 text-rose-500" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Buttons */}
-        <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+        <div className="modal-actions">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold tracking-wide uppercase hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors"
+            className="dashboard-secondary-button"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isLoading || (movimiento?.tipo === 'gasto' && !isBalanced)}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white text-xs font-bold tracking-wide uppercase shadow-md hover:shadow-indigo-500/10 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="dashboard-primary-button"
           >
             {isLoading ? (
               <>
@@ -320,12 +317,12 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Procesando...
+                Procesando…
               </>
             ) : (
               <>
                 <ArrowRightLeft size={14} />
-                Convertir Movimiento
+                Convertir movimiento
               </>
             )}
           </button>

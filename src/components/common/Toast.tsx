@@ -48,28 +48,28 @@ export const Toast: React.FC<ToastProps> = ({
 
   const typeConfig = {
     success: {
-      bg: 'bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-500/20 dark:border-emerald-500/30',
-      text: 'text-emerald-800 dark:text-emerald-300',
-      icon: <CheckCircle2 className="text-emerald-500 shrink-0" size={18} />,
+      bg: 'bg-emerald-500/10 border-emerald-500/20',
+      text: 'text-emerald-700 dark:text-emerald-300',
+      icon: <CheckCircle2 className="text-emerald-600 dark:text-emerald-400 shrink-0" size={18} />,
       progress: 'bg-emerald-500',
     },
     error: {
-      bg: 'bg-rose-500/10 dark:bg-rose-500/10 border-rose-500/20 dark:border-rose-500/30',
-      text: 'text-rose-800 dark:text-rose-300',
-      icon: <AlertCircle className="text-rose-500 shrink-0" size={18} />,
+      bg: 'bg-rose-500/10 border-rose-500/20',
+      text: 'text-rose-700 dark:text-rose-300',
+      icon: <AlertCircle className="text-rose-500 dark:text-rose-400 shrink-0" size={18} />,
       progress: 'bg-rose-500',
     },
     warning: {
-      bg: 'bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30',
+      bg: 'bg-amber-500/12 border-amber-500/20',
       text: 'text-amber-800 dark:text-amber-300',
       icon: <AlertTriangle className="text-amber-500 shrink-0" size={18} />,
       progress: 'bg-amber-500',
     },
     info: {
-      bg: 'bg-sky-500/10 dark:bg-sky-500/10 border-sky-500/20 dark:border-sky-500/30',
-      text: 'text-sky-800 dark:text-sky-300',
-      icon: <Info className="text-sky-500 shrink-0" size={18} />,
-      progress: 'bg-sky-500',
+      bg: 'bg-brand-tint border-brand/20',
+      text: 'text-brand-ink',
+      icon: <Info className="text-brand-ink shrink-0" size={18} />,
+      progress: 'bg-brand',
     },
   };
 
@@ -80,9 +80,8 @@ export const Toast: React.FC<ToastProps> = ({
       className={`
         flex items-center gap-3 
         p-4 pr-10 
-        rounded-xl 
+        rounded-2xl 
         border 
-        backdrop-blur-md 
         shadow-lg 
         max-w-md 
         w-full
@@ -98,15 +97,16 @@ export const Toast: React.FC<ToastProps> = ({
       {config.icon}
       <span className="text-sm font-medium pr-2">{message}</span>
       <button
+        type="button"
         onClick={onClose}
-        className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+        className="dashboard-icon-button absolute top-2.5 right-2.5 !h-6 !w-6 text-ink-faint hover:text-ink"
         aria-label="Cerrar alerta"
       >
         <X size={14} />
       </button>
 
       {/* Progress animation line */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-200/20">
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-line-strong">
         <div
           className={`h-full ${config.progress}`}
           style={{

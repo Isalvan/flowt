@@ -67,11 +67,6 @@
       "count": 1
     }
   },
-  "src/components/modals/HistoryModal.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/components/modals/HuchaModal.tsx": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
@@ -127,7 +122,7 @@
   },
   "src/hooks/useFinanceData.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 15
+      "count": 14
     },
     "prefer-const": {
       "count": 8

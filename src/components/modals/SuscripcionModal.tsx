@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Calendar, Sliders, Sparkles } from 'lucide-react';
+import { Calendar, Sliders, Sparkles } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { type Suscripcion, type Hucha } from '../../types';
 import { SUBSCRIPTION_COLORS, CATEGORIA_OPTIONS, FRECUENCIA_OPTIONS } from '../../hooks/useFinanceData';
@@ -111,35 +111,32 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={
-        <div className="flex items-center gap-2">
-          <CreditCard className="text-violet-500" size={24} />
-          <span>{editingSuscripcion ? 'Editar Suscripción Recurrente' : 'Nueva Suscripción Recurrente'}</span>
-        </div>
-      }
+      title={editingSuscripcion ? 'Editar suscripción recurrente' : 'Nueva suscripción recurrente'}
       size="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Nombre & Importe */}
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <label htmlFor="sub-nombre" className="field-label">
               Nombre
             </label>
             <input
+              id="sub-nombre"
               type="text"
               required
-              placeholder="Ej. Netflix, Spotify..."
+              placeholder="Ej. Netflix, Spotify…"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all"
+              className="field"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <label htmlFor="sub-importe" className="field-label">
               Total (€)
             </label>
             <input
+              id="sub-importe"
               type="number"
               required
               min="0.01"
@@ -147,7 +144,7 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
               placeholder="Ej. 17.99"
               value={importe}
               onChange={(e) => handleImporteChange(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all"
+              className="field tabular-nums"
             />
           </div>
         </div>
@@ -155,13 +152,14 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
         {/* Frecuencia & Día Pago */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <label htmlFor="sub-frecuencia" className="field-label">
               Frecuencia
             </label>
             <select
+              id="sub-frecuencia"
               value={frecuencia}
               onChange={(e) => setFrecuencia(e.target.value as any)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all cursor-pointer"
+              className="field"
             >
               {FRECUENCIA_OPTIONS.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -169,17 +167,18 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <label htmlFor="sub-fecha" className="field-label">
               Primer / próximo cobro
             </label>
             <div className="relative">
-              <Calendar className="absolute left-3.5 top-3.5 text-slate-400" size={14} />
+              <Calendar className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" size={14} />
               <input
+                id="sub-fecha"
                 type="date"
                 required
                 value={fechaInicio}
                 onChange={(e) => setFechaInicio(e.target.value)}
-                className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all"
+                className="field pl-9"
               />
             </div>
           </div>
@@ -188,13 +187,14 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
         {/* Categoría & Cartera a la que se imputa */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <label htmlFor="sub-categoria" className="field-label">
               Categoría
             </label>
             <select
+              id="sub-categoria"
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all cursor-pointer"
+              className="field"
             >
               {CATEGORIA_OPTIONS.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -202,13 +202,14 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-              Imputar a Cartera
+            <label htmlFor="sub-hucha" className="field-label">
+              Imputar a cartera
             </label>
             <select
+              id="sub-hucha"
               value={huchaId}
               onChange={(e) => setHuchaId(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all cursor-pointer"
+              className="field"
             >
               <option value="">Sin provisión de saldo</option>
               {huchas.filter(h => h.activa !== false).map(h => (
@@ -222,37 +223,33 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
 
         {/* Color Palette Picker */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-            Identificador Visual (Color)
-          </label>
+          <span className="field-label">
+            Identificador visual (color)
+          </span>
           <div className="flex flex-wrap gap-2">
             {SUBSCRIPTION_COLORS.map(c => (
               <button
                 key={c}
                 type="button"
                 onClick={() => setColor(c)}
-                className={`
-                  w-6 h-6 
-                  rounded-full 
-                  border-2 
-                  transition-transform 
-                  duration-150 
-                  ${color === c 
-                    ? 'border-white dark:border-slate-950 scale-125 shadow-md' 
-                    : 'border-transparent scale-100 hover:scale-110'
-                  }
-                `}
+                className={`h-6 w-6 rounded-full border-2 transition-transform duration-150 ${
+                  color === c 
+                    ? 'border-brand' 
+                    : 'border-transparent'
+                }`}
                 style={{ backgroundColor: c }}
                 aria-label={`Seleccionar color ${c}`}
+                aria-pressed={color === c}
               />
             ))}
           </div>
         </div>
 
         {/* Shared Split Proximity Slider */}
-        <div className="border-t border-slate-100 dark:border-slate-800/60 pt-3">
-          <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/20 dark:bg-slate-950/20 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
+        <div className="border-t border-line pt-3">
+          <label htmlFor="sub-compartida" className="flex items-center gap-3 rounded-2xl bg-surface-2 p-3 cursor-pointer">
             <input
+              id="sub-compartida"
               type="checkbox"
               checked={compartida}
               onChange={(e) => {
@@ -261,25 +258,25 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
                   setMiParte((totalImporte / 2).toFixed(2));
                 }
               }}
-              className="rounded text-sky-500 focus:ring-sky-500"
+              className="rounded accent-brand"
             />
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Suscripción Compartida</span>
-              <span className="text-[10px] text-slate-400 leading-normal">
+              <span className="text-xs font-bold text-ink">Suscripción compartida</span>
+              <span className="text-[11px] text-ink-soft leading-normal">
                 ¿Alguien te reembolsa una parte de esta cuota vía Bizum/transferencia?
               </span>
             </div>
           </label>
 
           {compartida && totalImporte > 0 && (
-            <div className="p-3 mt-2 border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 rounded-xl space-y-3 animate-appear-up">
+            <div className="rounded-2xl bg-surface-2 p-3 mt-2 space-y-3 animate-appear-up">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-500">Mi Parte Real:</span>
-                <span className="font-extrabold text-sky-500">{formatCurrency(miParteImporte)}</span>
+                <span className="font-semibold text-ink-soft">Mi parte real:</span>
+                <span className="font-bold tabular-nums text-brand-ink">{formatCurrency(miParteImporte)}</span>
               </div>
 
               <div className="flex items-center gap-3">
-                <Sliders size={14} className="text-slate-400" />
+                <Sliders size={14} className="text-ink-faint" />
                 <input
                   type="range"
                   min="0.01"
@@ -287,11 +284,11 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
                   step="0.05"
                   value={miParte}
                   onChange={(e) => setMiParte(e.target.value)}
-                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500"
+                  className="w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-brand bg-surface"
                 />
               </div>
 
-              <div className="flex gap-2 p-2 bg-sky-500/5 text-[10px] text-slate-400 leading-relaxed justify-between">
+              <div className="flex justify-between rounded-xl bg-surface p-2 text-[11px] font-medium text-ink-soft tabular-nums">
                 <span>Total: {formatCurrency(totalImporte)}</span>
                 <span>Bizum amigos: +{formatCurrency(reembolsoAmigos)}</span>
               </div>
@@ -300,18 +297,18 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
         </div>
 
         {/* Buttons */}
-        <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+        <div className="modal-actions">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold tracking-wide uppercase hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors"
+            className="dashboard-secondary-button"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isLoading || !nombre.trim() || !importe}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white text-xs font-bold tracking-wide uppercase shadow-md hover:shadow-violet-500/10 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="dashboard-primary-button"
           >
             {isLoading ? (
               <>
@@ -319,12 +316,12 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Guardando...
+                Guardando…
               </>
             ) : (
               <>
                 <Sparkles size={14} />
-                {editingSuscripcion ? 'Guardar Suscripción' : 'Crear Suscripción'}
+                {editingSuscripcion ? 'Guardar suscripción' : 'Crear suscripción'}
               </>
             )}
           </button>
