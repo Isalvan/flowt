@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRightLeft, Info, Plus, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { type Movimiento, type Hucha } from '../../types';
+import { extraMonth, splitIncome, explicitIncomeShares, applySplit, isIncomeSplitError } from '../../utils/incomeSplit';
 
 interface ConvertRow {
   huchaId: string;
@@ -26,6 +27,7 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
 }) => {
   const [targetHuchaId, setTargetHuchaId] = useState('');
   const [rows, setRows] = useState<ConvertRow[]>([]);
+  const [rowsEdited, setRowsEdited] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +37,7 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
   useEffect(() => {
     if (isOpen && movimiento) {
       setError(null);
+      setRowsEdited(false);
       if (movimiento.tipo === 'ingreso') {
         // Ingreso -> Gasto: choose a single pocket to subtract from
         const principal = huchas.find(h => h.es_principal) || huchas[0];
@@ -55,6 +58,7 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
   const handleAddRow = () => {
     const unselected = huchas.find(h => !rows.some(r => r.huchaId === h.id));
     if (!unselected) return;
+    setRowsEdited(true);
     setRows(prev => [...prev, {
       huchaId: unselected.id,
       tipoAportacion: unselected.tipo_aportacion,
@@ -63,10 +67,12 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
   };
 
   const handleRemoveRow = (index: number) => {
+    setRowsEdited(true);
     setRows(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleRowChange = (index: number, field: keyof ConvertRow, val: any) => {
+    setRowsEdited(true);
     setRows(prev => prev.map((row, i) => {
       if (i !== index) return row;
       const updated = { ...row, [field]: val };
@@ -78,25 +84,34 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
   };
 
   // Calculations for Gasto -> Ingreso
-  const calculatedShares = rows.map(r => {
-    let share = 0;
-    if (r.tipoAportacion === 'flat') {
-      share = r.value;
-    } else if (r.tipoAportacion === 'porcentaje') {
-      share = amount * (r.value / 100);
-    } else {
-      // remainder (resto)
-      const sumOthers = rows
-        .filter(x => x !== r)
-        .reduce((s, x) => s + (x.tipoAportacion === 'flat' ? x.value : amount * (x.value / 100)), 0);
-      share = Math.max(0, amount - sumOthers);
+  let previewError: string | null = null;
+  let preview: Record<string, number> = {};
+  if (movimiento?.tipo === 'gasto' && rows.length) {
+    try {
+      if (rowsEdited) {
+        // Validate requested amounts before plain preview, so truncation cannot hide an invalid sum.
+        const explicit = explicitIncomeShares(amount, huchas, rows);
+        const copy = rows.map((r, index) => ({
+          ...huchas.find(h => h.id === r.huchaId)!, id: String(index), es_metalico: false,
+          tipo_aportacion: 'flat' as const, valor_aportacion: explicit[index], orden: index,
+        }));
+        preview = splitIncome(amount, copy, { plain: true }).saldos;
+      } else {
+        const refund = huchas.find(h => h.id === movimiento.hucha_id && h.activa !== false)
+          || huchas.find(h => h.es_principal && h.activa !== false) || huchas.find(h => h.activa !== false);
+        const copy = applySplit(huchas, { saldos: refund ? { [refund.id]: amount } : {}, deudas: {} });
+        preview = splitIncome(amount, copy, { extraMonth: extraMonth(movimiento) }).saldos;
+      }
+    } catch (err) {
+      if (!isIncomeSplitError(err)) throw err;
+      previewError = err.message;
     }
-    return { ...r, share: Number(share.toFixed(2)) };
-  });
+  }
+  const calculatedShares = rows.map((r, index) => ({ ...r, share: preview[rowsEdited ? String(index) : r.huchaId] || 0 }));
 
   const totalCalculatedSum = calculatedShares.reduce((s, r) => s + r.share, 0);
   const remainingAmount = Number((amount - totalCalculatedSum).toFixed(2));
-  const isBalanced = Math.abs(remainingAmount) < 0.01;
+  const isBalanced = !previewError && rows.length > 0 && Math.abs(remainingAmount) < 0.01;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,7 +125,7 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
     setIsLoading(true);
     try {
       if (movimiento.tipo === 'gasto') {
-        await onConvert(movimiento, rows, undefined);
+        await onConvert(movimiento, rowsEdited ? rows : undefined, undefined);
       } else {
         await onConvert(movimiento, undefined, targetHuchaId);
       }
@@ -290,10 +305,10 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({
         )}
 
         {/* Error banner */}
-        {error && (
+        {(error || previewError) && (
           <div role="alert" className="notice is-danger">
             <AlertCircle size={15} className="shrink-0 mt-0.5 text-rose-500" />
-            <span>{error}</span>
+            <span>{error || previewError}</span>
           </div>
         )}
 

@@ -3,6 +3,8 @@ import type { Movimiento, Suscripcion } from "../types";
 import {
   buildProjectionData,
   calculateProjectionEstimates,
+  scenarioSummary,
+  type ProjectionEstimates,
 } from "./predictive";
 
 const now = new Date(2026, 2, 31, 18, 30);
@@ -205,4 +207,93 @@ describe("buildProjectionData", () => {
       expect(projected.at(-1)?.balance).toBe(85);
     },
   );
+});
+
+describe("projection adjustments", () => {
+  const start = new Date(2026, 0, 31, 18, 30);
+  const estimates: ProjectionEstimates = {
+    dailyIncome: 0, dailyVariableExpense: 0,
+    observedDays: 31, observedMonths: 1, activeSubscriptions: [],
+  };
+
+  it("applies a one-off amount from its calendar date, rounded to cents", () => {
+    const points = buildProjectionData(100, estimates, start, 5, null, [
+      { id: "car", tipo: "puntual", importe: -40.126, fecha: new Date(2026, 1, 2) },
+    ]);
+    expect(points.map((point) => point.scenario)).toEqual([100, 100, 59.87, 59.87, 59.87, 59.87]);
+    expect(points.every((point) => point.balance === 100)).toBe(true);
+  });
+
+  it("repeats monthly from desde and clamps the anchor day in short months", () => {
+    const points = buildProjectionData(100, estimates, start, 90, null, [
+      { id: "salary", tipo: "mensual", importe: 150, desde: new Date(2026, 1, 28) },
+    ]);
+    expect(points[0].scenario).toBe(100);
+    expect(points.find((point) => point.rawDate.getMonth() === 1 && point.rawDate.getDate() === 27)?.scenario).toBe(100);
+    expect(points.at(-1)?.scenario).toBe(550);
+    const monthEnd = buildProjectionData(100, estimates, start, 59, null, [
+      { id: "salary", tipo: "mensual", importe: 10 },
+    ]);
+    expect(monthEnd[0].scenario).toBe(110);
+    expect(monthEnd.at(-1)?.scenario).toBe(130);
+  });
+
+  it("cancels only actual charges, respecting personal share, cadence and cancellation date", () => {
+    const withSubscriptions = { ...estimates, activeSubscriptions: [
+      { ...subscription, frecuencia: "trimestral" as const, fecha_inicio: "2026-01-10", mi_parte: 6.25, cancel_at: "2026-07-10" },
+    ] };
+    const points = buildProjectionData(100, withSubscriptions, start, 200, null, [
+      { id: "cancel", tipo: "cancelar_suscripcion", suscripcionId: subscription.id },
+      { id: "duplicate", tipo: "cancelar_suscripcion", suscripcionId: subscription.id },
+    ]);
+    expect(points.at(-1)?.balance).toBe(93.75);
+    expect(points.every((point) => point.scenario === 100)).toBe(true);
+  });
+
+  it("combines multiple adjustments without modifying baseline or uncertainty samples", () => {
+    const withSubscriptions = { ...estimates, activeSubscriptions: [subscription] };
+    const variability = { standardDeviation: 12.345, periods: 3 };
+    const baseline = buildProjectionData(100, withSubscriptions, start, 90, variability);
+    const points = buildProjectionData(100, withSubscriptions, start, 90, variability, [
+      { id: "purchase", tipo: "puntual", importe: -200, fecha: start },
+      { id: "salary", tipo: "mensual", importe: 20 },
+      { id: "cancel", tipo: "cancelar_suscripcion", suscripcionId: subscription.id },
+    ]);
+    expect(points.map(({ name, balance, rawDate, low, high }) => ({ name, balance, rawDate, low, high }))).toEqual(baseline);
+    expect(points.at(-1)?.scenario).toBe(-20);
+    expect(scenarioSummary(points)).toEqual({ difference: -75, firstNegativeDate: start });
+  });
+
+  it("does not add any scenario fields without adjustments", () => {
+    const baseline = buildProjectionData(100, estimates, start, 5);
+    expect(buildProjectionData(100, estimates, start, 5, null, [])).toEqual(baseline);
+    baseline.forEach((point) => expect(point).not.toHaveProperty("scenario"));
+  });
+
+  it("rounds recurring subscription amounts independently in the scenario", () => {
+    const points = buildProjectionData(100, {
+      ...estimates, activeSubscriptions: [{ ...subscription, importe: 6.256 }],
+    }, start, 90, null, [{ id: "cancel", tipo: "cancelar_suscripcion", suscripcionId: subscription.id }]);
+    expect(points.every((point) => point.scenario === 100)).toBe(true);
+    expect(points.at(-1)?.balance).toBe(81.22);
+  });
+
+  it("reports an exact crossing between samples even if the scenario recovers", () => {
+    const points = buildProjectionData(100, estimates, start, 90, null, [
+      { id: "expense", tipo: "puntual", importe: -150, fecha: new Date(2026, 1, 1) },
+      { id: "income", tipo: "puntual", importe: 200, fecha: new Date(2026, 1, 2) },
+    ]);
+    expect(points.every((point) => point.scenario! >= 0)).toBe(true);
+    expect(scenarioSummary(points)).toEqual({ difference: 50, firstNegativeDate: new Date(2026, 1, 1, 18, 30) });
+  });
+
+  it("summarises supplied points and handles absent scenarios and empty data", () => {
+    expect(scenarioSummary([])).toEqual({ difference: 0, firstNegativeDate: null });
+    expect(scenarioSummary(buildProjectionData(100, estimates, start, 5))).toEqual({ difference: 0, firstNegativeDate: null });
+    expect(scenarioSummary([
+      { name: "a", balance: 100, scenario: 0, rawDate: start },
+      { name: "b", balance: 100, scenario: -2.123, rawDate: new Date(2026, 1, 1) },
+      { name: "c", balance: 100, scenario: 110.126, rawDate: new Date(2026, 1, 2) },
+    ])).toEqual({ difference: 10.13, firstNegativeDate: new Date(2026, 1, 1) });
+  });
 });

@@ -108,3 +108,7 @@ export const getMonthlySubscriptionAmount = (subscription: Suscripcion): number 
   const cadence = FREQUENCY_MONTHS[subscription.frecuencia] ?? 1;
   return getEffectiveSubscriptionAmount(subscription) / cadence;
 };
+
+export const calcAnual = (subscription: Suscripcion): number => (
+  Number((getMonthlySubscriptionAmount(subscription) * 12).toFixed(2))
+);

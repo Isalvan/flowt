@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
   Trash2,
   Landmark,
+  Mail,
   Sparkles
 } from 'lucide-react';
 import { parseMovimientoDate } from '../../hooks/useFinanceData';
@@ -29,9 +30,14 @@ import { ServiceIcon } from './ServiceIcon';
 import { resolveServiceKey } from '../../utils/serviceNames';
 import { CategoryPicker } from './CategoryPicker';
 import { MovementReview } from './MovementReview';
-import { importeEnEstadisticas } from '../../utils/movements';
-import { suggestCompensations } from '../../utils/movementSuggestions';
+import { DuplicateChargeReview } from './DuplicateChargeReview';
+import { cuentaEnEstadisticas, gmailUrlFor, importeEnEstadisticas } from '../../utils/movements';
+import { detectPayroll, formatWorkTime, hourlyRate } from '../../utils/payroll';
+import { usePreferences } from '../../context/PreferencesContext';
+import { findDuplicateCharges, suggestCompensations } from '../../utils/movementSuggestions';
 import { useCategories } from '../../hooks/useCategories';
+import { useBanks } from '../../hooks/useBanks';
+import { BANK_CATALOG, detectedBanks } from '../../utils/banks';
 
 interface ActivityListProps {
   movimientos: Movimiento[];
@@ -42,6 +48,7 @@ interface ActivityListProps {
   onUpdateCategoria?: (id: string, categoria: string) => Promise<void>;
   onAcceptCompensation?: (base: Movimiento, allocations: { mov: Movimiento; importe: number }[]) => Promise<void>;
   onDismissCompensation?: (ingresoId: string, gastoId: string) => Promise<void>;
+  onDismissDuplicate?: (aId: string, bId: string) => Promise<void>;
   onConvert: (mov: Movimiento) => void;
   onLink: (mov: Movimiento) => void;
   onUnlink: (ingreso: Movimiento) => void;
@@ -58,6 +65,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   onUpdateCategoria,
   onAcceptCompensation,
   onDismissCompensation,
+  onDismissDuplicate,
   onConvert,
   onLink,
   onUnlink,
@@ -65,6 +73,10 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   onDeleteMovimiento,
 }) => {
   const { categories: MOVEMENT_CATEGORIES, categoryLabel, suggestCategory } = useCategories();
+  const { banks } = useBanks();
+  const bankOptions = [...banks.map(b => b.nombre), ...detectedBanks(allMovimientos)].filter((name, i, names) => names.findIndex(n => n.toLowerCase() === name.toLowerCase()) === i);
+  if (!bankOptions.length) bankOptions.push(...BANK_CATALOG.map(b => b.nombre));
+  bankOptions.sort((a, b) => a.localeCompare(b, 'es'));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tempConcepto, setTempConcepto] = useState('');
   const [hoveredMovId, setHoveredMovId] = useState<string | null>(null);
@@ -83,10 +95,15 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   const [showFilters, setShowFilters] = useState(false);
 
   const { formatCurrency, isLocked } = usePrivacy();
+  const { horasSemanales } = usePreferences();
+  const hourly = React.useMemo(() => hourlyRate(detectPayroll(allMovimientos), horasSemanales), [allMovimientos, horasSemanales]);
   const compensations = React.useMemo(() => new Map(
     onAcceptCompensation && onDismissCompensation ? suggestCompensations(allMovimientos).map(s => [s.ingreso.id, s]) : []
   ), [allMovimientos, onAcceptCompensation, onDismissCompensation]);
-  const pendingCount = allMovimientos.filter(m => (onUpdateCategoria && suggestCategory(m)) || compensations.has(m.id)).length;
+  const duplicates = React.useMemo(() => new Map(
+    onDismissDuplicate ? findDuplicateCharges(allMovimientos).flatMap(pair => [[pair.a.id, pair], [pair.b.id, pair]] as const) : []
+  ), [allMovimientos, onDismissDuplicate]);
+  const pendingCount = allMovimientos.filter(m => (onUpdateCategoria && suggestCategory(m)) || compensations.has(m.id) || duplicates.get(m.id)?.b.id === m.id).length;
 
   const formatDate = (dateValue: unknown) => {
     const d = parseMovimientoDate(dateValue);
@@ -139,7 +156,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
     const baseList = isFilterActive ? allMovimientos : movimientos;
 
     return baseList.filter(m => {
-      if (selectedCategoria === 'pending' && !suggestCategory(m) && !compensations.has(m.id)) return false;
+      if (selectedCategoria === 'pending' && !suggestCategory(m) && !compensations.has(m.id) && duplicates.get(m.id)?.b.id !== m.id) return false;
       if (selectedCategoria !== 'all' && selectedCategoria !== 'pending' && (m.categoria || suggestCategory(m)?.categoria || 'sin_categorizar') !== selectedCategoria) return false;
       // 1. Text Search
       if (searchTerm) {
@@ -216,7 +233,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
 
       return true;
     });
-  }, [movimientos, allMovimientos, compensations, suggestCategory, searchTerm, selectedHucha, selectedTipo, selectedCategoria, selectedBanco, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
+  }, [movimientos, allMovimientos, compensations, duplicates, suggestCategory, searchTerm, selectedHucha, selectedTipo, selectedCategoria, selectedBanco, minAmount, maxAmount, dateRange, customStartDate, customEndDate]);
 
   // CSV Exporter using currently filtered items
   const exportToCSV = () => {
@@ -380,14 +397,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
               <span className="field-label !mb-0">Banco</span>
               <select value={selectedBanco} onChange={(e) => setSelectedBanco(e.target.value)} className={field}>
                 <option value="all">Todos los bancos</option>
-                <option value="Unicaja">Unicaja</option>
-                <option value="Revolut">Revolut</option>
-                <option value="BBVA">BBVA</option>
-                <option value="Santander">Santander</option>
-                <option value="CaixaBank">CaixaBank</option>
-                <option value="ING">ING</option>
-                <option value="Sabadell">Sabadell</option>
-                <option value="N26">N26</option>
+                {bankOptions.map(nombre => <option key={nombre} value={nombre}>{nombre}</option>)}
               </select>
             </label>
 
@@ -446,8 +456,11 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             const linkedMovs = hasCompensaciones ? getLinkedMovements(m) : [];
             const isEditing = editingId === m.id;
             const compensation = compensations.get(m.id);
+            const duplicate = duplicates.get(m.id);
             const reassignable = huchas.filter(h => !h.es_suscripciones && h.activa !== false);
 
+            // Only worth showing when the expense took a noticeable amount of work.
+            const workHours = hourly && m.tipo === 'gasto' && cuentaEnEstadisticas(m) ? importeEnEstadisticas(m) / hourly : 0;
             let expensePercentage = 0;
             if (m.tipo === 'gasto' && m.hucha_id) {
               const budget = huchaMonthlyBudgets[m.hucha_id] || 0;
@@ -562,6 +575,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                             >
                               {m.concepto}
                             </p>
+                            {!isLocked && duplicate && <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">Posible duplicado</span>}
                             <button
                               type="button"
                               onClick={() => handleStartEdit(m)}
@@ -590,6 +604,12 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                           )}
                           {expensePercentage >= 5 && (
                             <ExpenseImpactBadge percentage={expensePercentage} />
+                          )}
+                          {!isLocked && workHours >= 0.5 && (
+                            <span className="inline-flex items-center gap-1.5" title="Tiempo de trabajo según tu última nómina">
+                              <span aria-hidden="true">·</span>
+                              {formatWorkTime(workHours)} de trabajo
+                            </span>
                           )}
                         </div>
                       </div>
@@ -637,6 +657,19 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                           </select>
                         )}
 
+                        {gmailUrlFor(m) && (
+                          <a
+                            href={gmailUrlFor(m)!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="dashboard-icon-button"
+                            title="Ver correo original"
+                            aria-label="Ver correo original"
+                          >
+                            <Mail className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => onConvert(m)}
@@ -681,6 +714,11 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                     </div>
                   </div>
                 </div>
+                {duplicate?.b.id === m.id && onDismissDuplicate && (
+                  <div className="mt-3 sm:pl-[3.25rem]">
+                    <DuplicateChargeReview key={`${duplicate.a.id}:${duplicate.b.id}`} pair={duplicate} onDismiss={onDismissDuplicate} />
+                  </div>
+                )}
                 {compensation && onAcceptCompensation && onDismissCompensation && (
                   <div className="mt-3 sm:pl-[3.25rem]">
                     <MovementReview key={compensation.id} suggestion={compensation} onAccept={onAcceptCompensation} onDismiss={onDismissCompensation} onAdjust={onLink} />

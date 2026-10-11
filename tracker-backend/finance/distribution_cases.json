@@ -1,0 +1,1629 @@
+[
+  {
+    "nombre": "fijas, porcentajes y resto, con tope",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 10000,
+        "trip": 5000,
+        "main": 85000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "reparto simple sin topes ni deudas",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": true,
+    "esperado": {
+      "saldos": {
+        "fixed": 10000,
+        "trip": 10000,
+        "main": 80000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "ingreso menor que la primera fija",
+    "importe": 6000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 6000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "tres céntimos al 50 %",
+    "importe": 3,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "half": {
+        "nombre": "Mitad",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "half": 2,
+        "main": 1
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "porcentaje con decimales",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 33.33,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": false,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 10000,
+        "trip": 33330,
+        "main": 56670
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "un céntimo",
+    "importe": 1,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 1
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "la cartera de suscripciones ignora su tope en la cuota fija",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      },
+      "subs": {
+        "nombre": "Suscripciones",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 45.97,
+        "saldo_acumulado": 45.97,
+        "objetivo": 45.97,
+        "tope_objetivo": true,
+        "es_suscripciones": true,
+        "orden": 4
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 10000,
+        "subs": 4597,
+        "trip": 5000,
+        "main": 80403
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "fija llena deja pasar el dinero a la siguiente",
+    "importe": 10000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 50,
+        "orden": 3,
+        "objetivo": 50,
+        "tope_objetivo": true
+      },
+      "second": {
+        "nombre": "Otra fija",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 4
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "second": 10000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "fija a medio llenar solo toma lo que cabe",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 25.5,
+        "orden": 3,
+        "objetivo": 60,
+        "tope_objetivo": true
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 3450,
+        "trip": 5000,
+        "main": 91550
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "el resto ignora su propio tope",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1,
+        "objetivo": 1000,
+        "tope_objetivo": true
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 10000,
+        "trip": 5000,
+        "main": 85000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "deuda con otra cartera se devuelve primero",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3,
+        "deuda_pendiente": 30,
+        "deuda_con": "main"
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "main": 88000,
+        "fixed": 7000,
+        "trip": 5000
+      },
+      "deudas": {
+        "fixed": {
+          "importe": 3000,
+          "con": "main"
+        }
+      }
+    }
+  },
+  {
+    "nombre": "deuda mayor que la aportación",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3,
+        "deuda_pendiente": 250,
+        "deuda_con": "main"
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "main": 95000,
+        "trip": 5000
+      },
+      "deudas": {
+        "fixed": {
+          "importe": 10000,
+          "con": "main"
+        }
+      }
+    }
+  },
+  {
+    "nombre": "deuda con una cartera inactiva no se cobra",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3,
+        "deuda_pendiente": 30,
+        "deuda_con": "old"
+      },
+      "old": {
+        "nombre": "Vieja",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 0,
+        "saldo_acumulado": 0,
+        "activa": false,
+        "orden": 9
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 10000,
+        "trip": 5000,
+        "main": 85000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "deuda consigo misma se ignora",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3,
+        "deuda_pendiente": 30,
+        "deuda_con": "fixed"
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 10000,
+        "trip": 5000,
+        "main": 85000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "el acreedor cobra aunque esté lleno",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 250,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3,
+        "deuda_pendiente": 30,
+        "deuda_con": "trip"
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "trip": 3000,
+        "fixed": 7000,
+        "main": 90000
+      },
+      "deudas": {
+        "fixed": {
+          "importe": 3000,
+          "con": "trip"
+        }
+      }
+    }
+  },
+  {
+    "nombre": "el resto también devuelve su deuda",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1,
+        "deuda_pendiente": 40,
+        "deuda_con": "trip"
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 10000,
+        "trip": 9000,
+        "main": 81000
+      },
+      "deudas": {
+        "main": {
+          "importe": 4000,
+          "con": "trip"
+        }
+      }
+    }
+  },
+  {
+    "nombre": "las carteras inactivas no reciben nada",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3,
+        "activa": false
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "trip": 5000,
+        "main": 95000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "el efectivo no recibe reparto",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      },
+      "cash": {
+        "nombre": "Efectivo",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "es_metalico": true,
+        "orden": 0
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 10000,
+        "trip": 5000,
+        "main": 85000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "empate de orden: decide el identificador",
+    "importe": 100,
+    "huchas": {
+      "b": {
+        "nombre": "B",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 1,
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "a": {
+        "nombre": "A",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 1,
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 5
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "a": 100
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "sin cartera de resto va a la principal",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "flat",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1,
+        "valor_aportacion": 0
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 10000,
+        "trip": 5000,
+        "main": 85000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "sin resto ni principal va a la primera",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "flat",
+        "es_principal": false,
+        "saldo_acumulado": 1000,
+        "orden": 1,
+        "valor_aportacion": 0
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "fixed": 10000,
+        "trip": 5000,
+        "main": 85000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "porcentajes por encima de 100 se rechazan",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 60,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      },
+      "more": {
+        "nombre": "Más",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 4
+      }
+    },
+    "plain": false,
+    "error": "invalid_distribution"
+  },
+  {
+    "nombre": "porcentajes por encima de 100 en reparto simple",
+    "importe": 100000,
+    "huchas": {
+      "main": {
+        "nombre": "Cuenta",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 1000,
+        "orden": 1
+      },
+      "trip": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 60,
+        "saldo_acumulado": 200,
+        "objetivo": 250,
+        "tope_objetivo": true,
+        "orden": 2
+      },
+      "fixed": {
+        "nombre": "Fijos",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "orden": 3
+      },
+      "more": {
+        "nombre": "Más",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 4
+      }
+    },
+    "plain": true,
+    "esperado": {
+      "saldos": {
+        "fixed": 10000,
+        "trip": 60000,
+        "more": 30000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "sin carteras activas",
+    "importe": 100000,
+    "huchas": {
+      "old": {
+        "nombre": "Vieja",
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "activa": false,
+        "orden": 1
+      }
+    },
+    "plain": false,
+    "error": "no_hucha"
+  },
+  {
+    "nombre": "solo efectivo",
+    "importe": 100000,
+    "huchas": {
+      "cash": {
+        "nombre": "Efectivo",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 0,
+        "saldo_acumulado": 0,
+        "es_metalico": true,
+        "orden": 1
+      }
+    },
+    "plain": false,
+    "error": "no_hucha"
+  },
+  {
+    "nombre": "nómina típica con cuatro carteras",
+    "importe": 245000,
+    "huchas": {
+      "h1": {
+        "nombre": "Fondo",
+        "tipo_aportacion": "resto",
+        "es_principal": true,
+        "saldo_acumulado": 4500,
+        "objetivo": 8000,
+        "orden": 1
+      },
+      "h2": {
+        "nombre": "Viaje",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 15,
+        "saldo_acumulado": 1200,
+        "objetivo": 4000,
+        "tope_objetivo": false,
+        "orden": 2
+      },
+      "h3": {
+        "nombre": "Suscripciones",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 45.97,
+        "saldo_acumulado": 45.97,
+        "objetivo": 45.97,
+        "es_suscripciones": true,
+        "orden": 3
+      },
+      "h4": {
+        "nombre": "Inversiones",
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 20,
+        "saldo_acumulado": 850,
+        "objetivo": 5000,
+        "tope_objetivo": false,
+        "orden": 4
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "h3": 4597,
+        "h2": 36750,
+        "h4": 49000,
+        "h1": 154653
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: mes incluido",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 12000,
+        "ahorro": 50000,
+        "resto": 38000
+      },
+      "deudas": {},
+      "extras": {
+        "personal": "2026-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: mes no incluido",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-07",
+    "esperado": {
+      "saldos": {
+        "personal": 2000,
+        "ahorro": 50000,
+        "resto": 48000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: ya aplicada",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1,
+        "extra_ultimo": "2026-08"
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 2000,
+        "ahorro": 50000,
+        "resto": 48000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: sin mes",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "esperado": {
+      "saldos": {
+        "personal": 2000,
+        "ahorro": 50000,
+        "resto": 48000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: ingreso insuficiente",
+    "importe": 7000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 7000
+      },
+      "deudas": {},
+      "extras": {
+        "personal": "2026-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: tope casi lleno",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 75,
+        "orden": 1,
+        "objetivo": 100,
+        "tope_objetivo": true
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 2500,
+        "ahorro": 50000,
+        "resto": 47500
+      },
+      "deudas": {},
+      "extras": {
+        "personal": "2026-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: deuda",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1,
+        "deuda_pendiente": 80,
+        "deuda_con": "resto"
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "resto": 46000,
+        "personal": 4000,
+        "ahorro": 50000
+      },
+      "deudas": {
+        "personal": {
+          "importe": 8000,
+          "con": "resto"
+        }
+      },
+      "extras": {
+        "personal": "2026-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: dos carteras en orden con ingreso insuficiente",
+    "importe": 17000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2,
+        "extra_importe": 100,
+        "extra_meses": [
+          8
+        ]
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 12000,
+        "ahorro": 5000
+      },
+      "deudas": {},
+      "extras": {
+        "personal": "2026-08",
+        "ahorro": "2026-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: cartera de resto",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": null,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3,
+        "extra_importe": 100,
+        "extra_meses": [
+          8
+        ]
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 2000,
+        "resto": 48000,
+        "ahorro": 50000
+      },
+      "deudas": {},
+      "extras": {
+        "resto": "2026-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: plain ignora extra",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": true,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 2000,
+        "ahorro": 50000,
+        "resto": 48000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: otro año permite repetir",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1,
+        "extra_ultimo": "2026-08"
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2027-08",
+    "esperado": {
+      "saldos": {
+        "personal": 12000,
+        "ahorro": 50000,
+        "resto": 38000
+      },
+      "deudas": {},
+      "extras": {
+        "personal": "2027-08"
+      }
+    }
+  },
+  {
+    "nombre": "paga extra: tope lleno no marca",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 100,
+        "orden": 1,
+        "objetivo": 100,
+        "tope_objetivo": true
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "ahorro": 50000,
+        "resto": 50000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: archivada no participa",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1,
+        "activa": false
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "ahorro": 50000,
+        "resto": 50000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: efectivo no participa",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 100,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1,
+        "es_metalico": true
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "ahorro": 50000,
+        "resto": 50000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "paga extra: redondeo a céntimos",
+    "importe": 100000,
+    "huchas": {
+      "personal": {
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 20,
+        "extra_importe": 0.005,
+        "extra_meses": [
+          8,
+          12
+        ],
+        "saldo_acumulado": 0,
+        "orden": 1
+      },
+      "ahorro": {
+        "tipo_aportacion": "porcentaje",
+        "valor_aportacion": 50,
+        "saldo_acumulado": 0,
+        "orden": 2
+      },
+      "resto": {
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 0,
+        "orden": 3
+      }
+    },
+    "plain": false,
+    "mes": "2026-08",
+    "esperado": {
+      "saldos": {
+        "personal": 2001,
+        "ahorro": 50000,
+        "resto": 47999
+      },
+      "deudas": {},
+      "extras": {
+        "personal": "2026-08"
+      }
+    }
+  }
+]

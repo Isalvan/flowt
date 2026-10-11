@@ -151,7 +151,7 @@ export const DemoSimulator: React.FC<DemoSimulatorProps> = ({ injectDemoMovement
                     placeholder="Importe"
                     value={customImporte}
                     onChange={(e) => setCustomImporte(e.target.value)}
-                    className="field text-xs pr-7 tabular-nums"
+                    className="field has-unit text-xs tabular-nums"
                     required
                   />
                   <span className="absolute right-2.5 top-2.5 text-xs text-ink-faint">€</span>

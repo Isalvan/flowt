@@ -1,5 +1,6 @@
 import catalog from '../../tracker-backend/prompts/categories.json';
 import type { Movimiento } from '../types';
+import { cuentaEnEstadisticas } from './movements';
 
 export const MOVEMENT_CATEGORIES = catalog;
 export interface MovementCategory { id: string; label: string; tipo: 'gasto' | 'ingreso' | 'ambos' }
@@ -31,6 +32,9 @@ const incomeRules: [RegExp, string][] = [
   [/\b(regalo|cumpleanos)\b/, 'regalos'],
   [/\b(freelance|honorarios|trabajo extra)\b/, 'trabajos'],
 ];
+
+export const isPayrollConcept = (concepto: string): boolean =>
+  incomeRules.some(([pattern, category]) => category === 'nomina' && pattern.test(normalize(concepto)));
 
 export interface CategorySuggestion {
   categoria: string;
@@ -67,6 +71,49 @@ const calendarDay = (m: Movimiento) => {
   const date = movementDate(m);
   return date ? dayFormatter.format(date) : null;
 };
+
+const timeFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+/** Date-only bank records are stored at UTC midnight; manual dates may use Madrid midnight. */
+export function hasMovementTime(m: Movimiento): boolean {
+  const date = movementDate(m);
+  if (!date) return false;
+  const utcMidnight = date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;
+  return !utcMidnight && !(timeFormatter.format(date) === '00:00:00' && date.getUTCMilliseconds() === 0);
+}
+
+export interface DuplicateChargePair { a: Movimiento; b: Movimiento }
+
+/** Closest pairs first, with stable id tie-breaks. Each movement is used at most once. */
+export function findDuplicateCharges(movimientos: Movimiento[], now = new Date()): DuplicateChargePair[] {
+  const cutoff = now.getTime() - 60 * 86_400_000;
+  const eligible = movimientos.filter(m => {
+    const time = movementDate(m)?.getTime();
+    return m.tipo === 'gasto' && cuentaEnEstadisticas(m) && !m.suscripcion_id && Number.isFinite(m.importe) &&
+      time !== undefined && time >= cutoff && time <= now.getTime();
+  }).sort((a, b) => movementDate(a)!.getTime() - movementDate(b)!.getTime() || a.id.localeCompare(b.id));
+  const candidates: (DuplicateChargePair & { distance: number })[] = [];
+  for (let i = 0; i < eligible.length; i++) {
+    const a = eligible[i];
+    for (const b of eligible.slice(i + 1)) {
+      if (a.id === b.id || Math.round(a.importe * 100) !== Math.round(b.importe * 100) ||
+        (a.banco || '') !== (b.banco || '') || normalize(a.original_concept ?? a.concepto) !== normalize(b.original_concept ?? b.concepto)) continue;
+      const origins = [a.email_id, a.id_correo_origen].filter(Boolean);
+      if ([b.email_id, b.id_correo_origen].some(id => id && origins.includes(id)) ||
+        a.duplicados_descartados?.includes(b.id) || b.duplicados_descartados?.includes(a.id)) continue;
+      const distance = movementDate(b)!.getTime() - movementDate(a)!.getTime();
+      if (hasMovementTime(a) && hasMovementTime(b) ? distance > 15 * 60_000 : calendarDay(a) !== calendarDay(b)) continue;
+      candidates.push({ a, b, distance });
+    }
+  }
+  candidates.sort((x, y) => x.distance - y.distance || x.a.id.localeCompare(y.a.id) || x.b.id.localeCompare(y.b.id));
+  const used = new Set<string>();
+  return candidates.filter(({ a, b }) => {
+    if (used.has(a.id) || used.has(b.id)) return false;
+    used.add(a.id);
+    used.add(b.id);
+    return true;
+  }).map(({ a, b }) => ({ a, b }));
+}
 
 export interface CompensationSuggestion {
   id: string;

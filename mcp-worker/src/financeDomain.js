@@ -129,19 +129,41 @@ export function percentageTotal(huchas, replacing = {}) {
 }
 
 /**
- * Split an income across wallets: fixed amounts, then percentages, then the rest.
+ * Split an income: fixed amounts, payroll extras, percentages, then the rest.
  *
  * Capped wallets only take what fits and a wallet in debt repays its lender
  * first, as the email synchroniser does. `plain` skips caps and debts: it is
  * the web's simpler split, used to undo incomes that carry no recorded split.
  * Returns { saldos: {hucha: cents}, deudas: {hucha: {importe, con}} }.
  */
-export function distributeIncome(amount, huchas, plain = false) {
+export function isPayroll(movement) {
+  const category = movement.categoria || movement.categoria_sugerida;
+  if (category) return category === 'nomina';
+  return /\b(nomina|salario|sueldo)\b/.test(nameKey(movement.concepto || ''));
+}
+
+export function extraMonth(movement) {
+  if (!isPayroll(movement)) return null;
+  let value = movement.fecha_operacion;
+  try {
+    if (typeof value === 'string') {
+      if (Number(value.slice(0, 4)) < 1 || !/^\d{4}-\d{2}-\d{2}(?:T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?)?$/.test(value)) return null;
+      value = parseMoment(value);
+    }
+    else if (value && typeof value.toDate === 'function') value = value.toDate();
+    return value instanceof Date ? localDate(value)?.slice(0, 7) || null : null;
+  } catch {
+    return null;
+  }
+}
+
+export function distributeIncome(amount, huchas, plain = false, extraMonth = null) {
   const wallets = ordered(huchas).filter(([, hucha]) => !hucha.es_metalico);
   if (!wallets.length) fail('no_hucha', 'No hay ninguna cartera activa para repartir el ingreso');
   if (!plain && percentageTotal(huchas) > 100) fail('invalid_distribution', 'Los porcentajes de las carteras superan el 100 %; corrígelos antes');
   const saldos = {};
   const deudas = {};
+  const extras = {};
   let remaining = amount;
 
   const credit = (id, hucha, share) => {
@@ -157,16 +179,23 @@ export function distributeIncome(amount, huchas, plain = false) {
     if (value) saldos[id] = (saldos[id] || 0) + value;
   };
 
-  for (const kind of ['flat', 'porcentaje']) {
+  for (const kind of ['flat', 'extra', 'porcentaje']) {
     for (const [id, hucha] of wallets) {
-      if (hucha.tipo_aportacion !== kind || remaining <= 0) continue;
-      let planned = kind === 'flat' ? cents(Number(hucha.valor_aportacion || 0)) : percentOf(amount, hucha.valor_aportacion);
+      if (remaining <= 0) continue;
+      if (kind === 'extra') {
+        if (plain || !extraMonth || !(hucha.extra_importe > 0)
+            || !(hucha.extra_meses || []).includes(Number(extraMonth.slice(5, 7)))
+            || hucha.extra_ultimo === extraMonth) continue;
+      } else if (hucha.tipo_aportacion !== kind) continue;
+      let planned = kind === 'porcentaje' ? percentOf(amount, hucha.valor_aportacion)
+        : cents(Number((kind === 'extra' ? hucha.extra_importe : hucha.valor_aportacion) || 0));
       const free = plain || (kind === 'flat' && hucha.es_suscripciones) ? null : room(hucha, saldos[id] || 0);
       if (free !== null) planned = Math.min(planned, free);
       const share = Math.min(Math.max(planned, 0), remaining);
       if (share) {
         remaining -= share;
         credit(id, hucha, share);
+        if (kind === 'extra') extras[id] = extraMonth;
       }
     }
   }
@@ -174,7 +203,7 @@ export function distributeIncome(amount, huchas, plain = false) {
     const target = fallbackHucha(huchas);
     credit(target, huchas[target], remaining);
   }
-  return { saldos, deudas };
+  return { saldos, deudas, ...(Object.keys(extras).length ? { extras } : {}) };
 }
 
 /**
@@ -202,7 +231,7 @@ export function incomeReversal(movement, huchas) {
     result[target] = (result[target] || 0) - value;
   }
   const restored = Object.fromEntries(Object.entries(deudas).filter(([id, debt]) => huchas[id] && isActive(huchas[id]) && debt.importe));
-  return { saldos: result, deudas: restored };
+  return { saldos: result, deudas: restored, ...(recorded?.extras && Object.keys(recorded.extras).length ? { extras: { ...recorded.extras } } : {}) };
 }
 
 /** Shape stored on the movement so the income can be undone exactly. */
@@ -210,6 +239,7 @@ export function recordedSplit(split) {
   return {
     saldos: Object.fromEntries(Object.entries(split.saldos).map(([id, value]) => [id, euros(value)])),
     deudas: Object.fromEntries(Object.entries(split.deudas).map(([id, debt]) => [id, { importe: euros(debt.importe), con: debt.con }])),
+    ...(split.extras && Object.keys(split.extras).length ? { extras: { ...split.extras } } : {}),
   };
 }
 

@@ -8,13 +8,18 @@ import { cuentaEnEstadisticas, importeEnEstadisticas } from "../../utils/movemen
 import { EmptyIllustration } from "../common/EmptyIllustration";
 import { HuchaCard } from "./HuchaCard";
 import { ActivityList } from "./ActivityList";
-import { AnalyticsSection } from "./LazyCharts";
+import { AnalyticsSection, CategoryBreakdown } from "./LazyCharts";
 import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
+import { BanksCard } from "./BanksCard";
+import { SmallPurchasesCard } from "./SmallPurchasesCard";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { PredictiveChart } from "./LazyCharts";
+import { MoneyFlowCard } from "./MoneyFlowCard";
 import { ServiceIcon } from "./ServiceIcon";
 import { walletAccent } from "../../utils/walletAccent";
+import { usePreferences } from "../../context/PreferencesContext";
+import { payrollDates, periodOf, previousPeriod } from "../../utils/periods";
 
 type TimePeriod = "este_mes" | "mes_pasado" | "este_anio" | "historico";
 const PERIODS: { value: TimePeriod; label: string }[] = [
@@ -58,6 +63,7 @@ interface DashboardViewProps {
   onUpdateCategoria?: (id: string, categoria: string) => Promise<void>;
   onAcceptCompensation?: (base: Movimiento, allocations: { mov: Movimiento; importe: number }[]) => Promise<void>;
   onDismissCompensation?: (ingresoId: string, gastoId: string) => Promise<void>;
+  onDismissDuplicate?: (aId: string, bId: string) => Promise<void>;
   onConvert: (m: Movimiento) => void;
   onLink: (m: Movimiento) => void;
   onUnlink: (m: Movimiento) => void;
@@ -75,6 +81,13 @@ interface DashboardViewProps {
 
 export const DashboardView: React.FC<DashboardViewProps> = (props) => {
   const { isLocked, formatCurrency } = usePrivacy();
+  const { inicioPeriodo, cifraDestacada } = usePreferences();
+  const periodConfig = useMemo(() => ({
+    inicioPeriodo, nominas: payrollDates([...props.chartMovements, ...(props.olderMovements ?? [])]),
+  }), [inicioPeriodo, props.chartMovements, props.olderMovements]);
+  const periods = PERIODS.map(p => inicioPeriodo === 1 ? p : {
+    ...p, label: p.value === "este_mes" ? "Este periodo" : p.value === "mes_pasado" ? "Periodo anterior" : p.label,
+  });
   const [period, setPeriod] = useState<TimePeriod>("historico");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -108,30 +121,23 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
     if (period === "historico")
       return [...props.chartMovements, ...(props.olderMovements ?? [])].filter(cuentaEnEstadisticas);
     const now = new Date();
+    const current = periodOf(now, inicioPeriodo, periodConfig.nominas);
+    const selected = period === "mes_pasado" ? previousPeriod(current, inicioPeriodo, periodConfig.nominas) : current;
     return props.chartMovements.filter((m) => {
       if (!cuentaEnEstadisticas(m)) return false;
       const d = parseMovimientoDate(m.fecha_operacion);
       if (!d) return false;
-      if (period === "este_mes")
-        return (
-          d.getMonth() === now.getMonth() &&
-          d.getFullYear() === now.getFullYear()
-        );
       if (period === "este_anio") return d.getFullYear() === now.getFullYear();
-      const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      return (
-        d.getMonth() === previous.getMonth() &&
-        d.getFullYear() === previous.getFullYear()
-      );
+      return d >= selected.start && d < selected.end;
     });
-  }, [props.chartMovements, props.olderMovements, period]);
+  }, [props.chartMovements, props.olderMovements, period, inicioPeriodo, periodConfig]);
   const ingresos = filtered
     .filter((m) => m.tipo === "ingreso")
     .reduce((sum, m) => sum + importeEnEstadisticas(m), 0);
   const gastos = filtered
     .filter((m) => m.tipo === "gasto")
     .reduce((sum, m) => sum + importeEnEstadisticas(m), 0);
-  const periodChartData = useMemo(() => groupMovementsByMonth(filtered), [filtered]);
+  const periodChartData = useMemo(() => groupMovementsByMonth(filtered, [], periodConfig), [filtered, periodConfig]);
   const trend = useMemo(
     () =>
       filtered
@@ -170,8 +176,10 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
     [props.suscripciones],
   );
   const periodLabel =
-    PERIODS.find((p) => p.value === period)?.label ?? "Histórico";
+    periods.find((p) => p.value === period)?.label ?? "Histórico";
   const wallets = props.huchas.filter((h) => h.activa !== false);
+  const featuredIndex = wallets.findIndex(h => h.id === cifraDestacada);
+  const featuredWallet = wallets[featuredIndex];
   const walletsTotal = wallets.reduce(
     (sum, h) => sum + Math.max(0, h.saldo_acumulado),
     0,
@@ -183,6 +191,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
     month: "long",
   });
   const step = (i: number) => ({ "--i": i }) as React.CSSProperties;
+  const column = "flex min-w-0 flex-col gap-4 [&>*:last-child]:flex-1";
   const dueLabel = (daysLeft: number) =>
     daysLeft === 0
       ? "Vence hoy"
@@ -278,7 +287,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
                 aria-label="Periodo"
                 className="glass-panel animate-in fade-in slide-in-from-top-1 absolute right-0 top-[calc(100%+6px)] z-40 w-40 rounded-2xl p-1 duration-150 md:left-0 md:right-auto"
               >
-                {PERIODS.map(({ value, label }) => (
+                {periods.map(({ value, label }) => (
                   <button
                     role="option"
                     aria-selected={period === value}
@@ -311,6 +320,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
       <div className="rise" style={step(1)}>
         <FinancialOverview
           balance={props.balance}
+          featured={featuredWallet ? { nombre: featuredWallet.nombre, saldo: featuredWallet.saldo_acumulado, accent: walletAccent(featuredIndex).fill } : undefined}
           ingresos={ingresos}
           gastos={gastos}
           periodLabel={periodLabel}
@@ -330,6 +340,18 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
               )}
             </p>
           </div>
+          {/* From tablet up; on a phone the tile at the end of the carousel does this. */}
+          {wallets.length > 0 && (
+            <div className="hidden shrink-0 sm:block">
+              <button
+                type="button"
+                onClick={() => props.onOpenHuchaModal(null)}
+                className="dashboard-secondary-button"
+              >
+                <Plus size={15} /> Nueva cartera
+              </button>
+            </div>
+          )}
         </div>
         {!isLocked && walletsTotal > 0 && wallets.length > 1 && (
           <div
@@ -368,7 +390,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
               <button
                 type="button"
                 onClick={() => props.onOpenHuchaModal(null)}
-                className="grid min-h-36 min-w-[44vw] snap-start place-items-center content-center gap-2 rounded-[1.25rem] border border-dashed border-line-strong text-xs font-bold text-ink-soft transition-colors duration-150 hover:border-brand hover:bg-brand-tint hover:text-brand-ink sm:min-w-0"
+                className="grid min-h-36 min-w-[44vw] snap-start place-items-center content-center gap-2 rounded-[1.25rem] border border-dashed border-line-strong text-xs font-bold text-ink-soft transition-colors duration-150 hover:border-brand hover:bg-brand-tint hover:text-brand-ink sm:hidden"
               >
                 <span className="grid h-9 w-9 place-items-center rounded-full bg-surface-2">
                   <Plus size={16} />
@@ -392,11 +414,12 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         </div>
       </section>
 
+      {/* Each row fills the full width and its shorter column stretches its last card, so no row ends in a gap. */}
       <div
-        className="rise grid grid-cols-1 items-start gap-4 lg:grid-cols-3"
+        className="rise grid grid-cols-1 gap-4 lg:grid-cols-3"
         style={step(3)}
       >
-        <div className="min-w-0 space-y-4 lg:col-span-2">
+        <div className={`${column} lg:col-span-2`}>
           <AnalyticsSection
             chartData={periodChartData}
             huchas={props.huchas}
@@ -404,102 +427,120 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             allMovimientos={filtered}
             periodStatus={periodStatus}
           />
+          <CategoryBreakdown
+            allMovimientos={filtered}
+            periodLabel={periodLabel}
+            periodStatus={periodStatus}
+          />
+        </div>
+        {/* On a phone, what you check most often comes before the charts. */}
+        <div className={`${column} order-first lg:order-none`}>
+          <BanksCard movimientos={props.chartMovements} walletsTotal={walletsTotal} />
+          <section className="dashboard-surface min-w-0 p-5">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="dashboard-icon bg-brand-tint text-brand-ink">
+                  <CalendarClock size={18} />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="dashboard-heading">Próximos cargos</h3>
+                  <p className="dashboard-subtitle">Movimientos programados</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={props.onOpenCalendar}
+                className="shrink-0 rounded-lg py-1 text-xs font-bold text-brand-ink underline-offset-4 hover:underline"
+              >
+                Ver calendario
+              </button>
+            </div>
+            {upcoming.length ? (
+              <div className="divide-y divide-line">
+                {upcoming.map(({ sub, date, daysLeft }) => (
+                  <div key={sub.id} className="flex items-center gap-3 py-3">
+                    <ServiceIcon name={sub.nombre} color={sub.color} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-bold text-ink">
+                        {sub.nombre}
+                      </p>
+                      <p className="text-[11px] text-ink-soft">
+                        <span
+                          className={
+                            daysLeft <= 3
+                              ? "font-bold text-sun-600 dark:text-sun-300"
+                              : ""
+                          }
+                        >
+                          {dueLabel(daysLeft)}
+                        </span>{" "}
+                        ·{" "}
+                        {date.toLocaleDateString("es-ES", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </p>
+                    </div>
+                    <span className="text-[13px] font-extrabold tabular-nums text-ink">
+                      {isLocked
+                        ? "•• €"
+                        : formatCurrency(sub.mi_parte ?? sub.importe)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="dashboard-empty">
+                <p>No hay cargos próximos</p>
+              </div>
+            )}
+            {upcoming.length > 0 && (
+              <p className="mt-2 text-[11px] leading-relaxed text-ink-faint">
+                Las fechas se calculan desde tus suscripciones activas.
+              </p>
+            )}
+          </section>
+          <MonthlySummary movimientos={props.chartMovements} />
+        </div>
+      </div>
+
+      <div className="rise" style={step(4)}>
+        <MoneyFlowCard allMovimientos={filtered} periodLabel={periodLabel} periodStatus={periodStatus} />
+      </div>
+
+      <div className="rise grid grid-cols-1 gap-4 lg:grid-cols-3" style={step(5)}>
+        {/* Takes the whole row when there are no small purchases to show beside it. */}
+        <div className="min-w-0 lg:col-span-2 lg:only:col-span-3 [&>*]:h-full">
           <PredictiveChart
             huchas={props.huchas}
             suscripciones={props.suscripciones}
             allMovimientos={props.chartMovements}
           />
         </div>
-        <section className="dashboard-surface min-w-0 p-5">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="dashboard-icon bg-brand-tint text-brand-ink">
-                <CalendarClock size={18} />
-              </span>
-              <div className="min-w-0">
-                <h3 className="dashboard-heading">Próximos cargos</h3>
-                <p className="dashboard-subtitle">Movimientos programados</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={props.onOpenCalendar}
-              className="shrink-0 rounded-lg py-1 text-xs font-bold text-brand-ink underline-offset-4 hover:underline"
-            >
-              Ver calendario
-            </button>
-          </div>
-          {upcoming.length ? (
-            <div className="divide-y divide-line">
-              {upcoming.map(({ sub, date, daysLeft }) => (
-                <div key={sub.id} className="flex items-center gap-3 py-3">
-                  <ServiceIcon name={sub.nombre} color={sub.color} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-bold text-ink">
-                      {sub.nombre}
-                    </p>
-                    <p className="text-[11px] text-ink-soft">
-                      <span
-                        className={
-                          daysLeft <= 3
-                            ? "font-bold text-sun-600 dark:text-sun-300"
-                            : ""
-                        }
-                      >
-                        {dueLabel(daysLeft)}
-                      </span>{" "}
-                      ·{" "}
-                      {date.toLocaleDateString("es-ES", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </p>
-                  </div>
-                  <span className="text-[13px] font-extrabold tabular-nums text-ink">
-                    {isLocked
-                      ? "•• €"
-                      : formatCurrency(sub.mi_parte ?? sub.importe)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="dashboard-empty">
-              <p>No hay cargos próximos</p>
-            </div>
-          )}
-          {upcoming.length > 0 && (
-            <p className="mt-2 text-[11px] leading-relaxed text-ink-faint">
-              Las fechas se calculan desde tus suscripciones activas.
-            </p>
-          )}
-        </section>
+        <SmallPurchasesCard
+          movimientos={filtered}
+          periodLabel={periodLabel}
+          totalGastos={gastos}
+        />
       </div>
 
-      <div
-        className="rise grid grid-cols-1 items-start gap-4 lg:grid-cols-3"
-        style={step(4)}
-      >
-        <div className="min-w-0 lg:col-span-2">
-          <ActivityList
-            movimientos={props.movimientos}
-            allMovimientos={props.chartMovements}
-            huchas={props.huchas}
-            huchaMonthlyBudgets={props.huchaMonthlyBudgets}
-            onUpdateConcepto={props.onUpdateConcepto}
-            onUpdateCategoria={props.onUpdateCategoria}
-            onAcceptCompensation={props.onAcceptCompensation}
-            onDismissCompensation={props.onDismissCompensation}
-            onConvert={props.onConvert}
-            onLink={props.onLink}
-            onUnlink={props.onUnlink}
-            onChangeHucha={props.onChangeHucha}
-            onDeleteMovimiento={props.onDeleteMovimiento}
-          />
-        </div>
-        <div className="min-w-0">
-          <MonthlySummary movimientos={props.chartMovements} />
-        </div>
+      <div className="rise" style={step(6)}>
+        <ActivityList
+          movimientos={props.movimientos}
+          allMovimientos={props.chartMovements}
+          huchas={props.huchas}
+          huchaMonthlyBudgets={props.huchaMonthlyBudgets}
+          onUpdateConcepto={props.onUpdateConcepto}
+          onUpdateCategoria={props.onUpdateCategoria}
+          onAcceptCompensation={props.onAcceptCompensation}
+          onDismissCompensation={props.onDismissCompensation}
+          onDismissDuplicate={props.onDismissDuplicate}
+          onConvert={props.onConvert}
+          onLink={props.onLink}
+          onUnlink={props.onUnlink}
+          onChangeHucha={props.onChangeHucha}
+          onDeleteMovimiento={props.onDeleteMovimiento}
+        />
       </div>
     </div>
   );

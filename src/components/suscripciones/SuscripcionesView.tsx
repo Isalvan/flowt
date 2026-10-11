@@ -12,10 +12,12 @@ import {
 } from 'lucide-react';
 import { CATEGORIA_OPTIONS, calcMensual } from '../../hooks/useFinanceData';
 import { usePrivacy } from '../../context/PrivacyContext';
+import { calcAnual } from '../../utils/subscriptions';
 
 interface SuscripcionesViewProps {
   suscripciones: Suscripcion[];
   huchas: Hucha[];
+  ingresoMensualHabitual?: number;
   onOpenSuscripcionModal: (editingSub: Suscripcion | null) => void;
   onDeleteSuscripcion: (s: Suscripcion) => void;
   onToggleSuscripcion: (s: Suscripcion) => void;
@@ -26,6 +28,7 @@ interface SuscripcionesViewProps {
 export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
   suscripciones,
   huchas,
+  ingresoMensualHabitual,
   onOpenSuscripcionModal,
   onDeleteSuscripcion,
   onToggleSuscripcion,
@@ -49,14 +52,24 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
     }, 0);
 
   const savedSharedPrice = Math.max(0, totalOriginalPrice - myActualPrice);
+  const totalAnualActivo = Number(suscripciones
+    .filter(s => s.activa)
+    .reduce((sum, s) => sum + calcAnual(s), 0).toFixed(2));
+  const porcentajeIngresos = ingresoMensualHabitual != null
+    && Number.isFinite(ingresoMensualHabitual) && ingresoMensualHabitual > 0
+    ? totalAnualActivo / (ingresoMensualHabitual * 12) * 100
+    : null;
 
   const activeCount = suscripciones.filter(s => s.activa).length;
   const inactiveCount = suscripciones.length - activeCount;
 
   // Filter subscriptions
-  const filteredSubs = selectedCategory
+  const filteredSubs = (selectedCategory
     ? suscripciones.filter(s => s.categoria === selectedCategory)
-    : suscripciones;
+    : [...suscripciones]).sort((a, b) => {
+      if (a.activa !== b.activa) return a.activa ? -1 : 1;
+      return a.activa ? calcAnual(b) - calcAnual(a) : 0;
+    });
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -81,7 +94,7 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
       </div>
 
       {/* 2. Top Overview Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 xl:grid-cols-5">
         
         {/* Total Monthly Equivalent budget */}
         <Card className="flex flex-col justify-between">
@@ -151,6 +164,19 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
             </p>
           </div>
         </Card>
+        <Card className="flex flex-col justify-between col-span-2 xl:col-span-1">
+          <div className="dashboard-label">Coste anual</div>
+          <div className="mt-3.5">
+            <span className="figure text-2xl text-ink">
+              {formatCurrency(totalAnualActivo)}
+            </span>
+            {porcentajeIngresos != null && (
+              <p className="text-xs text-ink-soft mt-1">
+                {porcentajeIngresos.toLocaleString('es-ES', { maximumFractionDigits: 1 })} % de lo que ingresas
+              </p>
+            )}
+          </div>
+        </Card>
       </div>
 
       {/* 3. Category Filters */}
@@ -191,6 +217,7 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
             <SuscripcionCard
               key={s.id}
               suscripcion={s}
+              totalAnualActivo={totalAnualActivo}
               onEdit={onOpenSuscripcionModal}
               onDelete={onDeleteSuscripcion}
               onToggle={onToggleSuscripcion}

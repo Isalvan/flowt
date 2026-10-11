@@ -1,5 +1,34 @@
 import type { Movimiento } from '../types';
 import { cuentaEnEstadisticas, importeEnEstadisticas } from './movements';
+import { periodOf, periodName, previousPeriod, type PeriodConfig } from './periods';
+
+export interface CategoryExpense {
+  categoria: string;
+  total: number;
+  porcentaje: number;
+}
+
+/** `categoryOf` lets the caller fall back to a suggested category for movements the user has not classified. */
+export const groupExpensesByCategory = (
+  movimientos: readonly Movimiento[],
+  categoryOf: (movement: Movimiento) => string | undefined = movement => movement.categoria,
+): CategoryExpense[] => {
+  const totals = new Map<string, number>();
+  movimientos.forEach(movement => {
+    if (movement.tipo !== 'gasto' || !cuentaEnEstadisticas(movement)) return;
+    const categoria = categoryOf(movement) || 'sin_categoria';
+    totals.set(categoria, (totals.get(categoria) ?? 0) + importeEnEstadisticas(movement));
+  });
+  const categories = [...totals].map(([categoria, amount]) => ({
+    categoria,
+    total: Math.round((amount + Number.EPSILON) * 100) / 100,
+  })).filter(({ total }) => total > 0).sort((a, b) => b.total - a.total);
+  const totalCents = categories.reduce((sum, category) => sum + Math.round(category.total * 100), 0);
+  return categories.map(category => ({
+    ...category,
+    porcentaje: Math.round(category.total * 100 / totalCents * 10000) / 100,
+  }));
+};
 
 export const parseMovimientoDate = (value: unknown): Date | null => {
   let date: unknown = value;
@@ -11,8 +40,12 @@ export const parseMovimientoDate = (value: unknown): Date | null => {
   return date instanceof Date && !Number.isNaN(date.getTime()) ? date : null;
 };
 
-export const getMovementWindowStart = (now = new Date()): Date =>
-  new Date(now.getFullYear(), now.getMonth() - 12, 1);
+export const getMovementWindowStart = (now = new Date(), config?: PeriodConfig): Date => {
+  if (!config || config.inicioPeriodo === 1) return new Date(now.getFullYear(), now.getMonth() - 12, 1);
+  let period = periodOf(now, config.inicioPeriodo, config.nominas);
+  for (let i = 0; i < 12; i++) period = previousPeriod(period, config.inicioPeriodo, config.nominas);
+  return period.start;
+};
 
 export interface MonthlyStats {
   name: string;
@@ -26,19 +59,22 @@ const monthKey = (date: Date): number => date.getFullYear() * 12 + date.getMonth
 export const groupMovementsByMonth = (
   movements: readonly Movimiento[],
   emptyMonths: readonly Date[] = [],
+  config?: PeriodConfig,
 ): MonthlyStats[] => {
+  const custom = config && config.inicioPeriodo !== 1 ? config : undefined;
+  const keyOf = (date: Date) => custom ? periodOf(date, custom.inicioPeriodo, custom.nominas).start.getTime() : monthKey(date);
   const months = new Map<number, MonthlyStats>();
   const emptyMonth = (date: Date): MonthlyStats => ({
-    name: date.toLocaleDateString('es-ES', { month: 'short' }),
+    name: custom ? periodName(periodOf(date, custom.inicioPeriodo, custom.nominas)) : date.toLocaleDateString('es-ES', { month: 'short' }),
     ingresos: 0,
     gastos: 0,
   });
-  emptyMonths.forEach(date => months.set(monthKey(date), emptyMonth(date)));
+  emptyMonths.forEach(date => months.set(keyOf(date), emptyMonth(date)));
   movements.forEach(movement => {
     if (!cuentaEnEstadisticas(movement)) return;
     const date = parseMovimientoDate(movement.fecha_operacion);
     if (!date) return;
-    const key = monthKey(date);
+    const key = keyOf(date);
     if (emptyMonths.length && !months.has(key)) return;
     const entry = months.get(key) ?? emptyMonth(date);
     entry[movement.tipo === 'ingreso' ? 'ingresos' : 'gastos'] += importeEnEstadisticas(movement);
@@ -47,14 +83,14 @@ export const groupMovementsByMonth = (
   return [...months.entries()].sort(([a], [b]) => a - b).map(([, stats]) => stats);
 };
 
-export const typicalMonthlyIncome = (movements: readonly Movimiento[], now = new Date()): number => {
-  const windowStart = getMovementWindowStart(now);
-  const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+export const typicalMonthlyIncome = (movements: readonly Movimiento[], now = new Date(), config?: PeriodConfig): number => {
+  const windowStart = getMovementWindowStart(now, config);
+  const currentMonth = periodOf(now, config?.inicioPeriodo ?? 1, config?.nominas).start;
   const completeMonths = movements.filter(movement => {
     const date = parseMovimientoDate(movement.fecha_operacion);
     return date && date >= windowStart && date < currentMonth;
   });
-  const incomes = groupMovementsByMonth(completeMonths)
+  const incomes = groupMovementsByMonth(completeMonths, [], config)
     .map(month => month.ingresos).filter(income => income > 0).sort((a, b) => a - b);
   let income: number;
   if (incomes.length) {
@@ -64,7 +100,7 @@ export const typicalMonthlyIncome = (movements: readonly Movimiento[], now = new
     income = groupMovementsByMonth(movements.filter(movement => {
       const date = parseMovimientoDate(movement.fecha_operacion);
       return date && date >= currentMonth && date <= now;
-    })).reduce((sum, month) => sum + month.ingresos, 0);
+    }), [], config).reduce((sum, month) => sum + month.ingresos, 0);
   }
   return Number(income.toFixed(2));
 };

@@ -17,12 +17,16 @@ import {
   writeBatch,
   type WriteBatch,
   type DocumentReference,
+  type Transaction,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { type Movimiento, type Hucha, type Suscripcion, type PendingEmail, type CorreoHistorico } from '../types';
 import { usePrivacy } from '../context/PrivacyContext';
 import { crearRetiradaEfectivo, cuentaEnEstadisticas } from '../utils/movements';
 import { getMovementWindowStart, groupMovementsByMonth, typicalMonthlyIncome, parseMovimientoDate } from '../utils/periodStats';
+import { usePreferences } from '../context/PreferencesContext';
+import { payrollDates, periodOf, previousPeriod } from '../utils/periods';
+import { extraMonth, splitIncome, reverseIncome, applySplit, recordedSplit, explicitIncomeSplit, cappedWalletCredit, roundMoney, isIncomeSplitError, type IncomeSplit } from '../utils/incomeSplit';
 import { sanitizeConcepto } from '../utils/sanitize';
 import { tryEditReviewedMovement } from '../utils/reviewApi';
 import { compensationUpdates, unlinkCompensationUpdates, validCategory as validCatalogCategory } from '../utils/movementSuggestions';
@@ -68,6 +72,10 @@ const refundHuchaId = (huchaId: string | null | undefined, wallets: Hucha[]): st
   if (own && own.activa !== false) return own.id;
   return wallets.find(h => h.es_principal && h.activa !== false)?.id || wallets.find(h => h.activa !== false)?.id;
 };
+
+const linkedMovementIds = (m: Movimiento): string[] => Array.from(new Set(m.tipo === 'gasto'
+  ? [...(m.compensado_por || []), ...(m.compensado_por_detalles || []).map(d => d.ingreso_id)]
+  : [...(m.compensa_movimiento_id ? [m.compensa_movimiento_id] : []), ...(m.compensaciones_destinos || []).map(d => d.gasto_id)]));
 
 // Initial Mock Data for outstanding user experience in Demo Mode
 const MOCK_HUCHAS: Hucha[] = [
@@ -115,6 +123,7 @@ const MOCK_PENDING_EMAILS: PendingEmail[] = [
 ];
 
 export const useFinanceData = (forceDemo = false) => {
+  const { inicioPeriodo } = usePreferences();
   const { isLocked } = usePrivacy();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,11 +138,16 @@ export const useFinanceData = (forceDemo = false) => {
   const [historicoCorreos, setHistoricoCorreos] = useState<CorreoHistorico[]>([]);
   const [userStats, setUserStats] = useState<{ total_ingresos: number; total_gastos: number } | null>(null);
 
-  const [windowStart] = useState(() => getMovementWindowStart());
+  const [windowAnchor] = useState(() => new Date());
+  const windowStart = useMemo(() => {
+    // Payroll dates are not loaded yet: include one extra month to retain the boundary payroll.
+    if (inicioPeriodo === 'nomina') return new Date(windowAnchor.getFullYear(), windowAnchor.getMonth() - 13, 1);
+    return getMovementWindowStart(windowAnchor, { inicioPeriodo, nominas: [] });
+  }, [windowAnchor, inicioPeriodo]);
   const [chartMovementsLoading, setChartMovementsLoading] = useState(true);
   const uid = user?.uid;
   // Each unlocked user session owns its older-movements listener.
-  const olderSession = useMemo(() => ({ uid, isFirebaseConfigured, isLocked, forceDemo }), [uid, isFirebaseConfigured, isLocked, forceDemo]);
+  const olderSession = useMemo(() => ({ uid, isFirebaseConfigured, isLocked, forceDemo, windowStart }), [uid, isFirebaseConfigured, isLocked, forceDemo, windowStart]);
   const [olderState, setOlderState] = useState<{
     session: typeof olderSession;
     movements: Movimiento[];
@@ -239,6 +253,8 @@ export const useFinanceData = (forceDemo = false) => {
   // Check if Firebase is available (or forceDemo overrides it)
   useEffect(() => {
     if (forceDemo || !import.meta.env.VITE_FIREBASE_API_KEY) {
+      // Demo storage is an external source loaded when this subscription mode changes.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsFirebaseConfigured(false);
       if (isLocked) {
         setMovimientos([]);
@@ -267,6 +283,8 @@ export const useFinanceData = (forceDemo = false) => {
   useEffect(() => {
     if (forceDemo || !import.meta.env.VITE_FIREBASE_API_KEY || !isFirebaseConfigured) return;
 
+    // This flag follows the lifecycle of the Firestore listener below.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setChartMovementsLoading(true);
     if (!user || isLocked) {
       // Clear data states when locked or signed out to prevent network & memory exposure
@@ -477,135 +495,30 @@ export const useFinanceData = (forceDemo = false) => {
     localStorage.setItem('flowt-demo-stats', JSON.stringify(newStats));
   };
 
-  // Re-runs the income/expense allocations on Demo local memory
-  const processLocalDistribution = (tipo: 'ingreso' | 'gasto', importe: number, huchaId?: string): Hucha[] => {
-    let updatedHuchas = [...huchas];
-    const activeHuchas = updatedHuchas.filter(h => h.activa !== false);
-    if (tipo === 'gasto') {
-      const targetHuchaId = huchaId || activeHuchas.find(h => h.es_principal)?.id || activeHuchas[0]?.id;
-      updatedHuchas = updatedHuchas.map(h => {
-        if (h.id === targetHuchaId) {
-          return { ...h, saldo_acumulado: Math.max(0, h.saldo_acumulado - importe) };
-        }
-        return h;
-      });
-    } else {
-      // Income distribution algorithm
-      let remaining = importe;
-      const rawDeltas: Record<string, number> = {};
-
-      // 1. Flat amounts
-      activeHuchas.forEach(h => {
-        if (h.tipo_aportacion === 'flat' && remaining > 0) {
-          const val = h.valor_aportacion || 0;
-          let toAdd = Math.min(val, remaining);
-          remaining -= toAdd;
-          
-          if ((h.deuda_pendiente || 0) > 0) {
-            const payment = Math.min(h.deuda_pendiente!, toAdd);
-            h.deuda_pendiente! -= payment;
-            toAdd -= payment;
-            if (h.deuda_con) {
-              rawDeltas[h.deuda_con] = (rawDeltas[h.deuda_con] || 0) + payment;
-            }
-          }
-          rawDeltas[h.id] = (rawDeltas[h.id] || 0) + toAdd;
-        }
-      });
-
-      // 2. Percentages
-      activeHuchas.forEach(h => {
-        if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
-          const perc = h.valor_aportacion || 0;
-          const share = importe * (perc / 100);
-          let toAdd = Math.min(share, remaining);
-          remaining -= toAdd;
-
-          if ((h.deuda_pendiente || 0) > 0) {
-            const payment = Math.min(h.deuda_pendiente!, toAdd);
-            h.deuda_pendiente! -= payment;
-            toAdd -= payment;
-            if (h.deuda_con) {
-              rawDeltas[h.deuda_con] = (rawDeltas[h.deuda_con] || 0) + payment;
-            }
-          }
-          rawDeltas[h.id] = (rawDeltas[h.id] || 0) + toAdd;
-        }
-      });
-
-      // 3. Rest remainder
-      const restoHucha = activeHuchas.find(h => h.tipo_aportacion === 'resto') 
-                     || activeHuchas.find(h => h.es_principal)
-                     || activeHuchas[0];
-      if (restoHucha && remaining > 0) {
-        let toAdd = remaining;
-        remaining = 0;
-        
-        if ((restoHucha.deuda_pendiente || 0) > 0) {
-          const payment = Math.min(restoHucha.deuda_pendiente!, toAdd);
-          restoHucha.deuda_pendiente! -= payment;
-          toAdd -= payment;
-          if (restoHucha.deuda_con) {
-            rawDeltas[restoHucha.deuda_con] = (rawDeltas[restoHucha.deuda_con] || 0) + payment;
-          }
-        }
-        rawDeltas[restoHucha.id] = (rawDeltas[restoHucha.id] || 0) + toAdd;
+  // Read rules and balances before planning any transaction writes.
+  const readHuchas = async (transaction: Transaction, extraIds: string[] = []): Promise<Hucha[]> => {
+    const current: Hucha[] = [];
+    for (const id of new Set([...huchas.map(h => h.id), ...extraIds])) {
+      const snap = await transaction.get(doc(db, 'huchas', id));
+      if (snap.exists()) {
+        if (snap.data().id_propietario !== user?.uid) throw new Error('Hucha no válida');
+        current.push({ ...snap.data(), id } as Hucha);
       }
-
-      // Apply redirect overflow boundaries (topes)
-      const { adjusted: finalDeltas, overflow } = redirectOverflowToResto(rawDeltas, activeHuchas);
-      if (overflow > 0.01) {
-        showToast(`${overflow.toFixed(2)} € sin asignar: todas las huchas están llenas`);
-      }
-
-      updatedHuchas = updatedHuchas.map(h => {
-        if (finalDeltas[h.id]) {
-          return { ...h, saldo_acumulado: Number((h.saldo_acumulado + finalDeltas[h.id]).toFixed(2)) };
-        }
-        return h;
-      });
     }
-    return updatedHuchas;
+    return current;
   };
 
-  // Redirect overflow logic
-  const redirectOverflowToResto = (
-    deltas: Record<string, number>,
-    huchasState: Hucha[]
-  ): { adjusted: Record<string, number>; overflow: number; restoId: string | null } => {
-    const adjusted: Record<string, number> = { ...deltas };
-    let leftover = 0;
-
-    for (const [hid, delta] of Object.entries(deltas)) {
-      if (delta <= 0) continue;
-      const h = huchasState.find(x => x.id === hid);
-      if (!h) continue;
-      if (!h.tope_objetivo || !h.objetivo || h.objetivo <= 0) continue;
-      const room = Math.max(0, h.objetivo - h.saldo_acumulado);
-      if (delta > room) {
-        adjusted[hid] = room;
-        leftover += delta - room;
-      }
+  const writeSplit = (transaction: Transaction, current: Hucha[], split: IncomeSplit) => {
+    for (const h of applySplit(current, split)) {
+      if (!split.saldos[h.id] && !split.deudas[h.id] && !split.extras?.[h.id]) continue;
+      transaction.update(doc(db, 'huchas', h.id), {
+        saldo_acumulado: h.saldo_acumulado,
+        ...(split.extras?.[h.id] && (!split.reverseExtras || current.find(wallet => wallet.id === h.id)?.extra_ultimo === split.extras[h.id])
+          ? { extra_ultimo: h.extra_ultimo || deleteField() } : {}),
+        ...(split.deudas[h.id] ? { deuda_pendiente: h.deuda_pendiente, deuda_con: h.deuda_con || deleteField() } : {}),
+        updated_at: serverTimestamp(),
+      });
     }
-
-    if (leftover <= 0) return { adjusted, overflow: 0, restoId: null };
-
-    const candidates = huchasState.filter(h => h.activa !== false);
-    const restoCandidate =
-      candidates.find(h => h.tipo_aportacion === 'resto') ??
-      candidates.find(h => h.es_principal) ??
-      candidates[0];
-
-    if (!restoCandidate) return { adjusted, overflow: leftover, restoId: null };
-
-    const destRoom = restoCandidate.tope_objetivo && restoCandidate.objetivo
-      ? Math.max(0, restoCandidate.objetivo - restoCandidate.saldo_acumulado - (adjusted[restoCandidate.id] ?? 0))
-      : Infinity;
-    const accepted = Math.min(leftover, destRoom);
-    if (accepted > 0) {
-      adjusted[restoCandidate.id] = (adjusted[restoCandidate.id] ?? 0) + accepted;
-    }
-    return { adjusted, overflow: leftover - accepted, restoId: restoCandidate.id };
   };
 
   // ----------------------------------------------------
@@ -613,8 +526,10 @@ export const useFinanceData = (forceDemo = false) => {
   // ----------------------------------------------------
 
   const handleCreateOrUpdateHucha = async (newHucha: Omit<Hucha, 'id' | 'saldo_acumulado' | 'orden'>, editingId: string | null) => {
-    // Loan settings ("subsanar"). A caller that does not send them leaves the stored ones untouched.
-    const loanSettings = {
+    // Optional wallet settings: omitted fields leave the stored values untouched.
+    const optionalSettings = {
+      ...(newHucha.extra_importe !== undefined ? { extra_importe: newHucha.extra_importe === null ? null : roundMoney(Number(newHucha.extra_importe)) } : {}),
+      ...(newHucha.extra_meses !== undefined ? { extra_meses: newHucha.extra_meses === null ? null : [...new Set(newHucha.extra_meses)].sort((a, b) => a - b) } : {}),
       ...(newHucha.subsanar_hasta !== undefined ? { subsanar_hasta: Number(newHucha.subsanar_hasta) || 0 } : {}),
       ...(newHucha.subsanar_con !== undefined ? { subsanar_con: newHucha.subsanar_con || null } : {}),
     };
@@ -632,7 +547,7 @@ export const useFinanceData = (forceDemo = false) => {
               objetivo: newHucha.objetivo,
               es_principal: newHucha.es_principal,
               tope_objetivo: newHucha.objetivo && newHucha.objetivo > 0 ? !!newHucha.tope_objetivo : false,
-              ...loanSettings,
+              ...optionalSettings,
             };
           }
           // If this hucha is being set as principal, reset other ones
@@ -654,7 +569,7 @@ export const useFinanceData = (forceDemo = false) => {
           objetivo: newHucha.objetivo,
           es_principal: newHucha.es_principal,
           tope_objetivo: newHucha.objetivo && newHucha.objetivo > 0 ? !!newHucha.tope_objetivo : false,
-          ...loanSettings,
+          ...optionalSettings,
           activa: true,
           saldo_acumulado: 0,
           orden: huchas.length + 1
@@ -681,7 +596,7 @@ export const useFinanceData = (forceDemo = false) => {
       objetivo: newHucha.objetivo && newHucha.objetivo > 0 ? Number(newHucha.objetivo) : null,
       es_principal: !!newHucha.es_principal,
       tope_objetivo: newHucha.objetivo && newHucha.objetivo > 0 ? !!newHucha.tope_objetivo : false,
-      ...loanSettings,
+      ...optionalSettings,
       activa: true,
       updated_at: serverTimestamp()
     };
@@ -768,39 +683,13 @@ export const useFinanceData = (forceDemo = false) => {
       let dists: Record<string, number> = {};
 
       if (deleteMode === 'auto') {
-        let remaining = hucha.saldo_acumulado;
-        remainingHuchas.forEach(h => {
-          if (h.tipo_aportacion === 'flat' && remaining > 0) {
-            const val = h.valor_aportacion || 0;
-            const toAdd = Math.min(val, remaining);
-            dists[h.id] = toAdd;
-            remaining -= toAdd;
-          }
-        });
-        remainingHuchas.forEach(h => {
-          if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
-            const perc = h.valor_aportacion || 0;
-            let toAdd = hucha.saldo_acumulado * (perc / 100);
-            toAdd = Math.min(toAdd, remaining);
-            dists[h.id] = (dists[h.id] || 0) + toAdd;
-            remaining -= toAdd;
-          }
-        });
-        let restoH = remainingHuchas.find(h => h.tipo_aportacion === 'resto') 
-                  || remainingHuchas.find(h => h.es_principal)
-                  || remainingHuchas[0];
-        if (restoH && remaining > 0) {
-          dists[restoH.id] = (dists[restoH.id] || 0) + remaining;
-        }
+        dists = splitIncome(hucha.saldo_acumulado, remainingHuchas, { plain: true }).saldos;
       } else {
         dists = manualDistributions || {};
       }
 
-      let updated = huchas.map(h => {
-        if (h.id === hucha.id) return { ...h, activa: false, saldo_acumulado: 0 };
-        const delta = dists[h.id] || 0;
-        return { ...h, saldo_acumulado: Number((h.saldo_acumulado + delta).toFixed(2)) };
-      });
+      let updated = applySplit(huchas, { saldos: dists, deudas: {} })
+        .map(h => h.id === hucha.id ? { ...h, activa: false, saldo_acumulado: 0 } : h);
 
       if (deleteMode === 'debt' && debtAssignedTo) {
         if (debtAssignedTo === hucha.deuda_con) {
@@ -814,7 +703,7 @@ export const useFinanceData = (forceDemo = false) => {
               if (h.id === assignee.id) {
                 return {
                   ...h,
-                  deuda_pendiente: (h.deuda_pendiente || 0) + (hucha.deuda_pendiente || 0),
+                  deuda_pendiente: roundMoney((h.deuda_pendiente || 0) + (hucha.deuda_pendiente || 0)),
                   deuda_con: hucha.deuda_con
                 };
               }
@@ -832,67 +721,31 @@ export const useFinanceData = (forceDemo = false) => {
     // Symmetrical for Firebase
     try {
       await runTransaction(db, async (transaction) => {
-        const remainingHuchas = huchas.filter(h => h.id !== hucha.id && h.activa !== false);
-        let dists: Record<string, number> = {};
-        
-        if (deleteMode === 'auto') {
-          let remaining = hucha.saldo_acumulado;
-          remainingHuchas.forEach(h => {
-            if (h.tipo_aportacion === 'flat' && remaining > 0) {
-              const val = h.valor_aportacion || 0;
-              const toAdd = Math.min(val, remaining);
-              dists[h.id] = toAdd;
-              remaining -= toAdd;
-            }
-          });
-          remainingHuchas.forEach(h => {
-            if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
-              const perc = h.valor_aportacion || 0;
-              let toAdd = hucha.saldo_acumulado * (perc / 100);
-              toAdd = Math.min(toAdd, remaining);
-              dists[h.id] = (dists[h.id] || 0) + toAdd;
-              remaining -= toAdd;
-            }
-          });
-          let restoH = remainingHuchas.find(h => h.tipo_aportacion === 'resto') 
-                        || remainingHuchas.find(h => h.es_principal)
-                        || remainingHuchas[0];
-          if (restoH && remaining > 0) {
-            dists[restoH.id] = (dists[restoH.id] || 0) + remaining;
-          }
-        } else {
-          dists = manualDistributions || {};
-        }
+        const currentHuchas = await readHuchas(transaction, [hucha.id, ...(debtAssignedTo ? [debtAssignedTo] : [])]);
+        const current = currentHuchas.find(h => h.id === hucha.id);
+        if (!current) throw new Error('Hucha no válida');
+        const remainingHuchas = currentHuchas.filter(h => h.id !== hucha.id && h.activa !== false);
+        const dists = deleteMode === 'auto'
+          ? splitIncome(current.saldo_acumulado, remainingHuchas, { plain: true }).saldos
+          : manualDistributions || {};
 
-        const huchaRefs = remainingHuchas.map(h => doc(db, 'huchas', h.id));
-        const huchaDocs = await Promise.all(huchaRefs.map(ref => transaction.get(ref)));
-        
         transaction.update(doc(db, 'huchas', hucha.id), { activa: false, saldo_acumulado: 0, updated_at: serverTimestamp() });
-        
         if (deleteMode === 'debt' && debtAssignedTo) {
-          if (debtAssignedTo !== hucha.deuda_con) {
-            const assigneeDoc = await transaction.get(doc(db, 'huchas', debtAssignedTo));
-            if (assigneeDoc.exists()) {
-              transaction.update(assigneeDoc.ref, {
-                deuda_pendiente: (assigneeDoc.data().deuda_pendiente || 0) + (hucha.deuda_pendiente || 0),
-                deuda_con: hucha.deuda_con,
-                updated_at: serverTimestamp()
-              });
-            }
+          const assignee = remainingHuchas.find(h => h.id === debtAssignedTo);
+          if (debtAssignedTo !== current.deuda_con && assignee) {
+            transaction.update(doc(db, 'huchas', assignee.id), {
+              deuda_pendiente: roundMoney((assignee.deuda_pendiente || 0) + (current.deuda_pendiente || 0)),
+              deuda_con: current.deuda_con,
+              updated_at: serverTimestamp(),
+            });
           }
         } else {
-          huchaDocs.forEach(d => {
-            if (d.exists() && dists[d.id]) {
-              transaction.update(d.ref, {
-                saldo_acumulado: (d.data().saldo_acumulado || 0) + dists[d.id],
-                updated_at: serverTimestamp()
-              });
-            }
-          });
+          writeSplit(transaction, remainingHuchas, { saldos: dists, deudas: {} });
         }
       });
       showToast(deleteMode === 'debt' ? 'Cartera eliminada y deuda transferida' : 'Cartera eliminada y fondos repartidos', 'success');
     } catch (error: any) {
+      if (isIncomeSplitError(error)) throw error;
       console.error('Error distribuyendo hucha:', error);
       showToast(error.message || 'Error al eliminar la hucha.');
     }
@@ -921,7 +774,7 @@ export const useFinanceData = (forceDemo = false) => {
     }
 
     const { adjusted: transferDeltas, overflow: transferOverflow, restoId: transferRestoId } =
-      redirectOverflowToResto({ [toHuchaId]: amount }, huchas);
+      cappedWalletCredit(toHuchaId, amount, huchas);
 
     if (transferRestoId && transferRestoId === fromHuchaId) {
       showToast('La hucha destino está llena y el rebote sería al origen.');
@@ -961,15 +814,15 @@ export const useFinanceData = (forceDemo = false) => {
           throw new Error('Saldo insuficiente en la cartera de origen');
         }
 
-        transaction.update(fromRef, { saldo_acumulado: fromBalance - amount, updated_at: serverTimestamp() });
+        transaction.update(fromRef, { saldo_acumulado: roundMoney(fromBalance - amount), updated_at: serverTimestamp() });
         const toDelta = transferDeltas[toHuchaId] ?? 0;
         if (toDelta > 0) {
-          transaction.update(toRef, { saldo_acumulado: (toDoc.data().saldo_acumulado || 0) + toDelta, updated_at: serverTimestamp() });
+          transaction.update(toRef, { saldo_acumulado: roundMoney((toDoc.data().saldo_acumulado || 0) + toDelta), updated_at: serverTimestamp() });
         }
         if (restoRef && restoDoc?.exists()) {
           const restoDelta = transferDeltas[transferRestoId!] ?? 0;
           if (restoDelta > 0) {
-            transaction.update(restoRef, { saldo_acumulado: (restoDoc.data().saldo_acumulado || 0) + restoDelta, updated_at: serverTimestamp() });
+            transaction.update(restoRef, { saldo_acumulado: roundMoney((restoDoc.data().saldo_acumulado || 0) + restoDelta), updated_at: serverTimestamp() });
           }
         }
       });
@@ -1267,249 +1120,72 @@ export const useFinanceData = (forceDemo = false) => {
   };
 
   const handleConvertMovimiento = async (mov: Movimiento, rows?: ConvertRow[], targetHuchaId?: string) => {
+    const amount = roundMoney(mov.importe);
+    // Hand the expense back before measuring the room left under goals.
+    const conversion = (current: Movimiento, wallets: Hucha[]) => {
+      if (current.tipo === 'gasto') {
+        const refundId = refundHuchaId(current.hucha_id, wallets);
+        const refunded = applySplit(wallets, { saldos: refundId ? { [refundId]: amount } : {}, deudas: {} });
+        const split = rows?.length ? explicitIncomeSplit(amount, wallets, rows) : splitIncome(amount, refunded, { extraMonth: extraMonth(current) });
+        return { split: { ...split, saldos: { ...split.saldos, ...(refundId ? { [refundId]: roundMoney((split.saldos[refundId] || 0) + amount) } : {}) } }, recorded: recordedSplit(split) };
+      }
+      if (!wallets.some(h => h.id === targetHuchaId && h.activa !== false)) throw new Error('Hucha no válida');
+      const split = reverseIncome(current, wallets);
+      return { split: { ...split, saldos: { ...split.saldos, [targetHuchaId!]: roundMoney((split.saldos[targetHuchaId!] || 0) - amount) } }, recorded: null };
+    };
+
+    if (mov.tipo === 'ingreso' && !targetHuchaId) return;
     if (!isFirebaseConfigured) {
-      let updatedHuchas = [...huchas];
-      let updatedStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
-      const amount = mov.importe;
-
-      if (mov.tipo === 'gasto') {
-        // Gasto -> Ingreso (reverts gasto addition on old hucha, and splits ingreso into selected rows)
-        if (!rows || rows.length === 0) return;
-        const shares: Record<string, number> = {};
-        rows.forEach(r => {
-          if (r.tipoAportacion === 'flat') shares[r.huchaId] = r.value;
-          else if (r.tipoAportacion === 'porcentaje') shares[r.huchaId] = amount * (r.value / 100);
-          else {
-            const sumExclResto = rows.filter(x => x !== r).reduce((s, x) => s + (x.tipoAportacion === 'flat' ? x.value : amount * (x.value / 100)), 0);
-            shares[r.huchaId] = amount - sumExclResto;
-          }
-        });
-
-        // Only apply overflow rules to the new income shares
-        const { adjusted: deltas, overflow } = redirectOverflowToResto(shares, updatedHuchas);
-
-        // Revert the expenditure by adding it back directly (ignoring topes, since it was already in the hucha)
-        const refundId = refundHuchaId(mov.hucha_id, updatedHuchas);
-        if (refundId) {
-          deltas[refundId] = (deltas[refundId] || 0) + amount;
-        }
-
-        if (overflow > 0.01) {
-          showToast(`${overflow.toFixed(2)} € sin asignar: todas las huchas están llenas`);
-        }
-
-        updatedHuchas = updatedHuchas.map(h => {
-          const delta = deltas[h.id] || 0;
-          return { ...h, saldo_acumulado: Number((h.saldo_acumulado + delta).toFixed(2)) };
-        });
-
-        if (cuentaEnEstadisticas(mov)) {
+      const current = movimientos.find(m => m.id === mov.id);
+      if (!current || current.tipo !== mov.tipo || current.importe !== mov.importe) throw new Error('Movimiento no válido para convertir');
+      const plan = conversion(current, huchas);
+      const updatedHuchas = applySplit(huchas, plan.split);
+      const updatedStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
+      if (cuentaEnEstadisticas(current)) {
+        if (current.tipo === 'gasto') {
           updatedStats.total_ingresos += amount;
           updatedStats.total_gastos = Math.max(0, updatedStats.total_gastos - amount);
-        }
-      } else {
-        // Ingreso -> Gasto (symmetrically reverts the multi-pocket income distribution, and subtracts the new expense from the target pocket)
-        if (!targetHuchaId) return;
-
-        // Recalculate original income splits using pocket rules to cleanly revert them
-        const incomeDeltas: Record<string, number> = {};
-        // An income paid into one wallet is undone from that wallet; only auto-distributed ones are recomputed.
-        if (mov.hucha_id) incomeDeltas[mov.hucha_id] = amount;
-        let remIncome = mov.hucha_id ? 0 : amount;
-        const activeHuchas = updatedHuchas.filter(h => h.activa !== false);
-        // 1. Flat
-        activeHuchas.forEach(h => {
-          if (h.tipo_aportacion === 'flat' && remIncome > 0) {
-            const val = h.valor_aportacion || 0;
-            const toAdd = Math.min(val, remIncome);
-            incomeDeltas[h.id] = toAdd;
-            remIncome -= toAdd;
-          }
-        });
-        // 2. Percentage
-        activeHuchas.forEach(h => {
-          if (h.tipo_aportacion === 'porcentaje' && remIncome > 0) {
-            const perc = h.valor_aportacion || 0;
-            const share = amount * (perc / 100);
-            const toAdd = Math.min(share, remIncome);
-            incomeDeltas[h.id] = (incomeDeltas[h.id] || 0) + toAdd;
-            remIncome -= toAdd;
-          }
-        });
-        // 3. Rest
-        const resto = activeHuchas.find(h => h.tipo_aportacion === 'resto') || activeHuchas.find(h => h.es_principal) || activeHuchas[0];
-        if (resto && remIncome > 0) {
-          incomeDeltas[resto.id] = (incomeDeltas[resto.id] || 0) + remIncome;
-        }
-
-        // Apply reversion and new expense
-        updatedHuchas = updatedHuchas.map(h => {
-          let newBal = h.saldo_acumulado;
-          // Revert split income credit
-          const incomeDelta = incomeDeltas[h.id] || 0;
-          newBal -= incomeDelta;
-          // Subtract new expense debit if it's the target hucha
-          if (h.id === targetHuchaId) {
-            newBal -= amount;
-          }
-          return { ...h, saldo_acumulado: Number(newBal.toFixed(2)) };
-        });
-
-        if (cuentaEnEstadisticas(mov)) {
+        } else {
           updatedStats.total_ingresos = Math.max(0, updatedStats.total_ingresos - amount);
           updatedStats.total_gastos += amount;
         }
       }
-
-      // Update movement details
-      const updatedMovs = movimientos.map(m => {
-        if (m.id === mov.id) {
-          if (mov.tipo === 'gasto') {
-            return { ...m, tipo: 'ingreso' as const, hucha_id: undefined, categoria: undefined, categoria_sugerida: undefined, categoria_confianza: undefined };
-          } else {
-            return { ...m, tipo: 'gasto' as const, hucha_id: targetHuchaId, categoria: undefined, categoria_sugerida: undefined, categoria_confianza: undefined };
-          }
-        }
-        return m;
-      });
-
+      const updatedMovs = movimientos.map(m => m.id === mov.id ? {
+        ...m, tipo: mov.tipo === 'gasto' ? 'ingreso' as const : 'gasto' as const,
+        hucha_id: mov.tipo === 'gasto' ? undefined : targetHuchaId,
+        reparto_aplicado: plan.recorded,
+        categoria: undefined, categoria_sugerida: undefined, categoria_confianza: undefined,
+      } : m);
       saveDemoState(updatedMovs, updatedHuchas, suscripciones, updatedStats);
       showToast(mov.tipo === 'gasto' ? 'Movimiento convertido a ingreso' : 'Movimiento convertido a gasto', 'success');
       return;
     }
 
-    // Symmetrical Firebase operations
-    const amount = mov.importe;
     try {
-      if (mov.tipo === 'gasto') {
-        if (!rows || rows.length === 0) return;
-        const shares: Record<string, number> = {};
-        rows.forEach(r => {
-          if (r.tipoAportacion === 'flat') shares[r.huchaId] = r.value;
-          else if (r.tipoAportacion === 'porcentaje') shares[r.huchaId] = amount * (r.value / 100);
-          else {
-            const sumExclResto = rows.filter(x => x !== r).reduce((s, x) => s + (x.tipoAportacion === 'flat' ? x.value : amount * (x.value / 100)), 0);
-            shares[r.huchaId] = amount - sumExclResto;
-          }
+      await runTransaction(db, async (transaction) => {
+        const movRef = doc(db, 'movimientos', mov.id);
+        const snapshot = await transaction.get(movRef);
+        const data = snapshot.data();
+        if (!data || data.id_propietario !== user?.uid || data.tipo !== mov.tipo || Number(data.importe) !== mov.importe) throw new Error('Movimiento no válido para convertir');
+        const current = { ...data, id: mov.id } as Movimiento;
+        const wallets = await readHuchas(transaction, [
+          ...(rows?.map(r => r.huchaId) || []), ...(current.hucha_id ? [current.hucha_id] : []),
+          ...(targetHuchaId ? [targetHuchaId] : []),
+          ...Object.keys(current.reparto_aplicado?.saldos || {}), ...Object.keys(current.reparto_aplicado?.deudas || {}), ...Object.keys(current.reparto_aplicado?.extras || {}),
+        ]);
+        const plan = conversion(current, wallets);
+        writeSplit(transaction, wallets, plan.split);
+        transaction.update(movRef, {
+          tipo: mov.tipo === 'gasto' ? 'ingreso' : 'gasto',
+          hucha_id: mov.tipo === 'gasto' ? deleteField() : targetHuchaId,
+          reparto_aplicado: plan.recorded || deleteField(),
+          categoria: deleteField(), categoria_sugerida: deleteField(), categoria_confianza: deleteField(),
+          review_protected_fields: arrayUnion('hucha_id', 'categoria'),
         });
-
-        let overflow = 0;
-        await runTransaction(db, async (transaction) => {
-          const movRef = doc(db, 'movimientos', mov.id);
-          const movementSnapshot = await transaction.get(movRef);
-          const current = movementSnapshot.data();
-          // Already converted elsewhere, or edited since: applying it again would hand the expense back twice.
-          if (!current || current.id_propietario !== user?.uid || current.tipo !== 'gasto' || Number(current.importe) !== amount) throw new Error('Movimiento no válido para convertir');
-          const ids = Array.from(new Set([...huchas.map(h => h.id), ...rows.map(r => r.huchaId), current.hucha_id].filter(Boolean))) as string[];
-          const currentHuchas: Hucha[] = [];
-          for (const id of ids) {
-            const snapshot = await transaction.get(doc(db, 'huchas', id));
-            if (snapshot.exists()) {
-              if (snapshot.data().id_propietario !== user?.uid) throw new Error('Hucha no válida');
-              currentHuchas.push({ ...snapshot.data(), id } as Hucha);
-            }
-          }
-
-          // Apply overflow rules ONLY to the new income distribution shares
-          const distribution = redirectOverflowToResto(shares, currentHuchas);
-          overflow = distribution.overflow;
-          const deltas = distribution.adjusted;
-
-          // Revert the expenditure by adding it back directly (ignoring topes, since it was previously subtracted)
-          const refundId = refundHuchaId(current.hucha_id, currentHuchas);
-          if (refundId) {
-            deltas[refundId] = (deltas[refundId] || 0) + amount;
-          }
-
-          for (const hucha of currentHuchas) {
-            const delta = deltas[hucha.id] ?? 0;
-            if (delta) transaction.update(doc(db, 'huchas', hucha.id), {
-              saldo_acumulado: Number((Number(hucha.saldo_acumulado || 0) + delta).toFixed(2)),
-              updated_at: serverTimestamp(),
-            });
-          }
-
-          transaction.update(movRef, { tipo: 'ingreso', hucha_id: deleteField(), categoria: deleteField(), categoria_sugerida: deleteField(), categoria_confianza: deleteField(), review_protected_fields: arrayUnion('hucha_id', 'categoria') });
-        });
-        if (overflow > 0.01) {
-          showToast(`${overflow.toFixed(2)} € sin asignar: todas las huchas están llenas`);
-        }
-        showToast('Movimiento convertido a ingreso', 'success');
-      } else {
-        if (!targetHuchaId) return;
-        await runTransaction(db, async (transaction) => {
-          const movRef = doc(db, 'movimientos', mov.id);
-          const movementSnapshot = await transaction.get(movRef);
-          const current = movementSnapshot.data();
-          // Already converted elsewhere, or edited since: applying it again would charge the expense twice.
-          if (!current || current.id_propietario !== user?.uid || current.tipo !== 'ingreso' || Number(current.importe) !== amount) throw new Error('Movimiento no válido para convertir');
-
-          // Fetch all huchas in transaction to read their rules and balances
-          const huchasRefs = Array.from(new Set([...huchas.map(h => h.id), current.hucha_id].filter(Boolean))).map(id => doc(db, 'huchas', id));
-          const huchasSnaps = [];
-          for (const ref of huchasRefs) {
-            huchasSnaps.push(await transaction.get(ref));
-          }
-
-          // Calculate the original income distribution splits using the hucha rules to revert them
-          const incomeDeltas: Record<string, number> = {};
-          // An income paid into one wallet is undone from that wallet; only auto-distributed ones are recomputed.
-          if (current.hucha_id) incomeDeltas[current.hucha_id] = amount;
-          let remIncome = current.hucha_id ? 0 : amount;
-          // Archived wallets keep their rule but took no part in the split being undone.
-          const activeSnaps = huchasSnaps.filter(s => s.data()?.activa !== false);
-          // 1. Flat
-          activeSnaps.forEach((snap) => {
-            const data = snap.data();
-            if (data && data.tipo_aportacion === 'flat' && remIncome > 0) {
-              const val = data.valor_aportacion || 0;
-              const toAdd = Math.min(val, remIncome);
-              incomeDeltas[snap.id] = toAdd;
-              remIncome -= toAdd;
-            }
-          });
-          // 2. Percentage
-          activeSnaps.forEach((snap) => {
-            const data = snap.data();
-            if (data && data.tipo_aportacion === 'porcentaje' && remIncome > 0) {
-              const perc = data.valor_aportacion || 0;
-              const share = amount * (perc / 100);
-              const toAdd = Math.min(share, remIncome);
-              incomeDeltas[snap.id] = (incomeDeltas[snap.id] || 0) + toAdd;
-              remIncome -= toAdd;
-            }
-          });
-          // 3. Rest
-          const restoSnap = activeSnaps.find(s => s.exists() && s.data()?.tipo_aportacion === 'resto')
-                         || activeSnaps.find(s => s.exists() && s.data()?.es_principal)
-                         || activeSnaps[0];
-          if (restoSnap && remIncome > 0) {
-            incomeDeltas[restoSnap.id] = (incomeDeltas[restoSnap.id] || 0) + remIncome;
-          }
-
-          // Apply updates to each hucha's accumulated balance
-          huchasSnaps.forEach((snap) => {
-            if (!snap.exists()) return;
-            const currentBal = snap.data().saldo_acumulado || 0;
-            const incomeDelta = incomeDeltas[snap.id] || 0;
-
-            let finalBal = currentBal - incomeDelta;
-            if (snap.id === targetHuchaId) {
-              finalBal -= amount;
-            }
-
-            transaction.update(doc(db, 'huchas', snap.id), {
-              saldo_acumulado: Number(finalBal.toFixed(2)),
-              updated_at: serverTimestamp()
-            });
-          });
-
-          // Update movement details
-          transaction.update(movRef, { tipo: 'gasto', hucha_id: targetHuchaId, categoria: deleteField(), categoria_sugerida: deleteField(), categoria_confianza: deleteField(), review_protected_fields: arrayUnion('hucha_id', 'categoria') });
-        });
-        showToast('Movimiento convertido a gasto', 'success');
-      }
+      });
+      showToast(mov.tipo === 'gasto' ? 'Movimiento convertido a ingreso' : 'Movimiento convertido a gasto', 'success');
     } catch (error) {
+      if (isIncomeSplitError(error)) throw error;
       console.error('Error convirtiendo movimiento:', error);
       showToast('Error al convertir el movimiento');
     }
@@ -1545,6 +1221,26 @@ export const useFinanceData = (forceDemo = false) => {
       showToast('No se ha podido guardar la categoría', 'error');
       throw error;
     }
+  };
+
+  const dismissDuplicate = async (aId: string, bId: string) => {
+    if (aId === bId) throw new Error('Selecciona dos movimientos distintos');
+    if (!isFirebaseConfigured) {
+      if (![aId, bId].every(id => movimientos.some(m => m.id === id))) throw new Error('El movimiento no está disponible');
+      const updated = movimientos.map(m => m.id === aId || m.id === bId ? {
+        ...m, duplicados_descartados: Array.from(new Set([...(m.duplicados_descartados ?? []), m.id === aId ? bId : aId])),
+      } : m);
+      saveDemoState(updated, huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      return;
+    }
+    if (!user) throw new Error('Inicia sesión para guardar');
+    await runTransaction(db, async transaction => {
+      const aRef = doc(db, 'movimientos', aId), bRef = doc(db, 'movimientos', bId);
+      const a = await transaction.get(aRef), b = await transaction.get(bRef);
+      if (!a.exists() || !b.exists() || a.data().id_propietario !== user.uid || b.data().id_propietario !== user.uid) throw new Error('El movimiento no está disponible');
+      transaction.update(aRef, { duplicados_descartados: arrayUnion(bId), updated_at: serverTimestamp() });
+      transaction.update(bRef, { duplicados_descartados: arrayUnion(aId), updated_at: serverTimestamp() });
+    });
   };
 
   const handleDismissCompensation = async (ingresoId: string, gastoId: string) => {
@@ -1597,9 +1293,7 @@ export const useFinanceData = (forceDemo = false) => {
   };
 
   const handleUnlinkMovimiento = async (base: Movimiento, target?: Movimiento) => {
-    const relatedIds = (m: Movimiento) => target ? [target.id] : Array.from(new Set(m.tipo === 'gasto'
-      ? [...(m.compensado_por || []), ...(m.compensado_por_detalles || []).map(d => d.ingreso_id)]
-      : [...(m.compensa_movimiento_id ? [m.compensa_movimiento_id] : []), ...(m.compensaciones_destinos || []).map(d => d.gasto_id)]));
+    const relatedIds = (m: Movimiento) => target ? [target.id] : linkedMovementIds(m);
     try {
       if (!isFirebaseConfigured) {
         const current = movimientos.find(m => m.id === base.id);
@@ -1637,11 +1331,8 @@ export const useFinanceData = (forceDemo = false) => {
     const oldHuchaId = mov.hucha_id;
 
     // La hucha antigua recibe +importe (revertir el gasto). Pasar por el tope.
-    const rawDeltas: Record<string, number> = oldHuchaId
-      ? { [oldHuchaId]: mov.importe }
-      : {};
     const { adjusted: changeDeltas, overflow: changeOverflow } =
-      redirectOverflowToResto(rawDeltas, huchas);
+      cappedWalletCredit(oldHuchaId, mov.importe, huchas);
 
     if (!isFirebaseConfigured) {
       const updatedHuchas = huchas.map(h => {
@@ -1685,8 +1376,7 @@ export const useFinanceData = (forceDemo = false) => {
         const target = currentHuchas.find(h => h.id === newHuchaId);
         if (!target || target.activa === false || target.es_metalico || target.es_interno) throw new Error('Elige una hucha activa');
         if (!current.hucha_id || !currentHuchas.some(h => h.id === current.hucha_id)) throw new Error('La hucha original ya no está disponible');
-        const raw = { [current.hucha_id]: Number(current.importe) };
-        const { adjusted } = redirectOverflowToResto(raw, currentHuchas);
+        const { adjusted } = cappedWalletCredit(current.hucha_id, Number(current.importe), currentHuchas);
         adjusted[newHuchaId] = (adjusted[newHuchaId] ?? 0) - Number(current.importe);
         if (Math.abs(Object.values(adjusted).reduce((total, amount) => total + amount, 0)) > 0.005) throw new Error('No hay capacidad para reasignar sin perder saldo');
         for (const hucha of currentHuchas) {
@@ -1978,7 +1668,7 @@ export const useFinanceData = (forceDemo = false) => {
     emailId: string, 
     movData: { tipo: 'ingreso' | 'gasto', concepto: string, importe: number, fecha_operacion: string, hucha_id?: string }
   ) => {
-    const amt = Number(movData.importe);
+    const amt = roundMoney(Number(movData.importe));
     const isIngreso = movData.tipo === 'ingreso';
 
     if (!isFirebaseConfigured) {
@@ -2002,39 +1692,9 @@ export const useFinanceData = (forceDemo = false) => {
         if (hid) {
           nextHuchas = huchas.map(h => h.id === hid ? { ...h, saldo_acumulado: Number((h.saldo_acumulado + amt).toFixed(2)) } : h);
         } else {
-          // Distribute
-          const deltas: Record<string, number> = {};
-          let remaining = amt;
-          const activeHuchas = huchas.filter(h => h.activa !== false);
-          // 1. Flat
-          activeHuchas.forEach(h => {
-            if (h.tipo_aportacion === 'flat' && remaining > 0) {
-              const val = h.valor_aportacion || 0;
-              const toAdd = Math.min(val, remaining);
-              deltas[h.id] = toAdd;
-              remaining -= toAdd;
-            }
-          });
-          // 2. Percentage
-          activeHuchas.forEach(h => {
-            if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
-              const perc = h.valor_aportacion || 0;
-              const share = amt * (perc / 100);
-              const toAdd = Math.min(share, remaining);
-              deltas[h.id] = (deltas[h.id] || 0) + toAdd;
-              remaining -= toAdd;
-            }
-          });
-          // 3. Rest
-          const resto = activeHuchas.find(h => h.tipo_aportacion === 'resto') || activeHuchas.find(h => h.es_principal) || activeHuchas[0];
-          if (resto && remaining > 0) {
-            deltas[resto.id] = (deltas[resto.id] || 0) + remaining;
-          }
-          // Add deltas
-          nextHuchas = huchas.map(h => {
-            const delta = deltas[h.id] || 0;
-            return { ...h, saldo_acumulado: Number((h.saldo_acumulado + delta).toFixed(2)) };
-          });
+          const split = splitIncome(amt, huchas, { extraMonth: extraMonth(newMov) });
+          nextHuchas = applySplit(huchas, split);
+          newMov.reparto_aplicado = recordedSplit(split);
         }
       }
 
@@ -2071,7 +1731,7 @@ export const useFinanceData = (forceDemo = false) => {
           targetHuchaId = huchas.find(h => h.es_principal && h.activa !== false)?.id || huchas.find(h => h.activa !== false)?.id;
         }
 
-        let distributions: Record<string, number> = {};
+        let incomeRecord: Movimiento['reparto_aplicado'];
 
         if (!isIngreso) {
           // Expense
@@ -2080,7 +1740,7 @@ export const useFinanceData = (forceDemo = false) => {
             const huchaSnap = await transaction.get(huchaRef);
             if (huchaSnap.exists()) {
               const bal = huchaSnap.data().saldo_acumulado || 0;
-              transaction.update(huchaRef, { saldo_acumulado: bal - amt, updated_at: serverTimestamp() });
+              transaction.update(huchaRef, { saldo_acumulado: roundMoney(bal - amt), updated_at: serverTimestamp() });
             }
           }
         } else {
@@ -2090,58 +1750,13 @@ export const useFinanceData = (forceDemo = false) => {
             const huchaSnap = await transaction.get(huchaRef);
             if (huchaSnap.exists()) {
               const bal = huchaSnap.data().saldo_acumulado || 0;
-              transaction.update(huchaRef, { saldo_acumulado: bal + amt, updated_at: serverTimestamp() });
+              transaction.update(huchaRef, { saldo_acumulado: roundMoney(bal + amt), updated_at: serverTimestamp() });
             }
           } else {
-            // Standard auto-reparto
-            let remaining = amt;
-            // Fetch current huchas in transaction
-            const huchasRefs = huchas.map(h => doc(db, 'huchas', h.id));
-            const huchasSnaps = [];
-            for (const ref of huchasRefs) {
-              const snap = await transaction.get(ref);
-              // Archived wallets keep their rule but take no part in the split.
-              if (snap.data()?.activa !== false) huchasSnaps.push(snap);
-            }
-
-            // 1. Flat
-            huchasSnaps.forEach((snap) => {
-              const data = snap.data();
-              if (data && data.tipo_aportacion === 'flat' && remaining > 0) {
-                const val = data.valor_aportacion || 0;
-                const toAdd = Math.min(val, remaining);
-                distributions[snap.id] = toAdd;
-                remaining -= toAdd;
-              }
-            });
-            // 2. Percentage
-            huchasSnaps.forEach((snap) => {
-              const data = snap.data();
-              if (data && data.tipo_aportacion === 'porcentaje' && remaining > 0) {
-                const perc = data.valor_aportacion || 0;
-                const share = amt * (perc / 100);
-                const toAdd = Math.min(share, remaining);
-                distributions[snap.id] = (distributions[snap.id] || 0) + toAdd;
-                remaining -= toAdd;
-              }
-            });
-            // 3. Rest
-            const restoSnap = huchasSnaps.find(s => s.exists() && s.data()?.tipo_aportacion === 'resto')
-                           || huchasSnaps.find(s => s.exists() && s.data()?.es_principal)
-                           || huchasSnaps[0];
-            if (restoSnap && remaining > 0) {
-              distributions[restoSnap.id] = (distributions[restoSnap.id] || 0) + remaining;
-            }
-
-            // Apply balances updates
-            huchasSnaps.forEach(snap => {
-              const change = distributions[snap.id] || 0;
-              const data = snap.data();
-              if (change > 0 && data) {
-                const bal = data.saldo_acumulado || 0;
-                transaction.update(doc(db, 'huchas', snap.id), { saldo_acumulado: bal + change, updated_at: serverTimestamp() });
-              }
-            });
+            const currentHuchas = await readHuchas(transaction);
+            const split = splitIncome(amt, currentHuchas, { extraMonth: extraMonth(movData) });
+            incomeRecord = recordedSplit(split);
+            writeSplit(transaction, currentHuchas, split);
           }
         }
 
@@ -2153,6 +1768,7 @@ export const useFinanceData = (forceDemo = false) => {
           importe: amt,
           fecha_operacion: new Date(movData.fecha_operacion),
           hucha_id: targetHuchaId || null,
+          ...(incomeRecord ? { reparto_aplicado: incomeRecord } : {}),
           id_correo_origen: emailSnap.data().email_id,
           review_protected_fields: movData.hucha_id ? ['concepto', 'hucha_id'] : ['concepto'],
           created_at: serverTimestamp()
@@ -2180,6 +1796,7 @@ export const useFinanceData = (forceDemo = false) => {
 
       showToast('Movimiento aprobado y registrado', 'success');
     } catch (error: any) {
+      if (isIncomeSplitError(error)) throw error;
       if (error?.message === 'EMAIL_ALREADY_PROCESSED') {
         showToast('Este correo ya fue procesado o descartado en otra sesión.');
         return;
@@ -2228,7 +1845,7 @@ export const useFinanceData = (forceDemo = false) => {
     es_retirada_efectivo?: boolean;
     hucha_origen_id?: string;
   }) => {
-    const amt = Number(movData.importe);
+    const amt = roundMoney(Number(movData.importe));
     const isIngreso = movData.tipo === 'ingreso';
     const isMetalico = !!movData.es_metalico;
     const isCashWithdrawal = !!movData.es_retirada_efectivo;
@@ -2307,44 +1924,9 @@ export const useFinanceData = (forceDemo = false) => {
         if (targetHuchaId) {
           nextHuchas = nextHuchas.map(h => h.id === targetHuchaId ? { ...h, saldo_acumulado: Number((h.saldo_acumulado + amt).toFixed(2)) } : h);
         } else {
-          // Auto-reparto estándar
-          const deltas: Record<string, number> = {};
-          let remaining = amt;
-          const activeHuchas = nextHuchas.filter(h => h.activa !== false);
-          // 1. Flat
-          activeHuchas.forEach(h => {
-            if (h.tipo_aportacion === 'flat' && remaining > 0) {
-              const val = h.valor_aportacion || 0;
-              const toAdd = Math.min(val, remaining);
-              deltas[h.id] = toAdd;
-              remaining -= toAdd;
-            }
-          });
-          // 2. Porcentaje
-          activeHuchas.forEach(h => {
-            if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
-              const perc = h.valor_aportacion || 0;
-              const share = amt * (perc / 100);
-              const toAdd = Math.min(share, remaining);
-              deltas[h.id] = (deltas[h.id] || 0) + toAdd;
-              remaining -= toAdd;
-            }
-          });
-          // 3. Resto
-          const resto = activeHuchas.find(h => h.tipo_aportacion === 'resto') || activeHuchas.find(h => h.es_principal) || activeHuchas[0];
-          if (resto && remaining > 0) {
-            deltas[resto.id] = (deltas[resto.id] || 0) + remaining;
-          }
-          // Redirigir desbordamiento (topes)
-          const { adjusted: finalDeltas, overflow } = redirectOverflowToResto(deltas, nextHuchas);
-          if (overflow > 0.01) {
-            showToast(`${overflow.toFixed(2)} € sin asignar: todas las huchas están llenas`);
-          }
-          // Sumar deltas
-          nextHuchas = nextHuchas.map(h => {
-            const delta = finalDeltas[h.id] || 0;
-            return { ...h, saldo_acumulado: Number((h.saldo_acumulado + delta).toFixed(2)) };
-          });
+          const split = splitIncome(amt, nextHuchas, { extraMonth: extraMonth(newMov) });
+          nextHuchas = applySplit(nextHuchas, split);
+          newMov.reparto_aplicado = recordedSplit(split);
         }
       }
 
@@ -2413,11 +1995,11 @@ export const useFinanceData = (forceDemo = false) => {
           const originBalance = originSnap.data().saldo_acumulado || 0;
           if (originBalance < amt) throw new Error('Saldo insuficiente en la cartera de origen');
 
-          transaction.update(originRef, { saldo_acumulado: originBalance - amt, updated_at: serverTimestamp() });
+          transaction.update(originRef, { saldo_acumulado: roundMoney(originBalance - amt), updated_at: serverTimestamp() });
           if (targetHuchaId === createdCashHuchaId) {
             transaction.set(cashRef, { ...createdCashHuchaData!, saldo_acumulado: amt, updated_at: serverTimestamp() });
           } else {
-            transaction.update(cashRef, { saldo_acumulado: (cashSnap!.data().saldo_acumulado || 0) + amt, updated_at: serverTimestamp() });
+            transaction.update(cashRef, { saldo_acumulado: roundMoney((cashSnap!.data().saldo_acumulado || 0) + amt), updated_at: serverTimestamp() });
           }
 
           const movementBase = {
@@ -2439,6 +2021,7 @@ export const useFinanceData = (forceDemo = false) => {
           return;
         }
 
+        let incomeRecord: Movimiento['reparto_aplicado'];
         if (!isIngreso) {
           // Gasto
           const hid = targetHuchaId || nextHuchasState.find(h => h.es_principal && h.activa !== false)?.id || nextHuchasState.find(h => h.activa !== false)?.id;
@@ -2450,7 +2033,7 @@ export const useFinanceData = (forceDemo = false) => {
               const huchaSnap = await transaction.get(huchaRef);
               if (!huchaSnap.exists()) throw new Error('La cartera seleccionada no existe');
               const bal = huchaSnap.data().saldo_acumulado || 0;
-              transaction.update(huchaRef, { saldo_acumulado: bal - amt, updated_at: serverTimestamp() });
+              transaction.update(huchaRef, { saldo_acumulado: roundMoney(bal - amt), updated_at: serverTimestamp() });
             }
           }
         } else {
@@ -2463,63 +2046,13 @@ export const useFinanceData = (forceDemo = false) => {
               const huchaSnap = await transaction.get(huchaRef);
               if (!huchaSnap.exists()) throw new Error('La cartera seleccionada no existe');
               const bal = huchaSnap.data().saldo_acumulado || 0;
-              transaction.update(huchaRef, { saldo_acumulado: bal + amt, updated_at: serverTimestamp() });
+              transaction.update(huchaRef, { saldo_acumulado: roundMoney(bal + amt), updated_at: serverTimestamp() });
             }
           } else {
-            // Auto-reparto bancario estándar
-            let remaining = amt;
-            const huchasRefs = nextHuchasState.map(h => doc(db, 'huchas', h.id));
-            const huchasSnaps = [];
-            for (const ref of huchasRefs) {
-              if (ref.id === createdCashHuchaId) {
-                huchasSnaps.push({ id: ref.id, exists: () => true, data: () => ({ id: ref.id, nombre: 'Efectivo', tipo_aportacion: 'flat', valor_aportacion: 0, saldo_acumulado: 0 }) });
-              } else {
-                const snap = await transaction.get(ref);
-                // Archived wallets keep their rule but take no part in the split.
-                if (snap.data()?.activa !== false) huchasSnaps.push(snap);
-              }
-            }
-
-            const distributions: Record<string, number> = {};
-
-            // 1. Flat
-            huchasSnaps.forEach((snap) => {
-              const data = snap.data();
-              if (data && data.tipo_aportacion === 'flat' && remaining > 0) {
-                const val = data.valor_aportacion || 0;
-                const toAdd = Math.min(val, remaining);
-                distributions[snap.id] = toAdd;
-                remaining -= toAdd;
-              }
-            });
-            // 2. Porcentaje
-            huchasSnaps.forEach((snap) => {
-              const data = snap.data();
-              if (data && data.tipo_aportacion === 'porcentaje' && remaining > 0) {
-                const perc = data.valor_aportacion || 0;
-                const share = amt * (perc / 100);
-                const toAdd = Math.min(share, remaining);
-                distributions[snap.id] = (distributions[snap.id] || 0) + toAdd;
-                remaining -= toAdd;
-              }
-            });
-            // 3. Resto
-            const restoSnap = huchasSnaps.find(s => s.exists() && (s.data() as any)?.tipo_aportacion === 'resto')
-                           || huchasSnaps.find(s => s.exists() && (s.data() as any)?.es_principal)
-                           || huchasSnaps[0];
-            if (restoSnap && remaining > 0) {
-              distributions[restoSnap.id] = (distributions[restoSnap.id] || 0) + remaining;
-            }
-
-            // Aplicar saldos actualizados
-            huchasSnaps.forEach(snap => {
-              const change = distributions[snap.id] || 0;
-              const data = snap.data();
-              if (change > 0 && data) {
-                const bal = data.saldo_acumulado || 0;
-                transaction.update(doc(db, 'huchas', snap.id), { saldo_acumulado: bal + change, updated_at: serverTimestamp() });
-              }
-            });
+            const currentHuchas = await readHuchas(transaction);
+            const split = splitIncome(amt, currentHuchas, { extraMonth: extraMonth(movData) });
+            incomeRecord = recordedSplit(split);
+            writeSplit(transaction, currentHuchas, split);
           }
         }
 
@@ -2532,6 +2065,7 @@ export const useFinanceData = (forceDemo = false) => {
           importe: amt,
           fecha_operacion: new Date(movData.fecha_operacion),
           hucha_id: targetHuchaId || null,
+          ...(incomeRecord ? { reparto_aplicado: incomeRecord } : {}),
           es_metalico: isMetalico,
           es_interno: isInternal,
           created_at: serverTimestamp()
@@ -2540,6 +2074,7 @@ export const useFinanceData = (forceDemo = false) => {
 
       showToast('Movimiento registrado correctamente', 'success');
     } catch (error) {
+      if (isIncomeSplitError(error)) throw error;
       console.error('Error creating manual movement:', error);
       showToast('Error al registrar el movimiento.');
     }
@@ -2586,7 +2121,7 @@ export const useFinanceData = (forceDemo = false) => {
 
           huchaSnaps.forEach(snap => {
             const balance = snap.data()!.saldo_acumulado || 0;
-            transaction.update(snap.ref, { saldo_acumulado: balance + (deltasPorHucha[snap.id] || 0), updated_at: serverTimestamp() });
+            transaction.update(snap.ref, { saldo_acumulado: roundMoney(balance + (deltasPorHucha[snap.id] || 0)), updated_at: serverTimestamp() });
           });
           transferencia.forEach(m => transaction.delete(doc(db, 'movimientos', m.id)));
         });
@@ -2598,13 +2133,7 @@ export const useFinanceData = (forceDemo = false) => {
       return;
     }
 
-    // Auto-unlink if it has any connections
-    if ((mov.tipo === 'gasto' && ((mov.compensado_por?.length ?? 0) > 0 || (mov.compensado_por_detalles?.length ?? 0) > 0)) ||
-        (mov.tipo === 'ingreso' && (mov.compensa_movimiento_id || (mov.compensaciones_destinos?.length ?? 0) > 0))) {
-      await handleUnlinkMovimiento(mov);
-    }
-
-    const amt = Number(mov.importe);
+    const amt = roundMoney(Number(mov.importe));
     const isIngreso = mov.tipo === 'ingreso';
 
     if (!isFirebaseConfigured) {
@@ -2616,49 +2145,12 @@ export const useFinanceData = (forceDemo = false) => {
         const hid = refundHuchaId(mov.hucha_id, huchas);
         nextHuchas = nextHuchas.map(h => h.id === hid ? { ...h, saldo_acumulado: Number((h.saldo_acumulado + amt).toFixed(2)) } : h);
       } else {
-        // Ingreso: revertir restando
-        if (mov.hucha_id) {
-          nextHuchas = nextHuchas.map(h => h.id === mov.hucha_id ? { ...h, saldo_acumulado: Number((h.saldo_acumulado - amt).toFixed(2)) } : h);
-        } else {
-          // Revertir auto-reparto estándar
-          const deltas: Record<string, number> = {};
-          let remaining = amt;
-          const activeHuchas = nextHuchas.filter(h => h.activa !== false);
-          // 1. Flat
-          activeHuchas.forEach(h => {
-            if (h.tipo_aportacion === 'flat' && remaining > 0) {
-              const val = h.valor_aportacion || 0;
-              const toAdd = Math.min(val, remaining);
-              deltas[h.id] = toAdd;
-              remaining -= toAdd;
-            }
-          });
-          // 2. Porcentaje
-          activeHuchas.forEach(h => {
-            if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
-              const perc = h.valor_aportacion || 0;
-              const share = amt * (perc / 100);
-              const toAdd = Math.min(share, remaining);
-              deltas[h.id] = (deltas[h.id] || 0) + toAdd;
-              remaining -= toAdd;
-            }
-          });
-          // 3. Resto
-          const resto = activeHuchas.find(h => h.tipo_aportacion === 'resto') || activeHuchas.find(h => h.es_principal) || activeHuchas[0];
-          if (resto && remaining > 0) {
-            deltas[resto.id] = (deltas[resto.id] || 0) + remaining;
-          }
-          // Redirigir desbordamiento (topes)
-          const { adjusted: finalDeltas } = redirectOverflowToResto(deltas, nextHuchas);
-          // Restar deltas para revertir
-          nextHuchas = nextHuchas.map(h => {
-            const delta = finalDeltas[h.id] || 0;
-            return { ...h, saldo_acumulado: Number((h.saldo_acumulado - delta).toFixed(2)) };
-          });
-        }
+        nextHuchas = applySplit(nextHuchas, reverseIncome(mov, nextHuchas));
       }
 
-      const nextMovs = movimientos.filter(m => m.id !== mov.id);
+      const relatedIds = linkedMovementIds(mov);
+      const unlinked = unlinkCompensationUpdates(mov, movimientos.filter(m => relatedIds.includes(m.id)));
+      const nextMovs = movimientos.filter(m => m.id !== mov.id).map(m => unlinked.has(m.id) ? { ...m, ...unlinked.get(m.id) } : m);
       const nextStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
       if (cuentaEnEstadisticas(mov)) {
         if (isIngreso) nextStats.total_ingresos = Math.max(0, nextStats.total_ingresos - amt);
@@ -2675,6 +2167,19 @@ export const useFinanceData = (forceDemo = false) => {
     try {
       await runTransaction(db, async (transaction) => {
         const movRef = doc(db, 'movimientos', mov.id);
+        const snapshot = await transaction.get(movRef);
+        if (!snapshot.exists() || snapshot.data().id_propietario !== user.uid) throw new Error('Movimiento no válido');
+        const current = { ...snapshot.data(), id: mov.id } as Movimiento;
+        if (current.tipo !== mov.tipo || current.importe !== mov.importe) throw new Error('Movimiento no válido');
+        const related: Movimiento[] = [];
+        for (const id of linkedMovementIds(current)) {
+          const snap = await transaction.get(doc(db, 'movimientos', id));
+          if (snap.exists()) {
+            if (snap.data().id_propietario !== user.uid) throw new Error('Un movimiento no está disponible');
+            related.push({ ...snap.data(), id } as Movimiento);
+          }
+        }
+        const unlinked = unlinkCompensationUpdates(current, related);
 
         if (!isIngreso) {
           // Gasto: revertir sumando de vuelta
@@ -2684,78 +2189,29 @@ export const useFinanceData = (forceDemo = false) => {
             const huchaSnap = await transaction.get(huchaRef);
             if (huchaSnap.exists()) {
               const bal = huchaSnap.data().saldo_acumulado || 0;
-              transaction.update(huchaRef, { saldo_acumulado: bal + amt, updated_at: serverTimestamp() });
+              transaction.update(huchaRef, { saldo_acumulado: roundMoney(bal + amt), updated_at: serverTimestamp() });
             }
           }
         } else {
-          // Ingreso: revertir restando
-          if (mov.hucha_id) {
-            const huchaRef = doc(db, 'huchas', mov.hucha_id);
-            const huchaSnap = await transaction.get(huchaRef);
-            if (huchaSnap.exists()) {
-              const bal = huchaSnap.data().saldo_acumulado || 0;
-              transaction.update(huchaRef, { saldo_acumulado: bal - amt, updated_at: serverTimestamp() });
-            }
-          } else {
-            // Revertir auto-reparto bancario estándar
-            let remaining = amt;
-            const huchasRefs = huchas.map(h => doc(db, 'huchas', h.id));
-            const huchasSnaps = [];
-            for (const ref of huchasRefs) {
-              const snap = await transaction.get(ref);
-              // Archived wallets keep their rule but take no part in the split.
-              if (snap.data()?.activa !== false) huchasSnaps.push(snap);
-            }
-
-            const distributions: Record<string, number> = {};
-
-            // 1. Flat
-            huchasSnaps.forEach((snap) => {
-              const data = snap.data();
-              if (data && data.tipo_aportacion === 'flat' && remaining > 0) {
-                const val = data.valor_aportacion || 0;
-                const toAdd = Math.min(val, remaining);
-                distributions[snap.id] = toAdd;
-                remaining -= toAdd;
-              }
-            });
-            // 2. Porcentaje
-            huchasSnaps.forEach((snap) => {
-              const data = snap.data();
-              if (data && data.tipo_aportacion === 'porcentaje' && remaining > 0) {
-                const perc = data.valor_aportacion || 0;
-                const share = amt * (perc / 100);
-                const toAdd = Math.min(share, remaining);
-                distributions[snap.id] = (distributions[snap.id] || 0) + toAdd;
-                remaining -= toAdd;
-              }
-            });
-            // 3. Resto
-            const restoSnap = huchasSnaps.find(s => s.exists() && (s.data() as any)?.tipo_aportacion === 'resto')
-                           || huchasSnaps.find(s => s.exists() && (s.data() as any)?.es_principal)
-                           || huchasSnaps[0];
-            if (restoSnap && remaining > 0) {
-              distributions[restoSnap.id] = (distributions[restoSnap.id] || 0) + remaining;
-            }
-
-            // Restar deltas de cada hucha
-            huchasSnaps.forEach(snap => {
-              const change = distributions[snap.id] || 0;
-              const data = snap.data();
-              if (change > 0 && data) {
-                const bal = data.saldo_acumulado || 0;
-                transaction.update(doc(db, 'huchas', snap.id), { saldo_acumulado: bal - change, updated_at: serverTimestamp() });
-              }
-            });
-          }
+          const currentHuchas = await readHuchas(transaction, [
+            ...(current.hucha_id ? [current.hucha_id] : []),
+            ...Object.keys(current.reparto_aplicado?.saldos || {}), ...Object.keys(current.reparto_aplicado?.deudas || {}), ...Object.keys(current.reparto_aplicado?.extras || {}),
+          ]);
+          writeSplit(transaction, currentHuchas, reverseIncome(current, currentHuchas));
         }
 
+        for (const [id, update] of unlinked) {
+          if (id === mov.id) continue;
+          const fields = Object.fromEntries(Object.entries(update).map(([key, value]) => [key, value === undefined ? deleteField() : value]));
+          transaction.update(doc(db, 'movimientos', id), { ...fields, updated_at: serverTimestamp() });
+        }
         // Eliminar el documento del movimiento
         transaction.delete(movRef);
       });
 
       showToast('Movimiento eliminado', 'success');
     } catch (error) {
+      if (isIncomeSplitError(error)) throw error;
       console.error('Error deleting movement:', error);
       showToast('Error al eliminar el movimiento.');
     }
@@ -2804,7 +2260,10 @@ export const useFinanceData = (forceDemo = false) => {
       hucha_id: tipo === 'gasto' ? (selectedHuchaId || huchas.find(h => h.es_principal && h.activa !== false)?.id || huchas.find(h => h.activa !== false)?.id) : undefined
     };
 
-    const nextHuchas = processLocalDistribution(tipo, importe, addedMov.hucha_id);
+    const split = tipo === 'ingreso' ? splitIncome(importe, huchas, { extraMonth: extraMonth(addedMov) }) : null;
+    if (split) addedMov.reparto_aplicado = recordedSplit(split);
+    const nextHuchas = split ? applySplit(huchas, split) : huchas.map(h => h.id === addedMov.hucha_id
+      ? { ...h, saldo_acumulado: roundMoney(Math.max(0, h.saldo_acumulado - importe)) } : h);
     const nextMovs = [addedMov, ...movimientos];
 
     const nextStats = { ...(userStats || { total_ingresos: 0, total_gastos: 0 }) };
@@ -2823,47 +2282,18 @@ export const useFinanceData = (forceDemo = false) => {
   const totalGastos = userStats?.total_gastos ?? 0;
   const balance = totalIngresos - totalGastos;
 
-  const mediaIngresos = useMemo(() => typicalMonthlyIncome(chartMovements), [chartMovements]);
+  const periodConfig = useMemo(() => ({ inicioPeriodo, nominas: payrollDates(chartMovements) }), [inicioPeriodo, chartMovements]);
+  const mediaIngresos = useMemo(() => typicalMonthlyIncome(chartMovements, new Date(), periodConfig), [chartMovements, periodConfig]);
 
   const huchaMonthlyBudgets = useMemo(() => {
-    const budgets: Record<string, number> = {};
-    if (mediaIngresos <= 0) return budgets;
-    
-    let remaining = mediaIngresos;
-    const activeHuchas = huchas.filter((h) => h.activa !== false);
-
-    // 1. Flat amounts
-    activeHuchas.forEach((h) => {
-      if (h.tipo_aportacion === 'flat' && remaining > 0) {
-        const val = h.valor_aportacion || 0;
-        const toAdd = Math.min(val, remaining);
-        budgets[h.id] = toAdd;
-        remaining -= toAdd;
-      }
-    });
-
-    // 2. Percentages
-    activeHuchas.forEach((h) => {
-      if (h.tipo_aportacion === 'porcentaje' && remaining > 0) {
-        const perc = h.valor_aportacion || 0;
-        const share = mediaIngresos * (perc / 100);
-        const toAdd = Math.min(share, remaining);
-        budgets[h.id] = (budgets[h.id] || 0) + toAdd;
-        remaining -= toAdd;
-      }
-    });
-
-    // 3. Resto
-    const restoHucha =
-      activeHuchas.find((h) => h.tipo_aportacion === 'resto') ||
-      activeHuchas.find((h) => h.es_principal) ||
-      activeHuchas[0];
-
-    if (restoHucha && remaining > 0) {
-      budgets[restoHucha.id] = (budgets[restoHucha.id] || 0) + remaining;
+    if (mediaIngresos <= 0) return {};
+    try {
+      return splitIncome(mediaIngresos, huchas.map(h => ({ ...h }))).saldos;
+    } catch (error) {
+      // An invalid rule can still be edited; a read-only estimate must not break the screen.
+      if (isIncomeSplitError(error)) return {};
+      throw error;
     }
-
-    return budgets;
   }, [huchas, mediaIngresos]);
 
   const totalMensualSuscripciones = useMemo(
@@ -2879,8 +2309,15 @@ export const useFinanceData = (forceDemo = false) => {
   const chartData = useMemo(() => {
     const now = new Date();
     const months = Array.from({ length: 6 }, (_, i) => new Date(now.getFullYear(), now.getMonth() - 5 + i, 1));
-    return groupMovementsByMonth(chartMovements, months);
-  }, [chartMovements]);
+    if (inicioPeriodo !== 1) {
+      let period = periodOf(now, inicioPeriodo, periodConfig.nominas);
+      for (let i = 5; i >= 0; i--) {
+        months[i] = period.start;
+        period = previousPeriod(period, inicioPeriodo, periodConfig.nominas);
+      }
+    }
+    return groupMovementsByMonth(chartMovements, months, periodConfig);
+  }, [chartMovements, inicioPeriodo, periodConfig]);
 
   return {
     user,
@@ -2919,6 +2356,7 @@ export const useFinanceData = (forceDemo = false) => {
     handleUpdateMovimientoConcepto,
     handleUpdateMovimientoCategoria,
     handleDismissCompensation,
+    dismissDuplicate,
     handleConvertMovimiento,
     handleLinkMovimiento,
     handleUnlinkMovimiento,

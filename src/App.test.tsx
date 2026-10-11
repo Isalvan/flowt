@@ -79,6 +79,10 @@ describe('App Dashboard', () => {
     fireEvent.click(demoBtn);
     
     expect(await screen.findByRole('heading', { name: /Mis carteras/i })).toBeInTheDocument();
+    const payrollTabs = screen.getAllByRole('button', { name: 'Nómina' });
+    expect(payrollTabs).toHaveLength(2);
+    fireEvent.click(payrollTabs[0]);
+    expect(await screen.findByRole('heading', { name: 'Tu nómina' })).toBeInTheDocument();
     
     vi.unstubAllEnvs();
   });

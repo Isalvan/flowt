@@ -27,10 +27,13 @@ import {
   EyeOff,
   User,
   CalendarDays,
+  Wallet,
   Settings,
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
+import { PreferencesProvider } from './context/PreferencesContext';
 import { CategoriesProvider } from './context/CategoriesContext';
+import { BanksProvider } from './context/BanksContext';
 // The app always starts locked, so the PIN modal is on the critical path: keep it in the entry chunk.
 import { PinModal } from './components/common/PinModal';
 import { DeferredOverlay } from './components/common/DeferredOverlay';
@@ -38,6 +41,7 @@ import { TabLoading } from './components/common/TabLoading';
 import { BentoMenu } from './components/common/BentoMenu';
 
 const CalendarioView = React.lazy(() => import('./components/calendario/CalendarioView').then((m) => ({ default: m.CalendarioView })));
+const NominaView = React.lazy(() => import('./components/nomina/NominaView').then((m) => ({ default: m.NominaView })));
 const CorreosOrchestrator = React.lazy(() => import('./components/correos/CorreosOrchestrator').then((m) => ({ default: m.CorreosOrchestrator })));
 const AjustesOrchestrator = React.lazy(() => import('./components/ajustes/AjustesOrchestrator').then((m) => ({ default: m.AjustesOrchestrator })));
 const HuchaModal = React.lazy(() => import('./components/modals/HuchaModal').then((m) => ({ default: m.HuchaModal })));
@@ -55,11 +59,12 @@ const ShortcutsHelpModal = React.lazy(() => import('./components/common/Shortcut
 const CelebrationConfetti = React.lazy(() => import('./components/common/CelebrationConfetti').then((m) => ({ default: m.CelebrationConfetti })));
 const ManualLogin = React.lazy(() => import('./components/auth/ManualLogin').then((m) => ({ default: m.ManualLogin })));
 
-type AppTab = 'dashboard' | 'calendario' | 'correos' | 'ajustes';
+type AppTab = 'dashboard' | 'calendario' | 'nomina' | 'correos' | 'ajustes';
 
 const NAV_TABS: { id: AppTab; label: string; icon: typeof House }[] = [
   { id: 'dashboard', label: 'Inicio', icon: House },
   { id: 'calendario', label: 'Calendario', icon: CalendarDays },
+  { id: 'nomina', label: 'Nómina', icon: Wallet },
   { id: 'correos', label: 'Correos', icon: Mail },
   { id: 'ajustes', label: 'Ajustes', icon: Settings },
 ];
@@ -91,6 +96,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     pendingEmails,
     historicoCorreos,
     userStats,
+    mediaIngresos,
     balance,
     chartData,
     huchaMonthlyBudgets,
@@ -106,6 +112,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     handleUpdateMovimientoConcepto,
     handleUpdateMovimientoCategoria,
     handleDismissCompensation,
+    dismissDuplicate,
     handleConvertMovimiento,
     handleLinkMovimiento,
     handleUnlinkMovimiento,
@@ -431,7 +438,14 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             {!isFirebaseConfigured ? (
               <div className="ml-1 flex items-center gap-1 rounded-full bg-sun-500/12 py-1 pl-3 pr-1 text-xs font-bold text-sun-600 dark:text-sun-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-sun-500" />
-                <span className={forceDemo ? '' : 'pr-2'}>Demo</span>
+                <button
+                  type="button"
+                  onClick={() => setIsProfilePanelOpen(true)}
+                  aria-label="Abrir perfil"
+                  className={`rounded-full underline-offset-4 hover:underline ${forceDemo ? '' : 'pr-2'}`}
+                >
+                  Demo
+                </button>
                 {forceDemo && (
                   <button
                     type="button"
@@ -498,6 +512,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             onUpdateCategoria={handleUpdateMovimientoCategoria}
             onAcceptCompensation={handleLinkMovimiento}
             onDismissCompensation={handleDismissCompensation}
+            onDismissDuplicate={dismissDuplicate}
             onConvert={handleOpenConvertModal}
             onLink={handleOpenLinkModal}
             onUnlink={handleUnlinkMovimiento}
@@ -520,6 +535,12 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
           </React.Suspense>
         )}
 
+        {activeTab === 'nomina' && (
+          <React.Suspense fallback={<TabLoading />}>
+            <NominaView movimientos={chartMovements} huchas={huchas} suscripciones={suscripciones} />
+          </React.Suspense>
+        )}
+
         {activeTab === 'correos' && (
           <React.Suspense fallback={<TabLoading />}>
             <CorreosOrchestrator
@@ -537,6 +558,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             <AjustesOrchestrator
               suscripciones={suscripciones}
               huchas={huchas}
+              ingresoMensualHabitual={chartMovementsLoading ? undefined : mediaIngresos}
               onOpenSuscripcionModal={(s) => {
                 setEditingSuscripcion(s || null);
                 setIsSuscripcionModalOpen(true);
@@ -640,6 +662,8 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
           onClose={() => setIsProfilePanelOpen(false)}
           user={user}
           onLogout={handleLogout}
+          movimientos={chartMovements}
+          huchas={huchas}
         />
       </DeferredOverlay>
 
@@ -796,9 +820,13 @@ const App: React.FC = () => {
   const [forceDemo, setForceDemo] = useState(false);
   return (
     <PrivacyProvider>
-      <CategoriesProvider forceDemo={forceDemo}>
-        <AppContent forceDemo={forceDemo} setForceDemo={setForceDemo} />
-      </CategoriesProvider>
+      <PreferencesProvider forceDemo={forceDemo}>
+        <CategoriesProvider forceDemo={forceDemo}>
+          <BanksProvider forceDemo={forceDemo}>
+          <AppContent forceDemo={forceDemo} setForceDemo={setForceDemo} />
+          </BanksProvider>
+        </CategoriesProvider>
+      </PreferencesProvider>
     </PrivacyProvider>
   );
 };

@@ -1,21 +1,40 @@
 import React, { useEffect } from 'react';
 import { User, LogOut, Key, ShieldOff, X } from 'lucide-react';
 import { usePrivacy } from '../../context/PrivacyContext';
+import { usePreferences } from '../../context/PreferencesContext';
+import type { Hucha, Movimiento } from '../../types';
+import { payrollDates } from '../../utils/periods';
 
 interface ProfilePanelProps {
   isOpen: boolean;
   onClose: () => void;
   user: any;
   onLogout: () => void;
+  movimientos?: Movimiento[];
+  huchas?: Hucha[];
 }
 
 export const ProfilePanel: React.FC<ProfilePanelProps> = ({
   isOpen,
   onClose,
   user,
-  onLogout
+  onLogout,
+  movimientos = [],
+  huchas = [],
 }) => {
   const { hasPin, openCreateModal, removePin, isLocked } = usePrivacy();
+  const { horasSemanales, umbralCompraPequena, inicioPeriodo, cifraDestacada, updatePreferences } = usePreferences();
+  const wallets = huchas.filter(h => h.activa !== false);
+
+  const savePreference = (input: HTMLInputElement, field: 'horasSemanales' | 'umbralCompraPequena') => {
+    const previous = field === 'horasSemanales' ? horasSemanales : umbralCompraPequena;
+    const value = input.value === '' && field === 'horasSemanales' ? null : input.valueAsNumber;
+    if (!input.validity.valid || (value !== null && !Number.isFinite(value))) {
+      input.value = previous === null ? '' : String(previous);
+      return;
+    }
+    if (value !== previous) void updatePreferences({ [field]: value });
+  };
 
   // Close on escape key
   useEffect(() => {
@@ -90,6 +109,86 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar">
           
+          {/* Preferences Section */}
+          <section className="flex flex-col gap-3">
+            <h3 className="dashboard-label">Preferencias</h3>
+            <div className="rounded-2xl bg-surface-2 p-5 flex flex-col gap-5">
+              {wallets.length > 0 && <div>
+                <label className="field-label" htmlFor="profile-featured">Cifra destacada</label>
+                <select id="profile-featured" className="field" aria-describedby="profile-featured-hint"
+                  value={wallets.some(h => h.id === cifraDestacada) ? cifraDestacada! : ''}
+                  onChange={event => { void updatePreferences({ cifraDestacada: event.target.value || null }); }}>
+                  <option value="">Saldo total</option>
+                  {wallets.map(h => <option key={h.id} value={h.id}>{h.nombre}</option>)}
+                </select>
+                <p id="profile-featured-hint" className="field-hint">La cifra grande al abrir Flowt. El saldo total queda a un toque.</p>
+              </div>}
+              <div>
+                <label className="field-label" htmlFor="profile-period-start">Inicio de tu periodo</label>
+                <select id="profile-period-start" className="field"
+                  value={inicioPeriodo === 'nomina' ? 'nomina' : inicioPeriodo === 1 ? 'natural' : 'fixed'}
+                  aria-describedby="profile-period-hint"
+                  onChange={event => { void updatePreferences({ inicioPeriodo: event.target.value === 'nomina' ? 'nomina' : event.target.value === 'fixed' ? 28 : 1 }); }}>
+                  <option value="natural">Día 1 (mes natural)</option>
+                  <option value="nomina">Cuando cobro la nómina</option>
+                  <option value="fixed">Un día fijo</option>
+                </select>
+                {typeof inicioPeriodo === 'number' && inicioPeriodo !== 1 && <>
+                  <label className="field-label mt-3" htmlFor="profile-period-day">Día de inicio</label>
+                  <input key={`period-${inicioPeriodo}`} id="profile-period-day" className="field" type="number"
+                    min={2} max={28} step={1} required defaultValue={inicioPeriodo} aria-describedby="profile-period-hint"
+                    onBlur={event => {
+                      const input = event.currentTarget;
+                      if (input.validity.valid && Number.isInteger(input.valueAsNumber)) void updatePreferences({ inicioPeriodo: input.valueAsNumber });
+                      else input.value = String(inicioPeriodo);
+                    }}
+                    onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
+                </>}
+                <p id="profile-period-hint" className="field-hint">{inicioPeriodo === 'nomina' && !payrollDates(movimientos).length
+                  ? 'Aún no hemos visto ninguna nómina; mientras tanto se usa el mes natural.'
+                  : 'Tus resúmenes y comparativas irán de este día al mismo del mes siguiente.'}</p>
+              </div>
+              <div>
+                <label className="field-label" htmlFor="profile-weekly-hours">Horas de trabajo a la semana</label>
+                <input
+                  key={`hours-${horasSemanales}`}
+                  id="profile-weekly-hours"
+                  className="field"
+                  type="number"
+                  min={1}
+                  max={80}
+                  step="any"
+                  defaultValue={horasSemanales ?? ''}
+                  aria-describedby="profile-weekly-hours-hint"
+                  onBlur={event => savePreference(event.currentTarget, 'horasSemanales')}
+                  onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                />
+                <p id="profile-weekly-hours-hint" className="field-hint">Para ver cuánto tiempo de trabajo cuesta un gasto. Déjalo vacío para no mostrarlo.</p>
+              </div>
+              <div>
+                <label className="field-label" htmlFor="profile-small-purchase">Compra pequeña</label>
+                <div className="relative">
+                  <input
+                    key={`threshold-${umbralCompraPequena}`}
+                    id="profile-small-purchase"
+                    className="field has-unit"
+                    type="number"
+                    min={1}
+                    max={100}
+                    step="any"
+                    required
+                    defaultValue={umbralCompraPequena}
+                    aria-describedby="profile-small-purchase-hint"
+                    onBlur={event => savePreference(event.currentTarget, 'umbralCompraPequena')}
+                    onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-soft">€</span>
+                </div>
+                <p id="profile-small-purchase-hint" className="field-hint">Las compras por debajo de este importe se suman aparte.</p>
+              </div>
+            </div>
+          </section>
+
           {/* Security Section */}
           <section className="flex flex-col gap-3">
             <h3 className="dashboard-label">

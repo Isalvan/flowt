@@ -3,6 +3,7 @@ import { parseMovimientoDate } from "../hooks/useFinanceData";
 import { toUtcCalendarDay } from "./financialDates";
 import { cuentaEnEstadisticas, importeEnEstadisticas } from "./movements";
 import { isSubscriptionMovement, normalizeServiceName } from "./serviceNames";
+import { periodOf, previousPeriod, type PeriodConfig } from "./periods";
 import {
   clampDayToMonth,
   getCancellationDate,
@@ -17,6 +18,71 @@ export interface ProjectionEstimates {
   observedDays: number;
   observedMonths: number;
 }
+
+export interface NetVariability {
+  standardDeviation: number;
+  periods: number;
+}
+
+export type ProjectionAdjustment =
+  | { id: string; tipo: "puntual"; importe: number; fecha: Date }
+  | { id: string; tipo: "mensual"; importe: number; desde?: Date }
+  | { id: string; tipo: "cancelar_suscripcion"; suscripcionId: string };
+
+export interface ProjectionPoint {
+  name: string;
+  balance: number;
+  rawDate: Date;
+  low?: number;
+  high?: number;
+  scenario?: number;
+  /** Exact daily crossing, which may fall between chart samples. */
+  scenarioFirstNegativeDate?: Date;
+}
+
+export const scenarioSummary = (data: readonly ProjectionPoint[]) => {
+  const last = data.at(-1);
+  return {
+    difference: last?.scenario === undefined ? 0 : Math.round((last.scenario - last.balance) * 100) / 100,
+    firstNegativeDate: data.find((point) => point.scenarioFirstNegativeDate)?.scenarioFirstNegativeDate
+      ?? data.find((point) => point.scenario !== undefined && point.scenario < 0)?.rawDate ?? null,
+  };
+};
+
+export const netVariability = (
+  movements: Movimiento[],
+  now: Date,
+  periodConfig: PeriodConfig,
+): NetVariability | null => {
+  const dated = movements.flatMap((movement) => {
+    const date = parseMovimientoDate(movement.fecha_operacion);
+    return date && date <= now ? [{ movement, date }] : [];
+  });
+  if (!dated.length) return null;
+  const firstDay = Math.min(...dated.map(({ date }) => toUtcCalendarDay(date)));
+  const { inicioPeriodo, nominas } = periodConfig;
+  const current = periodOf(now, inicioPeriodo, nominas);
+  let period = previousPeriod(current, inicioPeriodo, nominas);
+  const nets: number[] = [];
+  // A movement on the first day establishes coverage of that entire day.
+  // Periods use [start, end), including periods with no recorded movements.
+  while (nets.length < 6 && toUtcCalendarDay(period.start) >= firstDay) {
+    if (period.end <= current.start && period.end <= now) {
+      nets.push(dated.reduce((net, { movement, date }) => {
+        if (date < period.start || date >= period.end || !cuentaEnEstadisticas(movement)) return net;
+        const amount = importeEnEstadisticas(movement);
+        return net + (movement.tipo === "ingreso" ? amount : -amount);
+      }, 0));
+    }
+    period = previousPeriod(period, inicioPeriodo, nominas);
+  }
+  if (nets.length < 3) return null;
+  const mean = nets.reduce((sum, net) => sum + net, 0) / nets.length;
+  return {
+    standardDeviation: Math.sqrt(nets.reduce((sum, net) => sum + (net - mean) ** 2, 0) / (nets.length - 1)),
+    periods: nets.length,
+  };
+};
 
 export const calculateProjectionEstimates = (
   movements: Movimiento[],
@@ -96,9 +162,16 @@ export const buildProjectionData = (
   estimates: ProjectionEstimates,
   now = new Date(),
   days = 90,
+  variability?: NetVariability | null,
+  adjustments: readonly ProjectionAdjustment[] = [],
 ) => {
-  const data: Array<{ name: string; balance: number; rawDate: Date }> = [];
+  const data: ProjectionPoint[] = [];
   let balance = startingBalance;
+  let scenarioBalance = startingBalance;
+  let firstNegativeDate: Date | null = null;
+  const cancelledIds = new Set(adjustments.flatMap((adjustment) =>
+    adjustment.tipo === "cancelar_suscripcion" ? [adjustment.suscripcionId] : [],
+  ));
   // Roughly 30 points whatever the horizon, so long ranges stay readable.
   const step = Math.max(1, Math.round(days / 30));
   const withYear = days > 330;
@@ -106,8 +179,10 @@ export const buildProjectionData = (
   for (let day = 0; day <= days; day += 1) {
     const date = new Date(now);
     date.setDate(now.getDate() + day);
-    if (day > 0)
+    if (day > 0) {
       balance += estimates.dailyIncome - estimates.dailyVariableExpense;
+      scenarioBalance += estimates.dailyIncome - estimates.dailyVariableExpense;
+    }
 
     estimates.activeSubscriptions.forEach((subscription) => {
       const charge = getSubscriptionChargeForMonth(
@@ -123,10 +198,24 @@ export const buildProjectionData = (
         (!cancellationDate || charge < cancellationDate)
       ) {
         balance -= getEffectiveSubscriptionAmount(subscription);
+        if (!cancelledIds.has(subscription.id)) {
+          scenarioBalance -= getEffectiveSubscriptionAmount(subscription);
+        }
       }
     });
 
     balance = Math.round(balance * 100) / 100;
+    adjustments.forEach((adjustment) => {
+      if (adjustment.tipo === "cancelar_suscripcion") return;
+      const anchor = adjustment.tipo === "puntual" ? adjustment.fecha : adjustment.desde ?? now;
+      const scheduled = adjustment.tipo === "puntual" ? anchor : clampDayToMonth(date.getFullYear(), date.getMonth(), anchor.getDate());
+      if (toUtcCalendarDay(date) >= toUtcCalendarDay(anchor) && toUtcCalendarDay(date) === toUtcCalendarDay(scheduled)) {
+        scenarioBalance += Math.round(adjustment.importe * 100) / 100;
+      }
+    });
+    scenarioBalance = Math.round(scenarioBalance * 100) / 100;
+    const scenario = scenarioBalance;
+    if (adjustments.length > 0 && scenario < 0 && !firstNegativeDate) firstNegativeDate = date;
     if (day % step === 0 || day === days) {
       data.push({
         name: date.toLocaleDateString("es-ES", {
@@ -136,6 +225,12 @@ export const buildProjectionData = (
         }),
         balance,
         rawDate: date,
+        ...(adjustments.length > 0 && { scenario }),
+        ...(day === days && firstNegativeDate && { scenarioFirstNegativeDate: firstNegativeDate }),
+        ...(variability && {
+          low: Math.round((balance - variability.standardDeviation * Math.sqrt(day / 30)) * 100) / 100,
+          high: Math.round((balance + variability.standardDeviation * Math.sqrt(day / 30)) * 100) / 100,
+        }),
       });
     }
   }

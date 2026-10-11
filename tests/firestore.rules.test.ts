@@ -42,6 +42,29 @@ afterAll(async () => {
   }
 });
 
+describe('Firestore Rules - Anclas de bancos', () => {
+  it('allows the owner to anchor and forbids foreign updates, invalid values and unrelated keys', async () => {
+    if (!testEnv) return;
+    const db = testEnv.authenticatedContext('bank_owner').firestore();
+    const ref = doc(db, 'bancos', 'bank_owner', 'items', 'bbva');
+    await assertSucceeds(setDoc(ref, { nombre: 'BBVA', created_at: serverTimestamp() }));
+    const anchor = { ancla_saldo: 100, ancla_fecha: serverTimestamp(), ultimo_desfase: null, updated_at: serverTimestamp() };
+    await assertSucceeds(updateDoc(ref, anchor));
+    await assertSucceeds(updateDoc(ref, { ...anchor, ancla_saldo: -1000000, ultimo_desfase: -62.1 }));
+    await assertSucceeds(updateDoc(ref, { ...anchor, ancla_saldo: 100000000 }));
+    await assertFails(updateDoc(ref, { ...anchor, nombre: 'Otro banco' }));
+    await assertFails(updateDoc(ref, { ...anchor, created_at: serverTimestamp() }));
+    await assertFails(updateDoc(ref, { ...anchor, extra: true }));
+    await assertFails(updateDoc(ref, { ...anchor, ancla_saldo: -1000001 }));
+    await assertFails(updateDoc(ref, { ...anchor, ancla_saldo: 100000001 }));
+    await assertFails(updateDoc(ref, { ...anchor, ancla_saldo: '100' }));
+    await assertFails(updateDoc(ref, { ...anchor, ultimo_desfase: '0' }));
+    await assertFails(updateDoc(ref, { ...anchor, ancla_fecha: new Date('2026-01-01') }));
+    const otherDb = testEnv.authenticatedContext('other_owner').firestore();
+    await assertFails(updateDoc(doc(otherDb, 'bancos', 'bank_owner', 'items', 'bbva'), anchor));
+  });
+});
+
 describe('Firestore Rules - Movimientos', () => {
   it('permite categorías propias del usuario y rechaza categorías ajenas o de otro tipo', async () => {
     if (!testEnv) return;

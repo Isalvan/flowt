@@ -18,6 +18,17 @@ beforeEach(() => {
 });
 
 describe('persistencia de propuestas en demo', () => {
+  it('guarda el descarte de duplicados en ambos lados y lo conserva al recargar', async () => {
+    const { result, unmount } = renderHook(() => useFinanceData(true));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(() => result.current.dismissDuplicate('g', 'i'));
+    await act(() => result.current.dismissDuplicate('g', 'i'));
+    unmount();
+    const reloaded = renderHook(() => useFinanceData(true));
+    await waitFor(() => expect(reloaded.result.current.loading).toBe(false));
+    expect(reloaded.result.current.movimientos.find(m => m.id === 'g')?.duplicados_descartados).toEqual(['i']);
+    expect(reloaded.result.current.movimientos.find(m => m.id === 'i')?.duplicados_descartados).toEqual(['g']);
+  });
   it('conserva categorías confirmadas y rechazos al recargar', async () => {
     const { result, unmount } = renderHook(() => useFinanceData(true));
     await waitFor(() => expect(result.current.loading).toBe(false));

@@ -432,6 +432,19 @@ html[data-theme='dark'] {
     cursor: not-allowed;
   }
 
+  /* A number field with its unit drawn inside: the browser's arrows would sit on top of it. */
+  .field.has-unit {
+    appearance: textfield;
+    -moz-appearance: textfield;
+    padding-right: 2.25rem;
+  }
+
+  .field.has-unit::-webkit-inner-spin-button,
+  .field.has-unit::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+
   .field-label {
     display: block;
     margin-bottom: 0.4rem;

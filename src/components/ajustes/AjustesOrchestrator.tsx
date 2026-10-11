@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Layers, Download, Archive, RefreshCw, Tags, Plug } from 'lucide-react';
+import { Layers, Download, Archive, RefreshCw, Tags, Plug, Landmark } from 'lucide-react';
+import { BancosView } from './BancosView';
 import { CategoryHuchasView } from './CategoryHuchasView';
 import { ReviewHistoryView } from './ReviewHistoryView';
 import { ConnectionsView } from './ConnectionsView';
@@ -12,6 +13,7 @@ interface AjustesOrchestratorProps {
   // Suscripciones props
   suscripciones: Suscripcion[];
   huchas: Hucha[];
+  ingresoMensualHabitual?: number;
   onOpenSuscripcionModal: (suscripcion: Suscripcion | null) => void;
   onDeleteSuscripcion: (s: Suscripcion) => void;
   onToggleSuscripcion: (s: Suscripcion) => void;
@@ -34,6 +36,7 @@ interface AjustesOrchestratorProps {
 export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
   suscripciones,
   huchas,
+  ingresoMensualHabitual,
   onOpenSuscripcionModal,
   onDeleteSuscripcion,
   onToggleSuscripcion,
@@ -50,7 +53,7 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
   demo = false,
   onRestoreHucha
 }) => {
-  const [subTab, setSubTab] = useState<'suscripciones' | 'exportar' | 'carteras_inactivas' | 'categorias' | 'revisiones' | 'conexiones'>('suscripciones');
+  const [subTab, setSubTab] = useState<'suscripciones' | 'bancos' | 'exportar' | 'carteras_inactivas' | 'categorias' | 'revisiones' | 'conexiones'>('suscripciones');
   const { formatCurrency } = usePrivacy();
 
   return (
@@ -71,6 +74,7 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
             <Layers size={16} />
             Suscripciones
           </button>
+          <button type="button" onClick={() => setSubTab('bancos')} aria-pressed={subTab === 'bancos'} className="segmented-item"><Landmark size={16} />Bancos</button>
           
           <button
             type="button"
@@ -101,6 +105,8 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
       <div className="w-full">
         {subTab === 'revisiones' ? (
           <ReviewHistoryView userId={userId} demo={demo} huchas={huchas} suscripciones={suscripciones} />
+        ) : subTab === 'bancos' ? (
+          <BancosView chartMovements={chartMovements} />
         ) : subTab === 'categorias' ? (
           <CategoryHuchasView userId={userId} huchas={huchas} demo={demo} />
         ) : subTab === 'conexiones' ? (
@@ -109,6 +115,7 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
           <SuscripcionesView
             suscripciones={suscripciones}
             huchas={huchas}
+            ingresoMensualHabitual={ingresoMensualHabitual}
             onOpenSuscripcionModal={onOpenSuscripcionModal}
             onDeleteSuscripcion={onDeleteSuscripcion}
             onToggleSuscripcion={onToggleSuscripcion}

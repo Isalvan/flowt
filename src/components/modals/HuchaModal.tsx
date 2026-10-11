@@ -11,6 +11,8 @@ interface HuchaModalProps {
   allHuchas: Hucha[];
 }
 
+const extraMonths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
 export const HuchaModal: React.FC<HuchaModalProps> = ({
   isOpen,
   onClose,
@@ -24,6 +26,9 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
   const [objetivo, setObjetivo] = useState('');
   const [esPrincipal, setEsPrincipal] = useState(false);
   const [topeObjetivo, setTopeObjetivo] = useState(false);
+  const [pagaExtra, setPagaExtra] = useState(false);
+  const [extraImporte, setExtraImporte] = useState('');
+  const [extraMeses, setExtraMeses] = useState<number[]>([]);
   const [subsanarHasta, setSubsanarHasta] = useState('0');
   const [subsanarCon, setSubsanarCon] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,6 +42,9 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
       setObjetivo(editingHucha.objetivo?.toString() || '');
       setEsPrincipal(!!editingHucha.es_principal);
       setTopeObjetivo(!!editingHucha.tope_objetivo);
+      setPagaExtra((editingHucha.extra_importe || 0) > 0);
+      setExtraImporte(editingHucha.extra_importe?.toString() || '');
+      setExtraMeses(editingHucha.extra_meses || []);
       setSubsanarHasta(editingHucha.subsanar_hasta?.toString() || '0');
       setSubsanarCon(editingHucha.subsanar_con || null);
     } else {
@@ -46,14 +54,20 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
       setObjetivo('');
       setEsPrincipal(allHuchas.length === 0); // first pocket defaults to principal
       setTopeObjetivo(false);
+      setPagaExtra(false);
+      setExtraImporte('');
+      setExtraMeses([]);
       setSubsanarHasta('0');
       setSubsanarCon(null);
     }
   }, [editingHucha, isOpen, allHuchas]);
 
+  const canConfigureExtra = !editingHucha?.es_suscripciones && !editingHucha?.es_metalico && !editingHucha?.es_interno;
+  const invalidExtra = canConfigureExtra && pagaExtra && (!(Number(extraImporte) > 0) || !Number.isFinite(Number(extraImporte)) || extraMeses.length === 0);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre.trim()) return;
+    if (!nombre.trim() || invalidExtra) return;
 
     setIsLoading(true);
     try {
@@ -64,6 +78,10 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
         objetivo: objetivo ? Number(objetivo) : null,
         es_principal: esPrincipal,
         tope_objetivo: objetivo ? topeObjetivo : false,
+        ...(canConfigureExtra ? {
+          extra_importe: pagaExtra ? Number(extraImporte) : null,
+          extra_meses: pagaExtra ? [...extraMeses].sort((a, b) => a - b) : null,
+        } : {}),
         subsanar_hasta: Number(subsanarHasta) || 0,
         subsanar_con: subsanarCon,
       };
@@ -221,6 +239,69 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
           )}
         </div>
 
+        {canConfigureExtra && (
+          <div className="space-y-3">
+            <label htmlFor="hucha-paga-extra" className="flex items-start gap-3 rounded-2xl bg-surface-2 p-3.5 cursor-pointer">
+              <input
+                id="hucha-paga-extra"
+                type="checkbox"
+                checked={pagaExtra}
+                onChange={(e) => setPagaExtra(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded accent-brand"
+              />
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-ink">Paga extra</span>
+                <span className="text-[11px] text-ink-soft leading-normal">
+                  Además de su aportación normal, recibe una cantidad extra con la nómina de los meses que elijas.
+                </span>
+              </div>
+            </label>
+            {pagaExtra && (
+              <div className="space-y-3 rounded-2xl bg-surface-2 p-3.5 animate-appear-up">
+                <div>
+                  <label htmlFor="hucha-extra-importe" className="field-label">Cantidad extra</label>
+                  <div className="relative">
+                    <input
+                      id="hucha-extra-importe"
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      max="100000"
+                      value={extraImporte}
+                      onChange={(e) => setExtraImporte(e.target.value)}
+                      className="field has-unit tabular-nums"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-soft">€</span>
+                  </div>
+                </div>
+                <div>
+                  <span className="field-label">Meses</span>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {extraMonths.map((month, index) => {
+                      const number = index + 1;
+                      const selected = extraMeses.includes(number);
+                      return (
+                        <button
+                          key={month}
+                          type="button"
+                          aria-pressed={selected}
+                          aria-label={month}
+                          onClick={() => setExtraMeses(selected ? extraMeses.filter(m => m !== number) : [...extraMeses, number])}
+                          className={`h-8 rounded-lg border text-xs font-bold transition-colors duration-150 ${selected ? 'border-brand bg-brand-tint text-brand-ink' : 'border-transparent bg-surface text-ink-soft hover:text-ink'}`}
+                        >
+                          {month.slice(0, 3).toLowerCase()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+            {invalidExtra && <p className="field-hint !text-rose-500 dark:!text-rose-400">Indica una cantidad y al menos un mes.</p>}
+          </div>
+        )}
+
         {/* Opciones de Subsanación (Deuda) */}
         {!editingHucha?.es_suscripciones && (
           <div className="pt-4 border-t border-line space-y-3">
@@ -279,7 +360,7 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
           </button>
           <button
             type="submit"
-            disabled={isLoading || !nombre.trim()}
+            disabled={isLoading || !nombre.trim() || invalidExtra}
             className="dashboard-primary-button"
           >
             {isLoading ? (

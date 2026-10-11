@@ -1,0 +1,11 @@
+[
+  { "id": "revolut", "nombre": "Revolut", "coincide": ["revolut"], "color": "#191C1F" },
+  { "id": "unicaja", "nombre": "Unicaja", "coincide": ["unicaja"], "color": "#2E8B3A" },
+  { "id": "bbva", "nombre": "BBVA", "coincide": ["bbva"], "color": "#072146" },
+  { "id": "santander", "nombre": "Santander", "coincide": ["santander"], "color": "#EC0000" },
+  { "id": "caixabank", "nombre": "CaixaBank", "coincide": ["caixa"], "color": "#007EAE" },
+  { "id": "ing", "nombre": "ING", "coincide": ["ing"], "color": "#FF6200" },
+  { "id": "sabadell", "nombre": "Sabadell", "coincide": ["sabadell"], "color": "#006DFF" },
+  { "id": "n26", "nombre": "N26", "coincide": ["n26"], "color": "#48AC98" },
+  { "id": "trade_republic", "nombre": "Trade Republic", "coincide": ["traderepublic", "trade republic"], "color": "#111111" }
+]

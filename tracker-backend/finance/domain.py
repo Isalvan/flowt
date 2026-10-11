@@ -119,8 +119,34 @@ def percentage_total(huchas, replacing=None):
     return total
 
 
-def distribute_income(amount, huchas, plain=False):
-    """Split an income across wallets: fixed amounts, then percentages, then the rest.
+def is_payroll(movement):
+    category = movement.get("categoria") or movement.get("categoria_sugerida")
+    if category:
+        return category == "nomina"
+    concept = name_key(movement.get("concepto") or "")
+    return bool(re.search(r"(?<![a-z0-9_])(?:nomina|salario|sueldo)(?![a-z0-9_])", concept))
+
+
+def extra_month(movement):
+    if not is_payroll(movement):
+        return None
+    value = movement.get("fecha_operacion")
+    try:
+        if isinstance(value, str):
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?)?", value):
+                return None
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if isinstance(value, datetime):
+            value = (value if value.tzinfo else value.replace(tzinfo=timezone.utc)).astimezone(MADRID)
+        elif not isinstance(value, date):
+            return None
+        return value.strftime("%Y-%m")
+    except (ValueError, OverflowError):
+        return None
+
+
+def distribute_income(amount, huchas, plain=False, extra_month=None):
+    """Split an income: fixed amounts, payroll extras, percentages, then the rest.
 
     Capped wallets only take what fits and a wallet in debt repays its lender
     first, as the email synchroniser does. `plain` skips caps and debts: it is
@@ -132,7 +158,7 @@ def distribute_income(amount, huchas, plain=False):
         fail("no_hucha", "No hay ninguna cartera activa para repartir el ingreso")
     if not plain and percentage_total(huchas) > 100:
         fail("invalid_distribution", "Los porcentajes de las carteras superan el 100 %; corrígelos antes")
-    saldos, deudas = {}, {}
+    saldos, deudas, extras = {}, {}, {}
     remaining = amount
 
     def credit(hid, hucha, value):
@@ -146,12 +172,19 @@ def distribute_income(amount, huchas, plain=False):
         if value:
             saldos[hid] = saldos.get(hid, 0) + value
 
-    for kind in ("flat", "porcentaje"):
+    for kind in ("flat", "extra", "porcentaje"):
         for hid, hucha in wallets:
-            if hucha.get("tipo_aportacion") != kind or remaining <= 0:
+            if remaining <= 0:
                 continue
-            rule = Decimal(str(hucha.get("valor_aportacion") or 0))
-            planned = cents(rule) if kind == "flat" else int((amount * rule / 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+            if kind == "extra":
+                if (plain or not extra_month or (hucha.get("extra_importe") or 0) <= 0
+                        or int(extra_month[5:7]) not in (hucha.get("extra_meses") or [])
+                        or hucha.get("extra_ultimo") == extra_month):
+                    continue
+            elif hucha.get("tipo_aportacion") != kind:
+                continue
+            rule = Decimal(str(hucha.get("extra_importe" if kind == "extra" else "valor_aportacion") or 0))
+            planned = cents(rule) if kind != "porcentaje" else int((amount * rule / 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
             free = None if plain or (kind == "flat" and hucha.get("es_suscripciones")) else room(hucha, saldos.get(hid, 0))
             if free is not None:
                 planned = min(planned, free)
@@ -159,11 +192,13 @@ def distribute_income(amount, huchas, plain=False):
             if share:
                 remaining -= share
                 credit(hid, hucha, share)
+                if kind == "extra":
+                    extras[hid] = extra_month
     if remaining:
         target = fallback_hucha(huchas)
         credit(target, huchas[target], remaining)
     assert sum(saldos.values()) == amount
-    return {"saldos": saldos, "deudas": deudas}
+    return {"saldos": saldos, "deudas": deudas, **({"extras": extras} if extras else {})}
 
 
 def income_reversal(movement, huchas):
@@ -189,13 +224,14 @@ def income_reversal(movement, huchas):
             fail("no_hucha", "No hay ninguna cartera activa para revertir el ingreso")
         result[target] = result.get(target, 0) - value
     restored = {hid: d for hid, d in deudas.items() if hid in huchas and is_active(huchas[hid]) and d["importe"]}
-    return {"saldos": result, "deudas": restored}
+    return {"saldos": result, "deudas": restored, **({"extras": dict(recorded["extras"])} if isinstance(recorded, dict) and recorded.get("extras") else {})}
 
 
 def recorded_split(split):
     """Shape stored on the movement so the income can be undone exactly."""
     return {"saldos": {hid: euros(v) for hid, v in split["saldos"].items()},
-            "deudas": {hid: {"importe": euros(d["importe"]), "con": d["con"]} for hid, d in split["deudas"].items()}}
+            "deudas": {hid: {"importe": euros(d["importe"]), "con": d["con"]} for hid, d in split["deudas"].items()},
+            **({"extras": dict(split["extras"])} if split.get("extras") else {})}
 
 
 def counts_in_stats(movement):
