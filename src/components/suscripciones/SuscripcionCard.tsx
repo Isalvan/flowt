@@ -12,6 +12,8 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { calcAnual, getCancellationDate, getNextSubscriptionChargeDate } from '../../utils/subscriptions';
+import { ServiceIcon } from '../dashboard/ServiceIcon';
+import { CATEGORIA_OPTIONS } from '../../hooks/useFinanceData';
 import { usePrivacy } from '../../context/PrivacyContext';
 
 interface SuscripcionCardProps {
@@ -55,7 +57,7 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
     <Card
       hoverable
       onClick={() => onEdit(suscripcion)}
-      className={`transition-opacity ${suscripcion.activa ? '' : 'opacity-60'}`}
+      className={`flex flex-col transition-opacity ${suscripcion.activa ? '' : 'opacity-60'}`}
     >
       {/* Top color bar */}
       <div 
@@ -65,13 +67,7 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
 
       <div className="flex items-center justify-between gap-3 mt-1 mb-4">
         <div className="flex items-center gap-3 min-w-0">
-          {/* Circular Brand Avatar Container */}
-          <div 
-            className="w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-white text-xs shrink-0"
-            style={{ backgroundColor: suscripcion.color }}
-          >
-            {suscripcion.nombre.substring(0, 2).toUpperCase()}
-          </div>
+          <ServiceIcon name={suscripcion.nombre} color={suscripcion.color} />
           
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -80,7 +76,7 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
               </h4>
               
               <span className="inline-block rounded-lg bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-ink-soft">
-                {suscripcion.categoria}
+                {CATEGORIA_OPTIONS.find(option => option.value === suscripcion.categoria)?.label ?? suscripcion.categoria}
               </span>
             </div>
             
@@ -147,8 +143,8 @@ export const SuscripcionCard: React.FC<SuscripcionCardProps> = ({
         )}
       </div>
 
-      {/* Divider */}
-      <div className="h-px bg-line my-4" />
+      {/* Pushed to the foot, so the actions of every card in a row line up. */}
+      <div className="h-px shrink-0 bg-line mb-4 mt-auto" />
 
       {/* Footer action buttons */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
