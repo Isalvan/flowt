@@ -32,6 +32,17 @@ describe('Security Headers & CSP Verification', () => {
     expect(csp).toContain('https://accounts.google.com');
   });
 
+  it('every connect-src source is a well-formed origin', () => {
+    const header = JSON.parse(readFileSync('firebase.json', 'utf8')).hosting.headers
+      .find((h: any) => h.source === '**').headers.find((h: any) => h.key === 'Content-Security-Policy').value as string;
+    const meta = readFileSync('index.html', 'utf8').match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)![1];
+    for (const csp of [header, meta]) {
+      const sources = csp.split(';').map(d => d.trim()).find(d => d.startsWith('connect-src '))!.split(/\s+/).slice(1);
+      expect(sources).toContain('https://flowt-mcp.isalvan.workers.dev');
+      for (const source of sources) expect(source).toMatch(/^('self'|(https|wss):\/\/[a-z0-9*.-]+)$/);
+    }
+  });
+
   it('index.html contains fallback CSP meta tag', () => {
     const indexHtmlContent = readFileSync('index.html', 'utf8');
     expect(indexHtmlContent).toContain('http-equiv="Content-Security-Policy"');
