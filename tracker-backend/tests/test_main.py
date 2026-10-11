@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 import main
+from finance.domain import amount_cents, distribute_income, euros, recorded_split
 
 @pytest.mark.parametrize("sender,expected", [
     ("Alertas <INFO@REVOLUT.COM>", "Revolut"),
@@ -412,6 +413,218 @@ def hucha_doc(doc_id, **data):
     doc.reference = MagicMock(name=f"{doc_id}-ref")
     doc.to_dict.return_value = data
     return doc
+
+
+def process_income_email(mock_config, huchas, amounts):
+    """Run one email transaction with distinct movement, stats and wallet references."""
+    mock_firestore, mock_collection = mock_config
+    references = {}
+
+    def document(doc_id=None):
+        doc_id = doc_id or "new-main"
+        if doc_id not in references:
+            references[doc_id] = MagicMock(name=f"{doc_id}-ref")
+            references[doc_id].id = doc_id
+        return references[doc_id]
+
+    mock_collection.document.side_effect = document
+    document("test_user_123").get.return_value.to_dict.return_value = {}
+    mock_collection.where.return_value.order_by.return_value.stream.return_value = huchas
+    mock_collection.where.return_value.where.return_value.stream.return_value = []
+    mock_firestore.get_all.return_value = []
+    movements = [{"doc_id": f"income-{index}", "movimiento": {
+        "tipo": "ingreso", "importe": amount, "id_propietario": "test_user_123",
+        "concepto": "Ingreso", "fecha_operacion": "2026-04-11",
+    }} for index, amount in enumerate(amounts)]
+    transaction = mock_firestore.transaction.return_value
+    with patch.object(main, "review_enabled", return_value=False):
+        recorded = main.process_email_movements_transaction.to_wrap(
+            transaction, movements, "test_user_123", email_id="income-email",
+        )
+    assert recorded == [movement["doc_id"] for movement in movements]
+    wallet_refs = {hucha.reference: hucha.id for hucha in huchas}
+    updates = {wallet_refs[call.args[0]]: call.args[1]
+               for call in transaction.update.call_args_list if call.args[0] in wallet_refs}
+    if "new-main" in references:
+        updates["new-main"] = next(call.args[1] for call in transaction.set.call_args_list
+                                   if call.args[0] is references["new-main"])
+    saved = {movement["doc_id"]: next(
+        call.args[1] for call in transaction.set.call_args_list
+        if call.args[0] is references[movement["doc_id"]]
+    ) for movement in movements}
+    stats = next(call.args[1] for call in transaction.set.call_args_list
+                 if call.args[0] is references["test_user_123"])
+    return updates, saved, stats
+
+
+def test_email_income_matches_domain_and_records_split(mock_config):
+    huchas = [
+        hucha_doc("fixed", orden=1, tipo_aportacion="flat", valor_aportacion=30,
+                  saldo_acumulado=10, objetivo=35, tope_objetivo=True),
+        hucha_doc("percentage", orden=2, tipo_aportacion="porcentaje", valor_aportacion=25,
+                  saldo_acumulado=2),
+        hucha_doc("rest", orden=3, tipo_aportacion="resto", saldo_acumulado=5),
+    ]
+    data = {hucha.id: hucha.to_dict() for hucha in huchas}
+    expected = distribute_income(amount_cents(100.03), data)
+    updates, saved, stats = process_income_email(mock_config, huchas, [100.03])
+    assert {hid: update["saldo_acumulado"] for hid, update in updates.items()} == {
+        hid: round(data[hid]["saldo_acumulado"] + euros(delta), 2)
+        for hid, delta in expected["saldos"].items()
+    }
+    assert saved["income-0"]["reparto_aplicado"] == recorded_split(expected)
+    assert stats["total_ingresos"] == 100.03
+
+
+@pytest.mark.parametrize("kind,rule", [("flat", 100), ("porcentaje", 100)])
+def test_second_email_income_respects_the_cap_filled_by_the_first(mock_config, kind, rule):
+    huchas = [
+        hucha_doc("capped", orden=1, tipo_aportacion=kind, valor_aportacion=rule,
+                  saldo_acumulado=10, objetivo=50, tope_objetivo=True),
+        hucha_doc("rest", orden=2, tipo_aportacion="resto", saldo_acumulado=0),
+    ]
+    updates, saved, stats = process_income_email(mock_config, huchas, [40, 30])
+    assert updates["capped"]["saldo_acumulado"] == 50
+    assert updates["rest"]["saldo_acumulado"] == 30
+    assert saved["income-0"]["reparto_aplicado"] == {"saldos": {"capped": 40.0}, "deudas": {}}
+    assert saved["income-1"]["reparto_aplicado"] == {"saldos": {"rest": 30.0}, "deudas": {}}
+    assert stats["total_ingresos"] == 70
+
+
+def test_email_income_repays_lender_and_records_debt_reduction(mock_config):
+    huchas = [
+        hucha_doc("debtor", orden=1, tipo_aportacion="flat", valor_aportacion=40,
+                  saldo_acumulado=0, deuda_pendiente=60, deuda_con="rest"),
+        hucha_doc("rest", orden=2, tipo_aportacion="resto", saldo_acumulado=0),
+    ]
+    updates, saved, _ = process_income_email(mock_config, huchas, [50])
+    assert updates["debtor"]["saldo_acumulado"] == 0
+    assert updates["debtor"]["deuda_pendiente"] == 20
+    assert "deuda_con" not in updates["debtor"]
+    assert updates["rest"]["saldo_acumulado"] == 50
+    assert saved["income-0"]["reparto_aplicado"] == {
+        "saldos": {"rest": 50.0}, "deudas": {"debtor": {"importe": 40.0, "con": "rest"}},
+    }
+
+
+def test_second_email_income_uses_the_remaining_debt(mock_config):
+    huchas = [
+        hucha_doc("debtor", orden=1, tipo_aportacion="flat", valor_aportacion=40,
+                  saldo_acumulado=0, deuda_pendiente=60, deuda_con="rest"),
+        hucha_doc("rest", orden=2, tipo_aportacion="resto", saldo_acumulado=0),
+    ]
+    updates, saved, _ = process_income_email(mock_config, huchas, [50, 50])
+    assert updates["debtor"]["saldo_acumulado"] == 20
+    assert updates["debtor"]["deuda_pendiente"] == 0
+    assert updates["debtor"]["deuda_con"] == main.firestore.DELETE_FIELD
+    assert updates["rest"]["saldo_acumulado"] == 80
+    assert saved["income-1"]["reparto_aplicado"] == {
+        "saldos": {"rest": 30.0, "debtor": 20.0},
+        "deudas": {"debtor": {"importe": 20.0, "con": "rest"}},
+    }
+
+
+def test_cash_wallet_receives_no_email_income(mock_config):
+    huchas = [
+        hucha_doc("cash", orden=1, tipo_aportacion="flat", valor_aportacion=100,
+                  saldo_acumulado=20, es_metalico=True, es_principal=True),
+        hucha_doc("rest", orden=2, tipo_aportacion="resto", saldo_acumulado=0),
+    ]
+    updates, saved, _ = process_income_email(mock_config, huchas, [100])
+    assert "cash" not in updates
+    assert updates["rest"]["saldo_acumulado"] == 100
+    assert saved["income-0"]["reparto_aplicado"] == {"saldos": {"rest": 100.0}, "deudas": {}}
+
+
+def test_invalid_email_income_distribution_still_records_movement_and_stats(mock_config):
+    huchas = [
+        hucha_doc("percentage", tipo_aportacion="porcentaje", valor_aportacion=101, saldo_acumulado=20),
+        hucha_doc("rest", tipo_aportacion="resto", saldo_acumulado=30),
+    ]
+    with patch.object(main.logger, "error") as log_error:
+        updates, saved, stats = process_income_email(mock_config, huchas, [100])
+    assert updates == {}
+    assert saved["income-0"]["importe"] == 100
+    assert "reparto_aplicado" not in saved["income-0"]
+    assert stats["total_ingresos"] == 100
+    log_error.assert_called_once_with("Total percentage (101%) exceeds 100%. Income not distributed.")
+
+
+@pytest.mark.parametrize("failure", ["invalid_distribution", "no_hucha"])
+def test_email_income_retry_does_not_keep_a_previous_split(mock_config, failure):
+    huchas = [hucha_doc("wallet", tipo_aportacion="porcentaje", valor_aportacion=50, saldo_acumulado=0)]
+    _, saved, _ = process_income_email(mock_config, huchas, [100])
+    assert "reparto_aplicado" in saved["income-0"]
+    if failure == "invalid_distribution":
+        huchas[0].to_dict.return_value["valor_aportacion"] = 101
+    else:
+        huchas[0].to_dict.return_value["es_metalico"] = True
+    mock_firestore, _ = mock_config
+    transaction = mock_firestore.transaction.return_value
+    transaction.reset_mock()
+    with patch.object(main, "review_enabled", return_value=False):
+        recorded = main.process_email_movements_transaction.to_wrap(
+            transaction, [{"doc_id": "income-0", "movimiento": saved["income-0"]}], "test_user_123",
+        )
+    assert recorded == ["income-0"]
+    assert "reparto_aplicado" not in saved["income-0"]
+    transaction.update.assert_not_called()
+
+
+def test_email_income_with_only_cash_still_records_movement_and_stats(mock_config):
+    huchas = [hucha_doc("cash", tipo_aportacion="resto", saldo_acumulado=20, es_metalico=True)]
+    with patch.object(main.logger, "error") as log_error:
+        updates, saved, stats = process_income_email(mock_config, huchas, [100])
+    assert updates == {}
+    assert saved["income-0"]["importe"] == 100
+    assert "reparto_aplicado" not in saved["income-0"]
+    assert stats["total_ingresos"] == 100
+    log_error.assert_called_once_with("No eligible huchas found for user test_user_123. Income not distributed.")
+
+
+def test_email_income_writes_whole_cents_for_half_of_three_cents(mock_config):
+    huchas = [
+        hucha_doc("percentage", orden=1, tipo_aportacion="porcentaje", valor_aportacion=50, saldo_acumulado=0),
+        hucha_doc("rest", orden=2, tipo_aportacion="resto", saldo_acumulado=0),
+    ]
+    updates, saved, _ = process_income_email(mock_config, huchas, [0.03])
+    assert updates["percentage"]["saldo_acumulado"] == 0.02
+    assert updates["rest"]["saldo_acumulado"] == 0.01
+    assert saved["income-0"]["reparto_aplicado"] == {
+        "saldos": {"percentage": 0.02, "rest": 0.01}, "deudas": {},
+    }
+
+
+def test_email_income_rounds_written_balance_and_pending_debt(mock_config):
+    huchas = [
+        hucha_doc("debtor", orden=1, tipo_aportacion="flat", valor_aportacion=0.03,
+                  saldo_acumulado=0.001, deuda_pendiente=0.045, deuda_con="rest"),
+        hucha_doc("rest", orden=2, tipo_aportacion="resto", saldo_acumulado=0),
+    ]
+    updates, saved, _ = process_income_email(mock_config, huchas, [0.03])
+    assert updates["debtor"]["saldo_acumulado"] == 0
+    assert updates["debtor"]["deuda_pendiente"] == 0.02
+    assert updates["rest"]["saldo_acumulado"] == 0.03
+    assert saved["income-0"]["reparto_aplicado"]["deudas"]["debtor"]["importe"] == 0.03
+
+
+def test_email_income_does_not_repay_debt_to_itself(mock_config):
+    huchas = [hucha_doc("rest", tipo_aportacion="resto", saldo_acumulado=0,
+                        deuda_pendiente=20, deuda_con="rest")]
+    updates, saved, _ = process_income_email(mock_config, huchas, [100])
+    assert updates["rest"]["saldo_acumulado"] == 100
+    assert "deuda_pendiente" not in updates["rest"]
+    assert saved["income-0"]["reparto_aplicado"] == {"saldos": {"rest": 100.0}, "deudas": {}}
+
+
+def test_email_incomes_create_main_wallet_and_keep_accumulated_balance(mock_config):
+    updates, saved, stats = process_income_email(mock_config, [], [20, 30])
+    assert updates["new-main"]["es_principal"] is True
+    assert updates["new-main"]["saldo_acumulado"] == 50
+    assert saved["income-0"]["hucha_id"] == "new-main"
+    assert saved["income-0"]["reparto_aplicado"] == {"saldos": {"new-main": 20.0}, "deudas": {}}
+    assert saved["income-1"]["reparto_aplicado"] == {"saldos": {"new-main": 30.0}, "deudas": {}}
+    assert stats["total_ingresos"] == 50
 
 
 def process_single_movement(mock_config, mock_gmail_client, mock_gemini, tipo, importe, huchas):

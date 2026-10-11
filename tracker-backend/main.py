@@ -24,6 +24,8 @@ from gmail_client import get_unread_emails_from_bank, mark_email_as_read
 from fallback_logic import fallback_extract_movement
 from ai_parser import clean_body, extract_with_gemini
 from category_suggestions import category_fields
+from finance.domain import amount_cents, cents, distribute_income, euros, percentage_total, recorded_split
+from reviews.domain import ReviewError
 from reviews.processing import (
     review_enabled, read_processing, record_movements,
     record_resolved_branches, complete_processing, processing_ref, drain_approved_handoffs,
@@ -374,6 +376,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
     
     new_hucha_ref = None
     new_hucha_data = None
+    new_hucha_has_income = False
     
     for m in movements_to_process:
         doc_id = m["doc_id"]
@@ -395,7 +398,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
             new_hucha_ref = huchas_ref.document()
             target_gasto_hucha_id = new_hucha_ref.id
             
-            init_balance = amount if movimiento["tipo"] == "ingreso" else -amount
+            init_balance = 0 if movimiento["tipo"] == "ingreso" else -amount
             
             new_hucha_data = {
                 "id_propietario": owner_id,
@@ -411,116 +414,51 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
             huchas_state[target_gasto_hucha_id] = {
                 "ref": new_hucha_ref,
                 "data": new_hucha_data,
-                "saldo_actual": init_balance
+                "saldo_actual": init_balance,
+                "deuda_actual": 0.0,
             }
             
             movimiento["hucha_id"] = target_gasto_hucha_id
-            transaction.set(mov_refs[movements_to_process.index(m)], movimiento)
-            recorded_ids.append(doc_id)
-            if not movimiento.get("es_interno", False):
-                if movimiento["tipo"] == "ingreso":
-                    stats_changes["ingresos"] += amount
-                else:
+            if movimiento["tipo"] != "ingreso":
+                transaction.set(mov_refs[movements_to_process.index(m)], movimiento)
+                recorded_ids.append(doc_id)
+                if not movimiento.get("es_interno", False):
                     stats_changes["gastos"] += amount
-            continue
+                continue
 
         if movimiento["tipo"] == "ingreso":
-            total_percentage = sum(
-                h_info["data"].get("valor_aportacion", 0) 
-                for h_info in huchas_state.values() 
-                if h_info["data"].get("tipo_aportacion") == "porcentaje"
-            )
-            if total_percentage > 100:
-                logger.error(f"Total percentage ({total_percentage}%) exceeds 100%. Income not distributed.")
+            # Every income sees balances and debts accumulated earlier in this email.
+            distribution_huchas = {
+                h_id: {
+                    **h_info["data"],
+                    "saldo_acumulado": h_info["saldo_actual"],
+                    "deuda_pendiente": h_info["deuda_actual"],
+                }
+                for h_id, h_info in huchas_state.items()
+            }
+            try:
+                split = distribute_income(amount_cents(movimiento["importe"]), distribution_huchas)
+            except ReviewError as error:
+                if error.code not in ("invalid_distribution", "no_hucha"):
+                    raise
+                # Firestore may retry with the same movement and changed wallets.
+                movimiento.pop("reparto_aplicado", None)
+                if error.code == "invalid_distribution":
+                    total_percentage = percentage_total(distribution_huchas)
+                    logger.error(f"Total percentage ({total_percentage}%) exceeds 100%. Income not distributed.")
+                else:
+                    logger.error(f"No eligible huchas found for user {owner_id}. Income not distributed.")
             else:
-                remaining_amount = amount
-                # 1. Flat amounts
-                for h_id, h_info in huchas_state.items():
-                    data = h_info["data"]
-                    if data.get("tipo_aportacion") == "flat":
-                        planned_total = float(data.get("valor_aportacion", 0))
-                        
-                        # Apply tope_objetivo if exists
-                        if data.get("tope_objetivo") and not data.get("es_suscripciones") and data.get("objetivo"):
-                            objetivo = float(data.get("objetivo"))
-                            if objetivo > 0:
-                                current_balance = h_info["saldo_actual"]
-                                hueco_libre = max(0, objetivo - current_balance)
-                                planned_total = min(planned_total, hueco_libre)
-                        
-                        effective_target = planned_total
-                        
-                        to_add = min(effective_target, remaining_amount)
-                        if to_add > 0:
-                            remaining_amount -= to_add
-                            
-                            # Intercept for debt repayment
-                            if h_info["deuda_actual"] > 0 and data.get("deuda_con") in huchas_state:
-                                lender_id = data.get("deuda_con")
-                                payment = min(h_info["deuda_actual"], to_add)
-                                h_info["deuda_actual"] -= payment
-                                to_add -= payment
-                                if lender_id and lender_id in huchas_state:
-                                    huchas_state[lender_id]["saldo_actual"] += payment
-                                    logger.info(f"Intercepted {payment} from flat allocation to {h_id} to repay debt to {lender_id}")
-
-                            huchas_state[h_id]["saldo_actual"] += to_add
-
-                # 2. Percentages
-                for h_id, h_info in huchas_state.items():
-                    data = h_info["data"]
-                    if data.get("tipo_aportacion") == "porcentaje":
-                        perc_val = float(data.get("valor_aportacion", 0))
-                        planned_total = amount * (perc_val / 100.0)
-                        
-                        # Apply tope_objetivo if exists
-                        if data.get("tope_objetivo") and data.get("objetivo"):
-                            objetivo = float(data.get("objetivo"))
-                            if objetivo > 0:
-                                current_balance = h_info["saldo_actual"]
-                                hueco_libre = max(0, objetivo - current_balance)
-                                planned_total = min(planned_total, hueco_libre)
-                        
-                        effective_target = planned_total
-
-                        to_add = min(effective_target, remaining_amount)
-                        if to_add > 0:
-                            remaining_amount -= to_add
-                            
-                            # Intercept for debt repayment
-                            if h_info["deuda_actual"] > 0 and data.get("deuda_con") in huchas_state:
-                                lender_id = data.get("deuda_con")
-                                payment = min(h_info["deuda_actual"], to_add)
-                                h_info["deuda_actual"] -= payment
-                                to_add -= payment
-                                if lender_id and lender_id in huchas_state:
-                                    huchas_state[lender_id]["saldo_actual"] += payment
-                                    logger.info(f"Intercepted {payment} from % allocation to {h_id} to repay debt to {lender_id}")
-
-                            huchas_state[h_id]["saldo_actual"] += to_add
-
-                # 3. Resto (Income Overflow)
-                resto_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("tipo_aportacion") == "resto"), None)
-                if not resto_hucha_id:
-                    resto_hucha_id = next((h_id for h_id, h_info in huchas_state.items() if h_info["data"].get("es_principal")), None)
-                if not resto_hucha_id and huchas_state:
-                    resto_hucha_id = list(huchas_state.keys())[0]
-                
-                if resto_hucha_id and remaining_amount > 0:
-                    resto_info = huchas_state[resto_hucha_id]
-                    to_add = remaining_amount
-                    remaining_amount = 0
-                    
-                    if resto_info["deuda_actual"] > 0 and resto_info["data"].get("deuda_con") in huchas_state:
-                        lender_id = resto_info["data"].get("deuda_con")
-                        payment = min(resto_info["deuda_actual"], to_add)
-                        resto_info["deuda_actual"] -= payment
-                        to_add -= payment
-                        if lender_id and lender_id in huchas_state:
-                            huchas_state[lender_id]["saldo_actual"] += payment
-                            logger.info(f"Intercepted {payment} from resto allocation to {resto_hucha_id} to repay debt to {lender_id}")
-                    
-                    resto_info["saldo_actual"] += to_add
+                for h_id, delta in split["saldos"].items():
+                    huchas_state[h_id]["saldo_actual"] += euros(delta)
+                for h_id, debt in split["deudas"].items():
+                    huchas_state[h_id]["deuda_actual"] -= euros(debt["importe"])
+                movimiento["reparto_aplicado"] = recorded_split(split)
+                if new_hucha_ref:
+                    new_hucha_has_income = True
+                if split["deudas"]:
+                    payment = euros(sum(debt["importe"] for debt in split["deudas"].values()))
+                    logger.info(f"Intercepted {payment} from income allocation to repay debts: {split['deudas']}")
         else:
             # Es gasto
             target_hucha_id = find_subscription_hucha(
@@ -555,6 +493,9 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
 
     # Apply all writes at the end
     if new_hucha_ref and new_hucha_data:
+        if new_hucha_has_income:
+            new_hucha_data["saldo_acumulado"] = huchas_state[new_hucha_ref.id]["saldo_actual"]
+        new_hucha_data["saldo_acumulado"] = euros(cents(new_hucha_data["saldo_acumulado"]))
         transaction.set(new_hucha_ref, new_hucha_data)
         logger.info(f"Created default hucha {new_hucha_ref.id} with balance {new_hucha_data['saldo_acumulado']:.2f}")
 
@@ -562,8 +503,8 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
         original_balance = float(h_info["data"].get("saldo_acumulado", 0) or 0)
         original_deuda = float(h_info["data"].get("deuda_pendiente", 0) or 0)
         
-        new_balance = h_info["saldo_actual"]
-        new_deuda = h_info.get("deuda_actual", original_deuda)
+        new_balance = euros(cents(h_info["saldo_actual"]))
+        new_deuda = euros(cents(h_info.get("deuda_actual", original_deuda)))
         
         if abs(new_balance - original_balance) > 0.001 or abs(new_deuda - original_deuda) > 0.001:  # if changed
             # Don't update the new default hucha twice if we just created it
