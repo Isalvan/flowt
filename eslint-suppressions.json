@@ -127,7 +127,7 @@
   },
   "src/hooks/useFinanceData.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 15
+      "count": 14
     },
     "prefer-const": {
       "count": 8

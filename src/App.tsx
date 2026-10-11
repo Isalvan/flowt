@@ -77,6 +77,12 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     isFirebaseConfigured,
     movimientos,
     chartMovements,
+    chartMovementsLoading,
+    olderMovements,
+    olderMovementsLoading,
+    olderMovementsLoaded,
+    olderMovementsError,
+    loadOlderMovements,
     huchas,
     suscripciones,
     pendingEmails,
@@ -563,6 +569,12 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             onUnlock={handlePrivacyToggle}
             movimientos={movimientos}
             chartMovements={chartMovements}
+            chartMovementsLoading={chartMovementsLoading}
+            olderMovements={olderMovements}
+            olderMovementsLoading={olderMovementsLoading}
+            olderMovementsLoaded={olderMovementsLoaded}
+            olderMovementsError={olderMovementsError}
+            loadOlderMovements={loadOlderMovements}
             huchas={huchas}
             suscripciones={suscripciones}
             balance={balance}

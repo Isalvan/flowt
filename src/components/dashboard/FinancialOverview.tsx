@@ -10,6 +10,8 @@ interface FinancialOverviewProps {
   gastos: number;
   /** Which period the income / expense figures cover, e.g. "Este mes". */
   periodLabel?: string;
+  /** The balance remains available while the period figures are unavailable. */
+  periodStatus?: 'loading' | 'error';
   /** Running net of the period, oldest first. Drawn as the line behind the figures. */
   trend?: number[];
 }
@@ -100,14 +102,15 @@ const TrendLine: React.FC<{ values: number[]; className?: string }> = ({ values,
   );
 };
 
-export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ balance, ingresos, gastos, periodLabel, trend }) => {
+export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ balance, ingresos, gastos, periodLabel, periodStatus, trend }) => {
   const { isLocked } = usePrivacy();
+  const status = isLocked ? undefined : periodStatus;
   const spent = ingresos > 0 ? Math.round((gastos / ingresos) * 100) : 0;
   const meter = isLocked ? 0 : Math.min(spent, 100);
   const meterColor = spent >= 85 ? 'text-rose-500' : spent >= 65 ? 'text-sun-500' : 'text-emerald-500';
-  const showTrend = !isLocked && trend !== undefined && trend.length > 1;
+  const showTrend = !isLocked && !status && trend !== undefined && trend.length > 1;
   const amount = (value: number) =>
-    isLocked ? '•••• €' : <CountUp end={value} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.1} />;
+    isLocked ? '•••• €' : status ? '—' : <CountUp end={value} decimals={2} decimal="," separator="." suffix=" €" preserveValue duration={1.1} />;
 
   return (
     <section className="dashboard-surface p-5 sm:p-7" aria-label="Resumen financiero">
@@ -143,7 +146,11 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ balance, i
         </div>
       </div>
 
-      <div className="mt-6">
+      {status ? (
+        <p className="mt-6 text-sm text-ink-soft" role={status === 'error' ? 'alert' : 'status'}>
+          {status === 'error' ? 'No se pudieron cargar los movimientos históricos.' : 'Cargando movimientos…'}
+        </p>
+      ) : <div className="mt-6">
         <div className="mb-2.5 flex items-baseline justify-between gap-3 text-xs">
           <span className="text-ink-soft">
             <span className="font-bold text-ink">Gastado</span> sobre tus ingresos
@@ -161,7 +168,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ balance, i
         >
           {meter > 0 && <i className={meterColor} style={{ width: `${meter}%` }} />}
         </div>
-      </div>
+      </div>}
     </section>
   );
 };
