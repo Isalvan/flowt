@@ -27,6 +27,7 @@ import {
   EyeOff,
   User,
   CalendarDays,
+  Wallet,
   Settings,
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
@@ -40,6 +41,7 @@ import { TabLoading } from './components/common/TabLoading';
 import { BentoMenu } from './components/common/BentoMenu';
 
 const CalendarioView = React.lazy(() => import('./components/calendario/CalendarioView').then((m) => ({ default: m.CalendarioView })));
+const NominaView = React.lazy(() => import('./components/nomina/NominaView').then((m) => ({ default: m.NominaView })));
 const CorreosOrchestrator = React.lazy(() => import('./components/correos/CorreosOrchestrator').then((m) => ({ default: m.CorreosOrchestrator })));
 const AjustesOrchestrator = React.lazy(() => import('./components/ajustes/AjustesOrchestrator').then((m) => ({ default: m.AjustesOrchestrator })));
 const HuchaModal = React.lazy(() => import('./components/modals/HuchaModal').then((m) => ({ default: m.HuchaModal })));
@@ -57,11 +59,12 @@ const ShortcutsHelpModal = React.lazy(() => import('./components/common/Shortcut
 const CelebrationConfetti = React.lazy(() => import('./components/common/CelebrationConfetti').then((m) => ({ default: m.CelebrationConfetti })));
 const ManualLogin = React.lazy(() => import('./components/auth/ManualLogin').then((m) => ({ default: m.ManualLogin })));
 
-type AppTab = 'dashboard' | 'calendario' | 'correos' | 'ajustes';
+type AppTab = 'dashboard' | 'calendario' | 'nomina' | 'correos' | 'ajustes';
 
 const NAV_TABS: { id: AppTab; label: string; icon: typeof House }[] = [
   { id: 'dashboard', label: 'Inicio', icon: House },
   { id: 'calendario', label: 'Calendario', icon: CalendarDays },
+  { id: 'nomina', label: 'Nómina', icon: Wallet },
   { id: 'correos', label: 'Correos', icon: Mail },
   { id: 'ajustes', label: 'Ajustes', icon: Settings },
 ];
@@ -529,6 +532,12 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
         {activeTab === 'calendario' && (
           <React.Suspense fallback={<TabLoading />}>
             <CalendarioView suscripciones={suscripciones} />
+          </React.Suspense>
+        )}
+
+        {activeTab === 'nomina' && (
+          <React.Suspense fallback={<TabLoading />}>
+            <NominaView movimientos={chartMovements} huchas={huchas} suscripciones={suscripciones} />
           </React.Suspense>
         )}
 
