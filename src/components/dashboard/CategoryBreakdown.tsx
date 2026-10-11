@@ -40,7 +40,7 @@ export const CategoryBreakdown = ({ allMovimientos, periodLabel, periodStatus }:
   const chartLabel = `Gasto por categorías. ${visible.slice(0, 3).map(category => `${category.name}: ${formatPercentage(category.porcentaje)}`).join('; ')}`;
 
   return (
-    <section className="dashboard-surface p-5">
+    <section className="dashboard-surface flex flex-col p-5">
       <div className="mb-3 flex items-center gap-3">
         <span className="dashboard-icon bg-brand-tint text-brand-ink"><ChartPie size={18} /></span>
         <div>
@@ -59,7 +59,7 @@ export const CategoryBreakdown = ({ allMovimientos, periodLabel, periodStatus }:
       ) : !categories.length ? (
         <div className="dashboard-empty h-64"><p>Sin gastos en este periodo</p></div>
       ) : (
-        <div className="flex flex-col items-center gap-4 sm:flex-row">
+        <div className="flex flex-1 flex-col items-center gap-4 sm:flex-row">
           <div className="relative h-64 w-full sm:w-1/2" role="img" aria-label={chartLabel}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart accessibilityLayer={false}>

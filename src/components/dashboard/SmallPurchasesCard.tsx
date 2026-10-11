@@ -42,7 +42,7 @@ export const SmallPurchasesCard: React.FC<SmallPurchasesCardProps> = ({
   const hasMore = summary.porComercio.length > 3;
 
   return (
-    <section className="dashboard-surface self-start p-5">
+    <section className="dashboard-surface min-w-0 p-5">
       <div className="mb-4 flex items-center gap-3">
         <span className="dashboard-icon bg-brand-tint text-brand-ink">
           <ShoppingBag size={18} />

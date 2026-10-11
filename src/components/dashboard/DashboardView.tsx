@@ -191,6 +191,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
     month: "long",
   });
   const step = (i: number) => ({ "--i": i }) as React.CSSProperties;
+  const column = "flex min-w-0 flex-col gap-4 [&>*:last-child]:flex-1";
   const dueLabel = (daysLeft: number) =>
     daysLeft === 0
       ? "Vence hoy"
@@ -339,6 +340,18 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
               )}
             </p>
           </div>
+          {/* From tablet up; on a phone the tile at the end of the carousel does this. */}
+          {wallets.length > 0 && (
+            <div className="hidden shrink-0 sm:block">
+              <button
+                type="button"
+                onClick={() => props.onOpenHuchaModal(null)}
+                className="dashboard-secondary-button"
+              >
+                <Plus size={15} /> Nueva cartera
+              </button>
+            </div>
+          )}
         </div>
         {!isLocked && walletsTotal > 0 && wallets.length > 1 && (
           <div
@@ -377,7 +390,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
               <button
                 type="button"
                 onClick={() => props.onOpenHuchaModal(null)}
-                className="grid min-h-36 min-w-[44vw] snap-start place-items-center content-center gap-2 rounded-[1.25rem] border border-dashed border-line-strong text-xs font-bold text-ink-soft transition-colors duration-150 hover:border-brand hover:bg-brand-tint hover:text-brand-ink sm:min-w-0"
+                className="grid min-h-36 min-w-[44vw] snap-start place-items-center content-center gap-2 rounded-[1.25rem] border border-dashed border-line-strong text-xs font-bold text-ink-soft transition-colors duration-150 hover:border-brand hover:bg-brand-tint hover:text-brand-ink sm:hidden"
               >
                 <span className="grid h-9 w-9 place-items-center rounded-full bg-surface-2">
                   <Plus size={16} />
@@ -401,11 +414,12 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         </div>
       </section>
 
+      {/* Each row fills the full width and its shorter column stretches its last card, so no row ends in a gap. */}
       <div
-        className="rise grid grid-cols-1 items-start gap-4 lg:grid-cols-3"
+        className="rise grid grid-cols-1 gap-4 lg:grid-cols-3"
         style={step(3)}
       >
-        <div className="min-w-0 space-y-4 lg:col-span-2">
+        <div className={`${column} lg:col-span-2`}>
           <AnalyticsSection
             chartData={periodChartData}
             huchas={props.huchas}
@@ -418,15 +432,9 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             periodLabel={periodLabel}
             periodStatus={periodStatus}
           />
-          <MoneyFlowCard allMovimientos={filtered} periodLabel={periodLabel} periodStatus={periodStatus} />
-          <PredictiveChart
-            huchas={props.huchas}
-            suscripciones={props.suscripciones}
-            allMovimientos={props.chartMovements}
-          />
         </div>
-        {/* Everything that summarises the period sits beside the charts, so the column never ends in a gap. */}
-        <div className="min-w-0 space-y-4">
+        {/* On a phone, what you check most often comes before the charts. */}
+        <div className={`${column} order-first lg:order-none`}>
           <BanksCard movimientos={props.chartMovements} walletsTotal={walletsTotal} />
           <section className="dashboard-surface min-w-0 p-5">
             <div className="mb-3 flex items-start justify-between gap-3">
@@ -493,15 +501,30 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             )}
           </section>
           <MonthlySummary movimientos={props.chartMovements} />
-          <SmallPurchasesCard
-            movimientos={filtered}
-            periodLabel={periodLabel}
-            totalGastos={gastos}
-          />
         </div>
       </div>
 
       <div className="rise" style={step(4)}>
+        <MoneyFlowCard allMovimientos={filtered} periodLabel={periodLabel} periodStatus={periodStatus} />
+      </div>
+
+      <div className="rise grid grid-cols-1 gap-4 lg:grid-cols-3" style={step(5)}>
+        {/* Takes the whole row when there are no small purchases to show beside it. */}
+        <div className="min-w-0 lg:col-span-2 lg:only:col-span-3 [&>*]:h-full">
+          <PredictiveChart
+            huchas={props.huchas}
+            suscripciones={props.suscripciones}
+            allMovimientos={props.chartMovements}
+          />
+        </div>
+        <SmallPurchasesCard
+          movimientos={filtered}
+          periodLabel={periodLabel}
+          totalGastos={gastos}
+        />
+      </div>
+
+      <div className="rise" style={step(6)}>
         <ActivityList
           movimientos={props.movimientos}
           allMovimientos={props.chartMovements}

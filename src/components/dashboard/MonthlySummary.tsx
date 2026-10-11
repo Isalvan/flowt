@@ -29,7 +29,7 @@ export const MonthlySummary: React.FC<{ movimientos: Movimiento[] }> = ({ movimi
   ];
   const meterColor = spendRate >= 85 ? 'text-rose-500' : spendRate >= 65 ? 'text-sun-500' : 'text-emerald-500';
   return (
-    <section className="dashboard-surface self-start p-5">
+    <section className="dashboard-surface flex flex-col p-5">
       <div className="mb-4 flex items-center gap-3">
         <span className="dashboard-icon bg-brand-tint text-brand-ink"><BarChart3 size={18} /></span>
         <div className="min-w-0">
@@ -45,7 +45,7 @@ export const MonthlySummary: React.FC<{ movimientos: Movimiento[] }> = ({ movimi
           </div>
         ))}
       </div>
-      <div className="mt-5">
+      <div className="mt-auto pt-5">
         <div className="mb-2.5 flex justify-between text-[11px] text-ink-soft">
           <span>Gasto sobre ingresos</span>
           <span className="font-bold tabular-nums text-ink">{isLocked ? '••' : `${spendRate}%`}</span>
