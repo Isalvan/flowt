@@ -1,3 +1,4 @@
+import { BankBadge } from '../common/BankBadge';
 import { useState } from 'react';
 import { Landmark } from 'lucide-react';
 import { useBanks } from '../../hooks/useBanks';
@@ -22,6 +23,7 @@ export function BanksCard({ movimientos, walletsTotal }: { movimientos: Movimien
       const balance = estimateBankBalance(bank, movimientos);
       const stale = !!bank.anclaFecha && anchorAge(bank.anclaFecha) > 30;
       return <button key={bank.id} type="button" className="-mx-2 flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left transition-colors hover:bg-surface-2" aria-label={`${balance === null ? 'Anotar' : 'Actualizar'} saldo de ${bank.nombre}`} onClick={() => setSelectedId(bank.id)}>
+        <BankBadge nombre={bank.nombre} size="sm" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-bold text-ink">{bank.nombre}</p>
           <p className={`text-[11px] ${stale ? 'font-bold text-sun-600 dark:text-sun-300' : 'text-ink-soft'}`}>{balance === null ? 'Sin saldo anotado' : `${anchorDateLabel(bank.anclaFecha!)}${stale ? ' · conviene actualizarlo' : ''}`}</p>

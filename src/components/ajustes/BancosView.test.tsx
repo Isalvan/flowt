@@ -27,7 +27,7 @@ describe('BancosView', () => {
     expect(screen.getByText('2 movimientos en el último año')).toBeInTheDocument();
     expect(screen.getByText('1 movimiento en el último año')).toBeInTheDocument();
     expect(screen.getByText('Sin movimientos todavía')).toBeInTheDocument();
-    expect(screen.getByText('UN')).toBeInTheDocument();
+    expect(screen.getByText('Unicaja')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Unicaja/ })).not.toBeInTheDocument();
   });
   it('offers detected custom names first, by frequency, then remaining catalog banks', async () => {

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import { useBanks } from '../../hooks/useBanks';
-import { BANK_CATALOG, anchorDateLabel, bankInitials, bankNameKey, detectedBanks, estimateBankBalance } from '../../utils/banks';
+import { BankBadge } from '../common/BankBadge';
+import { BANK_CATALOG, anchorDateLabel, bankNameKey, detectedBanks, estimateBankBalance } from '../../utils/banks';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { AnchorBalanceModal } from '../modals/AnchorBalanceModal';
 import type { Movimiento } from '../../types';
@@ -56,7 +57,7 @@ export function BancosView({ chartMovements }: { chartMovements: Movimiento[] })
       const count = chartMovements.filter(m => m.banco?.toLowerCase() === bank.nombre.toLowerCase()).length;
       const balance = isLocked ? null : estimateBankBalance(bank, chartMovements);
       return <div key={bank.id} className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 py-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto_auto]">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-tint text-xs font-extrabold text-brand-ink">{bankInitials(bank.nombre)}</div>
+        <BankBadge nombre={bank.nombre} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold text-ink">{bank.nombre}</p>
           <p className="text-[11px] text-ink-soft">{count ? `${count} ${count === 1 ? 'movimiento' : 'movimientos'} en el último año` : 'Sin movimientos todavía'}</p>
