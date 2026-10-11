@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { LockKeyhole, Plus, Trash2, X } from 'lucide-react';
 import { useBanks } from '../../hooks/useBanks';
 import { BankBadge } from '../common/BankBadge';
 import { BANK_CATALOG, anchorDateLabel, bankNameKey, detectedBanks, estimateBankBalance } from '../../utils/banks';
@@ -13,7 +13,7 @@ const pillClass = 'inline-flex h-8 items-center gap-1.5 rounded-full border bord
 
 export function BancosView({ chartMovements }: { chartMovements: Movimiento[] }) {
   const { banks, addBank, removeBank } = useBanks();
-  const { formatCurrency, isLocked } = usePrivacy();
+  const { formatCurrency, isLocked, openUnlockModal } = usePrivacy();
   const [anchoringId, setAnchoringId] = useState<string | null>(null);
   const anchoring = banks.find(bank => bank.id === anchoringId);
   const [editing, setEditing] = useState(false);
@@ -49,6 +49,15 @@ export function BancosView({ chartMovements }: { chartMovements: Movimiento[] })
     catch (e) { setError(e instanceof Error ? e.message : 'No se ha podido quitar el banco.'); setRemoving(null); }
     finally { setSaving(false); }
   };
+
+  // Locked, the app holds no data: offering the list or the add buttons would only lead to an error.
+  if (isLocked) return <div className="w-full max-w-2xl mx-auto dashboard-surface p-5 animate-in fade-in">
+    <h3 className="dashboard-heading">Tus bancos</h3>
+    <div className="py-8 text-center">
+      <p className="mb-4 text-sm text-ink-soft">Desbloquea Flowt para ver y configurar tus bancos.</p>
+      <button type="button" onClick={() => openUnlockModal()} className="dashboard-primary-button"><LockKeyhole size={16} />Desbloquear</button>
+    </div>
+  </div>;
 
   return <div className="w-full max-w-2xl mx-auto dashboard-surface p-5 animate-in fade-in">
     <h3 className="dashboard-heading mb-1">Tus bancos</h3>

@@ -5,7 +5,8 @@ import { BanksContext, type Bank } from '../../context/bankContext';
 import { BanksProvider } from '../../context/BanksContext';
 import type { Movimiento } from '../../types';
 
-vi.mock('../../context/PrivacyContext', () => ({ usePrivacy: () => ({ isLocked: false, formatCurrency: (value: number) => `${value.toFixed(2)} €` }) }));
+const privacy = vi.hoisted(() => ({ locked: false, unlock: vi.fn() }));
+vi.mock('../../context/PrivacyContext', () => ({ usePrivacy: () => ({ isLocked: privacy.locked, openUnlockModal: privacy.unlock, formatCurrency: (value: number) => `${value.toFixed(2)} €` }) }));
 const addBank = vi.fn();
 const removeBank = vi.fn();
 const movements = (names: string[]): Movimiento[] => names.map((banco, i) => ({ id: String(i), banco, tipo: 'gasto', concepto: 'Compra', importe: 10, fecha_operacion: '2026-10-11' }));
@@ -73,5 +74,15 @@ describe('BancosView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Revolut' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('No se ha podido guardar');
     expect(screen.getByRole('button', { name: 'Revolut' })).not.toBeDisabled();
+  });
+  it('bloqueada, solo ofrece desbloquear', () => {
+    privacy.locked = true;
+    try {
+      setup([{ id: 'unicaja', nombre: 'Unicaja' }], ['Unicaja']);
+      expect(screen.getByText('Desbloquea Flowt para ver y configurar tus bancos.')).toBeInTheDocument();
+      expect(screen.queryByText('Añadir banco')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Desbloquear' }));
+      expect(privacy.unlock).toHaveBeenCalled();
+    } finally { privacy.locked = false; }
   });
 });
