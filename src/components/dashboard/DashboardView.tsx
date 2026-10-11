@@ -15,6 +15,7 @@ import { BanksCard } from "./BanksCard";
 import { SmallPurchasesCard } from "./SmallPurchasesCard";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { PredictiveChart } from "./LazyCharts";
+import { MoneyFlowCard } from "./MoneyFlowCard";
 import { ServiceIcon } from "./ServiceIcon";
 import { walletAccent } from "../../utils/walletAccent";
 import { usePreferences } from "../../context/PreferencesContext";
@@ -417,6 +418,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             periodLabel={periodLabel}
             periodStatus={periodStatus}
           />
+          <MoneyFlowCard allMovimientos={filtered} periodLabel={periodLabel} periodStatus={periodStatus} />
           <PredictiveChart
             huchas={props.huchas}
             suscripciones={props.suscripciones}

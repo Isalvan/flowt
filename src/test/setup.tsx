@@ -1,6 +1,12 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+if (typeof window !== 'undefined') vi.stubGlobal('ResizeObserver', class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+});
+
 // Mock matchMedia for JSDOM environment (the Worker's tests run in Node, without a window)
 if (typeof window !== 'undefined') Object.defineProperty(window, 'matchMedia', {
   writable: true,
