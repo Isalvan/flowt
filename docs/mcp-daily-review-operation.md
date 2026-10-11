@@ -12,6 +12,15 @@
 
 Las compensaciones se conservan; no hay herramientas para cambiarlas. Las operaciones con deuda, efectivo o transferencias internas no se reasignan automáticamente. Si falta la hucha original o no hay capacidad para conservar todo el saldo con los topes actuales, la operación se rechaza y se muestra para resolverla; no se pierde dinero silenciosamente.
 
+## Implementaciones del servicio
+
+El repositorio contiene dos implementaciones independientes del conector MCP y de la API web de revisión:
+
+1. **Python / Flask (`tracker-backend/mcp_server.py`)**: pensada para ejecución local y despliegue en Google Cloud Run mediante contenedor.
+2. **Cloudflare Worker (`mcp-worker/`, con `wrangler.json`)**: pensada para despliegue serverless en la red de Cloudflare Workers, comunicándose con Firestore vía API REST y Web Crypto.
+
+Cualquiera de las dos implementaciones puede dar soporte a la aplicación web de Flowt. Las secciones siguientes detallan la ejecución local, el conector OAuth, el despliegue en Cloud Run (`## Alojamiento preparado`) y el despliegue del Worker en Cloudflare (`## Desplegar el Worker de Cloudflare`), de modo que el lector sepa qué sección aplica según la infraestructura seleccionada. Ninguna de las dos implementaciones ha sido desplegada todavía en producción ni verificada contra un asistente real.
+
 ## Ejecutar el servicio local
 
 Desde `tracker-backend`, instalar `requirements-review.in` en un entorno Python y ejecutar `python mcp_server.py`. En Windows se utiliza un entorno local aislado; los scripts habituales pueden ejecutarse con el prefijo `rtk` indicado por las instrucciones del workspace.
@@ -80,6 +89,116 @@ Antes de publicar, definir proyecto, región, identidad de servicio con permisos
 Configurar el origen público real de Flowt en `FLOWT_REVIEW_ALLOWED_ORIGINS`. Si la API se sirve en otro dominio, añadir su origen exacto al `connect-src` de `firebase.json` antes de publicar la web; la CSP actual no admite automáticamente un dominio nuevo de Cloud Run. Alternativamente, configurar una ruta del mismo dominio mediante el hosting.
 
 No se ha desplegado el servicio ni se ha dado por probado su uso desde una tarea programada. Tener pruebas locales del transporte no demuestra permisos de escritura desatendidos en ChatGPT.
+
+## Desplegar el Worker de Cloudflare
+
+La implementación alternativa del servicio MCP y de la API web de revisión reside en el directorio `mcp-worker/` y se gestiona mediante el archivo de configuración `wrangler.json` situado en la raíz del repositorio. No utiliza el SDK de Node ni de Firebase Admin, sino Web Crypto y la API REST directa de Firestore, lo que le permite ejecutarse de forma ligera en el runtime serverless de Cloudflare Workers.
+
+Ni el Worker ni el servicio en Python han sido desplegados todavía en producción ni verificados contra un asistente real; no asumas que existe un despliegue operativo previo. Las pruebas automatizadas del Worker se encuentran en `mcp-worker/tests/` y pueden ejecutarse desde la raíz del repositorio con `npm test -- --run`.
+
+### Variables de entorno del Worker
+
+A continuación se detallan todas las variables de entorno que el Worker lee en tiempo de ejecución (definidas en `mcp-worker/src/worker.js`):
+
+| Variable | Tipo de configuración | Descripción | Valor predeterminado si no está definida |
+|---|---|---|---|
+| `FIREBASE_SERVICE_ACCOUNT` | Secreto (`wrangler secret put`) | JSON de la clave de cuenta de servicio de Firebase / Google Cloud. Debe incluir `client_email` y `private_key` (y opcionalmente `project_id`). Permite al Worker autenticarse mediante Web Crypto ante la API REST de Firestore y obtener tokens de acceso OAuth2 de Google. | Sin valor predeterminado (obligatoria). Si no está configurada o carece de `client_email`/`private_key`, el Worker lanza un error interno y responde HTTP 500 (`server_error`). |
+| `FIREBASE_PROJECT_ID` | Variable ordinaria (`wrangler.json` en `vars`) | Identificador del proyecto de Firebase / Google Cloud (`flowt-63536`). | `account.project_id` extraído del JSON de `FIREBASE_SERVICE_ACCOUNT`. |
+| `APP_URL` | Variable ordinaria (`wrangler.json` en `vars`) | URL pública base de la aplicación web Flowt (por ejemplo `https://flowt-63536.web.app`). Se emplea para derivar la pantalla de consentimiento OAuth (`<APP_URL>/conectar`) y se incorpora de forma predeterminada a los orígenes CORS permitidos. | Cadena vacía `""`. Sin esta variable no hay pantalla de consentimiento, por lo que el servidor OAuth queda deshabilitado y sus rutas devuelven 404. |
+| `ALLOWED_ORIGINS` | Variable ordinaria (`wrangler.json` en `vars`) | Lista de orígenes web adicionales permitidos para CORS separados por comas (por ejemplo para entornos de staging o pruebas locales), que se añaden a `APP_URL`. Las peticiones protegidas con cabecera `Origin` que no coincidan con ninguno de estos orígenes se rechazan con HTTP 403 (`origin_forbidden`). | Cadena vacía `""` (solo se admite el origen indicado en `APP_URL`). |
+| `PUBLIC_ORIGIN` | Variable ordinaria (`wrangler.json` en `vars`) | Origen público canónico del Worker (sin barra final), por ejemplo `https://conector.flowt.example`. Se utiliza como `issuer` en los metadatos OAuth y para fijar el identificador del recurso MCP (`<PUBLIC_ORIGIN>/mcp`). | Origen de la URL de la petición entrante (`url.origin`, por ejemplo `https://flowt-mcp.<subdominio>.workers.dev`). |
+| `FLOWT_REVIEW_WRITES_ENABLED` | Variable ordinaria (`wrangler.json` en `vars`) | Habilita las operaciones de escritura del servicio de revisión (`apply_review`, `revert_review`, `defer_review`, `record_question`, `resolve_question`) cuando su valor es `"true"`. Si es `"false"` u otro valor, estas herramientas rechazan cambios con `writes_disabled`. Las ediciones manuales del usuario (`edit_movement`) continúan funcionando. | `false` (desactivado; solo se activa si su valor en minúsculas es explícitamente `"true"`). |
+| `FLOWT_MCP_WRITES_ENABLED` | Variable ordinaria (`wrangler.json` en `vars`) | Controla si las herramientas financieras de escritura del conector MCP (`create_movement`, `update_movement`, `delete_movement`, transferencias, huchas, suscripciones, etc.) están disponibles para asistentes conectados con permiso `flowt:write`. Si se define como `"false"`, oculta esas herramientas y rechaza peticiones con `writes_disabled`. | `"true"` (activado por defecto; permite escrituras si el cliente tiene scope `flowt:write`). |
+| `FLOWT_MCP_TOKEN` | Secreto (`wrangler secret put`) | Secreto de al menos 32 caracteres para el token portador de larga duración destinado a la revisión automática programada desatendida. Otorga exclusivamente el ámbito `flowt:review`. | Cadena vacía `""` (desactivado; el conector solo admite OAuth o tokens de Firebase). |
+| `FLOWT_MCP_OWNER_UID` | Variable ordinaria (`wrangler.json` en `vars`) o secreto | UID de Firebase del usuario propietario de los datos para el que actúa el token fijo de revisión programada (`FLOWT_MCP_TOKEN`). | `undefined` (el token fijo no surte efecto si no hay un UID configurado). |
+
+### Pasos de despliegue en orden
+
+Para poner en marcha el Worker partiendo de una cuenta de Cloudflare y la clave JSON de la cuenta de servicio de Firebase:
+
+1. **Ejecutar la suite de pruebas del Worker**:
+   Antes de desplegar, asegurar la integridad del código ejecutando las pruebas desde la raíz del repositorio:
+   ```bash
+   npm test -- --run
+   ```
+2. **Desplegar reglas e índices de Firestore**:
+   El Worker realiza lecturas y escrituras directas sobre Firestore. Desplegar los índices compuestos y las reglas de seguridad:
+   ```bash
+   firebase deploy --only firestore:rules,firestore:indexes
+   ```
+   Las colecciones utilizadas por el conector y OAuth incluyen `oauth_clients`, `oauth_codes`, `oauth_tokens`, `oauth_grants`, `mcp_operations`, `review_jobs`, `review_handoffs`, `review_history`, `review_questions`, `review_configuration` y `email_processing`.
+3. **Revisar la configuración en `wrangler.json`**:
+   El archivo `wrangler.json` en la raíz contiene la configuración base:
+   ```json
+   {
+     "name": "flowt-mcp",
+     "main": "mcp-worker/src/worker.js",
+     "compatibility_date": "2026-03-01",
+     "vars": {
+       "FIREBASE_PROJECT_ID": "flowt-63536",
+       "APP_URL": "https://flowt-63536.web.app"
+     }
+   }
+   ```
+   Ajustar los valores según el entorno:
+   - Configurar `FLOWT_REVIEW_WRITES_ENABLED: "false"` inicialmente si se desea seguir el orden de activación seguro.
+   - Definir `PUBLIC_ORIGIN: "https://<dominio-worker>"` si el Worker responderá tras un dominio personalizado en vez del subdominio de `workers.dev`.
+   - Añadir `ALLOWED_ORIGINS` con orígenes adicionales si la aplicación web se consulta desde otras URLs (como previews de Hosting).
+4. **Registrar los secretos en Cloudflare**:
+   Iniciar sesión en Cloudflare si es necesario (`npx wrangler login`). Subir las credenciales privadas:
+   ```bash
+   npx wrangler secret put FIREBASE_SERVICE_ACCOUNT
+   ```
+   Pegar el contenido JSON completo de la clave de la cuenta de servicio de Firebase (con `client_email` y `private_key`).
+   Si se planea utilizar revisión programada con token fijo:
+   ```bash
+   npx wrangler secret put FLOWT_MCP_TOKEN
+   ```
+   Introducir una clave secreta de al menos 32 caracteres y asegurarse de haber asignado `FLOWT_MCP_OWNER_UID` en `wrangler.json` o mediante `wrangler secret put FLOWT_MCP_OWNER_UID`.
+5. **Desplegar el Worker**:
+   Ejecutar desde la raíz del proyecto:
+   ```bash
+   npx wrangler deploy
+   ```
+   Wrangler mostrará la URL pública asignada al Worker (por ejemplo `https://flowt-mcp.<subdominio>.workers.dev`).
+   Comprobar que el servicio está activo consultando su comprobación de estado:
+   ```bash
+   curl -i https://<url-del-worker>/health
+   ```
+   Debe responder con código HTTP 200 y el cuerpo `{"status":"ok","server":"flowt-mcp"}`.
+6. **Ajustar la Content-Security-Policy (CSP) en la aplicación web**:
+   Si el Worker reside en un dominio distinto al de la web (el caso estándar de Cloudflare Workers), seguir las instrucciones de la sección siguiente para actualizar `connect-src` en `firebase.json` y en `index.html`.
+7. **Configurar `VITE_REVIEW_API_URL` y publicar la web**:
+   El frontend localiza el servicio mediante la variable de compilación `VITE_REVIEW_API_URL`.
+   - En compilación local: añadir en `.env.production.local` la URL base del Worker (sin barra final):
+     ```dotenv
+     VITE_REVIEW_API_URL=https://<url-del-worker>
+     ```
+     Compilar con `npm run build` y publicar con `firebase deploy --only hosting`.
+   - En despliegue automatizado con GitHub Actions: crear la variable de repositorio `VITE_REVIEW_API_URL` en **Settings → Secrets and variables → Actions → Variables** con el valor `https://<url-del-worker>`.
+   Sin esta variable, la web no mostrará el panel de conexiones conectadas, ni la pantalla `/conectar`, ni el historial de revisiones automáticas.
+
+### Política de seguridad de contenido (CSP) y control de orígenes
+
+Cuando el Worker se sirve desde un dominio distinto al de la aplicación web, el navegador bloqueará las conexiones si no están explícitamente autorizadas:
+
+1. **Ajustes en la CSP del frontend**:
+   - En `firebase.json`: dentro de la configuración `hosting.headers`, localizar la directiva `connect-src` de la cabecera `Content-Security-Policy` y añadir el origen del Worker (por ejemplo `https://flowt-mcp.<subdominio>.workers.dev` o `https://<dominio-worker>`).
+   - En `index.html`: actualizar la etiqueta meta de respaldo `<meta http-equiv="Content-Security-Policy" content="...">` añadiendo igualmente el origen del Worker dentro de `connect-src`.
+2. **Orígenes admitidos por el Worker (CORS)**:
+   - **Rutas no públicas** (`/mcp`, `/api/reviews/*`, `/api/connections/*`): el Worker valida la cabecera `Origin`. Solo acepta peticiones cuyo origen coincida con `APP_URL` o con alguno de los orígenes configurados en `ALLOWED_ORIGINS`. Si el origen no coincide, devuelve HTTP 403 (`origin_forbidden`). Si coincide, devuelve `Access-Control-Allow-Origin` con el origen solicitado. Las peticiones sin cabecera `Origin`, como las de un cliente MCP que no es un navegador, no pasan por esta comprobación: las protege su credencial.
+   - **Rutas públicas** (`/.well-known/*`, `/oauth/register`, `/oauth/token`, `/oauth/revoke`): al ser endpoints de descubrimiento y canje OAuth que cualquier cliente MCP o asistente debe poder invocar desde cualquier origen, el Worker devuelve `Access-Control-Allow-Origin: *`.
+
+### Comportamiento que conviene conocer
+
+Los dos primeros puntos distinguen al Worker del servicio Python, que comprueba la revocación de sesiones y no limita peticiones. El tercero es igual en ambos:
+
+1. **Persistencia temporal de sesiones revocadas de Firebase**:
+   El servicio Python utiliza el SDK de Firebase Admin para verificar tokens y permite comprobar en tiempo real si una sesión ha sido revocada en el servidor de identidad. En el Worker (`mcp-worker/src/idToken.js`), los tokens de sesión de Firebase se validan localmente mediante Web Crypto contrastando su firma criptográfica con las claves públicas que Google publica en `https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com`, comprobando emisor, audiencia y marcas de tiempo. No se consulta a Firebase Auth en cada petición. En consecuencia, si se revoca una sesión en Firebase Authentication, el token continúa siendo considerado válido por el Worker hasta que expire su tiempo de vida natural (como máximo una hora).
+2. **Limitador de tasa en memoria por isolate**:
+   El limitador de peticiones (`mcp-worker/src/rateLimiter.js`) se ejecuta en la memoria local de cada isolate de Cloudflare (`RATE_LIMITS`: 120 peticiones por minuto por IP según la cabecera `CF-Connecting-IP`, y 60 llamadas a herramientas por minuto por UID de usuario). Al tratarse de contadores en memoria sin almacenamiento persistente compartido, el control es de tipo *best-effort*: cada isolate gestiona su propia ventana temporal. Si el tráfico se distribuye entre múltiples isolates o centros de datos, el límite efectivo global puede ser superior al umbral configurado. Su propósito es mitigar ráfagas y abusos de un único cliente sin requerir servicios externos de pago.
+3. **Token fijo de larga duración limitado estrictamente a herramientas de revisión**:
+   En el Worker (`mcp-worker/src/worker.js` y `tools.js`), el token fijo configurado mediante `FLOWT_MCP_TOKEN` (asociado a `FLOWT_MCP_OWNER_UID`) otorga exclusivamente el ámbito `flowt:review` (`SCOPE_REVIEW`). Este token solo permite ejecutar las 12 herramientas del servicio de revisión (`list_pending_reviews`, `get_movement_context`, `get_finance_configuration`, `search_related_movements`, `preview_review`, `apply_review`, `get_review_history`, `revert_review`, `record_question`, `resolve_question`, `list_review_questions`, `defer_review`). No tiene acceso a las herramientas financieras (`create_movement`, `update_movement`, `delete_movement`, gestión de carteras o suscripciones), ni puede realizar ediciones manuales mediante `/api/reviews/edit` (que exige un Firebase ID token de la web). Para que un asistente realice modificaciones como usuario, debe conectarse mediante OAuth con el ámbito `flowt:write`.
 
 ## Orden de activación
 

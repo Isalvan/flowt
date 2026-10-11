@@ -47,6 +47,20 @@ El backend se encuentra en `tracker-backend/`.
 
 El proceso utiliza el permiso OAuth `gmail.modify` para leer notificaciones y actualizar sus etiquetas tras procesarlas. Los mensajes se filtran, normalizan y convierten en movimientos. Los resultados que requieren confirmación se guardan para revisión manual.
 
+## Conector MCP y servicio de revisión
+
+Flowt expone un conector compatible con el protocolo Model Context Protocol (MCP) y una API HTTP para la revisión de movimientos bancarios y la gestión de conexiones:
+
+- **Conector MCP**: permite a asistentes de IA externos (como Claude o ChatGPT) consultar y operar datos financieros mediante autorización OAuth 2.1 con PKCE (ámbitos `flowt:read` y `flowt:write`), o ejecutar revisiones automáticas desatendidas con un token de larga duración (`flowt:review`).
+- **API web de revisión**: permite a la aplicación web consultar el historial de revisiones, revertir revisiones automáticas y realizar ediciones de movimientos con reasignación coherente de saldos y carteras, autenticándose con Firebase ID tokens.
+
+El repositorio cuenta con dos implementaciones independientes del servicio:
+
+- **Python / Flask (`tracker-backend/mcp_server.py`)**: basada en Flask y el SDK de Firebase Admin, diseñada para ejecución local o en Google Cloud Run mediante contenedor (`tracker-backend/Dockerfile.review`).
+- **Cloudflare Worker (`mcp-worker/`, configurado mediante `wrangler.json`)**: orientada a ejecución serverless en Cloudflare Workers, utilizando Web Crypto y la API REST directa de Firestore sin dependencias del SDK de Node ni de Firebase Admin.
+
+Cualquiera de las dos implementaciones puede respaldar la aplicación web y atender a los clientes MCP.
+
 ## Modelo de datos
 
 Las colecciones principales de Firestore son:
