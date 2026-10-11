@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 
+type Header = { source: string; headers: { key: string; value: string }[] };
+
 describe('Security Headers & CSP Verification', () => {
   it('firebase.json defines security headers for hosting', () => {
     const firebaseJsonContent = readFileSync('firebase.json', 'utf8');
@@ -34,7 +36,7 @@ describe('Security Headers & CSP Verification', () => {
 
   it('every connect-src source is a well-formed origin', () => {
     const header = JSON.parse(readFileSync('firebase.json', 'utf8')).hosting.headers
-      .find((h: any) => h.source === '**').headers.find((h: any) => h.key === 'Content-Security-Policy').value as string;
+      .find((h: Header) => h.source === '**').headers.find((h: { key: string }) => h.key === 'Content-Security-Policy').value as string;
     const meta = readFileSync('index.html', 'utf8').match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)![1];
     for (const csp of [header, meta]) {
       const sources = csp.split(';').map(d => d.trim()).find(d => d.startsWith('connect-src '))!.split(/\s+/).slice(1);
