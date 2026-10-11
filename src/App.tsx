@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-import { collection, query, where, orderBy, limit, startAfter, getDocs, type DocumentSnapshot } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth } from './firebase';
 import { useTheme } from './hooks/useTheme';
 import { useFinanceData } from './hooks/useFinanceData';
 import { type Hucha, type Suscripcion, type Movimiento } from './types';
@@ -152,99 +151,6 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
   const [isProfilePanelOpen, setIsProfilePanelOpen] = useState(false);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
-
-  // Symmetrical paging driver state
-  const [historyMovements, setHistoryMovements] = useState<Movimiento[]>([]);
-  const [historyHasMore, setHistoryHasMore] = useState(true);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [lastVisibleDoc, setLastVisibleDoc] = useState<DocumentSnapshot | null>(null);
-  const [demoOffset, setDemoOffset] = useState(15);
-
-  // Reset pagination
-  const initHistoryPagination = useCallback(async () => {
-    setHistoryLoading(true);
-    if (isFirebaseConfigured && user && !isLocked) {
-      try {
-        const q = query(
-          collection(db, 'movimientos'),
-          where('id_propietario', '==', user.uid),
-          orderBy('fecha_operacion', 'desc'),
-          limit(15)
-        );
-        const snap = await getDocs(q);
-        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Movimiento));
-        setHistoryMovements(docs);
-        setLastVisibleDoc(snap.docs[snap.docs.length - 1] || null);
-        setHistoryHasMore(docs.length === 15);
-      } catch (err) {
-        console.error('Error loading history:', err);
-        showToast('Error al cargar historial.');
-      }
-    } else {
-      // Demo Mode slicer
-      const slice = chartMovements.slice(0, 15);
-      setHistoryMovements(slice);
-      setDemoOffset(15);
-      setHistoryHasMore(chartMovements.length > 15);
-    }
-    setHistoryLoading(false);
-  }, [user, isFirebaseConfigured, chartMovements]);
-
-  // Load more documents
-  const handleLoadMoreHistory = useCallback(async () => {
-    if (historyLoading) return;
-    setHistoryLoading(true);
-
-    if (isFirebaseConfigured && user && !isLocked) {
-      if (!lastVisibleDoc) {
-        setHistoryHasMore(false);
-        setHistoryLoading(false);
-        return;
-      }
-      try {
-        const q = query(
-          collection(db, 'movimientos'),
-          where('id_propietario', '==', user.uid),
-          orderBy('fecha_operacion', 'desc'),
-          startAfter(lastVisibleDoc),
-          limit(15)
-        );
-        const snap = await getDocs(q);
-        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Movimiento));
-        if (docs.length > 0) {
-          setHistoryMovements(prev => [...prev, ...docs]);
-          setLastVisibleDoc(snap.docs[snap.docs.length - 1] || null);
-        }
-        setHistoryHasMore(docs.length === 15);
-      } catch (err) {
-        console.error('Error loading more history:', err);
-        showToast('Error al cargar más historial.');
-      }
-    } else {
-      // Demo Mode delay simulation
-      await new Promise(resolve => setTimeout(resolve, 300));
-      const nextOffset = demoOffset + 15;
-      const slice = chartMovements.slice(0, nextOffset);
-      setHistoryMovements(slice);
-      setDemoOffset(nextOffset);
-      setHistoryHasMore(chartMovements.length > nextOffset);
-    }
-    setHistoryLoading(false);
-  }, [user, isFirebaseConfigured, lastVisibleDoc, demoOffset, chartMovements, historyLoading]);
-
-  // Launch pagination init when modal opens
-  useEffect(() => {
-    if (isHistoryModalOpen) {
-      queueMicrotask(() => void initHistoryPagination());
-    }
-  }, [isHistoryModalOpen]);
-
-  // Update history items live if local updates happen in Demo Mode
-  useEffect(() => {
-    if (isHistoryModalOpen && !isFirebaseConfigured) {
-      queueMicrotask(() => setHistoryMovements(chartMovements.slice(0, demoOffset)));
-    }
-  }, [chartMovements, isHistoryModalOpen, isFirebaseConfigured, demoOffset]);
 
   // Google authentication actions
   const handleLogin = async () => {
@@ -804,15 +710,14 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
         <HistoryModal
           isOpen={isHistoryModalOpen}
           onClose={() => setIsHistoryModalOpen(false)}
-          history={historyMovements}
-          onLoadMore={handleLoadMoreHistory}
-          hasMore={historyHasMore}
-          isLoading={historyLoading}
+          chartMovements={chartMovements}
+          olderMovements={olderMovements}
+          olderMovementsLoading={olderMovementsLoading}
+          olderMovementsLoaded={olderMovementsLoaded}
+          olderMovementsError={olderMovementsError}
+          loadOlderMovements={loadOlderMovements}
           onUpdateConcepto={handleUpdateMovimientoConcepto}
-          onUpdateCategoria={async (id, categoria) => {
-            await handleUpdateMovimientoCategoria(id, categoria);
-            setHistoryMovements(current => current.map(m => m.id === id ? { ...m, categoria } : m));
-          }}
+          onUpdateCategoria={handleUpdateMovimientoCategoria}
           onUnlink={handleUnlinkMovimiento}
           onDeleteMovimiento={onDeleteMovimientoWrapper}
         />

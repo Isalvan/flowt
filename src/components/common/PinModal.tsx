@@ -98,7 +98,7 @@ export const PinModal: React.FC = () => {
           setIsWaiting(true);
           
           const delayTime = Math.min(Math.pow(2, newFailed - 1) * 1000, 30000); // 1s, 2s, 4s... max 30s
-          setErrorMessage(`PIN Incorrecto. Espera ${delayTime / 1000}s`);
+          setErrorMessage(`PIN incorrecto. Espera ${delayTime / 1000}s`);
           
           setTimeout(() => {
             setIsShaking(false);
@@ -174,41 +174,42 @@ export const PinModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-in fade-in duration-300">
       
       {/* Glassmorphic Pad Card */}
       <div 
-        className={`relative glass-panel max-w-sm w-full mx-4 p-8 border border-white/10 text-center flex flex-col items-center justify-between min-h-[480px] shadow-2xl rounded-3xl transition-transform duration-300 ${
-          isShaking ? 'animate-shake border-rose-500/30' : ''
-        } ${isSuccess ? 'scale-95 duration-500 border-emerald-500/20' : ''}`}
+        className={`relative glass-panel max-w-sm w-full mx-4 p-8 text-center flex flex-col items-center justify-between min-h-[480px] rounded-3xl ${
+          isShaking ? 'animate-shake' : ''
+        }`}
       >
-        {/* Close button if PIN already exists */}
         {/* Close button if PIN already exists */}
         {hasPin && pinModalMode === 'enter' && (
           <button 
+            type="button"
             onClick={closePinModal}
-            className="absolute top-4 right-4 text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-white/5 transition-all active:scale-90"
+            className="dashboard-icon-button absolute top-4 right-4"
+            aria-label="Cerrar modal"
           >
-            <X className="w-5 h-5" />
+            <X size={18} />
           </button>
         )}
 
         {/* Lock Screen Header */}
         <div className="flex flex-col items-center gap-3">
-          <div className={`p-4 rounded-full border transition-all duration-500 ${
+          <div className={`dashboard-icon ${
             isSuccess 
-              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 scale-110 shadow-lg shadow-emerald-500/10' 
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
               : isShaking 
-                ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' 
-                : 'bg-brand-tint border-transparent text-brand-ink'
+                ? 'bg-rose-500/10 text-rose-500 dark:text-rose-400' 
+                : 'bg-brand-tint text-brand-ink'
           }`}>
-            {isSuccess ? <Sparkles className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
+            {isSuccess ? <Sparkles size={18} /> : <Lock size={18} />}
           </div>
           
-          <h3 className="mt-1 text-2xl font-bold text-ink">
+          <h3 className="dashboard-heading mt-1">
             {getHeading()}
           </h3>
-          <p className="text-[12px] leading-relaxed text-slate-600 dark:text-slate-400 max-w-[260px] mx-auto font-medium">
+          <p className="dashboard-subtitle max-w-[260px] mx-auto">
             {getSubtitle()}
           </p>
         </div>
@@ -219,14 +220,14 @@ export const PinModal: React.FC = () => {
             {[0, 1, 2, 3].map((index) => (
               <div
                 key={index}
-                className={`w-4.5 h-4.5 rounded-full border-2 transition-all duration-200 ${
+                className={`h-3.5 w-3.5 rounded-full border-2 transition-colors duration-200 ${
                   index < pin.length
                     ? isSuccess 
-                      ? 'bg-emerald-500 border-emerald-500 scale-110' 
+                      ? 'bg-emerald-500 border-emerald-500' 
                       : isShaking 
                         ? 'bg-rose-500 border-rose-500' 
-                        : 'bg-indigo-500 border-indigo-500 scale-110 shadow-md shadow-indigo-500/15'
-                    : 'bg-transparent border-slate-350 dark:border-slate-700'
+                        : 'bg-brand border-brand'
+                    : 'bg-transparent border-line-strong'
                 }`}
               />
             ))}
@@ -235,8 +236,8 @@ export const PinModal: React.FC = () => {
           {/* Error Message */}
           <div className="h-4 mt-3">
             {errorMessage && (
-              <span className="flex items-center justify-center gap-1 text-[10px] font-extrabold text-rose-500 uppercase tracking-wider animate-bounce">
-                <AlertTriangle className="w-3.5 h-3.5" />
+              <span className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-rose-500 dark:text-rose-400">
+                <AlertTriangle size={14} className="shrink-0" />
                 {errorMessage}
               </span>
             )}
@@ -246,64 +247,52 @@ export const PinModal: React.FC = () => {
         {/* Touch Numerical Keypad Grid or Recovery */}
         <div className="w-full max-w-[270px] relative min-h-[260px] flex items-center justify-center">
           {isRecoveryMode ? (
-            <div className="flex flex-col items-center justify-center w-full h-full animate-in zoom-in-95 duration-300">
-               {/* Premium Protection SVG giving soul to the recovery page */}
-               <div className="relative w-20 h-20 mb-6 flex items-center justify-center group">
-                 {/* Background pulse effect */}
-                 <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-xl group-hover:bg-indigo-500/30 transition-all duration-500" />
-                 
-                 <svg viewBox="0 0 24 24" className="w-14 h-14 text-indigo-500 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)] relative z-10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    {/* Security Shield */}
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" className="stroke-indigo-400" />
-                    {/* User profile inside shield */}
-                    <circle cx="12" cy="11" r="3" className="fill-indigo-500/20 stroke-indigo-300" />
-                    <path d="M7 21v-1a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v1" className="stroke-indigo-300" />
-                    {/* Scanning orbit line */}
-                    <circle cx="12" cy="12" r="14" className="stroke-indigo-500/20 animate-spin-slow" strokeDasharray="4 4" />
-                 </svg>
+            <div className="flex flex-col items-center justify-center w-full h-full animate-in fade-in duration-300">
+               <div className="dashboard-icon mb-4 h-12 w-12 rounded-2xl bg-brand-tint text-brand-ink">
+                 <Lock size={20} />
                </div>
                
-               <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-6 px-2 leading-relaxed font-semibold">
+               <p className="mb-6 px-2 text-xs font-semibold leading-relaxed text-ink-soft">
                  Verifica tu identidad con Google para borrar tu PIN de forma segura.
                </p>
                
                <button 
+                 type="button"
                  onClick={handleGoogleRecovery}
                  disabled={isRecovering}
-                 className="relative w-full py-3.5 rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 dark:from-white/10 dark:to-white/5 hover:from-slate-700 hover:to-slate-800 text-white font-extrabold text-[11px] uppercase tracking-widest shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-95 transition-all duration-300 border border-white/10 flex items-center justify-center gap-3 overflow-hidden group"
+                 className="dashboard-primary-button w-full !py-3.5"
                >
                  {/* Google G icon SVG */}
-                 <div className="bg-white p-1 rounded-full group-hover:scale-110 transition-transform">
-                   <svg className="w-4 h-4" viewBox="0 0 24 24">
+                 <div className="bg-white p-1 rounded-full">
+                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                    </svg>
                  </div>
-                 {isRecovering ? 'Verificando...' : 'Verificar Identidad'}
-                 <div className="absolute inset-0 bg-white/5 translate-y-full hover:translate-y-0 transition-transform duration-300" />
+                 {isRecovering ? 'Verificando…' : 'Verificar identidad'}
                </button>
 
                <button 
+                 type="button"
                  onClick={() => setIsRecoveryMode(false)}
-                 className="mt-5 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
+                 className="dashboard-secondary-button mt-3 w-full"
                >
                  Cancelar
                </button>
             </div>
           ) : (
             <div className="flex flex-col items-center w-full animate-in fade-in duration-300">
-              <div className="grid grid-cols-3 gap-x-6 gap-y-3 w-full">
+              <div className="grid grid-cols-3 gap-x-6 gap-y-3 w-full place-items-center">
                 {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
                   <button
                     key={num}
                     type="button"
                     onClick={() => handleKeyPress(num)}
-                    className="w-14 h-14 rounded-full text-lg font-black text-slate-700 dark:text-slate-200 bg-white/40 dark:bg-slate-900/40 border border-white/5 hover:border-indigo-500/30 hover:bg-indigo-500/10 active:scale-90 transition-all cursor-pointer flex items-center justify-center shadow-sm select-none relative overflow-hidden group"
+                    className="h-14 w-14 rounded-full text-lg font-bold text-ink bg-surface-2 hover:bg-brand-tint hover:text-brand-ink transition-colors flex items-center justify-center cursor-pointer select-none"
                   >
-                    <span className="relative z-10">{num}</span>
-                    <div className="absolute inset-0 bg-white/20 scale-0 group-active:scale-100 transition-transform rounded-full origin-center" />
+                    {num}
                   </button>
                 ))}
                 
@@ -311,7 +300,7 @@ export const PinModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleClear}
-                  className="w-14 h-14 rounded-full text-[11px] font-black uppercase tracking-wider text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 active:scale-90 transition-all cursor-pointer flex items-center justify-center select-none"
+                  className="h-14 w-14 rounded-full text-xs font-semibold text-ink-soft hover:text-ink hover:bg-surface-2 transition-colors flex items-center justify-center cursor-pointer select-none"
                 >
                   Limpiar
                 </button>
@@ -319,26 +308,27 @@ export const PinModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleKeyPress('0')}
-                  className="w-14 h-14 rounded-full text-lg font-black text-slate-700 dark:text-slate-200 bg-white/40 dark:bg-slate-900/40 border border-white/5 hover:border-indigo-500/30 hover:bg-indigo-500/10 active:scale-90 transition-all cursor-pointer flex items-center justify-center shadow-sm select-none relative overflow-hidden group"
+                  className="h-14 w-14 rounded-full text-lg font-bold text-ink bg-surface-2 hover:bg-brand-tint hover:text-brand-ink transition-colors flex items-center justify-center cursor-pointer select-none"
                 >
-                  <span className="relative z-10">0</span>
-                  <div className="absolute inset-0 bg-white/20 scale-0 group-active:scale-100 transition-transform rounded-full origin-center" />
+                  0
                 </button>
                 
                 <button
                   type="button"
                   onClick={handleBackspace}
-                  className="w-14 h-14 rounded-full text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 active:scale-90 transition-all cursor-pointer flex items-center justify-center select-none"
+                  aria-label="Borrar dígito"
+                  className="h-14 w-14 rounded-full text-ink-soft hover:text-ink hover:bg-surface-2 transition-colors flex items-center justify-center cursor-pointer select-none"
                 >
-                  <Delete className="w-5 h-5" />
+                  <Delete size={18} />
                 </button>
               </div>
 
               {/* Recovery Button Link */}
               {pinModalMode === 'enter' && (
                  <button 
+                   type="button"
                    onClick={handleRecoverClick}
-                   className="mt-6 text-[9px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors animate-pulse hover:animate-none border-b border-indigo-500/30 pb-0.5"
+                   className="mt-5 text-xs font-semibold text-brand-ink hover:underline transition-colors"
                  >
                    ¿Olvidaste el PIN?
                  </button>

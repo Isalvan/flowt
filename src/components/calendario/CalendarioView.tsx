@@ -106,25 +106,29 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
           <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink sm:text-4xl">
             Calendario de cargos
           </h2>
-          <p className="mt-1 text-sm text-ink-soft">Vencimiento mensual estimado de tus suscripciones recurrentes</p>
+          <p className="dashboard-subtitle">Vencimiento mensual estimado de tus suscripciones recurrentes</p>
         </div>
 
         {/* Month selector controls */}
-        <div className="flex items-center gap-1 bg-white/40 dark:bg-slate-950/20 p-1 border border-slate-200/50 dark:border-white/5 rounded-2xl self-start sm:self-auto shadow-inner backdrop-blur-md">
+        <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface-2 p-1">
           <button
+            type="button"
             onClick={prevMonth}
-            className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm active:scale-95 transition-all cursor-pointer"
+            className="dashboard-icon-button"
+            aria-label="Mes anterior"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           
-          <span className="font-black text-xs text-slate-700 dark:text-slate-350 uppercase tracking-[0.15em] px-4 py-1.5 text-center min-w-[150px] capitalize font-title">
+          <span className="text-xs font-bold text-ink px-3 py-1 text-center min-w-[140px] first-letter:uppercase">
             {monthName}
           </span>
 
           <button
+            type="button"
             onClick={nextMonth}
-            className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm active:scale-95 transition-all cursor-pointer"
+            className="dashboard-icon-button"
+            aria-label="Mes siguiente"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -135,17 +139,17 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
       <div className="grid gap-6 lg:grid-cols-3">
         
         {/* Left 2/3 - Interactive Grid */}
-        <Card className="lg:col-span-2 bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-xl p-5 sm:p-6">
+        <Card className="lg:col-span-2">
           
           {/* Week Headers */}
-          <div className="grid grid-cols-7 gap-2.5 mb-4 text-center font-black text-[9px] text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] bg-slate-100/40 dark:bg-slate-950/10 py-2 rounded-xl border border-slate-150/20 dark:border-white/5 shadow-inner">
+          <div className="grid grid-cols-7 gap-2 mb-3 text-center text-[11px] font-bold text-ink-soft bg-surface-2 py-2 rounded-xl">
             {daysOfWeek.map(day => (
               <span key={day} className="py-0.5">{day}</span>
             ))}
           </div>
 
           {/* Day Cells Grid */}
-          <div className="grid grid-cols-7 gap-2.5">
+          <div className="grid grid-cols-7 gap-2">
             {cells.map((cell, idx) => {
               const { dayNum, isToday } = cell;
               const hasSubs = dayNum ? getSubsForDay(dayNum).length > 0 : false;
@@ -157,55 +161,50 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
                   key={idx}
                   onClick={() => handleSelectDay(dayNum)}
                   className={`
-                    min-h-[78px] 
-                    p-2.5 
+                    min-h-[72px] 
+                    p-2 
                     rounded-2xl 
                     border 
                     flex 
                     flex-col 
                     justify-between 
-                    transition-all 
-                    duration-300 
-                    relative
-                    ${dayNum ? 'cursor-pointer hover:border-indigo-500/40 hover:bg-white/90 dark:hover:bg-slate-950/30 hover:scale-[1.03] hover:shadow-md' : 'bg-transparent border-transparent pointer-events-none'}
+                    transition-colors 
+                    ${dayNum ? 'cursor-pointer' : 'bg-transparent border-transparent pointer-events-none'}
                     ${isSelected 
-                      ? 'border-indigo-500 bg-indigo-500/10 dark:bg-indigo-500/5 shadow-[0_4px_12px_rgba(99,102,241,0.15)] ring-2 ring-indigo-500/25 scale-[1.02]' 
+                      ? 'border-brand bg-brand-tint' 
                       : dayNum 
                         ? isToday 
-                          ? 'border-emerald-500/70 bg-emerald-500/5 shadow-[0_0_10px_rgba(16,185,129,0.08)] ring-1 ring-emerald-500/10' 
-                          : 'border-slate-150/70 dark:border-white/5 bg-white/45 dark:bg-slate-900/15' 
+                          ? 'border-emerald-500/50 bg-emerald-500/10' 
+                          : 'border-line bg-surface hover:bg-surface-2 hover:border-line-strong' 
                         : 'border-transparent bg-transparent'
                     }
                   `}
                 >
                   {/* Day number */}
                   <div className="flex items-center justify-between">
-                    <span className={`text-[11px] font-black tabular-nums transition-colors ${
+                    <span className={`text-[11px] tabular-nums transition-colors ${
                       isToday 
-                        ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 w-5.5 h-5.5 rounded-full flex items-center justify-center border border-emerald-500/20' 
+                        ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 w-5 h-5 rounded-full flex items-center justify-center font-bold' 
                         : isSelected 
-                          ? 'text-indigo-600 dark:text-indigo-400 font-extrabold'
-                          : 'text-slate-650 dark:text-slate-350 font-bold'
+                          ? 'text-brand-ink font-extrabold'
+                          : 'text-ink font-semibold'
                     }`}>
                       {dayNum}
                     </span>
 
                     {isToday && (
-                      <span className="text-[7.5px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20">Hoy</span>
+                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md">Hoy</span>
                     )}
                   </div>
 
-                  {/* Bullet color indicators with premium glow for day's subscriptions */}
+                  {/* Bullet color indicators for day's subscriptions */}
                   {hasSubs && (
-                    <div className="flex flex-wrap gap-1.5 mt-2 justify-start max-w-full">
+                    <div className="flex flex-wrap gap-1 mt-1 justify-start max-w-full">
                       {daySubs.map(sub => (
                         <span 
                           key={sub.id} 
-                          className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20 shadow-inner" 
-                          style={{ 
-                            backgroundColor: sub.color,
-                            boxShadow: `0 0 6px ${sub.color}aa`
-                          }}
+                          className="w-2.5 h-2.5 rounded-full shrink-0 border border-line" 
+                          style={{ backgroundColor: sub.color }}
                           title={`${sub.nombre}: ${formatCurrency(sub.importe)}`}
                         />
                       ))}
@@ -221,39 +220,36 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
         <div className="space-y-6 flex flex-col">
           
           {/* Selected day details panel */}
-          <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-lg p-5">
+          <Card>
             <h3 className="dashboard-heading mb-4 flex items-center gap-2 border-b border-line pb-3">
-              <Calendar className="w-4 h-4 text-indigo-500" />
-              Detalles: Día {selectedDay || today.getDate()}
+              <Calendar className="w-4 h-4 text-brand-ink" />
+              Detalles: día {selectedDay || today.getDate()}
             </h3>
 
             {selectedDaySubs.length > 0 ? (
               <div className="space-y-3">
                 {selectedDaySubs.map(sub => (
-                  <div key={sub.id} className="p-3.5 rounded-2xl bg-white/40 dark:bg-slate-900/20 border border-slate-150/40 dark:border-white/5 flex items-center justify-between shadow-sm hover:scale-[1.02] transition-transform duration-250">
+                  <div key={sub.id} className="p-3 rounded-2xl bg-surface-2 flex items-center justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <span 
-                          className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/10" 
-                          style={{ 
-                            backgroundColor: sub.color,
-                            boxShadow: `0 0 5px ${sub.color}80`
-                          }} 
+                          className="w-2.5 h-2.5 rounded-full shrink-0 border border-line" 
+                          style={{ backgroundColor: sub.color }} 
                         />
-                        <h4 className="truncate text-[13px] font-bold text-ink">
+                        <h4 className="truncate text-xs font-bold text-ink">
                           {sub.nombre}
                         </h4>
                       </div>
-                      <span className="inline-block text-[8px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mt-1 bg-indigo-500/5 px-2 py-0.5 rounded-lg border border-indigo-500/10">
+                      <span className="inline-block text-[11px] font-semibold text-brand-ink mt-1 bg-brand-tint px-2 py-0.5 rounded-lg">
                         {sub.categoria}
                       </span>
                     </div>
 
                     <div className="text-right shrink-0 ml-3">
-                      <span className="text-xs font-black text-slate-800 dark:text-white tabular-nums">
+                      <span className="text-xs font-extrabold text-ink tabular-nums">
                         {formatCurrency(sub.mi_parte != null ? sub.mi_parte : sub.importe)}
                       </span>
-                      <p className="text-[8px] text-slate-400 dark:text-slate-500 uppercase font-bold leading-none mt-0.5">
+                      <p className="text-[11px] text-ink-soft font-semibold mt-0.5">
                         {sub.frecuencia}
                       </p>
                     </div>
@@ -261,69 +257,66 @@ export const CalendarioView: React.FC<CalendarioViewProps> = ({ suscripciones })
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center p-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-900/10 text-center">
-                <Info className="w-6 h-6 text-slate-350 dark:text-slate-650 mb-2" />
-                <p className="font-black text-[10px] text-slate-400 dark:text-slate-600 uppercase tracking-widest">Sin Cargos</p>
-                <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">No hay cargos programados para este día</p>
+              <div className="dashboard-empty p-6">
+                <Info className="w-5 h-5 text-ink-faint mb-1" />
+                <p className="dashboard-heading">Sin cargos</p>
+                <p className="text-[11px] text-ink-soft">No hay cargos programados para este día</p>
               </div>
             )}
           </Card>
 
           {/* Full Month Agenda listing card */}
-          <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-lg p-5 flex-1 flex flex-col justify-between">
+          <Card className="flex-1 flex flex-col justify-between">
             <div>
               <h3 className="dashboard-heading mb-4 flex items-center gap-2 border-b border-line pb-3">
-                <Clock className="w-4 h-4 text-indigo-500" />
+                <Clock className="w-4 h-4 text-brand-ink" />
                 Agenda mensual
               </h3>
 
-              <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                 {sortedAgenda.length > 0 ? (
                   sortedAgenda.map(sub => (
                     <div 
                       key={sub.id}
                       onClick={() => setSelectedDay(getChargeDay(sub))}
-                      className={`flex items-center justify-between p-2.5 rounded-2xl border transition-all duration-200 cursor-pointer ${
+                      className={`flex items-center justify-between p-2.5 rounded-2xl border transition-colors cursor-pointer ${
                         selectedDay === getChargeDay(sub)
-                          ? 'border-indigo-500/40 bg-indigo-500/5' 
-                          : 'border-transparent hover:bg-white/50 dark:hover:bg-slate-950/20 hover:scale-[1.01]'
+                          ? 'border-brand bg-brand-tint' 
+                          : 'border-transparent hover:bg-surface-2'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-[11px] font-black text-indigo-500/80 dark:text-indigo-400/80 bg-indigo-500/5 px-2 py-0.5 rounded-lg border border-indigo-500/10 tabular-nums shrink-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[11px] font-bold text-brand-ink bg-brand-tint px-2 py-0.5 rounded-lg tabular-nums shrink-0">
                           D{getChargeDay(sub)}
                         </span>
                         <span 
-                          className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/10" 
-                          style={{ 
-                            backgroundColor: sub.color,
-                            boxShadow: `0 0 5px ${sub.color}60`
-                          }} 
+                          className="w-2.5 h-2.5 rounded-full shrink-0 border border-line" 
+                          style={{ backgroundColor: sub.color }} 
                         />
-                        <span className="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight truncate">
+                        <span className="text-xs font-semibold text-ink truncate">
                           {sub.nombre}
                         </span>
                       </div>
 
-                      <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 tabular-nums shrink-0 ml-3">
+                      <span className="text-xs font-bold text-ink tabular-nums shrink-0 ml-3">
                         {formatCurrency(sub.mi_parte != null ? sub.mi_parte : sub.importe)}
                       </span>
                     </div>
                   ))
                 ) : (
-                  <div className="flex flex-col items-center justify-center p-6 text-center">
-                    <AlertCircle className="w-6 h-6 text-slate-300 dark:text-slate-700 mb-2" />
-                    <p className="font-bold text-[10px] text-slate-400 dark:text-slate-650 uppercase tracking-widest">Agenda Vacía</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5">No hay suscripciones activas registradas</p>
+                  <div className="dashboard-empty p-6">
+                    <AlertCircle className="w-5 h-5 text-ink-faint mb-1" />
+                    <p className="dashboard-heading">Agenda vacía</p>
+                    <p className="text-[11px] text-ink-soft">No hay suscripciones activas registradas</p>
                   </div>
                 )}
               </div>
             </div>
 
             {sortedAgenda.length > 0 && (
-              <div className="mt-4 pt-3.5 border-t border-slate-150/40 dark:border-white/5 flex justify-between items-center text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] shrink-0">
-                <span className="flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> Total Agenda:</span>
-                <span className="font-black text-slate-850 dark:text-slate-100 tabular-nums text-sm">
+              <div className="mt-4 pt-3.5 border-t border-line flex justify-between items-center text-xs font-bold text-ink-soft shrink-0">
+                <span className="flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-brand-ink" /> Total agenda:</span>
+                <span className="font-extrabold text-ink tabular-nums text-sm">
                   {formatCurrency(
                     sortedAgenda.reduce((s, sub) => s + (sub.mi_parte != null ? sub.mi_parte : sub.importe), 0)
                   )}

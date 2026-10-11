@@ -67,10 +67,11 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
           <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink sm:text-4xl">
             Suscripciones recurrentes
           </h2>
-          <p className="mt-1 text-sm text-ink-soft">Previsión y distribución automática de cargos periódicos</p>
+          <p className="dashboard-subtitle">Previsión y distribución automática de cargos periódicos</p>
         </div>
 
         <button
+          type="button"
           onClick={() => onOpenSuscripcionModal(null)}
           className="dashboard-primary-button self-start sm:self-auto"
         >
@@ -83,69 +84,69 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         
         {/* Total Monthly Equivalent budget */}
-        <Card className="bg-gradient-to-br from-violet-600 to-indigo-700 text-white p-5 shadow-xl border-none">
-          <div className="flex items-center justify-between opacity-80">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Presupuesto Mensual</span>
-            <CreditCard className="w-4 h-4 animate-pulse" />
+        <Card className="flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="dashboard-label">Presupuesto mensual</span>
+            <CreditCard className="w-4 h-4 text-brand-ink" />
           </div>
           <div className="mt-3.5">
-            <span className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums leading-none">
+            <span className="figure text-2xl sm:text-3xl text-ink">
               {formatCurrency(myActualPrice)}
             </span>
-            <p className="text-[10px] opacity-75 font-semibold mt-1 flex items-center gap-1">
+            <p className="text-xs text-ink-soft mt-1">
               Reservado mensualmente en hucha
             </p>
           </div>
         </Card>
 
         {/* Active counter */}
-        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5">
-          <div className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-1">
-            Suscripciones Activas
+        <Card className="flex flex-col justify-between">
+          <div className="dashboard-label mb-1">
+            Suscripciones activas
           </div>
           <div className="mt-2.5">
-            <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">
+            <span className="figure text-2xl text-ink">
               {activeCount}
             </span>
-            <span className="text-xs text-slate-400 dark:text-slate-500 ml-1.5 font-bold uppercase">
+            <span className="text-xs text-ink-soft ml-1.5 font-semibold">
               servicios
             </span>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-1.5">
+            <p className="text-xs text-ink-soft mt-1.5">
               {inactiveCount} en espera / pausados
             </p>
           </div>
         </Card>
 
         {/* Saved Shared Payment Split */}
-        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Gastos Compartidos</span>
-            <Users className="w-4 h-4 text-emerald-500" />
+        <Card className="flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="dashboard-label">Gastos compartidos</span>
+            <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="mt-3.5">
-            <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
+            <span className="figure text-2xl text-ink">
               {formatCurrency(savedSharedPrice)}
             </span>
-            <span className="text-xs text-slate-450 dark:text-slate-500 ml-1 font-bold lowercase">
+            <span className="text-xs text-ink-soft ml-1 font-semibold">
               /mes
             </span>
-            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
               Ahorro recuperado por reembolsos
             </p>
           </div>
         </Card>
 
         {/* Hucha current reserve status */}
-        <Card className="bg-white/60 dark:bg-slate-900/30 border border-white/10 dark:border-white/5 shadow-md p-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Fondo en Cartera</span>
-            <TrendingUp className="w-4 h-4 text-indigo-500" />
+        <Card className="flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="dashboard-label">Fondo en cartera</span>
+            <TrendingUp className="w-4 h-4 text-brand-ink" />
           </div>
           <div className="mt-3.5">
-            <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight tabular-nums leading-none">
+            <span className="figure text-2xl text-ink">
               {formatCurrency(huchas.find(h => h.es_suscripciones)?.saldo_acumulado ?? 0)}
             </span>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-1">
+            <p className="text-xs text-ink-soft mt-1">
               Acumulado actual para cobros
             </p>
           </div>
@@ -153,33 +154,29 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
       </div>
 
       {/* 3. Category Filters */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider">
-          <Filter className="w-4 h-4" />
-          Filtrar por Categoría
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5 dashboard-label">
+          <Filter className="w-3.5 h-3.5" />
+          Filtrar por categoría
         </div>
         
-        <div className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Filtrar por categoría" className="segmented flex-wrap">
           <button
+            type="button"
             onClick={() => setSelectedCategory(null)}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all duration-200 border cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md ${
-              selectedCategory === null
-                ? 'bg-slate-900 border-slate-900 text-white dark:bg-slate-100 dark:border-slate-100 dark:text-slate-900 shadow shadow-slate-900/10'
-                : 'bg-white/40 border-white/10 text-slate-500 hover:bg-slate-105 hover:bg-white/80 dark:bg-slate-900/20 dark:border-white/5 dark:hover:bg-slate-800/40'
-            }`}
+            aria-pressed={selectedCategory === null}
+            className="segmented-item"
           >
             Todos
           </button>
           
           {CATEGORIA_OPTIONS.map(opt => (
             <button
+              type="button"
               key={opt.value}
               onClick={() => setSelectedCategory(opt.value)}
-              className={`px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all duration-200 border cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md ${
-                selectedCategory === opt.value
-                  ? 'bg-indigo-600 border-indigo-600 text-white shadow shadow-indigo-600/25'
-                  : 'bg-white/40 border-white/10 text-slate-500 hover:bg-slate-105 hover:bg-white/80 dark:bg-slate-900/20 dark:border-white/5 dark:hover:bg-slate-800/40'
-              }`}
+              aria-pressed={selectedCategory === opt.value}
+              className="segmented-item"
             >
               {opt.label}
             </button>
@@ -202,10 +199,10 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
             />
           ))
         ) : (
-          <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 col-span-full text-center animate-in fade-in duration-300">
+          <div className="dashboard-empty col-span-full p-12">
             <EmptyIllustration />
-            <span className="text-base font-extrabold text-slate-350 dark:text-slate-600 uppercase tracking-widest mb-1">Sin Suscripciones</span>
-            <p className="text-xs text-slate-400">Registra Netflix, Spotify o tus cuotas del gimnasio para gestionarlas aquí</p>
+            <span className="dashboard-heading mb-1">Sin suscripciones</span>
+            <p className="text-xs text-ink-soft">Registra Netflix, Spotify o tus cuotas del gimnasio para gestionarlas aquí</p>
           </div>
         )}
       </div>

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Card } from '../common/Card';
 import { type Hucha } from '../../types';
 import { Sparkles, Plus, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
@@ -34,35 +33,37 @@ export const DemoSimulator: React.FC<DemoSimulatorProps> = ({ injectDemoMovement
   };
 
   const presets = [
-    { label: 'Nómina Mensual', tipo: 'ingreso' as const, concepto: 'Nómina Trabajo', importe: 2100 },
-    { label: 'Bizum de Amigo', tipo: 'ingreso' as const, concepto: 'Bizum: Cena de ayer', importe: 20 },
-    { label: 'Compra Semanal', tipo: 'gasto' as const, concepto: 'Supermercado Mercadona', importe: 65 },
-    { label: 'Suscripción Streaming', tipo: 'gasto' as const, concepto: 'Netflix Premium', importe: 17.99 },
-    { label: 'Cenita Pareja', tipo: 'gasto' as const, concepto: 'Cena Restaurante Japones', importe: 54 },
+    { label: 'Nómina mensual', tipo: 'ingreso' as const, concepto: 'Nómina trabajo', importe: 2100 },
+    { label: 'Bizum de amigo', tipo: 'ingreso' as const, concepto: 'Bizum: cena de ayer', importe: 20 },
+    { label: 'Compra semanal', tipo: 'gasto' as const, concepto: 'Supermercado Mercadona', importe: 65 },
+    { label: 'Suscripción streaming', tipo: 'gasto' as const, concepto: 'Netflix Premium', importe: 17.99 },
+    { label: 'Cenita pareja', tipo: 'gasto' as const, concepto: 'Cena restaurante japones', importe: 54 },
   ];
 
   return (
     <div className="fixed bottom-24 right-3 z-40 md:bottom-6 md:right-6">
       {!isOpen ? (
         <button
+          type="button"
           onClick={() => setIsOpen(true)}
-          aria-label="Simulador Demo"
-          className="flex items-center gap-2 rounded-full bg-ink px-4 py-3 text-page shadow-[var(--shadow-pop)] transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0"
+          aria-label="Simulador demo"
+          className="flex items-center gap-2 rounded-full bg-ink px-4 py-3 text-page shadow-[var(--shadow-pop)] transition-transform duration-150 active:translate-y-px"
         >
           <Sparkles className="h-4 w-4 text-sun-500" />
-          <span className="hidden text-[13px] font-bold sm:inline">Simulador Demo</span>
+          <span className="hidden text-[13px] font-bold sm:inline">Simulador demo</span>
         </button>
       ) : (
         <div className="animate-in fade-in slide-in-from-bottom-5 w-[calc(100vw-1.5rem)] max-w-96 duration-300">
-          <Card className="border border-indigo-500/30 shadow-2xl shadow-indigo-950/20">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
+          <div className="dashboard-surface p-5">
+            <div className="flex items-center justify-between border-b border-line pb-3 mb-4">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-400" />
-                <h3 className="font-bold text-slate-800 dark:text-slate-100">Simulador de Transacciones</h3>
+                <Sparkles className="w-4 h-4 text-brand-ink" />
+                <h3 className="dashboard-heading">Simulador de transacciones</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
-                className="text-slate-400 hover:text-slate-200 text-sm px-2 py-1 rounded hover:bg-white/5 transition-colors"
+                className="text-xs font-semibold text-ink-soft hover:text-ink transition-colors"
               >
                 Cerrar
               </button>
@@ -70,21 +71,22 @@ export const DemoSimulator: React.FC<DemoSimulatorProps> = ({ injectDemoMovement
 
             {/* Presets Grid */}
             <div className="mb-4">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-2">
-                Acciones Rápidas (Inyección con 1 click)
+              <span className="dashboard-label mb-2 block">
+                Acciones rápidas (inyección con 1 click)
               </span>
               <div className="grid grid-cols-2 gap-2">
                 {presets.map((preset, idx) => (
                   <button
                     key={idx}
+                    type="button"
                     onClick={() => injectDemoMovement(preset.tipo, preset.concepto, preset.importe)}
-                    className="flex flex-col items-start p-2 rounded-xl text-left bg-white/5 hover:bg-indigo-500/10 border border-white/5 hover:border-indigo-500/20 group transition-all duration-200"
+                    className="choice-card p-2.5 w-full hover:bg-surface-2 transition-colors cursor-pointer"
                   >
-                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300 group-hover:text-indigo-400 truncate w-full">
+                    <span className="text-xs font-semibold text-ink truncate w-full">
                       {preset.label}
                     </span>
-                    <span className={`text-[10px] font-bold mt-1 flex items-center gap-1 ${
-                      preset.tipo === 'ingreso' ? 'text-emerald-500' : 'text-rose-500'
+                    <span className={`text-[11px] font-bold tabular-nums mt-1 flex items-center gap-1 ${
+                      preset.tipo === 'ingreso' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'
                     }`}>
                       {preset.tipo === 'ingreso' ? '+' : '-'}{preset.importe} €
                     </span>
@@ -94,50 +96,46 @@ export const DemoSimulator: React.FC<DemoSimulatorProps> = ({ injectDemoMovement
             </div>
 
             {/* Divider */}
-            <div className="h-[1px] bg-white/10 my-4" />
+            <div className="h-[1px] bg-line my-4" />
 
             {/* Custom transaction form */}
             <form onSubmit={handleInjectCustom} className="space-y-3">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
-                Crear Movimiento Personalizado
+              <span className="dashboard-label mb-2 block">
+                Crear movimiento personalizado
               </span>
               
               {/* Tipo selector */}
-              <div className="grid grid-cols-2 gap-2 bg-slate-100/50 dark:bg-slate-900/50 p-1 rounded-xl border border-white/5">
+              <div role="group" aria-label="Tipo de movimiento" className="segmented w-full grid grid-cols-2">
                 <button
                   type="button"
                   onClick={() => setCustomTipo('ingreso')}
-                  className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
-                    customTipo === 'ingreso'
-                      ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                  aria-pressed={customTipo === 'ingreso'}
+                  className={`segmented-item justify-center ${customTipo === 'ingreso' ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
                 >
-                  <ArrowUpRight className="w-3.5 h-3.5" />
+                  <ArrowUpRight size={14} />
                   Ingreso
                 </button>
                 <button
                   type="button"
                   onClick={() => setCustomTipo('gasto')}
-                  className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
-                    customTipo === 'gasto'
-                      ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                  aria-pressed={customTipo === 'gasto'}
+                  className={`segmented-item justify-center ${customTipo === 'gasto' ? '!text-rose-500 dark:!text-rose-400' : ''}`}
                 >
-                  <ArrowDownRight className="w-3.5 h-3.5" />
+                  <ArrowDownRight size={14} />
                   Gasto
                 </button>
               </div>
 
               {/* Concepto input */}
               <div>
+                <label htmlFor="custom-concepto" className="sr-only">Concepto</label>
                 <input
+                  id="custom-concepto"
                   type="text"
-                  placeholder="Concepto (ej. Compra Mercadona)"
+                  placeholder="Concepto (ej. compra Mercadona)"
                   value={customConcepto}
                   onChange={(e) => setCustomConcepto(e.target.value)}
-                  className="w-full text-xs bg-slate-100/50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 border border-white/10 rounded-xl px-3 py-2 focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder:text-slate-500"
+                  className="field text-xs"
                   required
                 />
               </div>
@@ -145,36 +143,42 @@ export const DemoSimulator: React.FC<DemoSimulatorProps> = ({ injectDemoMovement
               {/* Importe input */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="relative">
+                  <label htmlFor="custom-importe" className="sr-only">Importe</label>
                   <input
+                    id="custom-importe"
                     type="number"
                     step="0.01"
                     placeholder="Importe"
                     value={customImporte}
                     onChange={(e) => setCustomImporte(e.target.value)}
-                    className="w-full text-xs bg-slate-100/50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 border border-white/10 rounded-xl pl-3 pr-7 py-2 focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder:text-slate-500"
+                    className="field text-xs pr-7 tabular-nums"
                     required
                   />
-                  <span className="absolute right-2.5 top-2 text-xs text-slate-500">€</span>
+                  <span className="absolute right-2.5 top-2.5 text-xs text-ink-faint">€</span>
                 </div>
 
                 {/* Optional: Hucha to subtract expense from */}
                 {customTipo === 'gasto' ? (
-                  <select
-                    value={customHuchaId}
-                    onChange={(e) => setCustomHuchaId(e.target.value)}
-                    className="w-full text-xs bg-slate-100/50 dark:bg-slate-900/50 text-slate-400 dark:text-slate-300 border border-white/10 rounded-xl px-2 py-2 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                  >
-                    <option value="" className="bg-slate-950 text-slate-400">Hucha Principal</option>
-                    {huchas
-                      .filter(h => !h.es_suscripciones)
-                      .map(h => (
-                        <option key={h.id} value={h.id} className="bg-slate-950 text-slate-200">
-                          {h.nombre} ({h.saldo_acumulado.toFixed(1)}€)
-                        </option>
-                      ))}
-                  </select>
+                  <div>
+                    <label htmlFor="custom-hucha" className="sr-only">Cartera</label>
+                    <select
+                      id="custom-hucha"
+                      value={customHuchaId}
+                      onChange={(e) => setCustomHuchaId(e.target.value)}
+                      className="field text-xs"
+                    >
+                      <option value="">Hucha principal</option>
+                      {huchas
+                        .filter(h => !h.es_suscripciones)
+                        .map(h => (
+                          <option key={h.id} value={h.id}>
+                            {h.nombre} ({h.saldo_acumulado.toFixed(1)} €)
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                 ) : (
-                  <div className="flex items-center justify-center text-[10px] text-slate-400 text-center leading-none p-1 border border-dashed border-white/10 rounded-xl bg-white/5">
+                  <div className="notice text-[11px] justify-center text-center">
                     Se distribuirá en cascada por reglas
                   </div>
                 )}
@@ -183,13 +187,13 @@ export const DemoSimulator: React.FC<DemoSimulatorProps> = ({ injectDemoMovement
               {/* Submit Button */}
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2 px-3 rounded-xl hover:shadow-md hover:shadow-indigo-500/10 active:scale-98 transition-all duration-200 border border-indigo-400/20"
+                className="dashboard-primary-button w-full"
               >
-                <Plus className="w-4 h-4" />
-                Inyectar Transacción
+                <Plus size={16} />
+                Inyectar transacción
               </button>
             </form>
-          </Card>
+          </div>
         </div>
       )}
     </div>

@@ -220,7 +220,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
 
   // CSV Exporter using currently filtered items
   const exportToCSV = () => {
-    const headers = ['ID', 'Fecha', 'Tipo', 'Concepto', 'Categoría', 'Estado categoría', 'Importe', 'Importe Neto', 'Hucha Receptora'];
+    const headers = ['ID', 'Fecha', 'Tipo', 'Concepto', 'Categoría', 'Estado categoría', 'Importe', 'Importe neto', 'Hucha receptora'];
     const rows = filteredMovimientos.map(m => {
       const huchaName = m.hucha_id ? (huchas.find(h => h.id === m.hucha_id)?.nombre || '') : '';
       const dateStr = formatDate(m.fecha_operacion);
@@ -328,7 +328,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                 className={`${toolbarButton} ${selectedCategoria === 'pending' ? toolbarOn : toolbarIdle}`}
               >
                 <Sparkles size={13} /> Revisar{' '}
-                <span className="rounded-md bg-sun-500 px-1.5 py-0.5 text-[10px] leading-none text-slate-950">{pendingCount}</span>
+                <span className="rounded-md bg-sun-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-ink">{pendingCount}</span>
               </button>
             )}
             <button
@@ -345,7 +345,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
               <button
                 type="button"
                 onClick={clearAllFilters}
-                className={`${toolbarButton} border-transparent bg-rose-500/10 text-rose-600 hover:bg-rose-500/15 dark:text-rose-300`}
+                className={`${toolbarButton} border-transparent bg-rose-500/10 text-rose-500 hover:bg-rose-500/15 dark:text-rose-400`}
                 title="Limpiar todos los filtros"
                 aria-label="Limpiar todos los filtros"
               >
@@ -356,9 +356,9 @@ export const ActivityList: React.FC<ActivityListProps> = ({
         </div>
 
         {showFilters && (
-          <div className="animate-in fade-in slide-in-from-top-2 grid gap-3 rounded-2xl bg-surface-2/60 p-3 duration-200 sm:grid-cols-2 md:grid-cols-4">
+          <div className="animate-in fade-in slide-in-from-top-2 grid gap-3 rounded-2xl bg-surface-2 p-3 duration-200 sm:grid-cols-2 md:grid-cols-4">
             {onUpdateCategoria && <label className="flex flex-col gap-1">
-              <span className="eyebrow">Categoría</span>
+              <span className="field-label !mb-0">Categoría</span>
               <select aria-label="Filtrar por categoría" value={selectedCategoria} onChange={e => setSelectedCategoria(e.target.value)} className={field}>
                 <option value="all">Todas las categorías</option>
                 <option value="pending">Pendientes de revisar</option>
@@ -367,7 +367,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             </label>}
 
             <label className="flex flex-col gap-1">
-              <span className="eyebrow">Cartera</span>
+              <span className="field-label !mb-0">Cartera</span>
               <select value={selectedHucha} onChange={(e) => setSelectedHucha(e.target.value)} className={field}>
                 <option value="all">Todas</option>
                 {huchas.filter(h => h.activa !== false).map(h => (
@@ -377,7 +377,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="eyebrow">Banco</span>
+              <span className="field-label !mb-0">Banco</span>
               <select value={selectedBanco} onChange={(e) => setSelectedBanco(e.target.value)} className={field}>
                 <option value="all">Todos los bancos</option>
                 <option value="Unicaja">Unicaja</option>
@@ -392,7 +392,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="eyebrow">Tipo</span>
+              <span className="field-label !mb-0">Tipo</span>
               <select value={selectedTipo} onChange={(e) => setSelectedTipo(e.target.value)} className={field}>
                 <option value="all">Todos</option>
                 <option value="ingreso">Ingresos</option>
@@ -401,7 +401,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             </label>
 
             <div className="flex flex-col gap-1">
-              <span className="eyebrow">Importe (€)</span>
+              <span className="field-label !mb-0">Importe (€)</span>
               <div className="flex items-center gap-1.5">
                 <input type="number" placeholder="Min" aria-label="Importe mínimo" value={minAmount} onChange={(e) => setMinAmount(e.target.value)} className={field} />
                 <span className="text-xs text-ink-faint">–</span>
@@ -410,24 +410,24 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             </div>
 
             <label className="flex flex-col gap-1">
-              <span className="eyebrow">Fecha</span>
+              <span className="field-label !mb-0">Fecha</span>
               <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className={field}>
                 <option value="all">Cualquier fecha</option>
                 <option value="week">Últimos 7 días</option>
                 <option value="month">Este mes</option>
                 <option value="three_months">Últimos 3 meses</option>
-                <option value="custom">Personalizado...</option>
+                <option value="custom">Personalizado…</option>
               </select>
             </label>
 
             {dateRange === 'custom' && (
               <div className="animate-in fade-in slide-in-from-top-1 grid gap-3 duration-200 sm:col-span-2 sm:grid-cols-2 md:col-span-4">
                 <label className="flex flex-col gap-1">
-                  <span className="eyebrow">Desde</span>
+                  <span className="field-label !mb-0">Desde</span>
                   <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className={field} />
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="eyebrow">Hasta</span>
+                  <span className="field-label !mb-0">Hasta</span>
                   <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className={field} />
                 </label>
               </div>
@@ -467,7 +467,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                 {hoveredMovId === m.id && hasCompensaciones && linkedMovs.length > 0 && (
                   <div className="animate-in fade-in slide-in-from-bottom-1 pointer-events-none absolute left-12 top-full z-50 -mt-2 w-80 max-w-[calc(100vw-5rem)] duration-150">
                     <div className="glass-panel rounded-2xl p-3.5 text-left">
-                      <p className="eyebrow mb-2 flex items-center gap-1.5 !text-emerald-600 dark:!text-emerald-400">
+                      <p className="dashboard-label mb-2 flex items-center gap-1.5 !text-emerald-600 dark:!text-emerald-400">
                         <Info className="h-3.5 w-3.5" />
                         {m.tipo === 'gasto' ? 'Gasto compensado por' : 'Ingreso vinculado a'}
                       </p>
@@ -476,7 +476,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                           <div key={link.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 p-2 text-[11px]">
                             <div className="min-w-0">
                               <p className="truncate font-semibold text-ink">{link.concepto}</p>
-                              <p className="mt-0.5 flex items-center gap-1 text-[10px] text-ink-faint">
+                              <p className="mt-0.5 flex items-center gap-1 text-[11px] text-ink-faint">
                                 <Calendar className="h-2.5 w-2.5" /> {formatDate(link.fecha_operacion)}
                               </p>
                             </div>
@@ -500,9 +500,9 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                   {/* Icon depending on type */}
                   <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
                     m.es_metalico
-                      ? 'bg-sky-500/12 text-sky-600 dark:text-sky-300'
+                      ? 'bg-brand-tint text-brand-ink'
                       : m.tipo === 'ingreso'
-                        ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-300'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                         : resolveServiceKey(m.concepto)
                           ? ''
                           : 'bg-surface-2 text-ink-soft'
@@ -540,7 +540,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                               type="button"
                               onClick={() => handleSaveConcepto(m)}
                               aria-label="Guardar concepto"
-                              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-emerald-500 text-white transition-transform hover:bg-emerald-400 active:scale-90"
+                              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-emerald-500 text-white transition-colors hover:bg-emerald-400"
                             >
                               <Check className="h-4 w-4" />
                             </button>
@@ -548,7 +548,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                               type="button"
                               onClick={handleCancelEdit}
                               aria-label="Cancelar edición"
-                              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface-2 text-ink-soft transition-transform hover:text-ink active:scale-90"
+                              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface-2 text-ink-soft transition-colors hover:text-ink"
                             >
                               <X className="h-4 w-4" />
                             </button>
@@ -609,7 +609,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                         )}
 
                         {m.tipo === 'ingreso' && hasCompensaciones && (
-                          <p className="mt-0.5 flex items-center justify-end gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                          <p className="mt-0.5 flex items-center justify-end gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
                             <Undo2 className="h-2.5 w-2.5" /> Compensación
                           </p>
                         )}
@@ -623,14 +623,14 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                       {/* Actions (reassign, convert, link, delete) */}
                       <div className="ml-auto mt-2 flex items-center gap-0.5 transition-opacity duration-200 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
                         {m.tipo === 'gasto' && reassignable.length > 0 && (
-                          <select
+                           <select
                             value={m.hucha_id || ''}
                             onChange={(e) => onChangeHucha(m, e.target.value)}
                             className="mr-1 max-w-[120px] truncate rounded-lg bg-surface-2 px-2 py-1.5 text-[11px] font-semibold text-ink-soft hover:text-ink focus:outline-none"
                             title="Reasignar hucha"
                             aria-label="Reasignar hucha"
                           >
-                            <option value="" disabled>Reasignar...</option>
+                            <option value="" disabled>Reasignar…</option>
                             {reassignable.map(h => (
                               <option key={h.id} value={h.id}>{h.nombre}</option>
                             ))}
@@ -651,8 +651,8 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                           type="button"
                           onClick={() => onLink(m)}
                           className="dashboard-icon-button"
-                          title={m.tipo === 'gasto' ? "Vincular/Compensar con Bizum" : "Repartir este ingreso en gastos"}
-                          aria-label={m.tipo === 'gasto' ? "Vincular/Compensar con Bizum" : "Repartir este ingreso en gastos"}
+                          title={m.tipo === 'gasto' ? "Vincular/compensar con Bizum" : "Repartir este ingreso en gastos"}
+                          aria-label={m.tipo === 'gasto' ? "Vincular/compensar con Bizum" : "Repartir este ingreso en gastos"}
                         >
                           <Link className="h-3.5 w-3.5" />
                         </button>

@@ -220,17 +220,17 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
   };
 
   const handleCopyMD = async () => {
-    let mdString = `# Reporte Financiero Flowt\nGenerado el: ${new Date().toLocaleDateString('es-ES')}\n\n`;
+    let mdString = `# Reporte financiero Flowt\nGenerado el: ${new Date().toLocaleDateString('es-ES')}\n\n`;
 
     // 1. Estadísticas Globales
-    mdString += `## 📊 Estadísticas Globales Históricas\n`;
-    mdString += `- **Ingresos Totales:** +${(userStats?.total_ingresos || 0).toFixed(2)}€\n`;
-    mdString += `- **Gastos Totales:** -${(userStats?.total_gastos || 0).toFixed(2)}€\n`;
-    mdString += `- **Balance Histórico:** ${((userStats?.total_ingresos || 0) - (userStats?.total_gastos || 0)).toFixed(2)}€\n\n`;
+    mdString += `## 📊 Estadísticas globales históricas\n`;
+    mdString += `- **Ingresos totales:** +${(userStats?.total_ingresos || 0).toFixed(2)}€\n`;
+    mdString += `- **Gastos totales:** -${(userStats?.total_gastos || 0).toFixed(2)}€\n`;
+    mdString += `- **Balance histórico:** ${((userStats?.total_ingresos || 0) - (userStats?.total_gastos || 0)).toFixed(2)}€\n\n`;
 
     // 2. Carteras
-    mdString += `## 🏦 Estado de las Carteras (Huchas)\n`;
-    mdString += `| Cartera | Saldo Actual | Objetivo | Regla de Ingreso | Principal |\n`;
+    mdString += `## 🏦 Estado de las carteras (huchas)\n`;
+    mdString += `| Cartera | Saldo actual | Objetivo | Regla de ingreso | Principal |\n`;
     mdString += `|---|---|---|---|---|\n`;
     huchas.forEach(h => {
       const objetivo = h.objetivo ? `${h.objetivo}€` : 'Sin objetivo';
@@ -242,8 +242,8 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
     // 3. Suscripciones
     const activas = suscripciones.filter(s => s.activa);
     if (activas.length > 0) {
-      mdString += `## 🔄 Suscripciones Activas\n`;
-      mdString += `| Suscripción | Coste Total | Mi Parte | Frecuencia | Categoría |\n`;
+      mdString += `## 🔄 Suscripciones activas\n`;
+      mdString += `| Suscripción | Coste total | Mi parte | Frecuencia | Categoría |\n`;
       mdString += `|---|---|---|---|---|\n`;
       activas.forEach(s => {
         mdString += `| ${s.nombre} | ${s.importe.toFixed(2)}€ | ${(s.mi_parte || s.importe).toFixed(2)}€ | ${s.frecuencia} | ${s.categoria} |\n`;
@@ -259,10 +259,10 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
     mdString += `- **Suma de carteras:** ${totalCarteras.toFixed(2)}€\n`;
     mdString += `- **Diferencia de conciliación histórica:** ${diferenciaConciliacion.toFixed(2)}€\n\n`;
 
-    mdString += `## 📋 Movimientos (Periodo Filtrado)\n`;
+    mdString += `## 📋 Movimientos (periodo filtrado)\n`;
     mdString += `**Movimientos externos: ${movimientosExternos.length} | Balance externo del periodo: ${totalAmount >= 0 ? '+' : ''}${totalAmount.toFixed(2)}€**\n\n`;
     
-    mdString += `| Fecha | Concepto | Tipo | Origen/Destino | Importe | Notas |\n`;
+    mdString += `| Fecha | Concepto | Tipo | Origen/destino | Importe | Notas |\n`;
     mdString += `|---|---|---|---|---|---|\n`;
     movimientosExternos.forEach(m => {
       const d = parseMovimientoDate(m.fecha_operacion);
@@ -273,7 +273,7 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
       if (m.tipo === 'gasto') {
         destino_origen = huchas.find(h => h.id === m.hucha_id)?.nombre || 'Desconocida';
       } else {
-        destino_origen = 'Repartido en Carteras';
+        destino_origen = 'Repartido en carteras';
       }
 
       destino_origen = detalleOrigenDestino(m);
@@ -340,86 +340,94 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
   return (
     <div className="flex flex-col gap-6 animate-in slide-in-from-bottom-4 duration-500 pb-12">
       {/* Header */}
-      <div className="flex flex-col gap-2">
-        <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink sm:text-4xl flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
-            <Download size={24} />
-          </div>
-          Exportar datos
-        </h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Filtra tus movimientos y cópialos para análisis externos o asistentes de IA.
-        </p>
+      <div className="flex items-center gap-3">
+        <span className="dashboard-icon bg-brand-tint text-brand-ink">
+          <Download size={18} />
+        </span>
+        <div>
+          <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink sm:text-4xl">
+            Exportar datos
+          </h2>
+          <p className="dashboard-subtitle">
+            Filtra tus movimientos y cópialos para análisis externos o asistentes de IA.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Filters Panel */}
         <div className="col-span-1 lg:col-span-2 flex flex-col gap-6">
-          <div className="backdrop-blur-xl bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/5 rounded-3xl p-6 shadow-xl shadow-slate-200/20 dark:shadow-none">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                <Filter size={18} className="text-indigo-500" />
-                Filtros Avanzados
+          <div className="dashboard-surface p-5">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="dashboard-heading flex items-center gap-2">
+                <Filter size={16} />
+                Filtros avanzados
               </h3>
               <button 
+                type="button"
                 onClick={() => setFilters(DEFAULT_FILTERS)}
-                className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                className="text-xs font-semibold text-ink-faint hover:text-ink transition-colors"
               >
-                Limpiar Filtros
+                Limpiar filtros
               </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Fechas */}
-              <div className="col-span-1 sm:col-span-2 flex items-center justify-between mt-2">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Rango de Fechas</span>
+              <div className="col-span-1 sm:col-span-2 flex items-center justify-between mt-1">
+                <span className="dashboard-label">Rango de fechas</span>
                 <button 
+                  type="button"
                   onClick={() => setFilters(prev => ({ ...prev, startDate: '', endDate: '' }))}
-                  className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-md transition-colors"
+                  className="dashboard-period-button"
                 >
                   Todo el tiempo
                 </button>
               </div>
               
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Desde</label>
+                <label htmlFor="export-start-date" className="field-label">Desde</label>
                 <input
+                  id="export-start-date"
                   type="date"
                   value={filters.startDate}
                   onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
-                  className="w-full bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                  className="field"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Hasta</label>
+                <label htmlFor="export-end-date" className="field-label">Hasta</label>
                 <input
+                  id="export-end-date"
                   type="date"
                   value={filters.endDate}
                   onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
-                  className="w-full bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                  className="field"
                 />
               </div>
 
               {/* Tipo y Hucha */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tipo</label>
+                <label htmlFor="export-type" className="field-label">Tipo</label>
                 <select
+                  id="export-type"
                   value={filters.type}
                   onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value as any }))}
-                  className="w-full bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all appearance-none"
+                  className="field"
                 >
                   <option value="all">Todos los movimientos</option>
-                  <option value="ingreso">Solo Ingresos</option>
-                  <option value="gasto">Solo Gastos</option>
+                  <option value="ingreso">Solo ingresos</option>
+                  <option value="gasto">Solo gastos</option>
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cartera</label>
+                <label htmlFor="export-hucha" className="field-label">Cartera</label>
                 <select
+                  id="export-hucha"
                   value={filters.huchaId}
                   onChange={(e) => setFilters(prev => ({ ...prev, huchaId: e.target.value }))}
-                  className="w-full bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all appearance-none"
+                  className="field"
                 >
                   <option value="all">Todas las carteras</option>
                   {huchas.map(h => (
@@ -430,15 +438,16 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
 
               {/* Búsqueda */}
               <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Buscar en Concepto</label>
+                <label htmlFor="export-search" className="field-label">Buscar en concepto</label>
                 <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" size={16} />
                   <input
+                    id="export-search"
                     type="text"
                     value={filters.searchTerm}
                     onChange={(e) => setFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
-                    placeholder="Ej. Nómina, Mercadona, Amazon..."
-                    className="w-full bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-white/5 rounded-xl pl-11 pr-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                    placeholder="Ej. Nómina, Mercadona, Amazon…"
+                    className="field pl-9"
                   />
                 </div>
               </div>
@@ -446,66 +455,72 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
           </div>
 
           {/* Presets Panel */}
-          <div className="backdrop-blur-xl bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/5 rounded-3xl p-6 shadow-xl shadow-slate-200/20 dark:shadow-none">
-             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                <ListFilter size={18} className="text-indigo-500" />
-                Filtros Guardados (Presets)
+          <div className="dashboard-surface p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="dashboard-heading flex items-center gap-2">
+                <ListFilter size={16} />
+                Filtros guardados (presets)
               </h3>
             </div>
 
             {isSavingPreset ? (
               <div className="flex gap-2 animate-in fade-in zoom-in-95 duration-200 mb-4">
                 <input
+                  id="export-preset-name"
                   type="text"
                   value={newPresetName}
                   onChange={(e) => setNewPresetName(e.target.value)}
-                  placeholder="Nombre del preset..."
-                  className="flex-1 bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-white/5 rounded-xl px-4 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                  placeholder="Nombre del preset…"
+                  className="field flex-1"
                   autoFocus
                   onKeyDown={(e) => e.key === 'Enter' && handleSavePreset()}
                 />
                 <button
+                  type="button"
                   onClick={handleSavePreset}
-                  className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all"
+                  className="dashboard-primary-button"
                 >
                   Guardar
                 </button>
                 <button
+                  type="button"
                   onClick={() => { setIsSavingPreset(false); setNewPresetName(''); }}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-bold transition-all"
+                  className="dashboard-secondary-button"
                 >
                   Cancelar
                 </button>
               </div>
             ) : (
               <button
+                type="button"
                 onClick={() => setIsSavingPreset(true)}
-                className="flex items-center gap-2 text-sm font-semibold text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4 transition-colors"
+                className="flex items-center gap-1.5 text-xs font-semibold text-brand-ink hover:text-brand mb-4 transition-colors"
               >
-                <Save size={16} />
+                <Save size={14} />
                 Guardar filtros actuales
               </button>
             )}
 
             <div className="flex flex-wrap gap-2">
               {presets.length === 0 ? (
-                <span className="text-sm text-slate-500 dark:text-slate-400 italic">No tienes presets guardados.</span>
+                <span className="text-xs text-ink-soft italic">No tienes presets guardados.</span>
               ) : (
                 presets.map(preset => (
-                  <div key={preset.id} className="group relative flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                  <div key={preset.id} className="group relative flex items-center rounded-xl border border-line-strong bg-surface-2 overflow-hidden">
                     <button
+                      type="button"
                       onClick={() => handleLoadPreset(preset)}
-                      className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                      className="px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface transition-colors"
                     >
                       {preset.name}
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleDeletePreset(preset.id)}
-                      className="px-2.5 py-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors border-l border-slate-200 dark:border-slate-700"
+                      className="px-2 py-1.5 text-ink-faint hover:text-rose-500 hover:bg-rose-500/10 transition-colors border-l border-line"
                       title="Eliminar preset"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 ))
@@ -516,92 +531,82 @@ export const ExportView: React.FC<ExportViewProps> = ({ movimientos, huchas, sus
 
         {/* Action Panel */}
         <div className="col-span-1 flex flex-col gap-6">
-          <div className="sticky top-24 backdrop-blur-xl bg-gradient-to-br from-indigo-500/5 to-violet-500/5 dark:from-indigo-500/10 dark:to-violet-500/10 border border-indigo-500/20 dark:border-indigo-500/20 rounded-3xl p-6 shadow-xl shadow-indigo-500/5">
-            <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-6 text-center">
-              Resumen de Exportación
+          <div className="sticky top-24 dashboard-surface p-5">
+            <h3 className="dashboard-heading mb-4 text-center">
+              Resumen de exportación
             </h3>
 
-            <div className="flex flex-col gap-4 mb-8">
-              <div className="bg-white/50 dark:bg-slate-950/50 rounded-2xl p-4 flex flex-col items-center justify-center border border-white/20 dark:border-white/5">
-                <span className="text-4xl font-black text-slate-800 dark:text-white">
+            <div className="flex flex-col gap-3 mb-6">
+              <div className="rounded-2xl bg-surface-2 p-4 flex flex-col items-center justify-center">
+                <span className="figure text-3xl text-ink">
                   {movimientosExternos.length}
                 </span>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <span className="dashboard-label mt-1">
                   Movimientos externos
                 </span>
               </div>
-              <div className="bg-white/50 dark:bg-slate-950/50 rounded-2xl p-4 flex flex-col items-center justify-center border border-white/20 dark:border-white/5">
-                <span className={`text-2xl font-black ${isLocked ? 'blur-sm' : totalAmount >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+              <div className="rounded-2xl bg-surface-2 p-4 flex flex-col items-center justify-center">
+                <span className={`figure text-2xl ${isLocked ? 'blur-sm' : totalAmount >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
                   {isLocked ? '***,**' : `${totalAmount >= 0 ? '+' : ''}${totalAmount.toFixed(2)}`}€
                 </span>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <span className="dashboard-label mt-1">
                   Balance externo
                 </span>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5">
               <button
+                type="button"
                 onClick={handleCopyJSON}
                 disabled={filteredMovimientos.length === 0 || isLocked}
-                className={`w-full relative py-3.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all overflow-hidden group ${
-                  (filteredMovimientos.length === 0 || isLocked)
-                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                    : 'bg-slate-800 dark:bg-white text-white dark:text-slate-900 hover:scale-[1.02] active:scale-95 shadow-lg'
-                }`}
+                className="dashboard-primary-button w-full"
               >
                 {copiedFormat === 'json' ? (
                   <>
-                    <CheckCircle2 size={18} className="text-emerald-400 dark:text-emerald-500" />
+                    <CheckCircle2 size={16} />
                     <span>¡Copiado!</span>
                   </>
                 ) : (
                   <>
-                    <FileJson size={18} />
+                    <FileJson size={16} />
                     <span>Copiar como JSON</span>
                   </>
                 )}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-10 bg-white dark:bg-black transition-opacity" />
               </button>
 
               <button
+                type="button"
                 onClick={handleCopyMD}
                 disabled={filteredMovimientos.length === 0 || isLocked}
-                className={`w-full relative py-3.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all overflow-hidden group border ${
-                  (filteredMovimientos.length === 0 || isLocked)
-                    ? 'border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed'
-                    : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 hover:scale-[1.02] active:scale-95 shadow-sm'
-                }`}
+                className="dashboard-secondary-button w-full"
               >
                 {copiedFormat === 'md' ? (
                   <>
-                    <CheckCircle2 size={18} className="text-emerald-500" />
+                    <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
                     <span>¡Copiado!</span>
                   </>
                 ) : (
                   <>
-                    <FileText size={18} />
+                    <FileText size={16} />
                     <span>Copiar como Markdown</span>
                   </>
                 )}
               </button>
 
               <button
+                type="button"
                 onClick={handleExportCSV}
                 disabled={filteredMovimientos.length === 0 || isLocked}
-                className={`w-full relative py-3.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all overflow-hidden group border ${
-                  (filteredMovimientos.length === 0 || isLocked)
-                    ? 'border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed'
-                    : 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:scale-[1.02] active:scale-95 shadow-sm'
-                }`}
+                className="dashboard-secondary-button w-full"
               >
-                <Download size={18} />
-                <span>Descargar CSV Sanitizado</span>
+                <Download size={16} />
+                <span>Descargar CSV sanitizado</span>
               </button>
             </div>
             
             {filteredMovimientos.length === 0 && (
-              <p className="text-[10px] text-center text-slate-400 mt-4 px-4">
+              <p className="text-xs text-center text-ink-faint mt-4 px-4">
                 No hay movimientos que coincidan con los filtros actuales.
               </p>
             )}

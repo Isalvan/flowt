@@ -32,25 +32,27 @@ export const CorreosOrchestrator: React.FC<CorreosOrchestratorProps> = ({
         <div className="segmented">
           
           <button
+            type="button"
             onClick={() => setSubTab('revision')}
             aria-pressed={subTab === 'revision'}
             className="segmented-item"
           >
-            <Mail size={16} className={subTab === 'revision' ? 'text-brand-ink' : ''} />
+            <Mail size={16} />
             Revisión manual
             {pendingCount > 0 && (
-              <span className="grid h-4.5 min-w-4.5 place-items-center rounded-full bg-sun-500 px-1 text-[10px] font-extrabold leading-none text-slate-950">
+              <span className="grid h-4.5 min-w-4.5 place-items-center rounded-full bg-sun-500 px-1 text-[11px] font-extrabold leading-none text-ink tabular-nums">
                 {pendingCount}
               </span>
             )}
           </button>
           
           <button
+            type="button"
             onClick={() => setSubTab('historico')}
             aria-pressed={subTab === 'historico'}
             className="segmented-item"
           >
-            <History size={16} className={subTab === 'historico' ? 'text-brand-ink' : ''} />
+            <History size={16} />
             Historial de correos
           </button>
 

@@ -123,23 +123,20 @@ export const useFinanceData = (forceDemo = false) => {
   const [windowStart] = useState(() => getMovementWindowStart());
   const [chartMovementsLoading, setChartMovementsLoading] = useState(true);
   const uid = user?.uid;
-  // Each unlocked user session owns its cache and pending request.
-  const olderSession = useMemo(() => ({ uid, isFirebaseConfigured, isLocked, forceDemo, active: true, requested: false }), [uid, isFirebaseConfigured, isLocked, forceDemo]);
+  // Each unlocked user session owns its older-movements listener.
+  const olderSession = useMemo(() => ({ uid, isFirebaseConfigured, isLocked, forceDemo }), [uid, isFirebaseConfigured, isLocked, forceDemo]);
   const [olderState, setOlderState] = useState<{
     session: typeof olderSession;
     movements: Movimiento[];
     status: 'loading' | 'loaded' | 'error';
+    attempt: number;
   } | null>(null);
-  useEffect(() => {
-    olderSession.active = true;
-    setOlderState(state => state?.session === olderSession ? state : null);
-    return () => { olderSession.active = false; };
-  }, [olderSession]);
   const currentOlderState = olderState?.session === olderSession ? olderState : null;
   const olderMovements = currentOlderState?.movements ?? [];
   const olderMovementsLoading = currentOlderState?.status === 'loading';
   const olderMovementsLoaded = !isFirebaseConfigured || forceDemo || currentOlderState?.status === 'loaded';
   const olderMovementsError = currentOlderState?.status === 'error';
+  const olderRequest = currentOlderState && currentOlderState.status !== 'error' ? currentOlderState.attempt : 0;
 
   // Global toasts & confirms
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
@@ -156,30 +153,45 @@ export const useFinanceData = (forceDemo = false) => {
   }, []);
 
   const loadOlderMovements = useCallback(async () => {
-    if (!uid || !isFirebaseConfigured || forceDemo || isLocked || !olderSession.active || olderSession.requested) return;
-    olderSession.requested = true;
-    setOlderState({ session: olderSession, movements: [], status: 'loading' });
+    if (!uid || !isFirebaseConfigured || forceDemo || isLocked) return;
+    setOlderState(state => {
+      const current = state?.session === olderSession ? state : null;
+      if (current && current.status !== 'error') return state;
+      return { session: olderSession, movements: current?.movements ?? [], status: 'loading', attempt: (current?.attempt ?? 0) + 1 };
+    });
+  }, [uid, isFirebaseConfigured, forceDemo, isLocked, olderSession]);
+
+  useEffect(() => {
+    const { uid, isFirebaseConfigured, forceDemo, isLocked } = olderSession;
+    if (!olderRequest || !uid || !isFirebaseConfigured || forceDemo || isLocked) return;
+    // Cleanup invalidates callbacks from this attempt, including StrictMode replays.
+    let cancelled = false;
+    const handleError = (error: unknown) => {
+      if (cancelled) return;
+      console.error('Error loading older movements:', error);
+      setOlderState(state => state?.session === olderSession && state.attempt === olderRequest ? { ...state, status: 'error' } : state);
+      showToast('No se pudieron cargar los movimientos históricos.');
+    };
     try {
-      const snapshot = await getDocs(query(
+      const unsubscribe = onSnapshot(query(
         collection(db, 'movimientos'),
         where('id_propietario', '==', uid),
         where('fecha_operacion', '<', windowStart),
         orderBy('fecha_operacion', 'desc'),
-      ));
-      if (!olderSession.active) return;
-      setOlderState({
-        session: olderSession,
-        movements: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Movimiento)),
-        status: 'loaded',
-      });
+      ), snapshot => {
+        if (cancelled) return;
+        setOlderState(state => state?.session === olderSession && state.attempt === olderRequest ? {
+          ...state,
+          movements: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Movimiento)),
+          status: 'loaded',
+        } : state);
+      }, handleError);
+      return () => { cancelled = true; unsubscribe(); };
     } catch (error) {
-      console.error('Error loading older movements:', error);
-      if (!olderSession.active) return;
-      olderSession.requested = false;
-      setOlderState({ session: olderSession, movements: [], status: 'error' });
-      showToast('No se pudieron cargar los movimientos históricos.');
+      handleError(error);
+      return () => { cancelled = true; };
     }
-  }, [uid, isFirebaseConfigured, forceDemo, isLocked, olderSession, windowStart, showToast]);
+  }, [olderSession, olderRequest, windowStart, showToast]);
 
   /** Helper: loads demo data from localStorage or falls back to mocks */
   const loadDemoData = () => {
