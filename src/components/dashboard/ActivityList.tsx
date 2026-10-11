@@ -31,7 +31,9 @@ import { resolveServiceKey } from '../../utils/serviceNames';
 import { CategoryPicker } from './CategoryPicker';
 import { MovementReview } from './MovementReview';
 import { DuplicateChargeReview } from './DuplicateChargeReview';
-import { gmailUrlFor, importeEnEstadisticas } from '../../utils/movements';
+import { cuentaEnEstadisticas, gmailUrlFor, importeEnEstadisticas } from '../../utils/movements';
+import { detectPayroll, formatWorkTime, hourlyRate } from '../../utils/payroll';
+import { usePreferences } from '../../context/PreferencesContext';
 import { findDuplicateCharges, suggestCompensations } from '../../utils/movementSuggestions';
 import { useCategories } from '../../hooks/useCategories';
 
@@ -87,6 +89,8 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   const [showFilters, setShowFilters] = useState(false);
 
   const { formatCurrency, isLocked } = usePrivacy();
+  const { horasSemanales } = usePreferences();
+  const hourly = React.useMemo(() => hourlyRate(detectPayroll(allMovimientos), horasSemanales), [allMovimientos, horasSemanales]);
   const compensations = React.useMemo(() => new Map(
     onAcceptCompensation && onDismissCompensation ? suggestCompensations(allMovimientos).map(s => [s.ingreso.id, s]) : []
   ), [allMovimientos, onAcceptCompensation, onDismissCompensation]);
@@ -456,6 +460,8 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             const duplicate = duplicates.get(m.id);
             const reassignable = huchas.filter(h => !h.es_suscripciones && h.activa !== false);
 
+            // Only worth showing when the expense took a noticeable amount of work.
+            const workHours = hourly && m.tipo === 'gasto' && cuentaEnEstadisticas(m) ? importeEnEstadisticas(m) / hourly : 0;
             let expensePercentage = 0;
             if (m.tipo === 'gasto' && m.hucha_id) {
               const budget = huchaMonthlyBudgets[m.hucha_id] || 0;
@@ -599,6 +605,12 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                           )}
                           {expensePercentage >= 5 && (
                             <ExpenseImpactBadge percentage={expensePercentage} />
+                          )}
+                          {!isLocked && workHours >= 0.5 && (
+                            <span className="inline-flex items-center gap-1.5" title="Tiempo de trabajo según tu última nómina">
+                              <span aria-hidden="true">·</span>
+                              {formatWorkTime(workHours)} de trabajo
+                            </span>
                           )}
                         </div>
                       </div>

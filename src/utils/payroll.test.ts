@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Movimiento } from '../types';
-import { detectPayroll, hourlyRate } from './payroll';
+import { detectPayroll, formatWorkTime, hourlyRate } from './payroll';
 
 const now = new Date(2026, 9, 11, 12);
 const income = (extra: Partial<Movimiento> = {}): Movimiento => ({
@@ -62,5 +62,14 @@ describe('hourlyRate', () => {
     expect(hourlyRate(null, 40)).toBeNull();
     expect(hourlyRate(undefined, 40)).toBeNull();
     for (const hours of [null, undefined, 0, -1, NaN, Infinity]) expect(hourlyRate(payroll, hours)).toBeNull();
+  });
+});
+
+describe('formatWorkTime', () => {
+  it('escribe minutos, horas con minutos y horas redondas', () => {
+    expect(formatWorkTime(0.75)).toBe('45 min');
+    expect(formatWorkTime(4 + 20 / 60)).toBe('4 h 20 min');
+    expect(formatWorkTime(3)).toBe('3 h');
+    expect(formatWorkTime(120.4)).toBe('120 h');
   });
 });

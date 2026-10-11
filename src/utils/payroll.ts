@@ -29,3 +29,12 @@ export function hourlyRate(payroll: Payroll | null | undefined, horasSemanales: 
   if (!payroll || horasSemanales == null || !Number.isFinite(horasSemanales) || horasSemanales <= 0) return null;
   return payroll.importe / (horasSemanales * 52 / 12);
 }
+
+/** Tiempo de trabajo en horas, escrito como «45 min», «4 h 20 min» o «120 h». */
+export function formatWorkTime(hours: number): string {
+  const minutes = Math.round(hours * 60);
+  if (minutes < 60) return `${minutes} min`;
+  if (minutes >= 100 * 60) return `${Math.round(minutes / 60)} h`;
+  const rest = minutes % 60;
+  return rest ? `${Math.floor(minutes / 60)} h ${rest} min` : `${minutes / 60} h`;
+}
