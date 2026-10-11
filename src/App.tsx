@@ -663,6 +663,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
           user={user}
           onLogout={handleLogout}
           movimientos={chartMovements}
+          huchas={huchas}
         />
       </DeferredOverlay>
 

@@ -1,11 +1,12 @@
-import React, { useId, useMemo } from 'react';
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import React, { useId, useMemo, useState } from 'react';
+import { ArrowDownRight, ArrowUpRight, ArrowLeftRight } from 'lucide-react';
 import { CountUp } from '../common/CountUp';
 import { useCountUp } from '../../hooks/useCountUp';
 import { usePrivacy } from '../../context/PrivacyContext';
 
 interface FinancialOverviewProps {
   balance: number;
+  featured?: { nombre: string; saldo: number; accent: string };
   ingresos: number;
   gastos: number;
   /** Which period the income / expense figures cover, e.g. "Este mes". */
@@ -102,8 +103,10 @@ const TrendLine: React.FC<{ values: number[]; className?: string }> = ({ values,
   );
 };
 
-export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ balance, ingresos, gastos, periodLabel, periodStatus, trend }) => {
+export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ balance, featured, ingresos, gastos, periodLabel, periodStatus, trend }) => {
   const { isLocked } = usePrivacy();
+  const [showTotal, setShowTotal] = useState(false);
+  const displayedBalance = featured && !showTotal ? featured.saldo : balance;
   const status = isLocked ? undefined : periodStatus;
   const spent = ingresos > 0 ? Math.round((gastos / ingresos) * 100) : 0;
   const meter = isLocked ? 0 : Math.min(spent, 100);
@@ -116,9 +119,18 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ balance, i
     <section className="dashboard-surface p-5 sm:p-7" aria-label="Resumen financiero">
       <div className="grid gap-5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-end lg:gap-10">
         <div className="min-w-0">
-          <p className="eyebrow">Saldo actual</p>
-          <p className={`figure mt-3 whitespace-nowrap text-[2.9rem] sm:text-6xl ${balance < 0 && !isLocked ? 'text-rose-500' : 'text-ink'}`}>
-            {isLocked ? '•••• €' : <Balance value={balance} />}
+          {featured ? <button
+            type="button"
+            onClick={() => setShowTotal(!showTotal)}
+            aria-label={showTotal ? `Ver ${featured.nombre}` : 'Ver saldo total'}
+            className="eyebrow -my-1.5 flex max-w-full items-center gap-1.5 rounded-lg py-1.5 transition-colors duration-150 hover:text-ink"
+          >
+            {!showTotal && <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${featured.accent}`} />}
+            <span className="truncate">{showTotal ? 'Saldo total' : featured.nombre}</span>
+            <ArrowLeftRight size={12} aria-hidden="true" className="shrink-0 text-ink-faint" />
+          </button> : <p className="eyebrow">Saldo actual</p>}
+          <p className={`figure mt-3 whitespace-nowrap text-[2.9rem] sm:text-6xl ${displayedBalance < 0 && !isLocked ? 'text-rose-500' : 'text-ink'}`}>
+            {isLocked ? '•••• €' : <Balance key={featured && !showTotal ? 'featured' : 'total'} value={displayedBalance} />}
           </p>
         </div>
 

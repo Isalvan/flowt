@@ -80,7 +80,7 @@ interface DashboardViewProps {
 
 export const DashboardView: React.FC<DashboardViewProps> = (props) => {
   const { isLocked, formatCurrency } = usePrivacy();
-  const { inicioPeriodo } = usePreferences();
+  const { inicioPeriodo, cifraDestacada } = usePreferences();
   const periodConfig = useMemo(() => ({
     inicioPeriodo, nominas: payrollDates([...props.chartMovements, ...(props.olderMovements ?? [])]),
   }), [inicioPeriodo, props.chartMovements, props.olderMovements]);
@@ -177,6 +177,8 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
   const periodLabel =
     periods.find((p) => p.value === period)?.label ?? "Histórico";
   const wallets = props.huchas.filter((h) => h.activa !== false);
+  const featuredIndex = wallets.findIndex(h => h.id === cifraDestacada);
+  const featuredWallet = wallets[featuredIndex];
   const walletsTotal = wallets.reduce(
     (sum, h) => sum + Math.max(0, h.saldo_acumulado),
     0,
@@ -316,6 +318,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
       <div className="rise" style={step(1)}>
         <FinancialOverview
           balance={props.balance}
+          featured={featuredWallet ? { nombre: featuredWallet.nombre, saldo: featuredWallet.saldo_acumulado, accent: walletAccent(featuredIndex).fill } : undefined}
           ingresos={ingresos}
           gastos={gastos}
           periodLabel={periodLabel}

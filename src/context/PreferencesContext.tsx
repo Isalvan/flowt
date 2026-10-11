@@ -8,13 +8,14 @@ interface Preferences {
   horasSemanales: number | null;
   umbralCompraPequena: number;
   inicioPeriodo: InicioPeriodo;
+  cifraDestacada: string | null;
 }
 
 interface PreferencesContextType extends Preferences {
   updatePreferences: (partial: Partial<Preferences>) => Promise<void>;
 }
 
-const defaults: Preferences = { horasSemanales: null, umbralCompraPequena: 5, inicioPeriodo: 1 };
+const defaults: Preferences = { horasSemanales: null, umbralCompraPequena: 5, inicioPeriodo: 1, cifraDestacada: null };
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
 // Outside a provider (isolated component tests) the defaults apply and nothing is saved.
 const fallback: PreferencesContextType = { ...defaults, updatePreferences: async () => {} };
@@ -25,6 +26,7 @@ const inRange = (value: unknown, max: number): value is number =>
 // Invalid stored data or updates never replace a valid preference.
 function validated(partial: Partial<Preferences>): Partial<Preferences> {
   const result: Partial<Preferences> = {};
+  if (partial.cifraDestacada === null || (typeof partial.cifraDestacada === 'string' && partial.cifraDestacada.length >= 1 && partial.cifraDestacada.length <= 128)) result.cifraDestacada = partial.cifraDestacada;
   if (partial.horasSemanales === null || inRange(partial.horasSemanales, 80)) result.horasSemanales = partial.horasSemanales;
   if (inRange(partial.umbralCompraPequena, 100)) result.umbralCompraPequena = partial.umbralCompraPequena;
   if (partial.inicioPeriodo === 'nomina' || (inRange(partial.inicioPeriodo, 28) && Number.isInteger(partial.inicioPeriodo))) result.inicioPeriodo = partial.inicioPeriodo;
@@ -66,6 +68,7 @@ export function PreferencesProvider({ children, forceDemo = false }: { children:
           horasSemanales: data.horas_semanales,
           umbralCompraPequena: data.umbral_compra_pequena,
           inicioPeriodo: data.inicio_periodo,
+          cifraDestacada: data.cifra_destacada,
         }) };
         setPreferences(current.current);
         saveLocal(uid, current.current);
@@ -88,6 +91,7 @@ export function PreferencesProvider({ children, forceDemo = false }: { children:
       ...('horasSemanales' in changes ? { horas_semanales: changes.horasSemanales } : {}),
       ...('umbralCompraPequena' in changes ? { umbral_compra_pequena: changes.umbralCompraPequena } : {}),
       ...('inicioPeriodo' in changes ? { inicio_periodo: changes.inicioPeriodo } : {}),
+      ...('cifraDestacada' in changes ? { cifra_destacada: changes.cifraDestacada } : {}),
     };
     try { await setDoc(doc(db, 'settings', uid), data, { merge: true }); }
     catch { /* The local copy remains available until rules are deployed. */ }

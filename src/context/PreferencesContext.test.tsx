@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PreferencesProvider, usePreferences } from './PreferencesContext';
 import { ProfilePanel } from '../components/profile/ProfilePanel';
 import type { InicioPeriodo } from '../utils/periods';
+import type { Hucha } from '../types';
 
 const mocks = vi.hoisted(() => ({
   uid: 'user-1' as string | null,
@@ -42,6 +43,57 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('PreferencesProvider and profile fields', () => {
+  it('loads, validates, saves and recovers the featured preference', async () => {
+    localStorage.setItem('flowt:prefs:user-1', JSON.stringify({ cifraDestacada: 'local' }));
+    mocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ cifra_destacada: 'remote' }) });
+    function FeaturedProbe() {
+      const prefs = usePreferences();
+      return <>
+        <output>{prefs.cifraDestacada ?? 'total'}</output>
+        {['x', 'a'.repeat(128), '', 'a'.repeat(129), 42, null].map((value, i) => <button key={i}
+          onClick={() => { void prefs.updatePreferences({ cifraDestacada: value as string | null }); }}>choice-{i}</button>)}
+      </>;
+    }
+    const view = render(<PreferencesProvider><FeaturedProbe /></PreferencesProvider>);
+    expect(screen.getByRole('status')).toHaveTextContent('local');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('remote'));
+    fireEvent.click(screen.getByText('choice-0'));
+    expect(mocks.setDoc).toHaveBeenLastCalledWith('settings/user-1', { cifra_destacada: 'x' }, { merge: true });
+    fireEvent.click(screen.getByText('choice-1'));
+    for (const i of [2, 3, 4]) fireEvent.click(screen.getByText(`choice-${i}`));
+    expect(screen.getByRole('status').textContent).toBe('a'.repeat(128));
+    expect(mocks.setDoc).toHaveBeenCalledTimes(2);
+    view.unmount();
+    mocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ cifra_destacada: '' }) });
+    render(<PreferencesProvider><FeaturedProbe /></PreferencesProvider>);
+    await act(async () => {});
+    expect(screen.getByRole('status').textContent).toBe('a'.repeat(128));
+    fireEvent.click(screen.getByText('choice-5'));
+    expect(screen.getByRole('status')).toHaveTextContent('total');
+    expect(mocks.setDoc).toHaveBeenLastCalledWith('settings/user-1', { cifra_destacada: null }, { merge: true });
+    expect(JSON.parse(localStorage.getItem('flowt:prefs:user-1')!).cifraDestacada).toBeNull();
+  });
+
+  it('lists active wallets in order and saves the featured choice or total', async () => {
+    const huchas: Hucha[] = [
+      { id: 'archived', nombre: 'Archivada', activa: false, saldo_acumulado: 0, objetivo: null, tipo_aportacion: 'flat', orden: 0 },
+      { id: 'ocio', nombre: 'Ocio', saldo_acumulado: 123, objetivo: null, tipo_aportacion: 'flat', orden: 1 },
+      { id: 'ahorro', nombre: 'Ahorro', activa: true, saldo_acumulado: 456, objetivo: null, tipo_aportacion: 'flat', orden: 2 },
+    ];
+    localStorage.setItem('flowt:prefs:user-1', JSON.stringify({ cifraDestacada: 'archived' }));
+    const view = render(<PreferencesProvider><ProfilePanel isOpen onClose={vi.fn()} user={null} onLogout={vi.fn()} huchas={huchas} /></PreferencesProvider>);
+    await act(async () => {});
+    const select = screen.getByLabelText('Cifra destacada');
+    expect(select).toHaveValue('');
+    expect(Array.from(select.querySelectorAll('option')).map(option => option.textContent)).toEqual(['Saldo total', 'Ocio', 'Ahorro']);
+    fireEvent.change(select, { target: { value: 'ocio' } });
+    expect(select).toHaveValue('ocio');
+    expect(mocks.setDoc).toHaveBeenLastCalledWith('settings/user-1', { cifra_destacada: 'ocio' }, { merge: true });
+    fireEvent.change(select, { target: { value: '' } });
+    expect(mocks.setDoc).toHaveBeenLastCalledWith('settings/user-1', { cifra_destacada: null }, { merge: true });
+    view.rerender(<PreferencesProvider><ProfilePanel isOpen onClose={vi.fn()} user={null} onLogout={vi.fn()} huchas={[huchas[0]]} /></PreferencesProvider>);
+    expect(screen.queryByLabelText('Cifra destacada')).not.toBeInTheDocument();
+  });
   it('loads, saves and validates period preferences, including rejected strings and days', async () => {
     mocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ inicio_periodo: 'nomina' }) });
     function PeriodProbe() {
@@ -107,7 +159,7 @@ describe('PreferencesProvider and profile fields', () => {
     fireEvent.change(screen.getByLabelText('Horas de trabajo a la semana'), { target: { value: '' } });
     fireEvent.blur(screen.getByLabelText('Horas de trabajo a la semana'));
     await waitFor(() => expect(mocks.setDoc).toHaveBeenLastCalledWith('settings/user-1', { horas_semanales: null }, { merge: true }));
-    expect(JSON.parse(localStorage.getItem('flowt:prefs:user-1')!)).toEqual({ horasSemanales: null, umbralCompraPequena: 12.5 });
+    expect(JSON.parse(localStorage.getItem('flowt:prefs:user-1')!)).toEqual({ horasSemanales: null, umbralCompraPequena: 12.5, cifraDestacada: null });
   });
 
   it('validates updates in the context and never touches Firestore in demo mode', async () => {
@@ -116,7 +168,7 @@ describe('PreferencesProvider and profile fields', () => {
     expect(screen.getByRole('status')).toHaveTextContent('"horasSemanales":null');
     fireEvent.click(screen.getByText('Update'));
     expect(screen.getByRole('status')).toHaveTextContent('"horasSemanales":40');
-    expect(JSON.parse(localStorage.getItem('flowt:prefs:demo')!)).toEqual({ horasSemanales: 40, umbralCompraPequena: 5 });
+    expect(JSON.parse(localStorage.getItem('flowt:prefs:demo')!)).toEqual({ horasSemanales: 40, umbralCompraPequena: 5, cifraDestacada: null });
     expect(mocks.getDoc).not.toHaveBeenCalled();
     expect(mocks.setDoc).not.toHaveBeenCalled();
   });

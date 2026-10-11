@@ -179,13 +179,15 @@ service cloud.firestore {
           (!('umbral_compra_pequena' in data) ||
           (data.umbral_compra_pequena is number && data.umbral_compra_pequena >= 1 && data.umbral_compra_pequena <= 100)) &&
           (!('inicio_periodo' in data) || data.inicio_periodo == 'nomina' ||
-          (data.inicio_periodo is int && data.inicio_periodo >= 1 && data.inicio_periodo <= 28));
+          (data.inicio_periodo is int && data.inicio_periodo >= 1 && data.inicio_periodo <= 28)) &&
+          (!('cifra_destacada' in data) || data.cifra_destacada == null ||
+          (data.cifra_destacada is string && data.cifra_destacada.size() >= 1 && data.cifra_destacada.size() <= 128));
       }
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) &&
-                       request.resource.data.keys().hasOnly(['tema', 'notificaciones', 'updated_at', 'divisa', 'pin_hash', 'pin_salt', 'horas_semanales', 'umbral_compra_pequena', 'inicio_periodo']) && validPreferences();
+                       request.resource.data.keys().hasOnly(['tema', 'notificaciones', 'updated_at', 'divisa', 'pin_hash', 'pin_salt', 'horas_semanales', 'umbral_compra_pequena', 'inicio_periodo', 'cifra_destacada']) && validPreferences();
       allow update: if isOwner(userId) &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tema', 'notificaciones', 'updated_at', 'divisa', 'pin_hash', 'pin_salt', 'horas_semanales', 'umbral_compra_pequena', 'inicio_periodo']) && validPreferences();
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tema', 'notificaciones', 'updated_at', 'divisa', 'pin_hash', 'pin_salt', 'horas_semanales', 'umbral_compra_pequena', 'inicio_periodo', 'cifra_destacada']) && validPreferences();
       allow delete: if false;
     }
 

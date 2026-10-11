@@ -4,6 +4,8 @@ import type { ComponentProps } from "react";
 import type { Movimiento } from "../../types";
 import { DashboardView } from "./DashboardView";
 import { useFinanceData } from "../../hooks/useFinanceData";
+import { PreferencesProvider } from "../../context/PreferencesContext";
+import { walletAccent } from "../../utils/walletAccent";
 
 const privacy = vi.hoisted(() => ({ isLocked: false }));
 beforeEach(() => { privacy.isLocked = false; });
@@ -31,17 +33,20 @@ vi.mock("./FinancialOverview", () => ({
     ingresos,
     gastos,
     periodStatus,
+    featured,
   }: {
     balance: number;
     ingresos: number;
     gastos: number;
     periodStatus?: "loading" | "error";
+    featured?: { nombre: string; saldo: number; accent: string };
   }) => (
     <div
       data-testid="overview"
       data-balance={balance}
       data-income={periodStatus ? "—" : ingresos}
       data-expense={periodStatus ? "—" : gastos}
+      data-featured={featured ? JSON.stringify(featured) : undefined}
     >
       Saldo actual
       {periodStatus && <p role={periodStatus === "error" ? "alert" : "status"}>
@@ -73,7 +78,7 @@ const movement = (
   concepto: id,
 });
 
-const renderDashboard = (overrides: Partial<ComponentProps<typeof DashboardView>> = {}) => {
+const renderDashboard = (overrides: Partial<ComponentProps<typeof DashboardView>> = {}, withPreferences = false) => {
   const now = new Date();
   const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const older = new Date(now.getFullYear() - 1, 5, 1);
@@ -122,7 +127,7 @@ const renderDashboard = (overrides: Partial<ComponentProps<typeof DashboardView>
       {...overrides}
     />
   );
-  const view = render(dashboard);
+  const view = render(withPreferences ? <PreferencesProvider forceDemo>{dashboard}</PreferencesProvider> : dashboard);
   return {
     ...view,
     update: (next: Partial<ComponentProps<typeof DashboardView>>) =>
@@ -138,6 +143,22 @@ const choosePeriod = (name: string) => {
 };
 
 describe("Dashboard period selector", () => {
+  it.each(['ocio', 'missing', 'archived'])('resolves the featured preference %s using only active wallets', selected => {
+    localStorage.setItem('flowt:prefs:demo', JSON.stringify({ cifraDestacada: selected }));
+    renderDashboard({ huchas: [
+      { id: 'archived', nombre: 'Archivada', activa: false, saldo_acumulado: 999, objetivo: null, tipo_aportacion: 'flat', orden: 0 },
+      { id: 'ahorro', nombre: 'Ahorro', saldo_acumulado: 456, objetivo: null, tipo_aportacion: 'flat', orden: 1 },
+      { id: 'ocio', nombre: 'Ocio', activa: true, saldo_acumulado: 123, objetivo: null, tipo_aportacion: 'flat', orden: 2 },
+    ] }, true);
+    const overview = screen.getByTestId('overview');
+    if (selected === 'ocio') expect(JSON.parse(overview.getAttribute('data-featured')!)).toEqual({ nombre: 'Ocio', saldo: 123, accent: walletAccent(1).fill });
+    else {
+      expect(overview).not.toHaveAttribute('data-featured');
+      expect(overview).toHaveAttribute('data-balance', '4321');
+    }
+    expect(JSON.parse(localStorage.getItem('flowt:prefs:demo')!).cifraDestacada).toBe(selected);
+    localStorage.clear();
+  });
   it("renders complete historical figures from the demo mocks", async () => {
     localStorage.clear();
     const { result } = renderHook(() => useFinanceData(true));

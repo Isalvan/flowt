@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { User, LogOut, Key, ShieldOff, X } from 'lucide-react';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { usePreferences } from '../../context/PreferencesContext';
-import type { Movimiento } from '../../types';
+import type { Hucha, Movimiento } from '../../types';
 import { payrollDates } from '../../utils/periods';
 
 interface ProfilePanelProps {
@@ -11,6 +11,7 @@ interface ProfilePanelProps {
   user: any;
   onLogout: () => void;
   movimientos?: Movimiento[];
+  huchas?: Hucha[];
 }
 
 export const ProfilePanel: React.FC<ProfilePanelProps> = ({
@@ -19,9 +20,11 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
   user,
   onLogout,
   movimientos = [],
+  huchas = [],
 }) => {
   const { hasPin, openCreateModal, removePin, isLocked } = usePrivacy();
-  const { horasSemanales, umbralCompraPequena, inicioPeriodo, updatePreferences } = usePreferences();
+  const { horasSemanales, umbralCompraPequena, inicioPeriodo, cifraDestacada, updatePreferences } = usePreferences();
+  const wallets = huchas.filter(h => h.activa !== false);
 
   const savePreference = (input: HTMLInputElement, field: 'horasSemanales' | 'umbralCompraPequena') => {
     const previous = field === 'horasSemanales' ? horasSemanales : umbralCompraPequena;
@@ -110,6 +113,16 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
           <section className="flex flex-col gap-3">
             <h3 className="dashboard-label">Preferencias</h3>
             <div className="rounded-2xl bg-surface-2 p-5 flex flex-col gap-5">
+              {wallets.length > 0 && <div>
+                <label className="field-label" htmlFor="profile-featured">Cifra destacada</label>
+                <select id="profile-featured" className="field" aria-describedby="profile-featured-hint"
+                  value={wallets.some(h => h.id === cifraDestacada) ? cifraDestacada! : ''}
+                  onChange={event => { void updatePreferences({ cifraDestacada: event.target.value || null }); }}>
+                  <option value="">Saldo total</option>
+                  {wallets.map(h => <option key={h.id} value={h.id}>{h.nombre}</option>)}
+                </select>
+                <p id="profile-featured-hint" className="field-hint">La cifra grande al abrir Flowt. El saldo total queda a un toque.</p>
+              </div>}
               <div>
                 <label className="field-label" htmlFor="profile-period-start">Inicio de tu periodo</label>
                 <select id="profile-period-start" className="field"
