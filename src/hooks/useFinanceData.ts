@@ -1872,12 +1872,14 @@ export const useFinanceData = (forceDemo = false) => {
     es_interno?: boolean;
     es_retirada_efectivo?: boolean;
     hucha_origen_id?: string;
+    banco?: string;
   }) => {
     const amt = roundMoney(Number(movData.importe));
     const isIngreso = movData.tipo === 'ingreso';
     const isMetalico = !!movData.es_metalico;
     const isCashWithdrawal = !!movData.es_retirada_efectivo;
     const isInternal = !!movData.es_interno || isCashWithdrawal;
+    const bankFields = !isMetalico && !isCashWithdrawal && movData.banco ? { banco: movData.banco } : {};
 
     if (isCashWithdrawal && (!isIngreso || !movData.hucha_origen_id)) {
       showToast('Selecciona la cartera bancaria de origen para la retirada.');
@@ -1920,6 +1922,7 @@ export const useFinanceData = (forceDemo = false) => {
         hucha_id: targetHuchaId,
         es_metalico: isMetalico,
         es_interno: isInternal,
+        ...bankFields,
       };
 
       if (isCashWithdrawal) {
@@ -2096,6 +2099,7 @@ export const useFinanceData = (forceDemo = false) => {
           ...(incomeRecord ? { reparto_aplicado: incomeRecord } : {}),
           es_metalico: isMetalico,
           es_interno: isInternal,
+          ...bankFields,
           created_at: serverTimestamp()
         });
       });

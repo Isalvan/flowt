@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CreditCard, Banknote, Calendar, Info, Plus } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { type Hucha } from '../../types';
+import { useBanks } from '../../hooks/useBanks';
 
 interface ManualMovimientoModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface ManualMovimientoModalProps {
     es_metalico?: boolean;
     es_retirada_efectivo?: boolean;
     hucha_origen_id?: string;
+    banco?: string;
   }) => Promise<void>;
   huchas: Hucha[];
 }
@@ -25,6 +27,9 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
   onSave,
   huchas,
 }) => {
+  const { banks } = useBanks();
+  const [banco, setBanco] = useState('');
+  const selectedBank = banks.find(bank => bank.nombre === banco) ?? banks[0];
   const [tipo, setTipo] = useState<'gasto' | 'ingreso'>('gasto');
   const [concepto, setConcepto] = useState('');
   const [importe, setImporte] = useState('');
@@ -46,6 +51,7 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
       setHuchaId('');
       setEsRetiradaEfectivo(false);
       setHuchaOrigenId('');
+      setBanco('');
       setIsLoading(false);
     }
   }, [isOpen]);
@@ -92,12 +98,13 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
       await onSave({
         tipo,
         concepto: concepto.trim(),
-        importe: parsedImporte,
+        importe: Math.round(parsedImporte * 100) / 100,
         fecha_operacion: fechaOperacion,
         hucha_id: actualHuchaId,
         es_metalico: isMetalico,
         es_retirada_efectivo: esRetiradaEfectivo,
         hucha_origen_id: esRetiradaEfectivo ? huchaOrigenId : undefined,
+        ...(!isMetalico && !esRetiradaEfectivo && selectedBank ? { banco: selectedBank.nombre } : {}),
       });
       onClose();
     } catch (err) {
@@ -234,6 +241,13 @@ export const ManualMovimientoModal: React.FC<ManualMovimientoModalProps> = ({
             </button>
           </div>
         </div>
+
+        {metodo === 'banco' && banks.length > 1 && <div>
+          <label className="field-label" htmlFor="manual-banco">Banco</label>
+          <select id="manual-banco" className="field" value={selectedBank.nombre} onChange={e => setBanco(e.target.value)}>
+            {banks.map(bank => <option key={bank.id} value={bank.nombre}>{bank.nombre}</option>)}
+          </select>
+        </div>}
 
         {metodo === 'efectivo' && tipo === 'ingreso' && (
           <div className="rounded-2xl bg-surface-2 p-4 space-y-3">
