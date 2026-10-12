@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import * as biometrics from '../utils/biometricUnlock';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -6,10 +7,14 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 interface PrivacyContextType {
   isLocked: boolean;
   hasPin: boolean;
+  biometricAvailable: boolean;
+  biometricEnabled: boolean;
+  enableBiometric: () => Promise<boolean>;
+  disableBiometric: () => void;
   isPinModalOpen: boolean;
   pinModalMode: 'enter' | 'create' | 'confirm';
   lock: () => void;
-  openUnlockModal: (callback?: (success: boolean) => void) => void;
+  openUnlockModal: (callback?: (success: boolean) => void, options?: { pinOnly?: boolean }) => void;
   openCreateModal: () => void;
   closePinModal: () => void;
   setPin: (pin: string) => Promise<void>;
@@ -72,6 +77,68 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [memoryPin, setMemoryPin] = useState<string | null>(null);
   const [memorySalt, setMemorySalt] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [, refreshBiometric] = useState(0);
+  const biometricEnabled = hasPin && biometrics.biometricEnabled(userId);
+  const biometricRequest = useRef<Promise<boolean> | null>(null);
+  const automaticAttempted = useRef(false);
+  const requestVersion = useRef(0);
+  const unlocked = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    void biometrics.biometricAvailable().then(available => {
+      if (active) setBiometricAvailable(available);
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    unlocked.current = !isLocked;
+  }, [isLocked]);
+
+  useEffect(() => {
+    return () => { requestVersion.current += 1; };
+  }, [userId]);
+
+  const requestBiometric = useCallback(() => {
+    if (biometricRequest.current) return biometricRequest.current;
+    const version = requestVersion.current;
+    const request = biometrics.verifyBiometric(userId).then(success => success && version === requestVersion.current)
+      .finally(() => { if (biometricRequest.current === request) biometricRequest.current = null; });
+    biometricRequest.current = request;
+    return request;
+  }, [userId]);
+
+  useEffect(() => {
+    if (!hasPin || !isLocked || !biometricEnabled || automaticAttempted.current) return;
+    automaticAttempted.current = true;
+    const version = requestVersion.current;
+    void requestBiometric().then(success => {
+      if (success && version === requestVersion.current) {
+        unlocked.current = true;
+        setIsLocked(false);
+      }
+    });
+  }, [hasPin, isLocked, biometricEnabled, requestBiometric]);
+
+  const disableBiometric = useCallback(() => {
+    requestVersion.current += 1;
+    biometrics.disableBiometric(userId);
+    refreshBiometric(value => value + 1);
+  }, [userId]);
+
+  const enableBiometric = useCallback(async () => {
+    if (!hasPin || !unlocked.current) return false;
+    const version = requestVersion.current;
+    const success = await biometrics.enableBiometric(userId);
+    if (version !== requestVersion.current) {
+      biometrics.disableBiometric(userId);
+      return false;
+    }
+    refreshBiometric(value => value + 1);
+    return success;
+  }, [hasPin, userId]);
 
   // Load PIN status on mount and subscribe to auth
   useEffect(() => {
@@ -81,6 +148,7 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Clean sessionStorage when no user, handled in auth observer
 
     const unsub = onAuthStateChanged(auth, async (user) => {
+      requestVersion.current += 1;
       if (user) {
         setUserId(user.uid);
         try {
@@ -124,18 +192,35 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const lock = useCallback(() => {
+    automaticAttempted.current = true;
+    requestVersion.current += 1;
+    unlocked.current = false;
     setIsLocked(true);
   }, []);
 
-  const openUnlockModal = useCallback((callback?: (success: boolean) => void) => {
-    setPinModalMode('enter');
-    setIsPinModalOpen(true);
-    if (callback) {
-      setPinCallback(() => callback);
-    } else {
-      setPinCallback(null);
+  const openUnlockModal = useCallback((callback?: (success: boolean) => void, options?: { pinOnly?: boolean }) => {
+    const openPin = () => {
+      setPinModalMode('enter');
+      setIsPinModalOpen(true);
+      setPinCallback(callback ? () => callback : null);
+    };
+    if (!biometricEnabled || options?.pinOnly) {
+      if (options?.pinOnly) requestVersion.current += 1;
+      openPin();
+      return;
     }
-  }, []);
+    const version = requestVersion.current;
+    void requestBiometric().then(success => {
+      if (version !== requestVersion.current) return;
+      if (success) {
+        unlocked.current = true;
+        setIsLocked(false);
+        callback?.(true);
+      } else {
+        openPin();
+      }
+    });
+  }, [biometricEnabled, requestBiometric]);
 
   const openCreateModal = useCallback(() => {
     setPinModalMode('create');
@@ -175,6 +260,7 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [userId]);
 
   const removePin = useCallback(async () => {
+    disableBiometric();
     setMemoryPin(null);
     setMemorySalt(null);
     sessionStorage.removeItem('flowt-security-pin');
@@ -190,7 +276,7 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     setHasPin(false);
     setIsLocked(false);
-  }, [userId]);
+  }, [userId, disableBiometric]);
 
   const resetPinWithGoogle = useCallback(async (): Promise<boolean> => {
     try {
@@ -234,6 +320,7 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       localStorage.removeItem('flowt-security-pin'); 
       
       setIsLocked(false);
+      unlocked.current = true;
       setIsPinModalOpen(false);
       if (pinCallback) {
         pinCallback(true);
@@ -268,6 +355,10 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       value={{
         isLocked,
         hasPin,
+        biometricAvailable,
+        biometricEnabled,
+        enableBiometric,
+        disableBiometric,
         isPinModalOpen,
         pinModalMode,
         lock,

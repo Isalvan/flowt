@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { User, LogOut, Key, ShieldOff, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { User, LogOut, Key, ShieldOff, X, Fingerprint, ToggleRight, ToggleLeft } from 'lucide-react';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { usePreferences } from '../../context/PreferencesContext';
 import type { Hucha, Movimiento } from '../../types';
@@ -22,7 +22,8 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
   movimientos = [],
   huchas = [],
 }) => {
-  const { hasPin, openCreateModal, removePin, isLocked } = usePrivacy();
+  const { hasPin, openCreateModal, removePin, isLocked, biometricAvailable, biometricEnabled, enableBiometric, disableBiometric, openUnlockModal } = usePrivacy();
+  const [biometricError, setBiometricError] = useState(false);
   const { horasSemanales, umbralCompraPequena, inicioPeriodo, cifraDestacada, updatePreferences } = usePreferences();
   const wallets = huchas.filter(h => h.activa !== false);
 
@@ -61,6 +62,19 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
   const handleRemovePin = async () => {
     await removePin();
     onClose();
+  };
+
+  const handleBiometricToggle = () => {
+    setBiometricError(false);
+    if (biometricEnabled) {
+      disableBiometric();
+      return;
+    }
+    const activate = async () => {
+      if (!await enableBiometric()) setBiometricError(true);
+    };
+    if (isLocked) openUnlockModal(success => { if (success) void activate(); });
+    else void activate();
   };
 
   return (
@@ -213,6 +227,23 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
                   </span>
                 </div>
               </button>
+
+              {hasPin && biometricAvailable && <>
+                <button type="button" role="switch" aria-checked={biometricEnabled} onClick={handleBiometricToggle}
+                  className="w-full flex items-center gap-3.5 p-3 rounded-xl hover:bg-surface transition-colors text-left">
+                  <span className="dashboard-icon bg-brand-tint text-brand-ink"><Fingerprint size={16} /></span>
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-sm font-bold text-ink">Huella o rostro</span>
+                    <span className="block text-xs text-ink-soft mt-0.5">
+                      {biometricEnabled ? 'Activado en este dispositivo' : 'Entra sin teclear el PIN'}
+                    </span>
+                  </div>
+                  {biometricEnabled
+                    ? <ToggleRight aria-hidden="true" className="h-9 w-9 shrink-0 text-emerald-500" />
+                    : <ToggleLeft aria-hidden="true" className="h-9 w-9 shrink-0 text-ink-faint" />}
+                </button>
+                {biometricError && <p role="alert" className="px-3 pb-2 text-xs font-semibold text-rose-500 dark:text-rose-400">No se ha podido activar. Inténtalo de nuevo.</p>}
+              </>}
 
               {hasPin && (
                 <button 
