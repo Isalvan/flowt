@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-flowt-test \"vitest run tests/firestore.rules.test.ts tests/category-huchas.rules.test.ts tests/review-security.rules.test.ts\"",
     "preview": "vite preview"
   },
   "dependencies": {
