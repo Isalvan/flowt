@@ -37,6 +37,9 @@ import {
   toLocalDateKey,
 } from '../utils/subscriptions';
 
+import { sortDemoMovements } from '../utils/demoData';
+import { loadStoredDemoData } from '../utils/demoStorage';
+
 export { parseMovimientoDate } from '../utils/periodStats';
 
 // Standard fallback configurations and options
@@ -79,51 +82,6 @@ const linkedMovementIds = (m: Movimiento): string[] => Array.from(new Set(m.tipo
 
 const needsBank = (mov: Movimiento): boolean => !mov.es_metalico && !mov.es_interno
   && (!mov.banco?.trim() || mov.banco.trim().toLowerCase() === 'banco');
-
-// Initial Mock Data for outstanding user experience in Demo Mode
-const MOCK_HUCHAS: Hucha[] = [
-  { id: 'h-1', nombre: 'Fondo de Emergencia', saldo_acumulado: 4500, objetivo: 8000, tipo_aportacion: 'resto', orden: 1, es_principal: true, tope_objetivo: false },
-  { id: 'h-2', nombre: 'Viaje a Japón', saldo_acumulado: 1200, objetivo: 4000, tipo_aportacion: 'porcentaje', valor_aportacion: 15, orden: 2, es_principal: false, tope_objetivo: true },
-  { id: 'h-3', nombre: 'Suscripciones', saldo_acumulado: 45.97, objetivo: 45.97, tipo_aportacion: 'flat', valor_aportacion: 45.97, orden: 3, es_principal: false, es_suscripciones: true, tope_objetivo: true },
-  { id: 'h-4', nombre: 'Inversiones', saldo_acumulado: 850, objetivo: 5000, tipo_aportacion: 'porcentaje', valor_aportacion: 20, orden: 4, es_principal: false, tope_objetivo: false },
-];
-
-const MOCK_SUSCRIPCIONES: Suscripcion[] = [
-  { id: 's-1', nombre: 'Netflix Premium', importe: 17.99, frecuencia: 'mensual', dia_pago: 12, categoria: 'streaming', color: '#ef4444', activa: true, hucha_id: 'h-3' },
-  { id: 's-2', nombre: 'Spotify Duo', importe: 14.99, frecuencia: 'mensual', dia_pago: 20, categoria: 'musica', color: '#22c55e', activa: true, hucha_id: 'h-3', mi_parte: 7.50 },
-  { id: 's-3', nombre: 'Amazon Prime', importe: 49.90, frecuencia: 'anual', dia_pago: 5, categoria: 'streaming', color: '#0ea5e9', activa: true, hucha_id: 'h-3' },
-  { id: 's-4', nombre: 'Gimnasio', importe: 29.99, frecuencia: 'mensual', dia_pago: 2, categoria: 'fitness', color: '#f97316', activa: false },
-];
-
-const MOCK_MOVIMIENTOS: Movimiento[] = [
-  { id: 'm-1', tipo: 'ingreso', concepto: 'Nómina Abril', importe: 2450.00, fecha_operacion: new Date(2026, 3, 30) },
-  { id: 'm-2', tipo: 'gasto', concepto: 'Súper Mercadona', importe: 84.50, fecha_operacion: new Date(2026, 4, 2), hucha_id: 'h-1' },
-  { id: 'm-3', tipo: 'gasto', concepto: 'Netflix (Mensual)', importe: 17.99, fecha_operacion: new Date(2026, 4, 12), hucha_id: 'h-3' },
-  { id: 'm-4', tipo: 'ingreso', concepto: 'Bizum: Cena de ayer (Compensación)', importe: 22.50, fecha_operacion: new Date(2026, 4, 16), compensa_movimiento_id: 'm-5' },
-  { id: 'm-5', tipo: 'gasto', concepto: 'Cena Amigos Restaurante', importe: 45.00, fecha_operacion: new Date(2026, 4, 15), hucha_id: 'h-1', compensado_por: ['m-4'], importe_neto: 22.50 },
-  { id: 'm-6', tipo: 'ingreso', concepto: 'Venta Wallapop', importe: 120.00, fecha_operacion: new Date(2026, 4, 18) },
-];
-
-const MOCK_PENDING_EMAILS: PendingEmail[] = [
-  {
-    id: 'pend-1',
-    email_id: 'gmail-101',
-    cuerpo: `Asunto: Notificación de cargo\nEstimado cliente,\nLe informamos de un cargo de 24,99 EUR en su tarjeta con fecha 22/05/2026 en el comercio DISCORD*NITRO.\nGracias por su confianza.`,
-    fecha_envio: 'Sat, 22 May 2026 14:32:00 +0200',
-    motivo: 'Fallo total en extracción automática',
-    procesado: false,
-    created_at: new Date()
-  },
-  {
-    id: 'pend-2',
-    email_id: 'gmail-102',
-    cuerpo: `Asunto: Abono recibido\nHola! Te enviaron un Bizum de 12,00 EUR el 23/05/2026. Concepto: Cena de ayer.\nQue tengas un buen día!`,
-    fecha_envio: 'Sun, 23 May 2026 09:15:00 +0200',
-    motivo: 'Fallo total en extracción automática',
-    procesado: false,
-    created_at: new Date()
-  }
-];
 
 export const useFinanceData = (forceDemo = false) => {
   const { inicioPeriodo } = usePreferences();
@@ -219,36 +177,15 @@ export const useFinanceData = (forceDemo = false) => {
     }
   }, [olderSession, olderRequest, windowStart, showToast]);
 
-  /** Helper: loads demo data from localStorage or falls back to mocks */
   const loadDemoData = () => {
     setIsFirebaseConfigured(false);
-    const localMovs = localStorage.getItem('flowt-demo-movimientos');
-    const localHuchas = localStorage.getItem('flowt-demo-huchas');
-    const localSubs = localStorage.getItem('flowt-demo-suscripciones');
-    const localStats = localStorage.getItem('flowt-demo-stats');
-    const localPending = localStorage.getItem('flowt-demo-pending');
-
-    if (localMovs && localHuchas && localSubs && localStats && localPending) {
-      setMovimientos(JSON.parse(localMovs));
-      setChartMovements(JSON.parse(localMovs));
-      setHuchas(JSON.parse(localHuchas));
-      setSuscripciones(JSON.parse(localSubs));
-      setUserStats(JSON.parse(localStats));
-      setPendingEmails(JSON.parse(localPending));
-    } else {
-      setMovimientos(MOCK_MOVIMIENTOS);
-      setChartMovements(MOCK_MOVIMIENTOS);
-      setHuchas(MOCK_HUCHAS);
-      setSuscripciones(MOCK_SUSCRIPCIONES);
-      setPendingEmails(MOCK_PENDING_EMAILS);
-      const initialStats = { total_ingresos: 2592.50, total_gastos: 147.49 };
-      setUserStats(initialStats);
-      localStorage.setItem('flowt-demo-movimientos', JSON.stringify(MOCK_MOVIMIENTOS));
-      localStorage.setItem('flowt-demo-huchas', JSON.stringify(MOCK_HUCHAS));
-      localStorage.setItem('flowt-demo-suscripciones', JSON.stringify(MOCK_SUSCRIPCIONES));
-      localStorage.setItem('flowt-demo-stats', JSON.stringify(initialStats));
-      localStorage.setItem('flowt-demo-pending', JSON.stringify(MOCK_PENDING_EMAILS));
-    }
+    const data = loadStoredDemoData();
+    setMovimientos(data.movimientos);
+    setChartMovements(data.movimientos);
+    setHuchas(data.huchas);
+    setSuscripciones(data.suscripciones);
+    setUserStats(data.stats);
+    setPendingEmails(data.pending);
     setChartMovementsLoading(false);
     setLoading(false);
   };
@@ -482,8 +419,9 @@ export const useFinanceData = (forceDemo = false) => {
     newStats: { total_ingresos: number, total_gastos: number },
     newPending?: PendingEmail[]
   ) => {
-    setMovimientos(newMovs);
-    setChartMovements(newMovs);
+    const sorted = sortDemoMovements(newMovs);
+    setMovimientos(sorted);
+    setChartMovements(sorted);
     setHuchas(newHuchas);
     setSuscripciones(newSubs);
     setUserStats(newStats);
@@ -492,7 +430,7 @@ export const useFinanceData = (forceDemo = false) => {
     setPendingEmails(currentPending);
     localStorage.setItem('flowt-demo-pending', JSON.stringify(currentPending));
     
-    localStorage.setItem('flowt-demo-movimientos', JSON.stringify(newMovs));
+    localStorage.setItem('flowt-demo-movimientos', JSON.stringify(sorted));
     localStorage.setItem('flowt-demo-huchas', JSON.stringify(newHuchas));
     localStorage.setItem('flowt-demo-suscripciones', JSON.stringify(newSubs));
     localStorage.setItem('flowt-demo-stats', JSON.stringify(newStats));

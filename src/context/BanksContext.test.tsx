@@ -18,7 +18,11 @@ vi.mock('firebase/firestore', () => ({
   onSnapshot: (...args: unknown[]) => { mocks.snapshot(...args); mocks.success = args[1] as typeof mocks.success; mocks.error = args[2] as typeof mocks.error; return mocks.unsubscribe; },
   runTransaction: async (_db: unknown, cb: (t: unknown) => Promise<void>) => cb({ get: async () => ({ exists: () => mocks.exists }), set: mocks.set }),
 }));
-beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); mocks.locked = false; mocks.exists = false; vi.stubEnv('VITE_FIREBASE_API_KEY', 'configured'); });
+beforeEach(() => { localStorage.clear();
+  localStorage.setItem('flowt-demo-version', '3');
+  for (const key of ['movimientos', 'huchas', 'suscripciones', 'pending', 'bancos']) localStorage.setItem(`flowt-demo-${key}`, '[]');
+  localStorage.setItem('flowt-demo-stats', JSON.stringify({ total_ingresos: 0, total_gastos: 0 }));
+  vi.clearAllMocks(); mocks.locked = false; mocks.exists = false; vi.stubEnv('VITE_FIREBASE_API_KEY', 'configured'); });
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
 
 describe('BanksProvider', () => {

@@ -10,6 +10,7 @@ const payroll = { tipo: 'ingreso' as const, concepto: 'Nómina', importe: 1000, 
 
 beforeEach(() => {
   localStorage.clear();
+  localStorage.setItem('flowt-demo-version', '3');
   localStorage.setItem('flowt-demo-movimientos', '[]');
   localStorage.setItem('flowt-demo-huchas', JSON.stringify([personal, rest]));
   localStorage.setItem('flowt-demo-suscripciones', '[]');

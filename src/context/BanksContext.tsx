@@ -5,6 +5,7 @@ import { auth, db } from '../firebase';
 import { usePrivacy } from './PrivacyContext';
 import { BANK_CATALOG, bankDate, bankNameKey } from '../utils/banks';
 import { BanksContext, type Bank } from './bankContext';
+import { loadStoredDemoData } from '../utils/demoStorage';
 
 const demoKey = 'flowt-demo-bancos';
 
@@ -14,6 +15,7 @@ export function BanksProvider({ children, forceDemo = false }: { children: React
   const [state, setState] = useState<{ owner: string; items: Bank[] }>({ owner: '', items: [] });
   const [demoItems, setDemoItems] = useState<Bank[]>(() => {
     try {
+      if ((forceDemo || !import.meta.env.VITE_FIREBASE_API_KEY) && !isLocked) loadStoredDemoData();
       const saved: unknown = JSON.parse(localStorage.getItem(demoKey) ?? '[]');
       return Array.isArray(saved) ? saved.filter((b): b is Bank => typeof b?.id === 'string' && typeof b?.nombre === 'string').map(b => ({ ...b, anclaFecha: bankDate(b.anclaFecha) })) : [];
     } catch { return []; }
@@ -24,6 +26,14 @@ export function BanksProvider({ children, forceDemo = false }: { children: React
   const owner = demo ? 'demo' : user?.uid ?? '';
   const items = isLocked ? [] : demo ? demoItems : state.owner === owner ? state.items : [];
   const banks = [...items].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+
+  useEffect(() => {
+    if (!demo || isLocked) return;
+    const saved = loadStoredDemoData().bancos.map(b => ({ ...b, anclaFecha: bankDate(b.anclaFecha) }));
+    demoRef.current = saved;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDemoItems(saved);
+  }, [demo, isLocked]);
 
   useEffect(() => {
     if (demo) return;

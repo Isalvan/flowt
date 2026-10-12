@@ -6,6 +6,7 @@ import { DashboardView } from "./DashboardView";
 import { useFinanceData } from "../../hooks/useFinanceData";
 import { PreferencesProvider } from "../../context/PreferencesContext";
 import { walletAccent } from "../../utils/walletAccent";
+import { buildDemoData } from "../../utils/demoData";
 
 const privacy = vi.hoisted(() => ({ isLocked: false }));
 beforeEach(() => { privacy.isLocked = false; });
@@ -172,19 +173,25 @@ describe("Dashboard period selector", () => {
     expect(screen.getByTestId('banks')).toHaveAttribute('data-total', '70.1');
     expect(screen.getByTestId('banks')).toHaveAttribute('data-cash-excluded', 'true');
   });
-  it("renders complete historical figures from the demo mocks", async () => {
+  it("renders complete historical figures from the generated demo", async () => {
     localStorage.clear();
+    const expected = buildDemoData(new Date());
     const { result } = renderHook(() => useFinanceData(true));
     renderDashboard({
+      balance: result.current.balance,
+      huchas: result.current.huchas,
       chartMovements: result.current.chartMovements,
       chartMovementsLoading: result.current.chartMovementsLoading,
       olderMovements: result.current.olderMovements,
       olderMovementsLoaded: result.current.olderMovementsLoaded,
       loadOlderMovements: result.current.loadOlderMovements,
     });
-    expect(screen.getByTestId("overview")).toHaveAttribute("data-income", "2570");
-    expect(screen.getByTestId("overview")).toHaveAttribute("data-expense", "124.99");
-    expect((await screen.findByTestId("chart-data")).textContent).toContain("2450");
+    expect(screen.getByTestId("overview")).toHaveAttribute("data-income", String(expected.stats.total_ingresos));
+    const walletCents = result.current.huchas.reduce((sum, h) => sum + Math.round(h.saldo_acumulado * 100), 0);
+    expect(Number(screen.getByTestId("overview").getAttribute("data-balance"))).toBe(result.current.balance);
+    expect(Math.round(result.current.balance * 100)).toBe(walletCents);
+    expect(Number(screen.getByTestId("overview").getAttribute("data-expense"))).toBeCloseTo(expected.stats.total_gastos, 2);
+    expect((await screen.findByTestId("chart-data")).textContent).toContain("2150");
   });
 
   it("requests older movements for histórico and hides partial figures until they arrive", async () => {

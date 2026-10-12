@@ -108,6 +108,7 @@ beforeEach(() => {
   fake.listeners.clear();
   fake.batchSizes.length = 0;
   localStorage.clear();
+  localStorage.setItem('flowt-demo-version', '3');
   vi.stubEnv('VITE_FIREBASE_API_KEY', 'clave-de-prueba');
   vi.stubEnv('VITE_REVIEW_API_URL', '');
   vi.spyOn(console, 'error').mockImplementation(() => {});

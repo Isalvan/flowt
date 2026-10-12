@@ -383,7 +383,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             })}
           </div>
         )}
-        <div className="flowt-wallets-grid -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3 xl:grid-cols-[repeat(auto-fit,minmax(13rem,1fr))]">
+        <div className="flowt-wallets-grid -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3 xl:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
           {wallets.length ? (
             <>
               {wallets.map((h, i) => (
