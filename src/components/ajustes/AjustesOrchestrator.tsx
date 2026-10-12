@@ -22,6 +22,8 @@ interface AjustesOrchestratorProps {
   
   // Export props
   chartMovements: Movimiento[];
+  countMovimientosWithoutBank?: () => Promise<number>;
+  assignMovimientosWithoutBank?: (banco: string) => Promise<void>;
   olderMovements: Movimiento[];
   olderMovementsLoading: boolean;
   olderMovementsLoaded: boolean;
@@ -43,6 +45,8 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
   onCancelSuscripcion,
   onUndoCancelSuscripcion,
   chartMovements,
+  countMovimientosWithoutBank,
+  assignMovimientosWithoutBank,
   olderMovements,
   olderMovementsLoading,
   olderMovementsLoaded,
@@ -106,7 +110,7 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
         {subTab === 'revisiones' ? (
           <ReviewHistoryView userId={userId} demo={demo} huchas={huchas} suscripciones={suscripciones} />
         ) : subTab === 'bancos' ? (
-          <BancosView chartMovements={chartMovements} />
+          <BancosView chartMovements={chartMovements} countMovimientosWithoutBank={countMovimientosWithoutBank} assignMovimientosWithoutBank={assignMovimientosWithoutBank} />
         ) : subTab === 'categorias' ? (
           <CategoryHuchasView userId={userId} huchas={huchas} demo={demo} />
         ) : subTab === 'conexiones' ? (

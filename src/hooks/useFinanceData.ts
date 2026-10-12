@@ -77,6 +77,9 @@ const linkedMovementIds = (m: Movimiento): string[] => Array.from(new Set(m.tipo
   ? [...(m.compensado_por || []), ...(m.compensado_por_detalles || []).map(d => d.ingreso_id)]
   : [...(m.compensa_movimiento_id ? [m.compensa_movimiento_id] : []), ...(m.compensaciones_destinos || []).map(d => d.gasto_id)]));
 
+const needsBank = (mov: Movimiento): boolean => !mov.es_metalico && !mov.es_interno
+  && (!mov.banco?.trim() || mov.banco.trim().toLowerCase() === 'banco');
+
 // Initial Mock Data for outstanding user experience in Demo Mode
 const MOCK_HUCHAS: Hucha[] = [
   { id: 'h-1', nombre: 'Fondo de Emergencia', saldo_acumulado: 4500, objetivo: 8000, tipo_aportacion: 'resto', orden: 1, es_principal: true, tope_objetivo: false },
@@ -1834,6 +1837,31 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
+  const countMovimientosWithoutBank = useCallback(async (): Promise<number> => {
+    if (isLocked) return 0;
+    if (!isFirebaseConfigured) return movimientos.filter(needsBank).length;
+    if (!user) return 0;
+    const snapshot = await getDocs(query(collection(db, 'movimientos'), where('id_propietario', '==', user.uid)));
+    return snapshot.docs.filter(item => needsBank(item.data() as Movimiento)).length;
+  }, [isLocked, isFirebaseConfigured, movimientos, user]);
+
+  const assignMovimientosWithoutBank = async (banco: string): Promise<void> => {
+    if (isLocked || !banco.trim()) throw new Error('Banco no disponible');
+    if (!isFirebaseConfigured) {
+      const updated_at = new Date();
+      saveDemoState(movimientos.map(mov => needsBank(mov) ? { ...mov, banco, updated_at } : mov), huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      return;
+    }
+    if (!user) throw new Error('Usuario no disponible');
+    const snapshot = await getDocs(query(collection(db, 'movimientos'), where('id_propietario', '==', user.uid)));
+    const pending = snapshot.docs.filter(item => needsBank(item.data() as Movimiento));
+    for (let offset = 0; offset < pending.length; offset += 400) {
+      const batch = writeBatch(db);
+      pending.slice(offset, offset + 400).forEach(item => batch.update(item.ref, { banco, updated_at: serverTimestamp() }));
+      await batch.commit();
+    }
+  };
+
   const handleCreateManualMovimiento = async (movData: {
     tipo: 'gasto' | 'ingreso';
     concepto: string;
@@ -2369,6 +2397,8 @@ export const useFinanceData = (forceDemo = false) => {
     handleApprovePendingEmail,
     handleDiscardPendingEmail,
     handleCreateManualMovimiento,
+    countMovimientosWithoutBank,
+    assignMovimientosWithoutBank,
     handleDeleteMovimiento,
     handleSubsanarHucha,
     handleRevertirDeuda,

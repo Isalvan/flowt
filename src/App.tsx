@@ -125,6 +125,8 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     handleApprovePendingEmail,
     handleDiscardPendingEmail,
     handleCreateManualMovimiento,
+    countMovimientosWithoutBank,
+    assignMovimientosWithoutBank,
     handleDeleteMovimiento,
     handleSubsanarHucha,
     handleRevertirDeuda,
@@ -567,6 +569,8 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
               onToggleSuscripcion={handleToggleSuscripcion}
               onCancelSuscripcion={handleCancelSuscripcion}
               onUndoCancelSuscripcion={handleUndoCancelSuscripcion}
+              countMovimientosWithoutBank={countMovimientosWithoutBank}
+              assignMovimientosWithoutBank={assignMovimientosWithoutBank}
               chartMovements={chartMovements}
               olderMovements={olderMovements}
               olderMovementsLoading={olderMovementsLoading}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LockKeyhole, Plus, Trash2, X } from 'lucide-react';
 import { useBanks } from '../../hooks/useBanks';
 import { BankBadge } from '../common/BankBadge';
@@ -11,7 +11,11 @@ import { ConfirmModal } from '../common/ConfirmModal';
 
 const pillClass = 'inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-line-strong px-3 text-xs font-bold text-ink-soft transition-colors duration-150 hover:border-brand hover:bg-brand-tint hover:text-brand-ink';
 
-export function BancosView({ chartMovements }: { chartMovements: Movimiento[] }) {
+export function BancosView({ chartMovements, countMovimientosWithoutBank, assignMovimientosWithoutBank }: {
+  chartMovements: Movimiento[];
+  countMovimientosWithoutBank?: () => Promise<number>;
+  assignMovimientosWithoutBank?: (banco: string) => Promise<void>;
+}) {
   const { banks, addBank, removeBank } = useBanks();
   const { formatCurrency, isLocked, openUnlockModal } = usePrivacy();
   const [anchoringId, setAnchoringId] = useState<string | null>(null);
@@ -21,6 +25,26 @@ export function BancosView({ chartMovements }: { chartMovements: Movimiento[] })
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState<Bank | null>(null);
+  const [unassignedCount, setUnassignedCount] = useState(0);
+  const [assignmentBank, setAssignmentBank] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const [assignmentError, setAssignmentError] = useState(false);
+  const selectedBank = banks.find(bank => bank.nombre === assignmentBank) ?? banks[0];
+  const hasBanks = banks.length > 0;
+  useEffect(() => {
+    let cancelled = false;
+    if (!isLocked && hasBanks && countMovimientosWithoutBank) {
+      void countMovimientosWithoutBank().then(count => { if (!cancelled) setUnassignedCount(count); }).catch(() => { if (!cancelled) setUnassignedCount(0); });
+    }
+    return () => { cancelled = true; };
+  }, [isLocked, hasBanks, countMovimientosWithoutBank, chartMovements]);
+  const assign = async () => {
+    if (assigning || !selectedBank || !assignMovimientosWithoutBank) return;
+    setAssigning(true); setAssignmentError(false);
+    try { await assignMovimientosWithoutBank(selectedBank.nombre); setUnassignedCount(0); }
+    catch { setAssignmentError(true); }
+    finally { setAssigning(false); }
+  };
   const exists = (name: string) => banks.some(b => bankNameKey(b.nombre) === bankNameKey(name));
   const duplicate = !!nombre.trim() && exists(nombre);
   const suggestions: { nombre: string; value: string; detected: boolean }[] = [];
@@ -84,6 +108,18 @@ export function BancosView({ chartMovements }: { chartMovements: Movimiento[] })
         <button type="button" className="dashboard-icon-button is-danger col-start-3 row-start-1 sm:col-start-4" aria-label={`Quitar ${bank.nombre}`} disabled={saving} onClick={() => setRemoving(bank)}><Trash2 size={14} /></button>
       </div>;
     })}</div> : <div className="dashboard-empty py-6"><p>Aún no has añadido ningún banco</p></div>}
+    {banks.length > 0 && unassignedCount > 0 && assignMovimientosWithoutBank && <>
+      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-surface-2 p-3.5">
+        <p className="min-w-0 flex-1 text-xs leading-relaxed text-ink-soft">
+          <span className="font-bold text-ink">{unassignedCount} {unassignedCount === 1 ? 'movimiento sin banco.' : 'movimientos sin banco.'}</span> Asígnalos de una vez para que cuenten en su saldo.
+        </p>
+        {banks.length > 1 && <select aria-label="Banco" className="field h-9 w-auto py-0 text-xs" value={selectedBank.nombre} disabled={assigning} onChange={e => setAssignmentBank(e.target.value)}>
+          {banks.map(bank => <option key={bank.id} value={bank.nombre}>{bank.nombre}</option>)}
+        </select>}
+        <button type="button" className="dashboard-secondary-button shrink-0" disabled={assigning} onClick={() => void assign()}>{assigning ? 'Asignando…' : `Asignar a ${selectedBank.nombre}`}</button>
+      </div>
+      {assignmentError && <p role="alert" className="mt-2 text-xs font-semibold text-rose-500 dark:text-rose-400">No se han podido asignar. Inténtalo de nuevo.</p>}
+    </>}
     <div className="mt-5 border-t border-line pt-4">
       <p className="dashboard-label mb-2">Añadir banco</p>
       <div className="flex flex-wrap gap-2">

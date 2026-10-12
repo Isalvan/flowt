@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BancosView } from './BancosView';
 import { BanksContext, type Bank } from '../../context/bankContext';
@@ -83,6 +83,55 @@ describe('BancosView', () => {
       expect(screen.queryByText('Añadir banco')).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'Desbloquear' }));
       expect(privacy.unlock).toHaveBeenCalled();
+    } finally { privacy.locked = false; }
+  });
+});
+
+describe('bulk bank assignment', () => {
+  const one = [{ id: 'bbva', nombre: 'BBVA' }];
+  const many = [...one, { id: 'n26', nombre: 'N26' }];
+  const assignmentView = (banks: Bank[], count: number, assign = vi.fn().mockResolvedValue(undefined)) => render(
+    <BanksContext.Provider value={{ banks, addBank, removeBank, anchorBank: vi.fn() }}>
+      <BancosView chartMovements={[]} countMovimientosWithoutBank={vi.fn().mockResolvedValue(count)} assignMovimientosWithoutBank={assign} />
+    </BanksContext.Provider>,
+  );
+  it('uses singular, no selector for one bank and hides the block after success', async () => {
+    const assign = vi.fn().mockResolvedValue(undefined);
+    assignmentView(one, 1, assign);
+    expect(await screen.findByText('1 movimiento sin banco.')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Banco' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Asignar a BBVA' }));
+    await waitFor(() => expect(screen.queryByText('1 movimiento sin banco.')).not.toBeInTheDocument());
+    expect(assign).toHaveBeenCalledWith('BBVA');
+  });
+  it('uses plural, selects the destination and disables the button while assigning', async () => {
+    let complete!: () => void;
+    const assign = vi.fn(() => new Promise<void>(resolve => { complete = resolve; }));
+    assignmentView(many, 2, assign);
+    expect(await screen.findByText('2 movimientos sin banco.')).toBeInTheDocument();
+    const select = screen.getByRole('combobox', { name: 'Banco' });
+    expect(select).toHaveValue('BBVA');
+    expect(select.querySelectorAll('option')).toHaveLength(2);
+    fireEvent.change(select, { target: { value: 'N26' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Asignar a N26' }));
+    expect(screen.getByRole('button', { name: 'Asignando…' })).toBeDisabled();
+    expect(assign).toHaveBeenCalledWith('N26');
+    await act(async () => complete());
+    expect(screen.queryByText('2 movimientos sin banco.')).not.toBeInTheDocument();
+  });
+  it('shows the specified error and allows retry', async () => {
+    const assign = vi.fn().mockRejectedValueOnce(new Error()).mockResolvedValue(undefined);
+    assignmentView(one, 3, assign);
+    fireEvent.click(await screen.findByRole('button', { name: 'Asignar a BBVA' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se han podido asignar. Inténtalo de nuevo.');
+    fireEvent.click(screen.getByRole('button', { name: 'Asignar a BBVA' }));
+    await waitFor(() => expect(screen.queryByText('3 movimientos sin banco.')).not.toBeInTheDocument());
+  });
+  it.each([{ banks: [], count: 2, locked: false }, { banks: one, count: 0, locked: false }, { banks: one, count: 2, locked: true }])('hides the block when unavailable: %j', async ({ banks, count, locked }) => {
+    privacy.locked = locked;
+    try {
+      await act(async () => { assignmentView(banks, count); });
+      expect(screen.queryByRole('button', { name: /Asignar a/ })).not.toBeInTheDocument();
     } finally { privacy.locked = false; }
   });
 });
