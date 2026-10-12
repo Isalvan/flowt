@@ -24,6 +24,29 @@ from finance.domain import amount_cents, distribute_income, euros, recorded_spli
 def test_infer_bank_from_sender(sender, expected):
     assert main.infer_bank_from_sender(sender) == expected
 
+
+@pytest.mark.parametrize("sender,expected", [
+    ("info@revolut.com", "Revolut"),
+    ("unknown@example.com", "Banco"),
+])
+def test_processed_movement_has_bank(mock_config, mock_gmail_client, mock_gemini, sender, expected):
+    mock_get, _ = mock_gmail_client
+    _, mock_collection = mock_config
+    mock_get.return_value = [{
+        "id": "bank-movement", "from": sender,
+        "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200", "body": "Cargo 10 EUR",
+    }]
+    mock_gemini.return_value = [{
+        "tipo": "gasto", "importe": 10, "fecha": "2026-04-11",
+        "descripcion": "Compra", "confianza": "alta",
+    }]
+    mock_collection.document.return_value.get.return_value.exists = False
+    with patch.object(main, "ALLOWED_BANK_SENDERS", frozenset({sender})), \
+         patch.object(main, "process_email_movements_transaction", return_value=["movement"]) as process, \
+         patch.object(main, "review_enabled", return_value=False):
+        main.process_emails()
+    assert process.call_args.args[1][0]["movimiento"]["banco"] == expected
+
 @pytest.fixture(autouse=True)
 def mock_config():
     # Setup test environment variables

@@ -77,6 +77,9 @@ const linkedMovementIds = (m: Movimiento): string[] => Array.from(new Set(m.tipo
   ? [...(m.compensado_por || []), ...(m.compensado_por_detalles || []).map(d => d.ingreso_id)]
   : [...(m.compensa_movimiento_id ? [m.compensa_movimiento_id] : []), ...(m.compensaciones_destinos || []).map(d => d.gasto_id)]));
 
+const needsBank = (mov: Movimiento): boolean => !mov.es_metalico && !mov.es_interno
+  && (!mov.banco?.trim() || mov.banco.trim().toLowerCase() === 'banco');
+
 // Initial Mock Data for outstanding user experience in Demo Mode
 const MOCK_HUCHAS: Hucha[] = [
   { id: 'h-1', nombre: 'Fondo de Emergencia', saldo_acumulado: 4500, objetivo: 8000, tipo_aportacion: 'resto', orden: 1, es_principal: true, tope_objetivo: false },
@@ -1834,6 +1837,31 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
+  const countMovimientosWithoutBank = useCallback(async (): Promise<number> => {
+    if (isLocked) return 0;
+    if (!isFirebaseConfigured) return movimientos.filter(needsBank).length;
+    if (!user) return 0;
+    const snapshot = await getDocs(query(collection(db, 'movimientos'), where('id_propietario', '==', user.uid)));
+    return snapshot.docs.filter(item => needsBank(item.data() as Movimiento)).length;
+  }, [isLocked, isFirebaseConfigured, movimientos, user]);
+
+  const assignMovimientosWithoutBank = async (banco: string): Promise<void> => {
+    if (isLocked || !banco.trim()) throw new Error('Banco no disponible');
+    if (!isFirebaseConfigured) {
+      const updated_at = new Date();
+      saveDemoState(movimientos.map(mov => needsBank(mov) ? { ...mov, banco, updated_at } : mov), huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      return;
+    }
+    if (!user) throw new Error('Usuario no disponible');
+    const snapshot = await getDocs(query(collection(db, 'movimientos'), where('id_propietario', '==', user.uid)));
+    const pending = snapshot.docs.filter(item => needsBank(item.data() as Movimiento));
+    for (let offset = 0; offset < pending.length; offset += 400) {
+      const batch = writeBatch(db);
+      pending.slice(offset, offset + 400).forEach(item => batch.update(item.ref, { banco, updated_at: serverTimestamp() }));
+      await batch.commit();
+    }
+  };
+
   const handleCreateManualMovimiento = async (movData: {
     tipo: 'gasto' | 'ingreso';
     concepto: string;
@@ -1844,12 +1872,14 @@ export const useFinanceData = (forceDemo = false) => {
     es_interno?: boolean;
     es_retirada_efectivo?: boolean;
     hucha_origen_id?: string;
+    banco?: string;
   }) => {
     const amt = roundMoney(Number(movData.importe));
     const isIngreso = movData.tipo === 'ingreso';
     const isMetalico = !!movData.es_metalico;
     const isCashWithdrawal = !!movData.es_retirada_efectivo;
     const isInternal = !!movData.es_interno || isCashWithdrawal;
+    const bankFields = !isMetalico && !isCashWithdrawal && movData.banco ? { banco: movData.banco } : {};
 
     if (isCashWithdrawal && (!isIngreso || !movData.hucha_origen_id)) {
       showToast('Selecciona la cartera bancaria de origen para la retirada.');
@@ -1892,6 +1922,7 @@ export const useFinanceData = (forceDemo = false) => {
         hucha_id: targetHuchaId,
         es_metalico: isMetalico,
         es_interno: isInternal,
+        ...bankFields,
       };
 
       if (isCashWithdrawal) {
@@ -2068,6 +2099,7 @@ export const useFinanceData = (forceDemo = false) => {
           ...(incomeRecord ? { reparto_aplicado: incomeRecord } : {}),
           es_metalico: isMetalico,
           es_interno: isInternal,
+          ...bankFields,
           created_at: serverTimestamp()
         });
       });
@@ -2078,6 +2110,38 @@ export const useFinanceData = (forceDemo = false) => {
       console.error('Error creating manual movement:', error);
       showToast('Error al registrar el movimiento.');
     }
+  };
+
+  const handleReconcileBankBalance = async (huchaId: string, amount: number): Promise<void> => {
+    const delta = roundMoney(amount);
+    if (isLocked || !Number.isFinite(delta) || delta === 0) throw new Error('Ajuste no válido');
+    const movement = {
+      tipo: delta > 0 ? 'ingreso' as const : 'gasto' as const,
+      concepto: 'Ajuste para cuadrar con el banco',
+      importe: Math.abs(delta),
+      hucha_id: huchaId,
+      es_interno: true,
+      fecha_operacion: new Date(),
+    };
+    if (!isFirebaseConfigured) {
+      const wallet = huchas.find(h => h.id === huchaId && h.activa !== false && !h.es_metalico);
+      if (!wallet) throw new Error('Cartera no disponible');
+      const id = 'm-ajuste-' + Math.random().toString(36).slice(2, 11);
+      const nextHuchas = huchas.map(h => h.id === huchaId ? { ...h, saldo_acumulado: roundMoney(h.saldo_acumulado + delta) } : h);
+      saveDemoState([{ id, ...movement }, ...movimientos], nextHuchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      return;
+    }
+    if (!user) throw new Error('Usuario no disponible');
+    const movRef = doc(collection(db, 'movimientos'));
+    await runTransaction(db, async transaction => {
+      const walletRef = doc(db, 'huchas', huchaId);
+      const snapshot = await transaction.get(walletRef);
+      if (!snapshot.exists()) throw new Error('Cartera no disponible');
+      const wallet = snapshot.data();
+      if (wallet.id_propietario !== user.uid || wallet.activa === false || wallet.es_metalico) throw new Error('Cartera no disponible');
+      transaction.update(walletRef, { saldo_acumulado: roundMoney((wallet.saldo_acumulado || 0) + delta), updated_at: serverTimestamp() });
+      transaction.set(movRef, { ...movement, id_propietario: user.uid, created_at: serverTimestamp() });
+    });
   };
 
   const handleDeleteMovimiento = async (mov: Movimiento) => {
@@ -2369,7 +2433,10 @@ export const useFinanceData = (forceDemo = false) => {
     handleApprovePendingEmail,
     handleDiscardPendingEmail,
     handleCreateManualMovimiento,
+    countMovimientosWithoutBank,
+    assignMovimientosWithoutBank,
     handleDeleteMovimiento,
+    handleReconcileBankBalance,
     handleSubsanarHucha,
     handleRevertirDeuda,
     injectDemoMovement,

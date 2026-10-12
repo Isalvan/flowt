@@ -125,7 +125,10 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     handleApprovePendingEmail,
     handleDiscardPendingEmail,
     handleCreateManualMovimiento,
+    countMovimientosWithoutBank,
+    assignMovimientosWithoutBank,
     handleDeleteMovimiento,
+    handleReconcileBankBalance,
     handleSubsanarHucha,
     handleRevertirDeuda,
     injectDemoMovement,
@@ -526,6 +529,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             onDeleteMovimiento={onDeleteMovimientoWrapper}
             onSubsanar={handleSubsanarHucha}
             onRevertirDeuda={handleRevertirDeuda}
+            onReconcile={handleReconcileBankBalance}
           />
         )}
 
@@ -567,6 +571,8 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
               onToggleSuscripcion={handleToggleSuscripcion}
               onCancelSuscripcion={handleCancelSuscripcion}
               onUndoCancelSuscripcion={handleUndoCancelSuscripcion}
+              countMovimientosWithoutBank={countMovimientosWithoutBank}
+              assignMovimientosWithoutBank={assignMovimientosWithoutBank}
               chartMovements={chartMovements}
               olderMovements={olderMovements}
               olderMovementsLoading={olderMovementsLoading}

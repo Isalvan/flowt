@@ -810,6 +810,7 @@ def process_emails():
             # Construct movement document
             movimiento = {
                 "id_propietario": UID_PROPIETARIO,
+                "banco": infer_bank_from_sender(email.get("from", "")),
                 "tipo": parsed_data["tipo"],
                 "concepto": parsed_data.get("descripcion") or parsed_data.get("concepto") or "Sin concepto",
                 "importe": float(parsed_data["importe"]),

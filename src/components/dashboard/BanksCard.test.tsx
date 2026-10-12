@@ -10,6 +10,20 @@ const setup = (walletsTotal = 50) => render(<BanksCard movimientos={[]} walletsT
 beforeEach(() => { mocks.banks = []; mocks.locked = false; vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-11T12:00:00Z')); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 describe('BanksCard', () => {
+  it('offers reconciliation only for a known difference with a handler and opens its modal', () => {
+    const onReconcile = vi.fn().mockResolvedValue(undefined);
+    mocks.banks = [{ ...bank, anclaSaldo: 100, anclaFecha: new Date() }];
+    const view = setup();
+    expect(screen.queryByRole('button', { name: 'Cuadrar' })).not.toBeInTheDocument();
+    view.rerender(<BanksCard movimientos={[]} walletsTotal={50} onReconcile={onReconcile} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Cuadrar' }));
+    expect(screen.getByRole('heading', { name: 'Cuadrar con tus bancos' })).toBeInTheDocument();
+    view.rerender(<BanksCard movimientos={[]} walletsTotal={100} onReconcile={onReconcile} />);
+    expect(screen.queryByRole('button', { name: 'Cuadrar' })).not.toBeInTheDocument();
+    mocks.banks.push({ id: 'n26', nombre: 'N26' });
+    view.rerender(<BanksCard movimientos={[]} walletsTotal={50} onReconcile={onReconcile} />);
+    expect(screen.queryByRole('button', { name: 'Cuadrar' })).not.toBeInTheDocument();
+  });
   it('does not render without banks or while locked', () => {
     const view = setup(); expect(view.container).toBeEmptyDOMElement();
     mocks.banks = [bank]; mocks.locked = true; view.rerender(<BanksCard movimientos={[]} walletsTotal={0} />);

@@ -71,6 +71,7 @@ interface DashboardViewProps {
   onDeleteMovimiento: (m: Movimiento) => void;
   onSubsanar?: (h: Hucha) => void;
   onRevertirDeuda?: (h: Hucha) => void;
+  onReconcile?: (huchaId: string, amount: number) => Promise<void>;
   onOpenHuchaModal: (h: Hucha | null) => void;
   onDeleteHucha: (h: Hucha) => void;
   onOpenTransferModal: () => void;
@@ -445,7 +446,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         </div>
         {/* On a phone, what you check most often comes before the charts. */}
         <div className={`${column} order-first lg:order-none`}>
-          <BanksCard movimientos={props.chartMovements} walletsTotal={Math.round((walletsTotal - cashTotal) * 100) / 100} cashExcluded={cashTotal > 0} />
+          <BanksCard movimientos={props.chartMovements} walletsTotal={Math.round((walletsTotal - cashTotal) * 100) / 100} cashExcluded={cashTotal > 0} huchas={props.huchas} onReconcile={props.onReconcile} />
           <section className="dashboard-surface min-w-0 p-5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
