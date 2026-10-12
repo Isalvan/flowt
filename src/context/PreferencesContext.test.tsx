@@ -168,7 +168,7 @@ describe('PreferencesProvider and profile fields', () => {
     expect(screen.getByRole('status')).toHaveTextContent('"horasSemanales":null');
     fireEvent.click(screen.getByText('Update'));
     expect(screen.getByRole('status')).toHaveTextContent('"horasSemanales":40');
-    expect(JSON.parse(localStorage.getItem('flowt:prefs:demo')!)).toEqual({ horasSemanales: 40, umbralCompraPequena: 5, cifraDestacada: null });
+    expect(JSON.parse(localStorage.getItem('flowt:prefs:demo')!)).toEqual({ horasSemanales: 40, umbralCompraPequena: 5, cifraDestacada: null, inicioPeriodo: 'nomina' });
     expect(mocks.getDoc).not.toHaveBeenCalled();
     expect(mocks.setDoc).not.toHaveBeenCalled();
   });

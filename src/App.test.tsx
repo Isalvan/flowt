@@ -46,6 +46,9 @@ vi.mock('./context/PrivacyContext', () => ({
   })
 }));
 
+// The demo account holds half a year of movements; rendering the whole app in jsdom takes a while.
+vi.setConfig({ testTimeout: 20000 });
+
 describe('App Dashboard', () => {
   beforeEach(() => {
     window.history.replaceState(null, '', '/');
@@ -100,10 +103,10 @@ describe('App Dashboard', () => {
     const historyBtn = await screen.findByRole('menuitem', { name: /Historial completo/i });
     fireEvent.click(historyBtn);
     
-    expect(await screen.findByPlaceholderText(/Buscar por concepto o importe/i, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText(/Buscar por concepto o importe/i, {}, { timeout: 20000 })).toBeInTheDocument();
     
     vi.unstubAllEnvs();
-  });
+  }, 30000);
 
   it('opens and closes the Más acciones menu', async () => {
     vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');

@@ -10,6 +10,7 @@ const initial = [
 ];
 beforeEach(() => {
   localStorage.clear();
+  localStorage.setItem('flowt-demo-version', '3');
   localStorage.setItem('flowt-demo-movimientos', JSON.stringify(initial));
   localStorage.setItem('flowt-demo-huchas', '[]');
   localStorage.setItem('flowt-demo-suscripciones', '[]');
@@ -56,7 +57,8 @@ describe('persistencia de propuestas en demo', () => {
     const { result } = renderHook(() => useFinanceData(true));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(suggestCompensations(result.current.movimientos)).toHaveLength(1);
-    const [g, i] = result.current.movimientos;
+    const g = result.current.movimientos.find(m => m.id === 'g')!;
+    const i = result.current.movimientos.find(m => m.id === 'i')!;
     await act(() => result.current.handleLinkMovimiento(i, [{ mov: g, importe: 30 }]));
     expect(result.current.movimientos.find(m => m.id === 'g')?.importe_neto).toBe(30);
     expect(suggestCompensations(result.current.movimientos)).toHaveLength(0);

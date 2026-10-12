@@ -33,16 +33,20 @@ function validated(partial: Partial<Preferences>): Partial<Preferences> {
   return result;
 }
 
+// The demo account is paid at the end of the month, so its periods run from payroll to payroll unless changed.
+const demoDefaults: Preferences = { ...defaults, inicioPeriodo: 'nomina' };
+
 function loadLocal(uid: string | null): Preferences {
+  const base = uid ? defaults : demoDefaults;
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey(uid)) ?? '{}');
-    return { ...defaults, ...validated(saved ?? {}) };
-  } catch { return { ...defaults }; }
+    return { ...base, ...validated(saved ?? {}) };
+  } catch { return { ...base }; }
 }
 
 function saveLocal(uid: string | null, preferences: Preferences) {
   const { inicioPeriodo, ...existing } = preferences;
-  try { localStorage.setItem(storageKey(uid), JSON.stringify(inicioPeriodo === 1 ? existing : preferences)); }
+  try { localStorage.setItem(storageKey(uid), JSON.stringify(uid && inicioPeriodo === 1 ? existing : preferences)); }
   catch { /* Storage may be unavailable; preferences still work in memory. */ }
 }
 

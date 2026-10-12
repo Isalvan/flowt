@@ -15,6 +15,7 @@ function Demo() {
 
 beforeEach(() => {
   localStorage.clear();
+  localStorage.setItem('flowt-demo-version', '3');
   localStorage.setItem('flowt-demo-movimientos', JSON.stringify([movement]));
   for (const key of ['huchas', 'suscripciones', 'pending']) localStorage.setItem(`flowt-demo-${key}`, '[]');
   localStorage.setItem('flowt-demo-stats', JSON.stringify({ total_ingresos: 0, total_gastos: 20 }));
