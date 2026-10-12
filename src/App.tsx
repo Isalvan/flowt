@@ -535,7 +535,12 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
 
         {activeTab === 'calendario' && (
           <React.Suspense fallback={<TabLoading />}>
-            <CalendarioView suscripciones={suscripciones} />
+            <CalendarioView
+              suscripciones={suscripciones}
+              movimientos={[...chartMovements, ...olderMovements]}
+              huchas={huchas}
+              loadOlderMovements={loadOlderMovements}
+            />
           </React.Suspense>
         )}
 
