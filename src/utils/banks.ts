@@ -16,18 +16,30 @@ const dayFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid
 const day = (date: Date) => dayFormatter.format(date);
 export const roundBankAmount = (amount: number) => Math.round((amount + Math.sign(amount) * Number.EPSILON) * 100) / 100;
 
+/** The bank's movements that came after its balance was noted: the ones that move the estimate. */
+export function movementsSinceAnchor(bank: Bank, movimientos: Movimiento[]): Movimiento[] {
+  if (bank.anclaSaldo === undefined || !bank.anclaFecha) return [];
+  const anchor = bank.anclaFecha;
+  const name = bank.nombre.trim().replace(/\s+/g, ' ').toLowerCase();
+  return movimientos.filter(m => {
+    if (m.banco?.trim().replace(/\s+/g, ' ').toLowerCase() !== name || (m.es_metalico && m.tipo === 'ingreso')) return false;
+    const date = movementDate(m);
+    if (!date) return false;
+    return hasMovementTime(m) ? date > anchor : day(date) > day(anchor) || (day(date) === day(anchor) && (bankDate(m.created_at)?.getTime() ?? 0) > anchor.getTime());
+  });
+}
+
 export function estimateBankBalance(bank: Bank, movimientos: Movimiento[]): number | null {
   if (bank.anclaSaldo === undefined || !bank.anclaFecha) return null;
-  const anchor = bank.anclaFecha;
-  let total = bank.anclaSaldo;
-  for (const m of movimientos) {
-    if (m.banco?.trim().replace(/\s+/g, ' ').toLowerCase() !== bank.nombre.trim().replace(/\s+/g, ' ').toLowerCase() || (m.es_metalico && m.tipo === 'ingreso')) continue;
-    const date = movementDate(m);
-    if (!date) continue;
-    const later = hasMovementTime(m) ? date > anchor : day(date) > day(anchor) || (day(date) === day(anchor) && (bankDate(m.created_at)?.getTime() ?? 0) > anchor.getTime());
-    if (later) total += m.tipo === 'ingreso' ? m.importe : -m.importe;
-  }
-  return roundBankAmount(total);
+  return roundBankAmount(movementsSinceAnchor(bank, movimientos).reduce((total, m) => total + (m.tipo === 'ingreso' ? m.importe : -m.importe), bank.anclaSaldo));
+}
+
+const shortDay = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short' });
+/** What the estimate rests on, e.g. "3 movimientos desde el 11 oct". */
+export function estimateBasisLabel(bank: Bank, movimientos: Movimiento[]): string {
+  const count = movementsSinceAnchor(bank, movimientos).length;
+  const since = shortDay.format(bank.anclaFecha!).replace('.', '');
+  return count === 0 ? `Sin cambios desde el ${since}` : `${count} ${count === 1 ? 'movimiento' : 'movimientos'} desde el ${since}`;
 }
 
 export function banksSummary(banks: Bank[], movimientos: Movimiento[], walletsTotal: number) {
