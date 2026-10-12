@@ -85,8 +85,8 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
         onClick={onClose}
       />
       
-      {/* Slide-over Panel */}
-      <div className="absolute top-0 right-0 h-full w-full max-w-sm bg-surface border-l border-line shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+      {/* Slide-over panel: the whole screen on a phone, where a sliver of backdrop only looks like a gap. */}
+      <div className="absolute top-0 right-0 h-full w-full bg-surface shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 sm:max-w-sm sm:border-l sm:border-line">
         
         {/* Header Area */}
         <div className="relative shrink-0 border-b border-line bg-surface-2 p-6">
