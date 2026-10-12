@@ -61,3 +61,17 @@ it('shows the activation error and clears it on the next attempt', async () => {
   await act(async () => fireEvent.click(screen.getByRole('switch')));
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
+
+it('hides the preferences while locked and offers to unlock', () => {
+  privacy.isLocked = true;
+  show();
+  expect(screen.queryByLabelText('Horas de trabajo a la semana')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Inicio de tu periodo')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Desbloquear' }));
+  expect(privacy.openUnlockModal).toHaveBeenCalledTimes(1);
+});
+
+it('shows the preferences once unlocked', () => {
+  show();
+  expect(screen.getByLabelText('Horas de trabajo a la semana')).toHaveValue(40);
+});

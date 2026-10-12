@@ -85,8 +85,8 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
         onClick={onClose}
       />
       
-      {/* Slide-over Panel */}
-      <div className="absolute top-0 right-0 h-full w-full max-w-sm bg-surface border-l border-line shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+      {/* Slide-over panel: the whole screen on a phone, where a sliver of backdrop only looks like a gap. */}
+      <div className="absolute top-0 right-0 h-full w-full bg-surface shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 sm:max-w-sm sm:border-l sm:border-line">
         
         {/* Header Area */}
         <div className="relative shrink-0 border-b border-line bg-surface-2 p-6">
@@ -126,7 +126,11 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
           {/* Preferences Section */}
           <section className="flex flex-col gap-3">
             <h3 className="dashboard-label">Preferencias</h3>
-            <div className="rounded-2xl bg-surface-2 p-5 flex flex-col gap-5">
+            {/* Locked, nothing personal is shown or can be changed, preferences included. */}
+            {isLocked ? <div className="rounded-2xl bg-surface-2 p-5">
+              <p className="text-xs leading-relaxed text-ink-soft">Desbloquea Flowt para ver y cambiar tus preferencias.</p>
+              <button type="button" onClick={() => hasPin ? openUnlockModal() : openCreateModal()} className="mt-3 rounded-lg py-1 text-xs font-bold text-brand-ink underline-offset-4 hover:underline">{hasPin ? 'Desbloquear' : 'Crear PIN'}</button>
+            </div> : <div className="rounded-2xl bg-surface-2 p-5 flex flex-col gap-5">
               {wallets.length > 0 && <div>
                 <label className="field-label" htmlFor="profile-featured">Cifra destacada</label>
                 <select id="profile-featured" className="field" aria-describedby="profile-featured-hint"
@@ -200,7 +204,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
                 </div>
                 <p id="profile-small-purchase-hint" className="field-hint">Las compras por debajo de este importe se suman aparte.</p>
               </div>
-            </div>
+            </div>}
           </section>
 
           {/* Security Section */}
