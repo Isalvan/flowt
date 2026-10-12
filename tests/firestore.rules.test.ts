@@ -4,45 +4,57 @@ import { readFileSync } from 'fs';
 import { doc, setDoc, deleteDoc, updateDoc, writeBatch, serverTimestamp, getDoc } from 'firebase/firestore';
 
 let testEnv: RulesTestEnvironment | null = null;
+const emulatorAvailable = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
+const describeRules = describe.skipIf(!emulatorAvailable);
 
 beforeAll(async () => {
-  try {
-    testEnv = await initializeTestEnvironment({
-      projectId: 'demo-flowt-test',
-      firestore: {
-        rules: readFileSync('firestore.rules', 'utf8'),
-        host: '127.0.0.1',
-        port: 8080,
-      },
-    });
-  } catch (error) {
-    if (process.env.FIRESTORE_EMULATOR_HOST) throw error;
-    testEnv = null;
-  }
+  if (!emulatorAvailable) return;
+  const [host, port] = process.env.FIRESTORE_EMULATOR_HOST!.split(':');
+  testEnv = await initializeTestEnvironment({
+    projectId: 'demo-flowt-test',
+    firestore: {
+      rules: readFileSync('firestore.rules', 'utf8'),
+      host,
+      port: Number(port),
+    },
+  });
 });
 
 beforeEach(async () => {
   if (testEnv) {
-    try {
-      await testEnv.clearFirestore();
-    } catch (error) {
-      if (process.env.FIRESTORE_EMULATOR_HOST) throw error;
-      testEnv = null;
-    }
+    await testEnv.clearFirestore();
   }
 });
 
 afterAll(async () => {
   if (testEnv) {
-    try {
-      await testEnv.cleanup();
-    } catch {
-      // Ignore
-    }
+    await testEnv.cleanup();
   }
 });
 
-describe('Firestore Rules - Anclas de bancos', () => {
+describeRules('Firestore Rules - Anclas de bancos', () => {
+  it('allows owner creation and reads, and rejects foreign reads and writes', async () => {
+    if (!testEnv) return;
+    const db = testEnv.authenticatedContext('bank_owner').firestore();
+    const ref = doc(db, 'bancos', 'bank_owner', 'items', 'bbva');
+    const bank = { nombre: 'BBVA', created_at: serverTimestamp() };
+    await assertSucceeds(setDoc(ref, bank));
+    await assertSucceeds(getDoc(ref));
+    await assertFails(setDoc(doc(db, 'bancos', 'bank_owner', 'items', 'invalid-date'), {
+      ...bank, created_at: new Date(0),
+    }));
+    await assertFails(setDoc(doc(db, 'bancos', 'bank_owner', 'items', 'invalid-fields'), {
+      ...bank, ancla_saldo: 100,
+    }));
+    for (const nombre of ['', 'x'.repeat(41), 42]) {
+      await assertFails(setDoc(doc(db, 'bancos', 'bank_owner', 'items', 'invalid-name'), { ...bank, nombre }));
+    }
+    const otherDb = testEnv.authenticatedContext('other_owner').firestore();
+    await assertFails(getDoc(doc(otherDb, 'bancos', 'bank_owner', 'items', 'bbva')));
+    await assertFails(setDoc(doc(otherDb, 'bancos', 'bank_owner', 'items', 'foreign-create'), bank));
+    await assertFails(deleteDoc(doc(otherDb, 'bancos', 'bank_owner', 'items', 'bbva')));
+  });
+
   it('allows the owner to anchor and forbids foreign updates, invalid values and unrelated keys', async () => {
     if (!testEnv) return;
     const db = testEnv.authenticatedContext('bank_owner').firestore();
@@ -65,7 +77,88 @@ describe('Firestore Rules - Anclas de bancos', () => {
   });
 });
 
-describe('Firestore Rules - Movimientos', () => {
+describeRules('Firestore Rules - Settings', () => {
+  const preferences = {
+    horas_semanales: 40,
+    umbral_compra_pequena: 20,
+    inicio_periodo: 1,
+    cifra_destacada: 'saldo',
+  };
+
+  it('allows owner creation and updates, including boundaries, payday and nullable preferences', async () => {
+    if (!testEnv) return;
+    const ref = doc(testEnv.authenticatedContext('user_123').firestore(), 'settings', 'user_123');
+    await assertSucceeds(setDoc(ref, preferences));
+    await assertSucceeds(getDoc(ref));
+    for (const [index, values] of [
+      { horas_semanales: 1, umbral_compra_pequena: 1, inicio_periodo: 1, cifra_destacada: 'x' },
+      { horas_semanales: 80, umbral_compra_pequena: 100, inicio_periodo: 28, cifra_destacada: 'x'.repeat(128) },
+      { horas_semanales: null, umbral_compra_pequena: 20, inicio_periodo: 'nomina', cifra_destacada: null },
+    ].entries()) {
+      const uid = `settings-${index}`;
+      const variantRef = doc(testEnv.authenticatedContext(uid).firestore(), 'settings', uid);
+      await assertSucceeds(setDoc(variantRef, values));
+      await assertSucceeds(updateDoc(variantRef, { ...preferences, updated_at: serverTimestamp() }));
+      await assertSucceeds(updateDoc(variantRef, values));
+    }
+  });
+
+  it.each([
+    ['horas_semanales', 0], ['horas_semanales', 81], ['horas_semanales', '40'],
+    ['umbral_compra_pequena', 0], ['umbral_compra_pequena', 101], ['umbral_compra_pequena', null], ['umbral_compra_pequena', '20'],
+    ['inicio_periodo', 0], ['inicio_periodo', 29], ['inicio_periodo', 1.5], ['inicio_periodo', '1'], ['inicio_periodo', null],
+    ['cifra_destacada', ''], ['cifra_destacada', 'x'.repeat(129)], ['cifra_destacada', 42],
+  ])('rejects invalid %s = %s on creation and update', async (field, value) => {
+    if (!testEnv) return;
+    const ref = doc(testEnv.authenticatedContext('user_123').firestore(), 'settings', 'user_123');
+    await assertFails(setDoc(ref, { ...preferences, [field]: value }));
+    await assertSucceeds(setDoc(ref, preferences));
+    await assertFails(updateDoc(ref, { [field]: value }));
+  });
+
+  it('rejects another user reading, creating or updating settings', async () => {
+    if (!testEnv) return;
+    const otherDb = testEnv.authenticatedContext('other_user').firestore();
+    const foreignRef = doc(otherDb, 'settings', 'user_123');
+    await assertFails(setDoc(foreignRef, preferences));
+    await assertSucceeds(setDoc(doc(testEnv.authenticatedContext('user_123').firestore(), 'settings', 'user_123'), preferences));
+    await assertFails(getDoc(foreignRef));
+    await assertFails(updateDoc(foreignRef, { inicio_periodo: 'nomina' }));
+  });
+});
+
+describeRules('Firestore Rules - Movimientos', () => {
+  it('allows updating only banco and updated_at on an existing movement', async () => {
+    if (!testEnv) return;
+    await testEnv.withSecurityRulesDisabled(async context => {
+      await setDoc(doc(context.firestore(), 'movimientos', 'bank-change'), {
+        id_propietario: 'user_123', tipo: 'gasto', concepto: 'Compra', importe: 20,
+        fecha_operacion: new Date(), banco: 'BBVA', created_at: new Date(0),
+        review_version: 1, field_provenance: { concepto: { source: 'automatic' } },
+      });
+    });
+    const changes = { banco: 'ING', updated_at: serverTimestamp() };
+    const ref = doc(testEnv.authenticatedContext('user_123').firestore(), 'movimientos', 'bank-change');
+    await assertSucceeds(updateDoc(ref, changes));
+    await assertFails(updateDoc(ref, { ...changes, created_at: serverTimestamp() }));
+    await assertFails(updateDoc(doc(testEnv.authenticatedContext('other_user').firestore(), 'movimientos', 'bank-change'), changes));
+  });
+
+  it('allows creating a movement with reparto_aplicado and saving duplicados_descartados', async () => {
+    if (!testEnv) return;
+    const db = testEnv.authenticatedContext('user_123').firestore();
+    const ref = doc(db, 'movimientos', 'distribution');
+    await assertSucceeds(setDoc(ref, {
+      id_propietario: 'user_123', tipo: 'ingreso', concepto: 'Nomina', importe: 1000,
+      fecha_operacion: new Date(), reparto_aplicado: { saldos: { wallet: 1000 }, deudas: {} },
+      duplicados_descartados: ['duplicate-1'],
+    }));
+    await assertSucceeds(updateDoc(ref, { duplicados_descartados: ['duplicate-1', 'duplicate-2'] }));
+    await assertFails(updateDoc(doc(testEnv.authenticatedContext('other_user').firestore(), 'movimientos', 'distribution'), {
+      duplicados_descartados: ['duplicate-3'],
+    }));
+  });
+
   it('permite categorías propias del usuario y rechaza categorías ajenas o de otro tipo', async () => {
     if (!testEnv) return;
     const db = testEnv.authenticatedContext('user_123').firestore();
@@ -159,7 +252,7 @@ describe('Firestore Rules - Movimientos', () => {
   });
 });
 
-describe('Firestore Rules - Stats', () => {
+describeRules('Firestore Rules - Stats', () => {
   it('Should allow an owner to write their stats', async () => {
     if (!testEnv) return;
     const context = testEnv.authenticatedContext('user_123');
@@ -185,7 +278,7 @@ describe('Firestore Rules - Stats', () => {
   });
 });
 
-describe('Firestore Rules - Correos Historico', () => {
+describeRules('Firestore Rules - Correos Historico', () => {
   it('Should reject writing to correos_historico from the client', async () => {
     if (!testEnv) return;
     const context = testEnv.authenticatedContext('user_123');
@@ -198,7 +291,40 @@ describe('Firestore Rules - Correos Historico', () => {
   });
 });
 
-describe('Firestore Rules - Huchas Protegidas', () => {
+describeRules('Firestore Rules - Huchas Protegidas', () => {
+  const wallet = {
+    id_propietario: 'user_123', nombre: 'Extras', tipo_aportacion: 'flat',
+    saldo_acumulado: 0, es_principal: false, activa: true,
+  };
+
+  it('allows valid extra fields on creation and update, including boundaries and null', async () => {
+    if (!testEnv) return;
+    const ref = doc(testEnv.authenticatedContext('user_123').firestore(), 'huchas', 'extras');
+    for (const [index, extras] of [
+      { extra_importe: 50, extra_meses: [6, 12], extra_ultimo: '2026-10' },
+      { extra_importe: 0, extra_meses: [], extra_ultimo: '2026-01' },
+      { extra_importe: 100000, extra_meses: Array.from({ length: 12 }, (_, i) => i + 1), extra_ultimo: '2026-12' },
+      { extra_importe: null, extra_meses: null, extra_ultimo: null },
+    ].entries()) {
+      const variantRef = doc(ref.parent, `extras-${index}`);
+      await assertSucceeds(setDoc(variantRef, { ...wallet, ...extras }));
+      await assertSucceeds(updateDoc(variantRef, { extra_importe: 25, extra_meses: [1], extra_ultimo: '2026-02' }));
+      await assertSucceeds(updateDoc(variantRef, extras));
+    }
+  });
+
+  it.each([
+    ['extra_importe', -1], ['extra_importe', 100001], ['extra_importe', '50'],
+    ['extra_meses', Array.from({ length: 13 }, (_, i) => i + 1)], ['extra_meses', '6,12'],
+    ['extra_ultimo', '2026-1'], ['extra_ultimo', '2026-100'], ['extra_ultimo', 202610],
+  ])('rejects invalid %s = %s on creation and update', async (field, value) => {
+    if (!testEnv) return;
+    const ref = doc(testEnv.authenticatedContext('user_123').firestore(), 'huchas', 'extras');
+    await assertFails(setDoc(ref, { ...wallet, [field]: value }));
+    await assertSucceeds(setDoc(ref, wallet));
+    await assertFails(updateDoc(ref, { [field]: value }));
+  });
+
   it('Should reject deleting a subscription wallet', async () => {
     if (!testEnv) return;
     await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -381,7 +507,7 @@ describe('Firestore Rules - Huchas Protegidas', () => {
   });
 });
 
-describe('Firestore Rules - Frontend fields', () => {
+describeRules('Firestore Rules - Frontend fields', () => {
   it('Should allow the automatic subscriptions wallet creation', async () => {
     if (!testEnv) return;
     const context = testEnv.authenticatedContext('user_123');
