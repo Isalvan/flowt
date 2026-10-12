@@ -9,11 +9,6 @@
       "count": 1
     }
   },
-  "src/components/calendario/CalendarioView.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "src/components/common/PinModal.tsx": {
     "react-hooks/immutability": {
       "count": 2
