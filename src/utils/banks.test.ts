@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BANK_CATALOG, anchorAge, bankInitials, banksSummary, detectedBanks, estimateBankBalance } from './banks';
+import { BANK_CATALOG, anchorAge, bankInitials, banksSummary, detectedBanks, estimateBankBalance, estimateBasisLabel } from './banks';
 import type { Movimiento } from '../types';
 const anchored = { id: 'bbva', nombre: 'BBVA', anclaSaldo: 100, anclaFecha: new Date('2026-10-11T10:00:00Z') };
 const movement = (overrides: Partial<Movimiento> = {}): Movimiento => ({ id: 'm', tipo: 'gasto', concepto: 'Compra', importe: 10, banco: ' bbVa ', fecha_operacion: '2026-10-11T11:00:00Z', ...overrides });
@@ -49,5 +49,13 @@ describe('banks', () => {
   it('detects distinct names by frequency, ignoring generic and blank names', () => {
     expect(detectedBanks([{ banco: 'Unicaja' }, { banco: 'revolut' }, { banco: 'Revolut' }, { banco: ' Banco ' }, { banco: ' ' }, {}])).toEqual(['revolut', 'Unicaja']);
     expect(BANK_CATALOG).toHaveLength(9);
+  });
+});
+
+describe('estimateBasisLabel', () => {
+  it('says how many of the bank movements came after the balance was noted', () => {
+    expect(estimateBasisLabel(anchored, [])).toBe('Sin cambios desde el 11 oct');
+    expect(estimateBasisLabel(anchored, [movement(), movement({ banco: 'Otro' }), movement({ fecha_operacion: '2026-10-11T09:00:00Z' })])).toBe('1 movimiento desde el 11 oct');
+    expect(estimateBasisLabel(anchored, [movement(), movement({ id: 'n' })])).toBe('2 movimientos desde el 11 oct');
   });
 });

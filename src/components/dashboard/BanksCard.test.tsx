@@ -39,13 +39,13 @@ describe('BanksCard', () => {
   it('shows anchored amounts, total and positive comparison', () => {
     mocks.banks = [{ ...bank, anclaSaldo: 100, anclaFecha: new Date() }]; setup();
     expect(screen.getByRole('button', { name: 'Actualizar saldo de BBVA' })).toHaveTextContent('100.00 €');
-    expect(screen.getByText('Anotado hoy')).toBeInTheDocument();
+    expect(screen.getByText('Sin cambios desde el 11 oct')).toBeInTheDocument();
     expect(screen.getByText('Total en bancos')).toBeInTheDocument();
     expect(screen.getByText('Tus carteras suman 50.00 €: 50.00 € sin repartir.')).toBeInTheDocument();
   });
   it('warns for anchors older than 30 days and compares negative difference', () => {
     mocks.banks = [{ ...bank, anclaSaldo: 20, anclaFecha: new Date('2026-09-10T12:00:00Z') }]; setup();
-    expect(screen.getByText('Anotado hace 31 días · conviene actualizarlo')).toHaveClass('text-sun-600');
+    expect(screen.getByText('Sin cambios desde el 10 sept · conviene revisarlo')).toHaveClass('text-sun-600');
     expect(screen.getByText('Tus carteras suman 50.00 €: 30.00 € más de lo que hay en tus bancos.')).toBeInTheDocument();
   });
   it('says the cash is left out of the comparison when there is some', () => {

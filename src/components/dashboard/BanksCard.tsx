@@ -4,7 +4,7 @@ import { Landmark } from 'lucide-react';
 import { useBanks } from '../../hooks/useBanks';
 import { usePrivacy } from '../../context/PrivacyContext';
 import type { Hucha, Movimiento } from '../../types';
-import { anchorAge, anchorDateLabel, banksSummary, estimateBankBalance } from '../../utils/banks';
+import { anchorAge, banksSummary, estimateBankBalance, estimateBasisLabel } from '../../utils/banks';
 import { AnchorBalanceModal } from '../modals/AnchorBalanceModal';
 import { ReconcileModal } from '../modals/ReconcileModal';
 
@@ -26,7 +26,7 @@ export function BanksCard({ movimientos, walletsTotal, cashExcluded = false, huc
   return <section className="dashboard-surface min-w-0 p-5">
     <div className="mb-3 flex items-center gap-3">
       <span className="dashboard-icon bg-brand-tint text-brand-ink"><Landmark size={18} /></span>
-      <div className="min-w-0"><h3 className="dashboard-heading">Tus bancos</h3><p className="dashboard-subtitle">Saldo según lo último que anotaste</p></div>
+      <div className="min-w-0"><h3 className="dashboard-heading">Tus bancos</h3><p className="dashboard-subtitle">Saldo estimado con tus movimientos</p></div>
     </div>
     <div className="divide-y divide-line">{banks.map(bank => {
       const balance = estimateBankBalance(bank, movimientos);
@@ -35,7 +35,7 @@ export function BanksCard({ movimientos, walletsTotal, cashExcluded = false, huc
         <BankBadge nombre={bank.nombre} size="sm" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-bold text-ink">{bank.nombre}</p>
-          <p className={`text-[11px] ${stale ? 'font-bold text-sun-600 dark:text-sun-300' : 'text-ink-soft'}`}>{balance === null ? 'Sin saldo anotado' : `${anchorDateLabel(bank.anclaFecha!)}${stale ? ' · conviene actualizarlo' : ''}`}</p>
+          <p className={`text-[11px] ${stale ? 'font-bold text-sun-600 dark:text-sun-300' : 'text-ink-soft'}`}>{balance === null ? 'Sin saldo anotado' : `${estimateBasisLabel(bank, movimientos)}${stale ? ' · conviene revisarlo' : ''}`}</p>
         </div>
         {balance === null ? <span className="shrink-0 text-xs font-bold text-brand-ink">Anotar saldo</span> : <span className="shrink-0 text-[13px] font-extrabold tabular-nums text-ink">{formatCurrency(balance)}</span>}
       </button>;
