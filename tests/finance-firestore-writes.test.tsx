@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFinanceData } from '../src/hooks/useFinanceData';
 import type { Hucha, Movimiento } from '../src/types';
+import { getDocs, where } from 'firebase/firestore';
 
 /**
  * Firestore en memoria para ejercitar las ramas de cuenta real del hook.
@@ -33,7 +34,7 @@ const fake = vi.hoisted(() => {
     docs.set(target.path, next);
   };
   const notify = () => listeners.forEach(listener => listener());
-  return { docs, listeners, DELETE, ref, snapshot, inCollection, write, notify, nextId: () => `nuevo-${++ids}` };
+  return { docs, listeners, DELETE, ref, snapshot, inCollection, write, notify, batchSizes: [] as number[], nextId: () => `nuevo-${++ids}` };
 });
 
 vi.mock('firebase/firestore', () => {
@@ -55,7 +56,7 @@ vi.mock('firebase/firestore', () => {
   return {
     collection: (_db: unknown, name: string) => ({ kind: 'collection', collection: name }),
     query: (source: Source) => source,
-    where: () => ({}), orderBy: () => ({}), limit: () => ({}),
+    where: vi.fn(() => ({})), orderBy: () => ({}), limit: () => ({}),
     doc: (source: Source | object, ...parts: string[]) => 'kind' in source && source.kind === 'collection'
       ? fake.ref(source.collection, parts[0] ?? fake.nextId())
       : fake.ref(parts[0], parts[1]),
@@ -68,7 +69,7 @@ vi.mock('firebase/firestore', () => {
       emit();
       return () => fake.listeners.delete(emit);
     },
-    getDocs: async (target: Source) => ({ docs: fake.inCollection(target.collection) }),
+    getDocs: vi.fn(async (target: Source) => ({ docs: fake.inCollection(target.collection) })),
     setDoc: async (target: ReturnType<typeof fake.ref>, values: Record<string, unknown>, options?: { merge?: boolean }) => { fake.write(target, values, !!options?.merge); fake.notify(); },
     runTransaction: async (_db: unknown, body: (transaction: unknown) => Promise<unknown>) => {
       const batch = writer(() => undefined);
@@ -82,7 +83,7 @@ vi.mock('firebase/firestore', () => {
       apply(batch.writes);
       return result;
     },
-    writeBatch: () => writer(apply),
+    writeBatch: () => writer(writes => { fake.batchSizes.push(writes.length); apply(writes); }),
   };
 });
 vi.mock('../src/firebase', () => ({
@@ -105,6 +106,7 @@ async function mount() {
 beforeEach(() => {
   fake.docs.clear();
   fake.listeners.clear();
+  fake.batchSizes.length = 0;
   localStorage.clear();
   vi.stubEnv('VITE_FIREBASE_API_KEY', 'clave-de-prueba');
   vi.stubEnv('VITE_REVIEW_API_URL', '');
@@ -145,6 +147,73 @@ describe.each(['demo', 'firebase'] as const)('dominio común en %s', mode => {
   const durableState = () => mode === 'demo'
     ? ['huchas', 'movimientos', 'stats', 'pending'].map(key => localStorage.getItem(`flowt-demo-${key}`))
     : structuredClone([...fake.docs]);
+
+  it('counts and assigns missing banks across all movements, excluding cash and internal entries', async () => {
+    const fields = [{}, { banco: '' }, { banco: 'Banco' }, { banco: '  ' }, { banco: 'BBVA' }, { es_metalico: true }, { es_interno: true }];
+    const movements = fields.map((fields, i) => ({ ...gasto(String(i), 10, 'principal'), fecha_operacion: '2020-01-01', ...fields }));
+    const hook = await setup(initial, movements);
+    const before = allBalances(hook);
+    expect(await hook.current.countMovimientosWithoutBank()).toBe(4);
+    if (mode === 'firebase') {
+      expect(where).toHaveBeenLastCalledWith('id_propietario', '==', 'yo');
+      expect(vi.mocked(getDocs).mock.calls.at(-1)?.[0]).toEqual({ kind: 'collection', collection: 'movimientos' });
+    }
+    await act(() => hook.current.assignMovimientosWithoutBank('Revolut'));
+    expect(await hook.current.countMovimientosWithoutBank()).toBe(0);
+    for (let i = 0; i < 4; i++) expect(hook.current.movimientos.find(m => m.id === String(i))).toMatchObject({ banco: 'Revolut', updated_at: expect.anything() });
+    expect(hook.current.movimientos.find(m => m.id === '4')?.banco).toBe('BBVA');
+    expect(hook.current.movimientos.find(m => m.id === '5')).not.toHaveProperty('banco');
+    expect(hook.current.movimientos.find(m => m.id === '6')).not.toHaveProperty('banco');
+    expect(allBalances(hook)).toEqual(before);
+  });
+
+  it('assigns in batches of at most 400 documents', async () => {
+    const hook = await setup(initial, Array.from({ length: 805 }, (_, i) => gasto(String(i), 1, 'principal')));
+    await act(() => hook.current.assignMovimientosWithoutBank('BBVA'));
+    expect(await hook.current.countMovimientosWithoutBank()).toBe(0);
+    if (mode === 'firebase') expect(fake.batchSizes).toEqual([400, 400, 5]);
+  });
+
+  it.each([false, true])('manual movements persist a bank only for bank payments: cash=%s', async cash => {
+    const hook = await setup();
+    await act(() => hook.current.handleCreateManualMovimiento({ ...ingreso, banco: 'BBVA', es_metalico: cash, hucha_id: 'principal' }));
+    if (cash) expect(hook.current.movimientos[0]).not.toHaveProperty('banco');
+    else expect(hook.current.movimientos[0].banco).toBe('BBVA');
+  });
+
+  it('cash withdrawal legs never carry a bank', async () => {
+    const hook = await setup();
+    await act(() => hook.current.handleCreateManualMovimiento({ ...ingreso, importe: 10, banco: 'BBVA', es_metalico: true, es_retirada_efectivo: true, hucha_origen_id: 'principal' }));
+    expect(hook.current.movimientos).toHaveLength(2);
+    hook.current.movimientos.forEach(m => expect(m).not.toHaveProperty('banco'));
+  });
+
+  it.each([25.126, -125.126])('reconciliation applies signed cents without caps, stats or a bank and deletion reverses it: %s', async amount => {
+    const existing: Movimiento[] = [gasto('old-expense', 100, 'principal'), { id: 'old-income', ...ingreso }];
+    const hook = await setup(initial, existing);
+    await waitFor(() => expect(hook.current.userStats).toEqual({ total_ingresos: 100, total_gastos: 100 }));
+    const before = allBalances(hook);
+    const stats = hook.current.userStats;
+    const delta = Math.round(amount * 100) / 100;
+    await act(() => hook.current.handleReconcileBankBalance('llena', amount));
+    expect(allBalances(hook)).toEqual({ ...before, llena: Math.round((100 + delta) * 100) / 100 });
+    const movement = hook.current.movimientos[0];
+    expect(movement).toMatchObject({ tipo: amount > 0 ? 'ingreso' : 'gasto', concepto: 'Ajuste para cuadrar con el banco', importe: Math.abs(delta), hucha_id: 'llena', es_interno: true, fecha_operacion: expect.any(Date) });
+    expect(movement).not.toHaveProperty('banco');
+    expect(movement).not.toHaveProperty('reparto_aplicado');
+    expect(hook.current.userStats).toEqual(stats);
+    await act(() => hook.current.handleDeleteMovimiento(movement));
+    expect(allBalances(hook)).toEqual(before);
+    expect(hook.current.movimientos).toHaveLength(2);
+    expect(hook.current.userStats).toEqual(stats);
+  });
+
+  it.each(['cash', 'missing'])('rejects reconciliation to unavailable wallets without writes: %s', async id => {
+    const hook = await setup();
+    const before = durableState();
+    await act(async () => { await expect(hook.current.handleReconcileBankBalance(id, 20)).rejects.toThrow(); });
+    expect(durableState()).toEqual(before);
+  });
 
   it.each(['manual', 'pending'] as const)('%s respeta el tope lleno, paga deuda y guarda el registro', async operation => {
     const hook = await setup();

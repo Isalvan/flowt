@@ -2112,6 +2112,38 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
+  const handleReconcileBankBalance = async (huchaId: string, amount: number): Promise<void> => {
+    const delta = roundMoney(amount);
+    if (isLocked || !Number.isFinite(delta) || delta === 0) throw new Error('Ajuste no válido');
+    const movement = {
+      tipo: delta > 0 ? 'ingreso' as const : 'gasto' as const,
+      concepto: 'Ajuste para cuadrar con el banco',
+      importe: Math.abs(delta),
+      hucha_id: huchaId,
+      es_interno: true,
+      fecha_operacion: new Date(),
+    };
+    if (!isFirebaseConfigured) {
+      const wallet = huchas.find(h => h.id === huchaId && h.activa !== false && !h.es_metalico);
+      if (!wallet) throw new Error('Cartera no disponible');
+      const id = 'm-ajuste-' + Math.random().toString(36).slice(2, 11);
+      const nextHuchas = huchas.map(h => h.id === huchaId ? { ...h, saldo_acumulado: roundMoney(h.saldo_acumulado + delta) } : h);
+      saveDemoState([{ id, ...movement }, ...movimientos], nextHuchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      return;
+    }
+    if (!user) throw new Error('Usuario no disponible');
+    const movRef = doc(collection(db, 'movimientos'));
+    await runTransaction(db, async transaction => {
+      const walletRef = doc(db, 'huchas', huchaId);
+      const snapshot = await transaction.get(walletRef);
+      if (!snapshot.exists()) throw new Error('Cartera no disponible');
+      const wallet = snapshot.data();
+      if (wallet.id_propietario !== user.uid || wallet.activa === false || wallet.es_metalico) throw new Error('Cartera no disponible');
+      transaction.update(walletRef, { saldo_acumulado: roundMoney((wallet.saldo_acumulado || 0) + delta), updated_at: serverTimestamp() });
+      transaction.set(movRef, { ...movement, id_propietario: user.uid, created_at: serverTimestamp() });
+    });
+  };
+
   const handleDeleteMovimiento = async (mov: Movimiento) => {
     // Las patas de una transferencia interna forman una única operación:
     // eliminarlas por separado desajusta los saldos de las carteras.
@@ -2404,6 +2436,7 @@ export const useFinanceData = (forceDemo = false) => {
     countMovimientosWithoutBank,
     assignMovimientosWithoutBank,
     handleDeleteMovimiento,
+    handleReconcileBankBalance,
     handleSubsanarHucha,
     handleRevertirDeuda,
     injectDemoMovement,

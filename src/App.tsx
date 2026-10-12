@@ -128,6 +128,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     countMovimientosWithoutBank,
     assignMovimientosWithoutBank,
     handleDeleteMovimiento,
+    handleReconcileBankBalance,
     handleSubsanarHucha,
     handleRevertirDeuda,
     injectDemoMovement,
@@ -528,6 +529,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             onDeleteMovimiento={onDeleteMovimientoWrapper}
             onSubsanar={handleSubsanarHucha}
             onRevertirDeuda={handleRevertirDeuda}
+            onReconcile={handleReconcileBankBalance}
           />
         )}
 
