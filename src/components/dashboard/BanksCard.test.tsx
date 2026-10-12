@@ -34,6 +34,11 @@ describe('BanksCard', () => {
     expect(screen.getByText('Anotado hace 31 días · conviene actualizarlo')).toHaveClass('text-sun-600');
     expect(screen.getByText('Tus carteras suman 50.00 €: 30.00 € más de lo que hay en tus bancos.')).toBeInTheDocument();
   });
+  it('says the cash is left out of the comparison when there is some', () => {
+    mocks.banks = [{ ...bank, anclaSaldo: 100, anclaFecha: new Date() }];
+    render(<BanksCard movimientos={[]} walletsTotal={80} cashExcluded />);
+    expect(screen.getByText('Tus carteras, sin el efectivo, suman 80.00 €: 20.00 € sin repartir.')).toBeInTheDocument();
+  });
   it('shows missing bank counts with singular and plural and hides matching comparison', () => {
     mocks.banks = [{ ...bank, anclaSaldo: 50, anclaFecha: new Date() }, { id: 'n', nombre: 'N26' }];
     const view = setup(); expect(screen.getByText('Falta anotar 1 banco para comparar con tus carteras.')).toBeInTheDocument();
