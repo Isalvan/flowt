@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarClock, Check, ChevronDown, Lock, Plus } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, Fingerprint, Lock, Plus } from "lucide-react";
 import type { Hucha, Movimiento, Suscripcion } from "../../types";
 import { usePrivacy } from "../../context/PrivacyContext";
 import { groupMovementsByMonth, parseMovimientoDate } from "../../utils/periodStats";
@@ -80,7 +80,7 @@ interface DashboardViewProps {
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = (props) => {
-  const { isLocked, formatCurrency } = usePrivacy();
+  const { isLocked, formatCurrency, biometricEnabled, openUnlockModal } = usePrivacy();
   const { inicioPeriodo, cifraDestacada } = usePreferences();
   const periodConfig = useMemo(() => ({
     inicioPeriodo, nominas: payrollDates([...props.chartMovements, ...(props.olderMovements ?? [])]),
@@ -235,7 +235,9 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
           </h3>
           <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
             {props.hasPin
-              ? "Introduce tu PIN para ver tus saldos, carteras y movimientos."
+              ? biometricEnabled
+                ? "Usa el desbloqueo de este dispositivo o tu PIN para ver tus saldos, carteras y movimientos."
+                : "Introduce tu PIN para ver tus saldos, carteras y movimientos."
               : "Flowt mantiene tus saldos ocultos hasta que introduces un PIN de 4 dígitos. Créalo para empezar."}
           </p>
           <button
@@ -243,9 +245,12 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             onClick={props.onUnlock}
             className="dashboard-primary-button mt-7 !px-6 !py-3.5 !text-sm"
           >
-            <Lock size={15} />
+            {props.hasPin && biometricEnabled ? <Fingerprint size={15} /> : <Lock size={15} />}
             {props.hasPin ? "Desbloquear" : "Crear PIN"}
           </button>
+          {props.hasPin && biometricEnabled && (
+            <button type="button" className="mt-3 rounded-lg px-2 py-1 text-xs font-bold text-brand-ink underline-offset-4 hover:underline" onClick={() => openUnlockModal(undefined, { pinOnly: true })}>Usar el PIN</button>
+          )}
           <p className="mt-4 hidden text-xs text-ink-faint md:block">
             o pulsa{" "}
             <kbd className="rounded-md border border-line-strong bg-surface-2 px-1.5 py-0.5 font-sans text-[11px] font-bold text-ink-soft">
