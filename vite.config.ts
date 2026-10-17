@@ -46,7 +46,9 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
         // The 950 kB source logo is still served, but no screen shows it: keep it out of the precache.
-        globIgnores: ['**/node_modules/**/*', 'flowt-logo.png'],
+        globIgnores: ['**/node_modules/**/*', 'flowt-logo.png', 'landing/**'],
+        // The landing is a static page of its own: never answer it with the app shell.
+        navigateFallbackDenylist: [/^\/landing/],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true
