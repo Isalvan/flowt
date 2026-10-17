@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flowt · Tu dinero se ordena solo</title>
+    <meta name="description" content="Flowt lee los avisos que tu banco ya te manda al Gmail y los convierte en movimientos, carteras y previsiones. Sin apuntar nada." />
+    <meta name="theme-color" content="#080a10" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)" />
+    <meta property="og:title" content="Flowt · Tu dinero se ordena solo" />
+    <meta property="og:description" content="Tu banco ya te avisa de cada pago. Flowt lo convierte en tus cuentas, sin que apuntes nada." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://flowt-63536.web.app/landing/" />
+    <meta property="og:image" content="https://flowt-63536.web.app/landing/img/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/icons/favicon-64.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Manrope:wght@400..800&display=swap" />
+    <link rel="stylesheet" href="/landing/landing.css" />
+    <script src="/landing/landing.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Saltar al contenido</a>
+
+    <!-- ============ NAV ============ -->
+    <header class="nav" id="nav">
+      <div class="wrap nav__inner">
+        <a class="brand" href="/landing/" aria-label="Flowt, inicio">
+          <img src="/icons/icon-192.png" alt="" width="32" height="32" />
+          <span>Flowt</span>
+        </a>
+        <nav class="nav__links" aria-label="Secciones">
+          <a href="#como">Cómo funciona</a>
+          <a href="#app">La app</a>
+          <a href="#privacidad">Privacidad</a>
+        </nav>
+        <a class="btn btn--small" href="/entrar">Entrar</a>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ============ HERO ============ -->
+      <section class="hero">
+        <div class="aurora" aria-hidden="true"></div>
+        <div class="wrap hero__grid">
+          <div class="hero__copy">
+            <p class="eyebrow"><span class="dot"></span> Finanzas personales sin deberes</p>
+            <h1 class="display">
+              Tu dinero<br />se ordena
+              <span class="solo-wrap"><span class="solo">solo.</span><svg class="tail" viewBox="0 0 220 60" aria-hidden="true"><path d="M4 14 C 60 14, 70 50, 130 46 S 190 30, 204 36" /><circle cx="204" cy="36" r="7" /></svg></span>
+            </h1>
+            <p class="lede">
+              Tu banco ya te manda un correo cada vez que pagas. Flowt lo lee, lo apunta, lo reparte en tus carteras y te dice si llegas a fin de mes.
+              <strong>Tú no apuntas nada. Ni el café.</strong>
+            </p>
+            <div class="cta">
+              <a class="btn btn--primary" href="/entrar">Probar la demo <span aria-hidden="true">→</span></a>
+              <a class="btn btn--ghost" href="#como">Cómo funciona</a>
+            </div>
+            <p class="fine">Sin cuenta: entra y pulsa <em>Explorar en modo demo</em>.</p>
+          </div>
+
+          <!-- The machine: a bank email turns into a tidy movement -->
+          <div class="machine" role="img" aria-label="Ejemplo: un aviso del banco se convierte en un movimiento ordenado">
+            <div class="mail" id="mail">
+              <div class="mail__head">
+                <span class="mail__from" data-k="bank">Revolut</span>
+                <span class="mail__time" data-k="time">ahora</span>
+              </div>
+              <p class="mail__subject" data-k="subject">Has pagado 3,40 € en CAFETERIA LA PEPA SL</p>
+              <p class="mail__body">Tarjeta <span class="redact">**** 4821</span> · DNI <span class="redact">12345678Z</span></p>
+            </div>
+
+            <svg class="pipe" viewBox="0 0 100 120" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M50 0 C 50 40, 20 60, 50 120" />
+            </svg>
+            <span class="pipe__label">Flowt lo lee · tus datos, tapados</span>
+
+            <div class="tx" id="tx">
+              <span class="tx__icon" data-k="emoji">☕</span>
+              <div class="tx__main">
+                <span class="tx__name" data-k="name">Cafetería La Pepa</span>
+                <span class="tx__cat"><i data-k="catdot"></i><span data-k="cat">Restaurantes</span> · <span data-k="wallet">Día a día</span></span>
+              </div>
+              <span class="tx__amount" data-k="amount">−3,40 €</span>
+            </div>
+
+            <div class="wallet">
+              <div class="wallet__row">
+                <span>Te queda hasta la nómina</span>
+                <strong data-k="left">412,60 €</strong>
+              </div>
+              <div class="wallet__bar"><i id="wallet-bar"></i></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ BANKS ============ -->
+      <section class="banks" aria-label="Bancos compatibles">
+        <p>Lee los avisos de</p>
+        <div class="marquee">
+          <div class="marquee__track">
+            <span>Revolut</span><span>BBVA</span><span>Santander</span><span>CaixaBank</span><span>ING</span><span>Unicaja</span><span>Sabadell</span><span>N26</span><span>Trade Republic</span>
+            <span aria-hidden="true">Revolut</span><span aria-hidden="true">BBVA</span><span aria-hidden="true">Santander</span><span aria-hidden="true">CaixaBank</span><span aria-hidden="true">ING</span><span aria-hidden="true">Unicaja</span><span aria-hidden="true">Sabadell</span><span aria-hidden="true">N26</span><span aria-hidden="true">Trade Republic</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ NEVER AGAIN ============ -->
+      <section class="never wrap">
+        <h2 class="display h2">Cosas que ya no<br />vas a hacer.</h2>
+        <ul class="never__list">
+          <li><span>Apuntar el café en una hoja de cálculo.</span></li>
+          <li><span>Etiquetar cuarenta movimientos el domingo por la noche.</span></li>
+          <li><span>Descargar extractos en CSV y pelearte con las columnas.</span></li>
+          <li><span>Abrir cuatro apps de bancos para saber cuánto tienes.</span></li>
+          <li><span>Adivinar si llegas a fin de mes.</span></li>
+        </ul>
+        <p class="never__after">Lo único que te queda es mirar. Y solo tú: Flowt se abre con candado.</p>
+      </section>
+
+      <!-- ============ HOW ============ -->
+      <section class="how" id="como">
+        <div class="wrap">
+          <p class="eyebrow"><span class="dot"></span> Cómo funciona</p>
+          <h2 class="display h2">Tres pasos.<br />Tú solo haces el último.</h2>
+          <ol class="steps">
+            <li class="step">
+              <span class="step__n">01</span>
+              <h3>Tu banco te avisa</h3>
+              <p>Como ya hace ahora, cada vez que pagas o cobras. Eliges qué bancos usas y Flowt mira sus correos cada 30 minutos.</p>
+            </li>
+            <li class="step">
+              <span class="step__n">02</span>
+              <h3>Flowt lo entiende</h3>
+              <p>Saca importe, comercio y fecha, propone la categoría y avisa de cargos repetidos. Tapa tu IBAN, tus tarjetas y tu DNI antes de pasárselo a la IA. Si un correo no está claro, te lo pregunta en vez de inventárselo.</p>
+            </li>
+            <li class="step step--you">
+              <span class="step__n">03</span>
+              <h3>Tú miras</h3>
+              <p>Cuánto tienes, a dónde se va y lo que viene. Con un toque confirmas una sugerencia. Ya está.</p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- ============ APP SHOWCASE ============ -->
+      <section class="show" id="app">
+        <div class="wrap">
+          <p class="eyebrow"><span class="dot"></span> La app</p>
+          <h2 class="display h2">Todo lo que tu hoja de cálculo<br />quería ser de mayor.</h2>
+
+          <div class="tabs" role="tablist" aria-label="Pantallas de Flowt">
+            <button role="tab" id="t-inicio" aria-controls="p-inicio" aria-selected="true">Dónde estás</button>
+            <button role="tab" id="t-flujo" aria-controls="p-flujo" aria-selected="false" tabindex="-1">A dónde va</button>
+            <button role="tab" id="t-calendario" aria-controls="p-calendario" aria-selected="false" tabindex="-1">Qué viene</button>
+            <button role="tab" id="t-nomina" aria-controls="p-nomina" aria-selected="false" tabindex="-1">Tu nómina</button>
+          </div>
+
+          <div class="stage">
+            <div class="stage__text">
+              <div class="panel-text" id="d-inicio" data-for="p-inicio">
+                <h3>Tu saldo, tus carteras y lo que vence, de un vistazo.</h3>
+                <p>Cada ingreso se reparte solo entre tus carteras con tus reglas: un porcentaje, una cantidad fija o lo que sobre. Con objetivos, como ese viaje a Japón.</p>
+              </div>
+              <div class="panel-text" id="d-flujo" data-for="p-flujo" hidden>
+                <h3>Mira tu dinero fluir, literalmente.</h3>
+                <p>Un diagrama desde tu nómina hasta cada categoría y lo que no gastas. Una proyección de 1 a 60 meses con escenario prudente y optimista. Y la tarjeta de los caprichos pequeños que, juntos, no son tan pequeños.</p>
+              </div>
+              <div class="panel-text" id="d-calendario" data-for="p-calendario" hidden>
+                <h3>Un calendario que enseña tu dinero.</h3>
+                <p>Lo que gastaste cada día, los cargos que están por llegar y cuándo cae la próxima nómina. Sin sorpresas el día 3.</p>
+              </div>
+              <div class="panel-text" id="d-nomina" data-for="p-nomina" hidden>
+                <h3>De nómina a nómina.</h3>
+                <p>Cómo se repartió la última, cuánto te queda libre hasta la siguiente y qué te van a cobrar antes. Y si quieres, el mes empieza el día que cobras.</p>
+              </div>
+            </div>
+
+            <div class="shot">
+              <div class="shot__pic" role="tabpanel" id="p-inicio" aria-labelledby="t-inicio" aria-describedby="d-inicio" tabindex="0">
+                <picture>
+                <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset="/landing/img/movil-inicio-dark.webp" />
+                <source media="(max-width: 640px)" srcset="/landing/img/movil-inicio-light.webp" />
+                <source media="(prefers-color-scheme: dark)" srcset="/landing/img/shot-inicio-dark.webp" />
+                <img src="/landing/img/shot-inicio-light.webp" alt="Inicio de Flowt: saldo actual, ingresos, gastos y carteras" width="2200" height="1000" />
+              </picture>
+              </div>
+              <div class="shot__pic shot__pic--wide" role="tabpanel" id="p-flujo" aria-labelledby="t-flujo" aria-describedby="d-flujo" tabindex="0" hidden>
+                <picture>
+                <source media="(prefers-color-scheme: dark)" srcset="/landing/img/shot-flujo-dark.webp" />
+                <img src="/landing/img/shot-flujo-light.webp" alt="Diagrama del flujo del dinero desde la nómina hasta cada categoría" width="2200" height="1000" loading="lazy" />
+              </picture>
+              </div>
+              <div class="shot__pic" role="tabpanel" id="p-calendario" aria-labelledby="t-calendario" aria-describedby="d-calendario" tabindex="0" hidden>
+                <picture>
+                <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset="/landing/img/movil-calendario-dark.webp" />
+                <source media="(max-width: 640px)" srcset="/landing/img/movil-calendario-light.webp" />
+                <source media="(prefers-color-scheme: dark)" srcset="/landing/img/shot-calendario-dark.webp" />
+                <img src="/landing/img/shot-calendario-light.webp" alt="Calendario con el gasto de cada día y el resumen del mes" width="2200" height="1000" loading="lazy" />
+              </picture>
+              </div>
+              <div class="shot__pic" role="tabpanel" id="p-nomina" aria-labelledby="t-nomina" aria-describedby="d-nomina" tabindex="0" hidden>
+                <picture>
+                <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset="/landing/img/movil-nomina-dark.webp" />
+                <source media="(max-width: 640px)" srcset="/landing/img/movil-nomina-light.webp" />
+                <source media="(prefers-color-scheme: dark)" srcset="/landing/img/shot-nomina-dark.webp" />
+                <img src="/landing/img/shot-nomina-light.webp" alt="Pestaña de nómina: cómo se repartió la última y lo que queda hasta la siguiente" width="2200" height="1000" loading="lazy" />
+              </picture>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ HOURS CALCULATOR ============ -->
+      <section class="hours">
+        <div class="wrap hours__grid">
+          <div>
+            <p class="eyebrow"><span class="dot"></span> Un detalle que pica</p>
+            <h2 class="display h2">¿Cuánto te cuesta<br />de verdad?</h2>
+            <p class="lede">Dile a Flowt cuántas horas trabajas y te dirá el precio de cada gasto en horas de tu vida. Pruébalo con lo que estás pensando comprar.</p>
+          </div>
+
+          <form class="calc" id="calc" autocomplete="off">
+            <div class="chips" role="group" aria-label="Ejemplos">
+              <button type="button" data-price="1.8">☕ Café</button>
+              <button type="button" data-price="17.99">📺 Streaming</button>
+              <button type="button" data-price="89">👟 Zapatillas</button>
+              <button type="button" data-price="1229">📱 Móvil nuevo</button>
+            </div>
+            <label class="field">
+              <span>Cuesta</span>
+              <span class="field__input"><input id="price" type="text" inputmode="decimal" value="17,99" /><b>€</b></span>
+            </label>
+            <label class="field">
+              <span>Cobras al mes, neto</span>
+              <span class="field__input"><input id="salary" type="text" inputmode="decimal" value="1.850" /><b>€</b></span>
+            </label>
+            <output class="result" id="result" for="price salary" aria-live="polite">
+              <span class="result__big" id="result-big">1 h 33 min</span>
+              <span class="result__small" id="result-small">de tu vida trabajando</span>
+            </output>
+            <p class="fine">Aquí se calcula con 160 horas al mes. En Flowt, con tus horas de verdad.</p>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============ PRIVACY ============ -->
+      <section class="privacy" id="privacidad">
+        <div class="wrap privacy__grid">
+          <div class="vault" id="vault" role="button" tabindex="0" aria-pressed="false" aria-describedby="vault-hint">
+            <div class="vault__lock" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+            </div>
+            <span class="vault__label">Saldo actual <span class="sr-only">de ejemplo</span></span>
+            <div class="vault__secret" id="vault-secret" aria-hidden="true">
+            <span class="vault__amount">6.289<small>,61 €</small></span>
+            <div class="vault__rows">
+              <span>Día a día</span><b>2.293,65 €</b>
+              <span>Viaje a Japón</span><b>1.290,00 €</b>
+              <span>Colchón</span><b>1.935,00 €</b>
+            </div>
+            </div>
+            <span class="vault__hint" id="vault-hint">Mantén pulsado para mirar</span>
+          </div>
+
+          <div>
+            <p class="eyebrow"><span class="dot"></span> Privacidad</p>
+            <h2 class="display h2">Se abre<br />con candado.</h2>
+            <ul class="checks">
+              <li><b>Las cantidades nacen ocultas.</b> Se ven al desbloquear con tu PIN, tu huella o el bloqueo del móvil.</li>
+              <li><b>Tu IBAN, tus tarjetas y tu DNI se tapan</b> antes de que la IA procese el correo.</li>
+              <li><b>Los correos ya procesados se borran a los 90 días</b>, y cada usuario solo ve lo suyo.</li>
+              <li><b>El conector con asistentes va apagado.</b> Si quieres que Claude o ChatGPT revisen tus cuentas, lo conectas tú.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PHONES ============ -->
+      <section class="phones">
+        <div class="wrap">
+          <h2 class="display h2 center">En el bolsillo, también.</h2>
+          <p class="lede center">Web que se instala como app, con tema claro y oscuro.</p>
+          <div class="phones__row">
+            <picture class="phone phone--l">
+              <source media="(prefers-color-scheme: dark)" srcset="/landing/img/movil-calendario-dark.webp" />
+              <img src="/landing/img/movil-calendario-light.webp" alt="Calendario en el móvil" width="520" height="1125" loading="lazy" />
+            </picture>
+            <picture class="phone phone--c">
+              <source media="(prefers-color-scheme: dark)" srcset="/landing/img/movil-inicio-dark.webp" />
+              <img src="/landing/img/movil-inicio-light.webp" alt="Inicio en el móvil" width="520" height="1125" loading="lazy" />
+            </picture>
+            <picture class="phone phone--r">
+              <source media="(prefers-color-scheme: dark)" srcset="/landing/img/movil-nomina-dark.webp" />
+              <img src="/landing/img/movil-nomina-light.webp" alt="Nómina en el móvil" width="520" height="1125" loading="lazy" />
+            </picture>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ FINAL CTA ============ -->
+      <section class="final">
+        <div class="aurora aurora--final" aria-hidden="true"></div>
+        <div class="wrap center">
+          <h2 class="display final__title">Tu hoja de cálculo<br />ya se puede <span class="grad">jubilar.</span></h2>
+          <p class="lede center">Mira Flowt con datos de ejemplo. Sin cuenta, sin banco y sin tarjeta.</p>
+          <div class="cta cta--center">
+            <a class="btn btn--primary btn--big" href="/entrar">Probar la demo <span aria-hidden="true">→</span></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap foot__inner">
+        <a class="brand" href="/landing/"><img src="/icons/icon-192.png" alt="" width="24" height="24" /><span>Flowt</span></a>
+        <p>Parte de Aether Hub · La app está en español</p>
+        <a href="https://github.com/Isalvan/flowt">Código en GitHub</a>
+      </div>
+    </footer>
+  </body>
+</html>

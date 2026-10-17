@@ -12,6 +12,7 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { Toast } from './components/common/Toast';
 import { DashboardSkeleton } from './components/dashboard/DashboardSkeleton';
 import { MANUAL_LOGIN_PATH } from './components/auth/manualLoginPath';
+import { SIGN_IN_PATH, rememberSignedIn } from './utils/landing';
 import { ConnectConsent, CONNECT_PATH } from './components/auth/ConnectConsent';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { FlowtLogo } from './components/common/FlowtLogo';
@@ -133,6 +134,15 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     handleRevertirDeuda,
     injectDemoMovement,
   } = useFinanceData(forceDemo);
+
+  // Remember a real session so "/" skips the landing next time; leave "/entrar" once signed in.
+  useEffect(() => {
+    if (loading || !isFirebaseConfigured) return;
+    rememberSignedIn(Boolean(user));
+    if (user && window.location.pathname.replace(/\/$/, '') === SIGN_IN_PATH) {
+      window.history.replaceState(null, '', '/');
+    }
+  }, [user, loading, isFirebaseConfigured]);
 
   // Tab switching state
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
