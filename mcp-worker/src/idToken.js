@@ -16,10 +16,11 @@ function decodePart(part) {
 }
 
 /**
- * @param {{ projectId: string, fetchFn?: typeof fetch, now?: () => number }} options
+ * @param {{ projectId: string, allowedUids?: readonly string[], fetchFn?: typeof fetch, now?: () => number }} options
+ *   allowedUids: when given, valid tokens of any other account are rejected too
  * @returns {(token: string) => Promise<string>} resolves to the user id, rejects with FlowtError('unauthorized')
  */
-export function createIdTokenVerifier({ projectId, fetchFn = (...args) => fetch(...args), now = () => Date.now() }) {
+export function createIdTokenVerifier({ projectId, allowedUids, fetchFn = (...args) => fetch(...args), now = () => Date.now() }) {
   let keys = new Map();
   let expires = 0;
   let fetchedAt = 0;
@@ -66,6 +67,7 @@ export function createIdTokenVerifier({ projectId, fetchFn = (...args) => fetch(
       && typeof claims.iat === 'number' && claims.iat <= seconds + SKEW_SECONDS
       && (claims.auth_time === undefined || claims.auth_time <= seconds + SKEW_SECONDS);
     if (!valid) throw denied();
+    if (allowedUids && !allowedUids.includes(claims.sub)) throw denied();
     return claims.sub;
   };
 }

@@ -19,6 +19,7 @@ import { ReviewService } from './reviewService.js';
 import { valid } from './schema.js';
 import { ACCESS, INSTRUCTIONS, SCOPE_REVIEW, TOOLS } from './tools.js';
 import { plain, sameSecret } from './util.js';
+import allowedUids from '../../src/shared/allowedUids.json';
 
 const PROTOCOLS = ['2025-03-26', '2025-06-18', '2025-11-25'];
 const ALL_SCOPES = [SCOPE_READ, SCOPE_WRITE, SCOPE_REVIEW];
@@ -44,7 +45,7 @@ function resolve(env) {
   }
   if (isolate.project !== projectId) {
     isolate.project = projectId;
-    isolate.verifyIdToken = createIdTokenVerifier({ projectId });
+    isolate.verifyIdToken = createIdTokenVerifier({ projectId, allowedUids });
   }
   const google = isolate.google;
   return { db: new Firestore({ projectId, getAccessToken: () => google.getAccessToken() }), verifyIdToken: isolate.verifyIdToken };

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
-import { readFileSync } from 'node:fs';
+import { rulesForTests } from './rulesSource';
 import { deleteField, doc, getDoc, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 
 let environment: RulesTestEnvironment;
@@ -11,7 +11,7 @@ beforeAll(async () => {
   const [host, port] = process.env.FIRESTORE_EMULATOR_HOST!.split(':');
   environment = await initializeTestEnvironment({
     projectId: 'demo-flowt-review-security',
-    firestore: { host, port: Number(port), rules: readFileSync('firestore.rules', 'utf8') },
+    firestore: { host, port: Number(port), rules: rulesForTests(['owner', 'other']) },
   });
 });
 

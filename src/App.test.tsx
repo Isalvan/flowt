@@ -1,6 +1,8 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { signOut } from 'firebase/auth';
 import App from './App';
+import { auth } from './firebase';
 import { MANUAL_LOGIN_PATH } from './components/auth/ManualLogin';
 
 vi.mock('firebase/app', () => ({
@@ -12,7 +14,8 @@ vi.mock('firebase/auth', () => ({
   onAuthStateChanged: vi.fn((_auth, cb) => {
     cb(null);
     return () => {};
-  })
+  }),
+  signOut: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock('firebase/firestore', () => ({
@@ -118,5 +121,25 @@ describe('App Dashboard', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     vi.unstubAllEnvs();
+  });
+  it('signs out an account that is not allowed and tells it so', async () => {
+    vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
+    vi.mocked(signOut).mockResolvedValue(undefined);
+    // useFinanceData listens through auth.onAuthStateChanged directly.
+    const listenable = auth as unknown as { onAuthStateChanged?: (cb: (user: unknown) => void) => () => void };
+    listenable.onAuthStateChanged = (cb) => {
+      cb({ uid: 'stranger', email: 'stranger@example.com' });
+      return () => {};
+    };
+    try {
+      render(<App />);
+      expect(await screen.findByRole('alert')).toHaveTextContent('Esta cuenta no tiene acceso');
+      expect(signOut).toHaveBeenCalled();
+      expect(screen.getByText(/Acceder con Google/i)).toBeInTheDocument();
+    } finally {
+      cleanup();
+      delete listenable.onAuthStateChanged;
+      vi.unstubAllEnvs();
+    }
   });
 });

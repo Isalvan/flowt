@@ -1,6 +1,6 @@
 import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
 import { initializeTestEnvironment, RulesTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { readFileSync } from 'fs';
+import { rulesForTests } from './rulesSource';
 import { doc, setDoc, deleteDoc, updateDoc, writeBatch, serverTimestamp, getDoc } from 'firebase/firestore';
 
 let testEnv: RulesTestEnvironment | null = null;
@@ -13,7 +13,7 @@ beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
     projectId: 'demo-flowt-test',
     firestore: {
-      rules: readFileSync('firestore.rules', 'utf8'),
+      rules: rulesForTests(['user_123', 'other_user', 'bank_owner', 'other_owner', 'settings-0', 'settings-1', 'settings-2']),
       host,
       port: Number(port),
     },
@@ -30,6 +30,17 @@ afterAll(async () => {
   if (testEnv) {
     await testEnv.cleanup();
   }
+});
+
+describeRules('Firestore Rules - Cuentas permitidas', () => {
+  it('rejects a signed-in account that is not on the allowlist, even on its own documents', async () => {
+    if (!testEnv) return;
+    const db = testEnv.authenticatedContext('stranger').firestore();
+    const ref = doc(db, 'bancos', 'stranger', 'items', 'bbva');
+    await assertFails(setDoc(ref, { nombre: 'BBVA', created_at: serverTimestamp() }));
+    await assertFails(getDoc(ref));
+    await assertFails(getDoc(doc(db, 'settings', 'stranger')));
+  });
 });
 
 describeRules('Firestore Rules - Anclas de bancos', () => {

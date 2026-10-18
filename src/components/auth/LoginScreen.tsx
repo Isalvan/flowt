@@ -5,6 +5,8 @@ import { walletAccent } from '../../utils/walletAccent';
 interface LoginScreenProps {
   onLogin: () => void;
   onDemo: () => void;
+  /** The account that just signed in is not allowed to use Flowt. */
+  accessDenied?: boolean;
 }
 
 const GoogleMark = () => (
@@ -93,7 +95,7 @@ const SplitPreview = () => (
   </div>
 );
 
-export function LoginScreen({ onLogin, onDemo }: LoginScreenProps) {
+export function LoginScreen({ onLogin, onDemo, accessDenied = false }: LoginScreenProps) {
   return (
     <main className="app-canvas min-h-dvh font-sans">
       <div className="mx-auto grid min-h-dvh w-full max-w-6xl content-center items-center gap-8 px-5 py-8 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
@@ -150,6 +152,12 @@ export function LoginScreen({ onLogin, onDemo }: LoginScreenProps) {
               />
             </button>
           </div>
+
+          {accessDenied && (
+            <p role="alert" className="notice is-danger mt-4 max-w-lg">
+              Esta cuenta no tiene acceso. Flowt es privada; puedes explorar la demo.
+            </p>
+          )}
 
           <p
             className="rise mt-4 flex items-center gap-1.5 text-xs text-ink-faint"
