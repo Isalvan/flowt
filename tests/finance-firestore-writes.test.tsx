@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFinanceData } from '../src/hooks/useFinanceData';
+import { ALLOWED_UIDS } from '../src/shared/allowedUsers';
 import type { Hucha, Movimiento } from '../src/types';
 import { getDocs, where } from 'firebase/firestore';
 
@@ -86,13 +87,16 @@ vi.mock('firebase/firestore', () => {
     writeBatch: () => writer(writes => { fake.batchSizes.push(writes.length); apply(writes); }),
   };
 });
-vi.mock('../src/firebase', () => ({
-  auth: { currentUser: { uid: 'yo' }, onAuthStateChanged: (next: (user: unknown) => void) => { next({ uid: 'yo' }); return () => {}; } },
-  db: {},
-}));
+vi.mock('../src/firebase', async () => {
+  const { ALLOWED_UIDS } = await import('../src/shared/allowedUsers');
+  return {
+    auth: { currentUser: { uid: ALLOWED_UIDS[0] }, onAuthStateChanged: (next: (user: unknown) => void) => { next({ uid: ALLOWED_UIDS[0] }); return () => {}; } },
+    db: {},
+  };
+});
 vi.mock('../src/context/PrivacyContext', () => ({ usePrivacy: () => ({ isLocked: false }) }));
 
-const put = (collection: string, id: string, data: Record<string, unknown>) => fake.docs.set(`${collection}/${id}`, { id_propietario: 'yo', ...data });
+const put = (collection: string, id: string, data: Record<string, unknown>) => fake.docs.set(`${collection}/${id}`, { id_propietario: ALLOWED_UIDS[0], ...data });
 const stored = (collection: string, id: string) => fake.docs.get(`${collection}/${id}`)!;
 const balances = () => Object.fromEntries(fake.inCollection('huchas').map(h => [h.id, h.data()!.saldo_acumulado]));
 const gasto = (id: string, importe: number, hucha_id: string): Movimiento => ({ id, tipo: 'gasto', concepto: 'Cena', importe, hucha_id, fecha_operacion: '2026-10-01T12:00:00Z' });
@@ -115,7 +119,7 @@ beforeEach(() => {
   vi.spyOn(console, 'log').mockImplementation(() => {});
   put('huchas', 'principal', { nombre: 'Cuenta', tipo_aportacion: 'resto', es_principal: true, saldo_acumulado: 100, orden: 1, activa: true });
   put('huchas', 'viaje', { nombre: 'Viaje', tipo_aportacion: 'flat', valor_aportacion: 50, saldo_acumulado: 50, orden: 2, activa: true });
-  put('stats', 'yo', { total_ingresos: 0, total_gastos: 0 });
+  put('stats', ALLOWED_UIDS[0], { total_ingresos: 0, total_gastos: 0 });
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
@@ -133,7 +137,7 @@ describe.each(['demo', 'firebase'] as const)('dominio común en %s', mode => {
     fake.docs.clear();
     wallets.forEach(h => put('huchas', h.id, { ...h }));
     movements.forEach(m => put('movimientos', m.id, { ...m }));
-    put('stats', 'yo', { total_ingresos: 100, total_gastos: 100 });
+    put('stats', ALLOWED_UIDS[0], { total_ingresos: 100, total_gastos: 100 });
     put('correos_pendientes', 'pending', pending[0]);
     localStorage.setItem('flowt-demo-huchas', JSON.stringify(wallets));
     localStorage.setItem('flowt-demo-movimientos', JSON.stringify(movements));
@@ -156,7 +160,7 @@ describe.each(['demo', 'firebase'] as const)('dominio común en %s', mode => {
     const before = allBalances(hook);
     expect(await hook.current.countMovimientosWithoutBank()).toBe(4);
     if (mode === 'firebase') {
-      expect(where).toHaveBeenLastCalledWith('id_propietario', '==', 'yo');
+      expect(where).toHaveBeenLastCalledWith('id_propietario', '==', ALLOWED_UIDS[0]);
       expect(vi.mocked(getDocs).mock.calls.at(-1)?.[0]).toEqual({ kind: 'collection', collection: 'movimientos' });
     }
     await act(() => hook.current.assignMovimientosWithoutBank('Revolut'));
@@ -666,7 +670,7 @@ describe('préstamo entre carteras', () => {
     expect(stored('huchas', 'viaje')).toMatchObject({ subsanar_hasta: 200, subsanar_con: 'principal', saldo_acumulado: 50 });
     await act(() => hook.current.handleCreateOrUpdateHucha({ ...cartera, nombre: 'Imprevistos', subsanar_hasta: 75, subsanar_con: null }, null));
     const creada = fake.inCollection('huchas').map(h => h.data()!).find(h => h.nombre === 'Imprevistos')!;
-    expect(creada).toMatchObject({ subsanar_hasta: 75, subsanar_con: null, saldo_acumulado: 0, id_propietario: 'yo' });
+    expect(creada).toMatchObject({ subsanar_hasta: 75, subsanar_con: null, saldo_acumulado: 0, id_propietario: ALLOWED_UIDS[0] });
     // El botón de subsanar depende de estos dos campos.
     await waitFor(() => expect(hook.current.huchas.find(h => h.id === 'viaje')?.subsanar_hasta).toBe(200));
     await act(() => hook.current.handleSubsanarHucha(hook.current.huchas.find(h => h.id === 'viaje') as Hucha));

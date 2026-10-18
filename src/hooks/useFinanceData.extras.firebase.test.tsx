@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Hucha, Movimiento } from '../types';
 import { useFinanceData } from './useFinanceData';
+import { ALLOWED_UIDS } from '../shared/allowedUsers';
 
 type Ref = { collection: string; id?: string };
 type Data = Record<string, unknown>;
@@ -20,7 +21,7 @@ const emit = () => {
   }
 };
 vi.mock('../context/PrivacyContext', () => ({ usePrivacy: () => ({ isLocked: false }) }));
-vi.mock('../firebase', () => ({ db: {}, auth: { onAuthStateChanged: (callback: (user: { uid: string }) => void) => { callback({ uid: 'owner' }); return () => {}; } } }));
+vi.mock('../firebase', () => ({ db: {}, auth: { onAuthStateChanged: (callback: (user: { uid: string }) => void) => { callback({ uid: ALLOWED_UIDS[0] }); return () => {}; } } }));
 vi.mock('firebase/firestore', async importOriginal => ({
   ...await importOriginal<typeof import('firebase/firestore')>(),
   collection: (_db: unknown, collection: string) => ({ collection }),
@@ -58,8 +59,8 @@ vi.mock('firebase/firestore', async importOriginal => ({
   },
 }));
 
-const personal: Hucha = { id: 'personal', id_propietario: 'owner', nombre: 'Personal', tipo_aportacion: 'flat', valor_aportacion: 20, saldo_acumulado: 0, objetivo: null, orden: 1, extra_importe: 100, extra_meses: [8, 12] };
-const rest: Hucha = { id: 'rest', id_propietario: 'owner', nombre: 'Resto', tipo_aportacion: 'resto', es_principal: true, saldo_acumulado: 0, objetivo: null, orden: 2 };
+const personal: Hucha = { id: 'personal', id_propietario: ALLOWED_UIDS[0], nombre: 'Personal', tipo_aportacion: 'flat', valor_aportacion: 20, saldo_acumulado: 0, objetivo: null, orden: 1, extra_importe: 100, extra_meses: [8, 12] };
+const rest: Hucha = { id: 'rest', id_propietario: ALLOWED_UIDS[0], nombre: 'Resto', tipo_aportacion: 'resto', es_principal: true, saldo_acumulado: 0, objetivo: null, orden: 2 };
 const payroll = { tipo: 'ingreso' as const, concepto: 'Nómina', importe: 1000, fecha_operacion: '2026-08-01' };
 beforeEach(() => {
   vi.stubEnv('VITE_FIREBASE_API_KEY', 'test-key');
@@ -68,7 +69,7 @@ beforeEach(() => {
   store.sequence = 0;
   store.docs.set('huchas/personal', { ...personal });
   store.docs.set('huchas/rest', { ...rest });
-  store.docs.set('stats/owner', { total_ingresos: 0, total_gastos: 0 });
+  store.docs.set(`stats/${ALLOWED_UIDS[0]}`, { total_ingresos: 0, total_gastos: 0 });
   localStorage.clear();
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -105,7 +106,7 @@ describe('paga extra en transacciones Firebase', () => {
 
   it('aprobar pendiente registra y marca la paga extra', async () => {
     const { result } = await open();
-    store.docs.set('correos_pendientes/pending', { id_propietario: 'owner', email_id: 'mail', procesado: false });
+    store.docs.set('correos_pendientes/pending', { id_propietario: ALLOWED_UIDS[0], email_id: 'mail', procesado: false });
     await act(() => result.current.handleApprovePendingEmail('pending', payroll));
     expect(store.docs.get('huchas/personal')!.extra_ultimo).toBe('2026-08');
     const movement = [...store.docs.entries()].find(([key]) => key.startsWith('movimientos/'))![1] as unknown as Movimiento;
