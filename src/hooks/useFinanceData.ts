@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import { type User } from 'firebase/auth';
+import { signOut, type User } from 'firebase/auth';
 import {
   collection,
   query,
@@ -28,6 +28,7 @@ import { usePreferences } from '../context/PreferencesContext';
 import { payrollDates, periodOf, previousPeriod } from '../utils/periods';
 import { extraMonth, splitIncome, reverseIncome, applySplit, recordedSplit, explicitIncomeSplit, cappedWalletCredit, roundMoney, isIncomeSplitError, type IncomeSplit } from '../utils/incomeSplit';
 import { sanitizeConcepto } from '../utils/sanitize';
+import { isAllowedUser } from '../shared/allowedUsers';
 import { tryEditReviewedMovement } from '../utils/reviewApi';
 import { compensationUpdates, unlinkCompensationUpdates, validCategory as validCatalogCategory } from '../utils/movementSuggestions';
 import {
@@ -87,6 +88,8 @@ export const useFinanceData = (forceDemo = false) => {
   const { inicioPeriodo } = usePreferences();
   const { isLocked } = usePrivacy();
   const [user, setUser] = useState<User | null>(null);
+  // A Google account outside the allowlist signed in: it is signed out again and the login says why.
+  const [accessDenied, setAccessDenied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isFirebaseConfigured, setIsFirebaseConfigured] = useState(true);
   
@@ -212,6 +215,14 @@ export const useFinanceData = (forceDemo = false) => {
     }
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser && !isAllowedUser(currentUser)) {
+        setAccessDenied(true);
+        setUser(null);
+        setLoading(false);
+        void signOut(auth);
+        return;
+      }
+      if (currentUser) setAccessDenied(false);
       setUser(currentUser);
       setLoading(false);
     });
@@ -2323,6 +2334,7 @@ export const useFinanceData = (forceDemo = false) => {
 
   return {
     user,
+    accessDenied,
     loading,
     isFirebaseConfigured,
     movimientos,

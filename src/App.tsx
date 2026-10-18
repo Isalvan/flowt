@@ -82,6 +82,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
   
   const {
     user,
+    accessDenied,
     loading,
     isFirebaseConfigured,
     movimientos,
@@ -365,7 +366,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
 
   // Rendering signed out view when firebase is active
   if (isFirebaseConfigured && !user) {
-    return <LoginScreen onLogin={handleLogin} onDemo={() => setForceDemo(true)} />;
+    return <LoginScreen onLogin={handleLogin} onDemo={() => setForceDemo(true)} accessDenied={accessDenied} />;
   }
 
   // An assistant sent the user here to approve its access; no financial data is shown.

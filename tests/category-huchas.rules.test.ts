@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { readFileSync } from 'node:fs';
+import { rulesForTests } from './rulesSource';
 
 describe.skipIf(!process.env.FIRESTORE_EMULATOR_HOST)('Category hucha configuration rules', () => {
   let env: RulesTestEnvironment;
   beforeAll(async () => {
     const [host, port] = process.env.FIRESTORE_EMULATOR_HOST!.split(':');
-    env = await initializeTestEnvironment({ projectId: 'demo-flowt-category-map', firestore: { host, port: Number(port), rules: readFileSync('firestore.rules', 'utf8') } });
+    env = await initializeTestEnvironment({ projectId: 'demo-flowt-category-map', firestore: { host, port: Number(port), rules: rulesForTests(['owner', 'other']) } });
   });
   afterAll(async () => { await env?.cleanup(); });
   beforeEach(async () => {

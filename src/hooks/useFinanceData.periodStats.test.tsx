@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Movimiento } from '../types';
 import { getMovementWindowStart } from '../utils/periodStats';
 import { useFinanceData } from './useFinanceData';
+import { ALLOWED_UIDS } from '../shared/allowedUsers';
 
 type Constraint = { field?: string; op?: string; value?: unknown; order?: string; limit?: number };
 type TestQuery = { collection: string; constraints: Constraint[] };
@@ -28,7 +29,7 @@ vi.mock('../firebase', () => ({
   db: {},
   auth: { onAuthStateChanged: (callback: (user: { uid: string } | null) => void) => {
     mocks.authCallback = callback;
-    callback({ uid: 'owner' });
+    callback({ uid: ALLOWED_UIDS[0] });
     return () => {};
   } },
 }));
@@ -104,7 +105,7 @@ describe('complete dashboard movement data', () => {
     const queries = mocks.snapshots.mock.calls.map(([query]) => query as TestQuery);
     const chart = queries.find(query => query.constraints.some(c => c.field === 'fecha_operacion' && c.op === '>='));
     expect(chart).toEqual({ collection: 'movimientos', constraints: [
-      { field: 'id_propietario', op: '==', value: 'owner' },
+      { field: 'id_propietario', op: '==', value: ALLOWED_UIDS[0] },
       { field: 'fecha_operacion', op: '>=', value: getMovementWindowStart() },
       { field: 'fecha_operacion', order: 'desc' },
     ] });
@@ -118,7 +119,7 @@ describe('complete dashboard movement data', () => {
     const { result } = renderHook(() => useFinanceData());
     await act(() => result.current.loadOlderMovements());
     expect(mocks.olderListeners[0].query).toEqual({ collection: 'movimientos', constraints: [
-      { field: 'id_propietario', op: '==', value: 'owner' },
+      { field: 'id_propietario', op: '==', value: ALLOWED_UIDS[0] },
       { field: 'fecha_operacion', op: '<', value: getMovementWindowStart() },
       { field: 'fecha_operacion', order: 'desc' },
     ] });
@@ -132,13 +133,13 @@ describe('complete dashboard movement data', () => {
     expect(result.current.olderMovements[0]?.id).toBe('old');
     await act(() => result.current.loadOlderMovements());
     expect(mocks.olderListeners).toHaveLength(1);
-    act(() => mocks.authCallback?.({ uid: 'another-owner' }));
+    act(() => mocks.authCallback?.({ uid: ALLOWED_UIDS[1] }));
     expect(mocks.olderListeners[0].unsubscribe).toHaveBeenCalledTimes(1);
     expect(result.current.olderMovements).toEqual([]);
     expect(result.current.olderMovementsLoaded).toBe(false);
     await act(() => result.current.loadOlderMovements());
     expect(mocks.olderListeners).toHaveLength(2);
-    expect(mocks.olderListeners[1].query.constraints).toContainEqual({ field: 'id_propietario', op: '==', value: 'another-owner' });
+    expect(mocks.olderListeners[1].query.constraints).toContainEqual({ field: 'id_propietario', op: '==', value: ALLOWED_UIDS[1] });
     expect(mocks.getDocs.mock.calls.some(([query]) => query.constraints.some(c => c.op === '<'))).toBe(false);
   });
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useFinanceData } from '../src/hooks/useFinanceData';
+import { ALLOWED_UIDS } from '../src/shared/allowedUsers';
 import { type Movimiento } from '../src/types';
 
 // Mock Privacy Context
@@ -10,7 +11,7 @@ vi.mock('../src/context/PrivacyContext', () => ({
 
 // Mock Firebase
 vi.mock('../src/firebase', () => ({
-  auth: { onAuthStateChanged: vi.fn((cb) => { cb({ uid: 'test-user' }); return () => {}; }) },
+  auth: { onAuthStateChanged: vi.fn((cb) => { cb({ uid: ALLOWED_UIDS[0] }); return () => {}; }) },
   db: {}
 }));
 
@@ -80,7 +81,7 @@ describe('useFinanceData M:N Linking', () => {
       'gas-2': { id: 'gas-2', tipo: 'gasto', importe: 50, importe_neto: 50 } as Movimiento,
     };
 
-    Object.values(mockDbData).forEach(m => { m.id_propietario = 'test-user'; });
+    Object.values(mockDbData).forEach(m => { m.id_propietario = ALLOWED_UIDS[0]; });
     const { result } = renderHook(() => useFinanceData(false));
 
     await act(async () => {
@@ -123,7 +124,7 @@ describe('useFinanceData M:N Linking', () => {
       } as Movimiento,
     };
 
-    Object.values(mockDbData).forEach(m => { m.id_propietario = 'test-user'; });
+    Object.values(mockDbData).forEach(m => { m.id_propietario = ALLOWED_UIDS[0]; });
     const { result } = renderHook(() => useFinanceData(false));
 
     await act(async () => {
@@ -143,8 +144,8 @@ describe('useFinanceData M:N Linking', () => {
 
   it('rejects allocations above the available expense without changing either movement', async () => {
     mockDbData = {
-      'ing-1': { id: 'ing-1', tipo: 'ingreso', importe: 100, id_propietario: 'test-user' } as Movimiento,
-      'gas-1': { id: 'gas-1', tipo: 'gasto', importe: 20, importe_neto: 20, id_propietario: 'test-user' } as Movimiento,
+      'ing-1': { id: 'ing-1', tipo: 'ingreso', importe: 100, id_propietario: ALLOWED_UIDS[0] } as Movimiento,
+      'gas-1': { id: 'gas-1', tipo: 'gasto', importe: 20, importe_neto: 20, id_propietario: ALLOWED_UIDS[0] } as Movimiento,
     };
     const { result } = renderHook(() => useFinanceData(false));
     await act(async () => {
@@ -156,7 +157,7 @@ describe('useFinanceData M:N Linking', () => {
 
   it('rejects a movement belonging to another user', async () => {
     mockDbData = {
-      'ing-1': { id: 'ing-1', tipo: 'ingreso', importe: 30, id_propietario: 'test-user' } as Movimiento,
+      'ing-1': { id: 'ing-1', tipo: 'ingreso', importe: 30, id_propietario: ALLOWED_UIDS[0] } as Movimiento,
       'gas-1': { id: 'gas-1', tipo: 'gasto', importe: 60, id_propietario: 'another-user' } as Movimiento,
     };
     const { result } = renderHook(() => useFinanceData(false));

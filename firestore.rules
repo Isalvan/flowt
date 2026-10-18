@@ -3,8 +3,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Helpers de Autenticación y Propiedad
+    // Flowt es privada: solo estas cuentas (Google del propietario y acceso manual).
+    // Debe coincidir con src/shared/allowedUids.json (un test lo comprueba).
+    function isAllowedUser() {
+      return request.auth.uid in ['uWt8uACHBWaCywQWxRtaxR7AbI52', 'S3w0O4kqapP91uKKaco6LwR76Nn1'];
+    }
+
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null && isAllowedUser();
     }
     
     function isOwner(uid) {
