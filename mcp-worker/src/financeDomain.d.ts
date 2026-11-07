@@ -14,6 +14,7 @@ export interface Wallet {
   es_suscripciones?: boolean;
   es_metalico?: boolean;
   deuda_pendiente?: number;
+  deuda_cuota?: number | null;
   deuda_con?: string | null;
 }
 

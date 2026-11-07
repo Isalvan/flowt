@@ -163,9 +163,14 @@ def distribute_income(amount, huchas, plain=False, extra_month=None):
 
     def credit(hid, hucha, value):
         lender = hucha.get("deuda_con")
-        debt = cents(hucha.get("deuda_pendiente") or 0) - deudas.get(hid, {}).get("importe", 0)
-        if not plain and debt > 0 and lender and lender != hid and lender in huchas and is_active(huchas[lender]):
-            payment = min(debt, value)
+        paid = deudas.get(hid, {}).get("importe", 0)
+        debt = cents(hucha.get("deuda_pendiente") or 0) - paid
+        quota = cents(hucha.get("deuda_cuota") or 0)
+        allowance = max(0, quota - paid) if extra_month is not None else 0
+        if quota <= 0:
+            allowance = value
+        if not plain and debt > 0 and allowance > 0 and lender and lender != hid and lender in huchas and is_active(huchas[lender]):
+            payment = min(debt, value, allowance)
             deudas[hid] = {"importe": deudas.get(hid, {}).get("importe", 0) + payment, "con": lender}
             saldos[lender] = saldos.get(lender, 0) + payment
             value -= payment

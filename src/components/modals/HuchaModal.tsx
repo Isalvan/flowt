@@ -344,7 +344,7 @@ export const HuchaModal: React.FC<HuchaModalProps> = ({
               </div>
             </div>
             <p className="field-hint">
-              Si tu saldo cae en negativo, podrás subsanarlo. Los próximos ingresos irán destinados a pagar la deuda a la cartera prestamista automáticamente.
+              Si tu saldo cae en negativo, podrás subsanarlo. Los próximos ingresos devolverán la deuda automáticamente. También puedes crear un préstamo desde Traspaso y elegir una cuota con cada nómina; si amplías una deuda con la misma prestamista se mantiene su cuota.
             </p>
           </div>
         )}

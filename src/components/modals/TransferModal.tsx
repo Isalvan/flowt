@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRightLeft, TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { type Hucha } from '../../types';
+import { roundMoney } from '../../utils/incomeSplit';
 
 interface TransferModalProps {
   isOpen: boolean;
   onClose: () => void;
   onTransfer: (fromHuchaId: string, toHuchaId: string, amount: number) => Promise<void>;
+  onPrestamo: (fromHuchaId: string, toHuchaId: string, amount: number, meses: number) => Promise<void>;
   huchas: Hucha[];
 }
 
@@ -14,12 +16,15 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   isOpen,
   onClose,
   onTransfer,
+  onPrestamo,
   huchas,
 }) => {
   const [fromHuchaId, setFromHuchaId] = useState('');
   const [toHuchaId, setToHuchaId] = useState('');
   const [amount, setAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isPrestamo, setIsPrestamo] = useState(false);
+  const [meses, setMeses] = useState(3);
 
   // Prefill defaults on open
   useEffect(() => {
@@ -35,6 +40,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
         setToHuchaId('');
       }
       setAmount('');
+      setIsPrestamo(false);
+      setMeses(3);
     }
   }, [isOpen, huchas]);
 
@@ -49,7 +56,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const newToBalance = toBalance + transferAmount;
 
   // Check if target will trigger overflow
-  const willOverflow = toHucha?.tope_objetivo && toHucha.objetivo && newToBalance > toHucha.objetivo;
+  const willOverflow = !isPrestamo && toHucha?.tope_objetivo && toHucha.objetivo && newToBalance > toHucha.objetivo;
   const overflowAmount = willOverflow && toHucha?.objetivo ? newToBalance - toHucha.objetivo : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,7 +66,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
     setIsLoading(true);
     try {
-      await onTransfer(fromHuchaId, toHuchaId, transferAmount);
+      if (isPrestamo) await onPrestamo(fromHuchaId, toHuchaId, transferAmount, meses);
+      else await onTransfer(fromHuchaId, toHuchaId, transferAmount);
       onClose();
     } catch (err) {
       console.error(err);
@@ -91,7 +99,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             className="field"
           >
             <option value="" disabled>Seleccionar origen</option>
-            {huchas.filter(h => h.activa !== false).map(h => (
+            {huchas.filter(h => h.activa !== false && (!isPrestamo || !h.es_metalico)).map(h => (
               <option key={h.id} value={h.id}>
                 {h.nombre} ({formatCurrency(h.saldo_acumulado)})
               </option>
@@ -111,7 +119,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             className="field"
           >
             <option value="" disabled>Seleccionar destino</option>
-            {huchas.filter(h => h.id !== fromHuchaId).map(h => (
+            {huchas.filter(h => h.id !== fromHuchaId && h.activa !== false && (!isPrestamo || !h.es_metalico)).map(h => (
               <option key={h.id} value={h.id}>
                 {h.nombre} ({formatCurrency(h.saldo_acumulado)})
               </option>
@@ -136,6 +144,21 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             className="field tabular-nums"
           />
         </div>
+
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input type="checkbox" role="switch" checked={isPrestamo} onChange={e => setIsPrestamo(e.target.checked)} />
+          Es un préstamo
+        </label>
+        {isPrestamo && (
+          <div className="space-y-2">
+            <label htmlFor="prestamo-meses" className="field-label">Devolver en {meses || 'N'} meses</label>
+            <input id="prestamo-meses" type="number" min={1} max={36} step={1} required value={meses || ''} onChange={e => setMeses(Number(e.target.value))} className="field" />
+            {meses >= 1 && meses <= 36 && Number.isInteger(meses) && (
+              <p className="text-sm text-ink-soft">{formatCurrency(Math.ceil(Math.round(roundMoney(transferAmount) * 100) / meses) / 100)}/mes con cada nómina</p>
+            )}
+            {(toHucha?.deuda_pendiente || 0) > 0 && <p role="alert" className="text-sm text-rose-500">{toHucha?.nombre} ya tiene un préstamo pendiente; devuélvelo o revierte antes</p>}
+          </div>
+        )}
 
         {/* Dynamic Simulation Preview */}
         {fromHucha && toHucha && transferAmount > 0 && (
@@ -194,7 +217,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
           </button>
           <button
             type="submit"
-            disabled={isLoading || !fromHuchaId || !toHuchaId || transferAmount <= 0 || transferAmount > fromBalance}
+            disabled={isLoading || !fromHuchaId || !toHuchaId || fromHuchaId === toHuchaId || transferAmount <= 0 || transferAmount > fromBalance || (isPrestamo && (!Number.isInteger(meses) || meses < 1 || meses > 36 || !!fromHucha?.es_metalico || !!toHucha?.es_metalico || (toHucha?.deuda_pendiente || 0) > 0))}
             className="dashboard-primary-button"
           >
             {isLoading ? (
@@ -208,7 +231,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             ) : (
               <>
                 <ArrowRightLeft size={14} />
-                Traspasar
+                {isPrestamo ? 'Prestar' : 'Traspasar'}
               </>
             )}
           </button>

@@ -256,19 +256,23 @@ describe('wallets', () => {
   });
 
   it('lends between wallets and reverts the loan', async () => {
+    db.put('huchas', 'fixed', { ...db.read('huchas', 'fixed'), deuda_cuota: 9 });
     await service.update_hucha('owner', { hucha_id: 'fixed', subsanar_hasta: 150, subsanar_con: 'trip' });
     const result = await service.cover_hucha_shortfall('owner', { hucha_id: 'fixed' });
     expect(result).toMatchObject({ amount: 150, lender_hucha_id: 'trip' });
     expect(balances()).toEqual({ main: 1000, trip: 50, fixed: 150 });
     expect(db.read('huchas', 'fixed')).toMatchObject({ deuda_pendiente: 150, deuda_con: 'trip' });
+    expect(db.read('huchas', 'fixed')).not.toHaveProperty('deuda_cuota');
     const legs = Object.values(db.all('movimientos')).filter((m) => m.transfer_id);
     expect(legs).toHaveLength(2);
     expect(legs.every((m) => m.es_interno && m.fecha_operacion instanceof Date)).toBe(true);
     await refused('not_needed', () => service.cover_hucha_shortfall('owner', { hucha_id: 'fixed' }));
+    db.put('huchas', 'fixed', { ...db.read('huchas', 'fixed'), deuda_cuota: 50 });
     await service.revert_hucha_debt('owner', { hucha_id: 'fixed' });
     expect(balances()).toEqual({ main: 1000, trip: 200, fixed: 0 });
     expect(db.read('huchas', 'fixed')).not.toHaveProperty('deuda_pendiente');
     expect(db.read('huchas', 'fixed')).not.toHaveProperty('deuda_con');
+    expect(db.read('huchas', 'fixed')).not.toHaveProperty('deuda_cuota');
     await refused('not_needed', () => service.revert_hucha_debt('owner', { hucha_id: 'fixed' }));
   });
 });

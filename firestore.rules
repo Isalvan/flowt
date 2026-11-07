@@ -118,9 +118,10 @@ service cloud.firestore {
     match /huchas/{hucha} {
       allow create: if isReqOwner() && 
                        request.resource.data.keys().hasAll(['id_propietario', 'nombre', 'tipo_aportacion', 'saldo_acumulado', 'es_principal', 'activa']) &&
-                       request.resource.data.keys().hasOnly(['id', 'id_propietario', 'nombre', 'tipo_aportacion', 'valor_aportacion', 'saldo_acumulado', 'objetivo', 'orden', 'es_principal', 'es_suscripciones', 'es_metalico', 'es_interno', 'activa', 'tope_objetivo', 'extra_importe', 'extra_meses', 'extra_ultimo', 'subsanar_con', 'subsanar_hasta', 'deuda_pendiente', 'deuda_con', 'created_at', 'updated_at']) &&
+                       request.resource.data.keys().hasOnly(['id', 'id_propietario', 'nombre', 'tipo_aportacion', 'valor_aportacion', 'saldo_acumulado', 'objetivo', 'orden', 'es_principal', 'es_suscripciones', 'es_metalico', 'es_interno', 'activa', 'tope_objetivo', 'extra_importe', 'extra_meses', 'extra_ultimo', 'subsanar_con', 'subsanar_hasta', 'deuda_pendiente', 'deuda_con', 'deuda_cuota', 'created_at', 'updated_at']) &&
                        isStringWithLength('nombre', 1, 100) &&
                        (!('extra_importe' in request.resource.data) || request.resource.data.extra_importe == null || (request.resource.data.extra_importe is number && request.resource.data.extra_importe >= 0 && request.resource.data.extra_importe <= 100000)) &&
+                       (!('deuda_cuota' in request.resource.data) || request.resource.data.deuda_cuota == null || (request.resource.data.deuda_cuota is number && request.resource.data.deuda_cuota >= 0 && request.resource.data.deuda_cuota <= 100000)) &&
                        (!('extra_meses' in request.resource.data) || request.resource.data.extra_meses == null || (request.resource.data.extra_meses is list && request.resource.data.extra_meses.size() <= 12)) &&
                        (!('extra_ultimo' in request.resource.data) || request.resource.data.extra_ultimo == null || (request.resource.data.extra_ultimo is string && request.resource.data.extra_ultimo.size() == 7)) &&
                        isNumber('saldo_acumulado') &&
@@ -129,9 +130,10 @@ service cloud.firestore {
       
       allow read: if isDocOwner();
       allow update: if isDocOwner() && isReqOwner() &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['id', 'nombre', 'tipo_aportacion', 'valor_aportacion', 'saldo_acumulado', 'objetivo', 'orden', 'es_principal', 'es_suscripciones', 'es_metalico', 'es_interno', 'activa', 'tope_objetivo', 'extra_importe', 'extra_meses', 'extra_ultimo', 'subsanar_con', 'subsanar_hasta', 'deuda_pendiente', 'deuda_con', 'updated_at']) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['id', 'nombre', 'tipo_aportacion', 'valor_aportacion', 'saldo_acumulado', 'objetivo', 'orden', 'es_principal', 'es_suscripciones', 'es_metalico', 'es_interno', 'activa', 'tope_objetivo', 'extra_importe', 'extra_meses', 'extra_ultimo', 'subsanar_con', 'subsanar_hasta', 'deuda_pendiente', 'deuda_con', 'deuda_cuota', 'updated_at']) &&
                        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['id_propietario', 'created_at'])) &&
                        (!('extra_importe' in request.resource.data) || request.resource.data.extra_importe == null || (request.resource.data.extra_importe is number && request.resource.data.extra_importe >= 0 && request.resource.data.extra_importe <= 100000)) &&
+                       (!('deuda_cuota' in request.resource.data) || request.resource.data.deuda_cuota == null || (request.resource.data.deuda_cuota is number && request.resource.data.deuda_cuota >= 0 && request.resource.data.deuda_cuota <= 100000)) &&
                        (!('extra_meses' in request.resource.data) || request.resource.data.extra_meses == null || (request.resource.data.extra_meses is list && request.resource.data.extra_meses.size() <= 12)) &&
                        (!('extra_ultimo' in request.resource.data) || request.resource.data.extra_ultimo == null || (request.resource.data.extra_ultimo is string && request.resource.data.extra_ultimo.size() == 7)) &&
                        isNumber('saldo_acumulado') &&

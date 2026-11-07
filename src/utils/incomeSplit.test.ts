@@ -31,6 +31,14 @@ describe('splitIncome: todos los casos compartidos con Python', () => {
 });
 
 describe('reversión y aplicación', () => {
+  it('conserva la cuota al saldar y al revertir el ingreso registrado', () => {
+    const wallets = [wallet('borrower', { tipo_aportacion: 'flat', valor_aportacion: 40, deuda_pendiente: 5, deuda_con: 'rest', deuda_cuota: 10 }), wallet('rest')];
+    const split = splitIncome(50, wallets, { extraMonth: '2026-06' });
+    const paid = applySplit(wallets, split);
+    expect(paid[0]).toMatchObject({ deuda_pendiente: 0, deuda_con: null, deuda_cuota: 10, saldo_acumulado: 35 });
+    expect(applySplit(paid, reverseIncome(income({ importe: 50, reparto_aplicado: split }), paid))).toEqual(wallets);
+  });
+
   it('revierte saldos registrados con reglas diferentes y restaura la deuda saldada', () => {
     const wallets = [wallet('rest', { saldo_acumulado: 80 }), wallet('borrower', { saldo_acumulado: 20, tipo_aportacion: 'porcentaje', valor_aportacion: 150 })];
     const split = reverseIncome(income({ reparto_aplicado: { saldos: { rest: 80, borrower: 20 }, deudas: { borrower: { importe: 30, con: 'rest' } } } }), wallets);

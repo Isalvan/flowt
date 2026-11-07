@@ -1625,5 +1625,155 @@
         "personal": "2026-08"
       }
     }
+  },
+  {
+    "nombre": "préstamo con nómina devuelve solo la cuota",
+    "importe": 20000,
+    "huchas": {
+      "main": {
+        "nombre": "Ahorros",
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 1000,
+        "es_principal": true,
+        "orden": 2
+      },
+      "borrower": {
+        "nombre": "Personal",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "deuda_pendiente": 104,
+        "deuda_con": "main",
+        "deuda_cuota": 34.67,
+        "orden": 1
+      }
+    },
+    "plain": false,
+    "mes": "2026-06",
+    "esperado": {
+      "saldos": {
+        "borrower": 6533,
+        "main": 13467
+      },
+      "deudas": {
+        "borrower": {
+          "importe": 3467,
+          "con": "main"
+        }
+      }
+    }
+  },
+  {
+    "nombre": "préstamo sin nómina conserva su parte entera",
+    "importe": 20000,
+    "huchas": {
+      "main": {
+        "nombre": "Ahorros",
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 1000,
+        "es_principal": true,
+        "orden": 2
+      },
+      "borrower": {
+        "nombre": "Personal",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "deuda_pendiente": 104,
+        "deuda_con": "main",
+        "deuda_cuota": 34.67,
+        "orden": 1
+      }
+    },
+    "plain": false,
+    "mes": null,
+    "esperado": {
+      "saldos": {
+        "borrower": 10000,
+        "main": 10000
+      },
+      "deudas": {}
+    }
+  },
+  {
+    "nombre": "última cuota devuelve solo la deuda restante",
+    "importe": 20000,
+    "huchas": {
+      "main": {
+        "nombre": "Ahorros",
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 1000,
+        "es_principal": true,
+        "orden": 2
+      },
+      "borrower": {
+        "nombre": "Personal",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 100,
+        "saldo_acumulado": 0,
+        "deuda_pendiente": 5.99,
+        "deuda_con": "main",
+        "deuda_cuota": 34.67,
+        "orden": 1
+      }
+    },
+    "plain": false,
+    "mes": "2026-06",
+    "esperado": {
+      "saldos": {
+        "borrower": 9401,
+        "main": 10599
+      },
+      "deudas": {
+        "borrower": {
+          "importe": 599,
+          "con": "main"
+        }
+      }
+    }
+  },
+  {
+    "nombre": "préstamo con varias reglas no supera la cuota",
+    "importe": 20000,
+    "huchas": {
+      "main": {
+        "nombre": "Ahorros",
+        "tipo_aportacion": "resto",
+        "saldo_acumulado": 1000,
+        "es_principal": true,
+        "orden": 2
+      },
+      "borrower": {
+        "nombre": "Personal",
+        "tipo_aportacion": "flat",
+        "valor_aportacion": 10,
+        "saldo_acumulado": 0,
+        "deuda_pendiente": 104,
+        "deuda_con": "main",
+        "deuda_cuota": 34.67,
+        "orden": 1,
+        "extra_importe": 50,
+        "extra_meses": [
+          6
+        ]
+      }
+    },
+    "plain": false,
+    "mes": "2026-06",
+    "esperado": {
+      "saldos": {
+        "borrower": 2533,
+        "main": 17467
+      },
+      "deudas": {
+        "borrower": {
+          "importe": 3467,
+          "con": "main"
+        }
+      },
+      "extras": {
+        "borrower": "2026-06"
+      }
+    }
   }
 ]

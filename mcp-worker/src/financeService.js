@@ -709,7 +709,7 @@ export class FinanceService {
       const lender = huchas[lenderId];
       const legs = this._internalLegs(owner, amount, [lenderId, `Préstamo a ${hucha.nombre}`], [hucha_id, `Subsanación desde ${lender.nombre}`]);
       const changes = this._apply(tx, huchas, { [lenderId]: -amount, [hucha_id]: amount },
-        { [hucha_id]: { deuda_pendiente: d.euros(debt + amount), deuda_con: lenderId } });
+        { [hucha_id]: { deuda_pendiente: d.euros(debt + amount), deuda_con: lenderId, ...(!debt ? { deuda_cuota: DELETE_FIELD } : {}) } });
       for (const [ref, leg] of legs) tx.set(ref, leg);
       return { amount: d.euros(amount), lender_hucha_id: lenderId, hucha_changes: changes };
     });
@@ -728,7 +728,7 @@ export class FinanceService {
       const legs = this._internalLegs(owner, debt, [hucha_id, `Reversión de subsanación (devuelto a ${lender.nombre})`],
         [lenderId, `Reversión de préstamo (recuperado de ${hucha.nombre})`]);
       const changes = this._apply(tx, huchas, { [hucha_id]: -debt, [lenderId]: debt },
-        { [hucha_id]: { deuda_pendiente: DELETE_FIELD, deuda_con: DELETE_FIELD } });
+        { [hucha_id]: { deuda_pendiente: DELETE_FIELD, deuda_con: DELETE_FIELD, deuda_cuota: DELETE_FIELD } });
       for (const [ref, leg] of legs) tx.set(ref, leg);
       return { amount: d.euros(debt), hucha_changes: changes };
     });

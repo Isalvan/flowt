@@ -76,6 +76,16 @@ Las colecciones principales de Firestore son:
 
 Los documentos de dominio incluyen `id_propietario` o utilizan el UID como identificador cuando corresponde.
 
+### Préstamos entre carteras
+
+Desde Traspaso se puede activar «Es un préstamo», elegir un importe y devolverlo en 1–36 meses. La operación transfiere el saldo completo entre dos carteras activas que no sean de metálico, exige saldo suficiente y una receptora sin deuda pendiente. Crea dos movimientos internos con el mismo `transfer_id`, sin alterar las estadísticas de ingresos y gastos.
+
+La receptora guarda `deuda_pendiente`, `deuda_con` y `deuda_cuota` (euros). La cuota se calcula redondeando hacia arriba el importe en céntimos dividido por los meses. Con cada nómina se devuelve como máximo esa cuota, limitada por la deuda restante y por lo que reciba la cartera en ese ingreso. Si varias reglas le asignan dinero, comparten el límite de cuota; otros ingresos no devuelven préstamos con cuota. Se asume una nómina al mes y no se guarda el mes pagado.
+
+Las deudas sin cuota positiva mantienen la subsanación anterior: se devuelve todo lo posible con cualquier ingreso repartido. Los motores JS y Python comparten casos de prueba en `tracker-backend/finance/distribution_cases.json`. La web y los servicios pasan la cartera completa al motor, incluido `deuda_cuota`; el sincronizador conserva ese campo al superponer los saldos y deudas del correo actual.
+
+El registro `reparto_aplicado.deudas` conserva su formato para permitir la reversión. Los aplicadores no modifican la cuota al saldar una deuda; cada préstamo nuevo la fija y una subsanación desde cero la borra. Ampliar una subsanación con la misma prestamista conserva la cuota, y cambiar de prestamista exige resolver primero la deuda. Revertir una deuda elimina también su cuota; al transferir una deuda por borrado de cartera se hereda la cuota si la asignada no tenía deuda propia.
+
 ## Flujo de sincronización
 
 1. GitHub Actions o una ejecución local inicia `main.py`.

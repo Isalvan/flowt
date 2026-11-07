@@ -1,11 +1,20 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Hucha } from '../../types';
 import { HuchaCard } from './HuchaCard';
 
-vi.mock('../../context/PrivacyContext', () => ({ usePrivacy: () => ({ isLocked: false, formatCurrency: (value: number) => `${value.toFixed(2).replace('.', ',')} €` }) }));
+const privacy = vi.hoisted(() => ({ isLocked: false }));
+vi.mock('../../context/PrivacyContext', () => ({ usePrivacy: () => ({ isLocked: privacy.isLocked, formatCurrency: (value: number) => `${value.toFixed(2).replace('.', ',')} €` }) }));
 vi.mock('../common/CountUp', () => ({ CountUp: ({ end }: { end: number }) => <span>{end}</span> }));
 const wallet: Hucha = { id: 'personal', nombre: 'Personal', tipo_aportacion: 'resto', saldo_acumulado: 0, objetivo: null, orden: 1 };
+beforeEach(() => { privacy.isLocked = false; });
+
+it.each([false, true])('muestra la cuota y respeta el bloqueo: %s', locked => {
+  privacy.isLocked = locked;
+  render(<HuchaCard hucha={{ ...wallet, deuda_pendiente: 104, deuda_cuota: 34.67 }} lenderName="Ahorros" onEdit={vi.fn()} onDelete={vi.fn()} />);
+  expect(screen.getByText(locked ? 'Deuda: •• € · •• €/mes a Ahorros' : 'Deuda: 104,00 € · 34,67 €/mes a Ahorros')).toBeInTheDocument();
+  if (locked) expect(screen.queryByText(/34,67/)).not.toBeInTheDocument();
+});
 
 describe('línea de paga extra', () => {
   it.each([

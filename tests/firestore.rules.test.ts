@@ -325,6 +325,7 @@ describeRules('Firestore Rules - Huchas Protegidas', () => {
   });
 
   it.each([
+    ['deuda_cuota', -1], ['deuda_cuota', 100001], ['deuda_cuota', '35'],
     ['extra_importe', -1], ['extra_importe', 100001], ['extra_importe', '50'],
     ['extra_meses', Array.from({ length: 13 }, (_, i) => i + 1)], ['extra_meses', '6,12'],
     ['extra_ultimo', '2026-1'], ['extra_ultimo', '2026-100'], ['extra_ultimo', 202610],
@@ -334,6 +335,14 @@ describeRules('Firestore Rules - Huchas Protegidas', () => {
     await assertFails(setDoc(ref, { ...wallet, [field]: value }));
     await assertSucceeds(setDoc(ref, wallet));
     await assertFails(updateDoc(ref, { [field]: value }));
+  });
+
+  it.each([null, 0, 34.67, 100000])('allows debt quota %s on creation and update', async deuda_cuota => {
+    if (!testEnv) return;
+    const ref = doc(testEnv.authenticatedContext('user_123').firestore(), 'huchas', 'prestamo');
+    await assertSucceeds(setDoc(ref, { ...wallet, deuda_cuota }));
+    await assertSucceeds(updateDoc(ref, { deuda_cuota: 20 }));
+    await assertSucceeds(updateDoc(ref, { deuda_cuota }));
   });
 
   it('Should reject deleting a subscription wallet', async () => {

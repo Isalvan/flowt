@@ -169,9 +169,12 @@ export function distributeIncome(amount, huchas, plain = false, extraMonth = nul
   const credit = (id, hucha, share) => {
     let value = share;
     const lender = hucha.deuda_con;
-    const debt = cents(hucha.deuda_pendiente || 0) - (deudas[id]?.importe || 0);
-    if (!plain && debt > 0 && lender && lender !== id && huchas[lender] && isActive(huchas[lender])) {
-      const payment = Math.min(debt, value);
+    const paid = deudas[id]?.importe || 0;
+    const debt = cents(hucha.deuda_pendiente || 0) - paid;
+    const quota = cents(hucha.deuda_cuota || 0);
+    const allowance = quota > 0 ? (extraMonth !== null ? Math.max(0, quota - paid) : 0) : value;
+    if (!plain && debt > 0 && allowance > 0 && lender && lender !== id && huchas[lender] && isActive(huchas[lender])) {
+      const payment = Math.min(debt, value, allowance);
       deudas[id] = { importe: (deudas[id]?.importe || 0) + payment, con: lender };
       saldos[lender] = (saldos[lender] || 0) + payment;
       value -= payment;
