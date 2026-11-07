@@ -7,6 +7,7 @@ import { walletAccent } from '../../utils/walletAccent';
 
 interface HuchaCardProps {
   hucha: Hucha;
+  lenderName?: string;
   /** Position among the active wallets; picks the wallet's colour. */
   index?: number;
   onEdit: (hucha: Hucha) => void;
@@ -29,7 +30,7 @@ const renderHuchaIcon = (hucha: Hucha) => {
   return <WalletCards size={18} />;
 };
 
-export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, index = 0, onEdit, onDelete, onSubsanar, onRevertirDeuda }) => {
+export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, lenderName, index = 0, onEdit, onDelete, onSubsanar, onRevertirDeuda }) => {
   const { isLocked, formatCurrency } = usePrivacy();
   const accent = walletAccent(index);
   const months = [...(hucha.extra_meses || [])].sort((a, b) => a - b).map(month => monthNames[month - 1]);
@@ -102,7 +103,11 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, index = 0, onEdit, 
 
       {(hucha.deuda_pendiente || 0) > 0 && (
         <div className="mt-3 flex items-center justify-between text-[11px] font-bold text-rose-500">
-          Deuda: {isLocked ? '•• €' : formatCurrency(hucha.deuda_pendiente || 0)}
+          <span>
+            Deuda: {isLocked ? '•• €' : formatCurrency(hucha.deuda_pendiente || 0)}
+            {(hucha.deuda_cuota || 0) > 0 && <> · {isLocked ? '•• €' : formatCurrency(hucha.deuda_cuota!)}/mes</>}
+            {lenderName && <> a {lenderName}</>}
+          </span>
           {onRevertirDeuda && (
             <button type="button" onClick={() => onRevertirDeuda(hucha)} className="underline underline-offset-2">
               Revertir

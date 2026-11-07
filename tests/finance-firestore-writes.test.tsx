@@ -153,6 +153,96 @@ describe.each(['demo', 'firebase'] as const)('dominio común en %s', mode => {
     ? ['huchas', 'movimientos', 'stats', 'pending'].map(key => localStorage.getItem(`flowt-demo-${key}`))
     : structuredClone([...fake.docs]);
 
+  it('creates a loan in cents with two internal legs, preserves stats, and reverts it', async () => {
+    const wallets = initial.map(h => h.id === 'principal' ? { ...h, saldo_acumulado: 200 } : h.id === 'llena' ? { ...h, deuda_cuota: 9 } : h);
+    const hook = await setup(wallets, [gasto('existing-expense', 100, 'principal'), { id: 'existing-income', ...ingreso }]);
+    await waitFor(() => expect(hook.current.userStats).toEqual({ total_ingresos: 100, total_gastos: 100 }));
+    const stats = hook.current.userStats;
+    await act(() => hook.current.handlePrestamo('principal', 'llena', 104, 3));
+    expect(allBalances(hook)).toMatchObject({ principal: 96, llena: 204 });
+    const borrower = hook.current.huchas.find(h => h.id === 'llena')!;
+    expect(borrower).toMatchObject({ deuda_pendiente: 104, deuda_con: 'principal', deuda_cuota: 34.67 });
+    const internal = hook.current.movimientos.filter(m => m.es_interno);
+    expect(internal).toHaveLength(2);
+    const expense = internal.find(m => m.tipo === 'gasto')!;
+    const income = internal.find(m => m.tipo === 'ingreso')!;
+    expect(expense).toMatchObject({ concepto: 'Préstamo a Llena', importe: 104, hucha_id: 'principal', es_interno: true });
+    expect(income).toMatchObject({ concepto: 'Préstamo de Cuenta', importe: 104, hucha_id: 'llena', es_interno: true, transfer_id: expense.transfer_id });
+    expect(expense.transfer_id).toBeTruthy();
+    expect(hook.current.userStats).toEqual(stats);
+    await act(() => hook.current.handleRevertirDeuda(borrower));
+    expect(allBalances(hook)).toMatchObject({ principal: 200, llena: 100 });
+    expect(hook.current.huchas.find(h => h.id === 'llena')).not.toHaveProperty('deuda_cuota');
+  });
+
+  it.each([
+    ['principal', 'principal', 10, 3, 'distintas'],
+    ['missing', 'llena', 10, 3, 'activas'],
+    ['principal', 'missing', 10, 3, 'activas'],
+    ['cash', 'llena', 1, 3, 'metálico'],
+    ['principal', 'cash', 1, 3, 'metálico'],
+    ['principal', 'llena', 0, 3, 'mayor que cero'],
+    ['principal', 'llena', -10, 3, 'mayor que cero'],
+    ['principal', 'llena', NaN, 3, 'mayor que cero'],
+    ['principal', 'llena', Infinity, 3, 'mayor que cero'],
+    ['principal', 'llena', 0.001, 3, 'mayor que cero'],
+    ['principal', 'llena', 10, 0, 'entero'],
+    ['principal', 'llena', 10, 37, 'entero'],
+    ['principal', 'llena', 10, 1.5, 'entero'],
+    ['principal', 'llena', 101, 3, 'insuficiente'],
+    ['principal', 'deudora', 10, 3, 'Deudora ya tiene un préstamo pendiente; devuélvelo o revierte antes'],
+  ] as const)('rejects loan %s → %s (%s, %s) atomically', async (from, to, amount, months, message) => {
+    const hook = await setup();
+    const before = durableState();
+    await act(async () => { await expect(hook.current.handlePrestamo(from, to, amount, months)).rejects.toThrow(message); });
+    expect(durableState()).toEqual(before);
+    expect(hook.current.toast?.message).toContain(message);
+  });
+
+  it.each(['principal', 'llena'])('rejects an archived loan wallet: %s', async id => {
+    const hook = await setup(initial.map(h => h.id === id ? { ...h, activa: false } : h));
+    const before = durableState();
+    await act(async () => { await expect(hook.current.handlePrestamo('principal', 'llena', 10, 3)).rejects.toThrow('activas'); });
+    expect(durableState()).toEqual(before);
+  });
+
+  it.each([1, 36])('allows the boundary term of %s months', async months => {
+    const hook = await setup();
+    await act(() => hook.current.handlePrestamo('principal', 'llena', 1, months));
+    expect(hook.current.huchas.find(h => h.id === 'llena')).toMatchObject({ deuda_pendiente: 1, deuda_cuota: Math.ceil(100 / months) / 100 });
+  });
+
+  it('rounds the loan amount to cents before calculating the quota', async () => {
+    const hook = await setup();
+    await act(() => hook.current.handlePrestamo('principal', 'llena', 1.005, 1));
+    expect(hook.current.huchas.find(h => h.id === 'llena')).toMatchObject({ saldo_acumulado: 101.01, deuda_pendiente: 1.01, deuda_cuota: 1.01 });
+    expect(hook.current.movimientos.every(m => m.importe === 1.01)).toBe(true);
+  });
+
+  it('rejects subsanación with a different lender without overwriting the debt', async () => {
+    const hook = await setup(initial.map(h => h.id === 'deudora' ? { ...h, subsanar_hasta: 50, subsanar_con: 'llena', deuda_cuota: 5 } : h));
+    const before = durableState();
+    await act(() => hook.current.handleSubsanarHucha(hook.current.huchas.find(h => h.id === 'deudora')!));
+    expect(durableState()).toEqual(before);
+    expect(hook.current.toast?.message).toContain('ya debe dinero a otra cartera');
+  });
+
+  it.each([0, 25])('subsanación clears stale quotas only when starting a new debt (%s)', async debt => {
+    const hook = await setup(initial.map(h => h.id === 'deudora' ? { ...h, deuda_pendiente: debt, deuda_cuota: 5, subsanar_hasta: 50, subsanar_con: 'principal' } : h));
+    await act(() => hook.current.handleSubsanarHucha(hook.current.huchas.find(h => h.id === 'deudora')!));
+    const borrower = hook.current.huchas.find(h => h.id === 'deudora')!;
+    expect(borrower.deuda_pendiente).toBe(debt + 30);
+    expect(borrower.deuda_cuota).toBe(debt ? 5 : undefined);
+  });
+
+  it.each([0, 25])('transfers the quota on archive only to an assignee without debt (%s)', async debt => {
+    const archived: Hucha = { ...initial[0], id: 'archive', deuda_pendiente: 50, deuda_con: 'principal', deuda_cuota: 10 };
+    const wallets = initial.map(h => h.id === 'deudora' ? { ...h, deuda_pendiente: debt, deuda_cuota: 5 } : h);
+    const hook = await setup([...wallets, archived]);
+    await act(() => hook.current.handleDeleteHucha(archived, 'debt', undefined, 'deudora'));
+    expect(hook.current.huchas.find(h => h.id === 'deudora')).toMatchObject({ deuda_pendiente: debt + 50, deuda_cuota: debt ? 5 : 10 });
+  });
+
   it('counts and assigns missing banks across all movements, excluding cash and internal entries', async () => {
     const fields = [{}, { banco: '' }, { banco: 'Banco' }, { banco: '  ' }, { banco: 'BBVA' }, { es_metalico: true }, { es_interno: true }];
     const movements = fields.map((fields, i) => ({ ...gasto(String(i), 10, 'principal'), fecha_operacion: '2020-01-01', ...fields }));
@@ -403,6 +493,28 @@ describe.each(['demo', 'firebase'] as const)('dominio común en %s', mode => {
       expect(allBalances(hook)).toEqual({ principal: 195, llena: 100, deudora: 15, cash: 7 });
     });
   } else {
+    it('validates the current debt and balance in the loan transaction', async () => {
+      const hook = await setup();
+      fake.write(fake.ref('huchas', 'principal'), { saldo_acumulado: 5 }, true);
+      let before = durableState();
+      await act(async () => { await expect(hook.current.handlePrestamo('principal', 'llena', 10, 3)).rejects.toThrow('insuficiente'); });
+      expect(durableState()).toEqual(before);
+      fake.write(fake.ref('huchas', 'principal'), { saldo_acumulado: 100 }, true);
+      fake.write(fake.ref('huchas', 'llena'), { deuda_pendiente: 5, deuda_con: 'deudora' }, true);
+      before = durableState();
+      await act(async () => { await expect(hook.current.handlePrestamo('principal', 'llena', 10, 3)).rejects.toThrow('ya tiene un préstamo pendiente'); });
+      expect(durableState()).toEqual(before);
+    });
+
+    it('checks a changed lender in the subsanación transaction', async () => {
+      const hook = await setup(initial.map(h => h.id === 'deudora' ? { ...h, subsanar_hasta: 50, subsanar_con: 'principal' } : h));
+      fake.write(fake.ref('huchas', 'deudora'), { deuda_con: 'llena' }, true);
+      const before = durableState();
+      await act(() => hook.current.handleSubsanarHucha(hook.current.huchas.find(h => h.id === 'deudora')!));
+      expect(durableState()).toEqual(before);
+      expect(hook.current.toast?.message).toContain('ya debe dinero a otra cartera');
+    });
+
     it.each(['manual', 'pending', 'convert', 'archive'] as const)('%s lee las reglas, topes y saldo actuales dentro de la transacción', async operation => {
       const movement = gasto('expense', 100, 'llena');
       const archived: Hucha = { id: 'archive', nombre: 'Archivo', tipo_aportacion: 'resto', saldo_acumulado: 100, objetivo: null, orden: 4 };

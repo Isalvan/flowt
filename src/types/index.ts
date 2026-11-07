@@ -65,6 +65,7 @@ export interface Hucha {
   subsanar_con?: string | null;
   subsanar_hasta?: number;
   deuda_pendiente?: number;
+  deuda_cuota?: number | null;
   deuda_con?: string | null;
   id_propietario?: string;
   created_at?: any;

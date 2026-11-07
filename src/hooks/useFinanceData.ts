@@ -656,7 +656,8 @@ export const useFinanceData = (forceDemo = false) => {
                 return {
                   ...h,
                   deuda_pendiente: roundMoney((h.deuda_pendiente || 0) + (hucha.deuda_pendiente || 0)),
-                  deuda_con: hucha.deuda_con
+                  deuda_con: hucha.deuda_con,
+                  ...(!(h.deuda_pendiente && h.deuda_pendiente > 0) ? { deuda_cuota: hucha.deuda_cuota } : {}),
                 };
               }
               return h;
@@ -688,6 +689,7 @@ export const useFinanceData = (forceDemo = false) => {
             transaction.update(doc(db, 'huchas', assignee.id), {
               deuda_pendiente: roundMoney((assignee.deuda_pendiente || 0) + (current.deuda_pendiente || 0)),
               deuda_con: current.deuda_con,
+              ...(!(assignee.deuda_pendiente && assignee.deuda_pendiente > 0) ? { deuda_cuota: current.deuda_cuota ?? deleteField() } : {}),
               updated_at: serverTimestamp(),
             });
           }
@@ -788,6 +790,58 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
+  const handlePrestamo = async (fromId: string, toId: string, amount: number, meses: number) => {
+    try {
+      if (fromId === toId) throw new Error('Debes seleccionar carteras distintas.');
+      if (!Number.isFinite(amount) || amount <= 0 || roundMoney(amount) <= 0) throw new Error('El importe debe ser mayor que cero.');
+      if (!Number.isInteger(meses) || meses < 1 || meses > 36) throw new Error('El plazo debe ser un número entero entre 1 y 36 meses.');
+      const importe = roundMoney(amount);
+      const cuota = Math.ceil(Math.round(importe * 100) / meses) / 100;
+      const validate = (from: Hucha | undefined, to: Hucha | undefined) => {
+        if (!from || !to || from.activa === false || to.activa === false || from.es_metalico || to.es_metalico) {
+          throw new Error('Selecciona dos carteras activas que no sean de metálico.');
+        }
+        if ((to.deuda_pendiente || 0) > 0) throw new Error(`${to.nombre} ya tiene un préstamo pendiente; devuélvelo o revierte antes`);
+        if (roundMoney(from.saldo_acumulado) < importe) throw new Error('Saldo insuficiente en la cartera de origen');
+        return { from, to };
+      };
+      const transferId = `transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const legs = (from: Hucha, to: Hucha): Movimiento[] => [
+        { id: `${transferId}-gasto`, tipo: 'gasto', concepto: `Préstamo a ${to.nombre}`, hucha_id: fromId, importe, fecha_operacion: new Date(), es_interno: true, transfer_id: transferId },
+        { id: `${transferId}-ingreso`, tipo: 'ingreso', concepto: `Préstamo de ${from.nombre}`, hucha_id: toId, importe, fecha_operacion: new Date(), es_interno: true, transfer_id: transferId },
+      ];
+
+      if (!isFirebaseConfigured) {
+        const { from, to } = validate(huchas.find(h => h.id === fromId), huchas.find(h => h.id === toId));
+        const updated = huchas.map(h => h.id === fromId
+          ? { ...h, saldo_acumulado: roundMoney(h.saldo_acumulado - importe) }
+          : h.id === toId ? { ...h, saldo_acumulado: roundMoney(h.saldo_acumulado + importe), deuda_pendiente: importe, deuda_con: fromId, deuda_cuota: cuota } : h);
+        saveDemoState([...legs(from, to), ...movimientos], updated, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+      } else {
+        await runTransaction(db, async transaction => {
+          const fromRef = doc(db, 'huchas', fromId);
+          const toRef = doc(db, 'huchas', toId);
+          const fromDoc = await transaction.get(fromRef);
+          const toDoc = await transaction.get(toRef);
+          const { from, to } = validate(
+            fromDoc.exists() ? { ...fromDoc.data(), id: fromId } as Hucha : undefined,
+            toDoc.exists() ? { ...toDoc.data(), id: toId } as Hucha : undefined,
+          );
+          transaction.update(fromRef, { saldo_acumulado: roundMoney(from.saldo_acumulado - importe), updated_at: serverTimestamp() });
+          transaction.update(toRef, { saldo_acumulado: roundMoney(to.saldo_acumulado + importe), deuda_pendiente: importe, deuda_con: fromId, deuda_cuota: cuota, updated_at: serverTimestamp() });
+          for (const leg of legs(from, to)) {
+            const ref = doc(collection(db, 'movimientos'));
+            transaction.set(ref, { ...leg, id: ref.id, id_propietario: user?.uid, fecha_operacion: serverTimestamp(), created_at: serverTimestamp() });
+          }
+        });
+      }
+      showToast('Préstamo completado', 'success');
+    } catch (error: unknown) {
+      showToast(error instanceof Error ? error.message : 'Error al prestar fondos.');
+      throw error;
+    }
+  };
+
   const handleSubsanarHucha = async (hucha: Hucha) => {
     if (hucha.saldo_acumulado >= (hucha.subsanar_hasta || 0)) {
       showToast('Esta cartera no necesita ser subsanada.');
@@ -819,6 +873,11 @@ export const useFinanceData = (forceDemo = false) => {
       return;
     }
 
+    if ((hucha.deuda_pendiente || 0) > 0 && hucha.deuda_con !== lenderHuchaId) {
+      showToast(`${hucha.nombre} ya debe dinero a otra cartera; revierte esa deuda antes`);
+      return;
+    }
+
     if (!isFirebaseConfigured) {
       const updated = huchas.map(h => {
         if (h.id === lenderHuchaId) {
@@ -829,7 +888,8 @@ export const useFinanceData = (forceDemo = false) => {
             ...h, 
             saldo_acumulado: Number((h.saldo_acumulado + amount).toFixed(2)),
             deuda_pendiente: (h.deuda_pendiente || 0) + amount,
-            deuda_con: lenderHuchaId
+            deuda_con: lenderHuchaId,
+            deuda_cuota: (h.deuda_pendiente || 0) > 0 ? h.deuda_cuota : undefined,
           };
         }
         return h;
@@ -877,6 +937,10 @@ export const useFinanceData = (forceDemo = false) => {
         const toDoc = await transaction.get(toRef);
 
         if (!fromDoc.exists() || !toDoc.exists()) throw new Error('Una de las carteras no existe');
+
+        if ((toDoc.data().deuda_pendiente || 0) > 0 && toDoc.data().deuda_con !== lenderHuchaId) {
+          throw new Error(`${toDoc.data().nombre} ya debe dinero a otra cartera; revierte esa deuda antes`);
+        }
         
         const fromBalance = fromDoc.data().saldo_acumulado || 0;
         const toBalance = toDoc.data().saldo_acumulado || 0;
@@ -886,6 +950,7 @@ export const useFinanceData = (forceDemo = false) => {
           saldo_acumulado: toBalance + amount,
           deuda_pendiente: (toDoc.data().deuda_pendiente || 0) + amount,
           deuda_con: lenderHuchaId,
+          ...(!(toDoc.data().deuda_pendiente > 0) ? { deuda_cuota: deleteField() } : {}),
           updated_at: serverTimestamp() 
         });
 
@@ -943,6 +1008,7 @@ export const useFinanceData = (forceDemo = false) => {
           const rest = { ...h };
           delete rest.deuda_pendiente;
           delete rest.deuda_con;
+          delete rest.deuda_cuota;
           return {
             ...rest,
             saldo_acumulado: Number((rest.saldo_acumulado - deuda).toFixed(2))
@@ -1001,6 +1067,7 @@ export const useFinanceData = (forceDemo = false) => {
           saldo_acumulado: fromBalance - deuda,
           deuda_pendiente: deleteField(),
           deuda_con: deleteField(),
+          deuda_cuota: deleteField(),
           updated_at: serverTimestamp() 
         });
 
@@ -2367,6 +2434,7 @@ export const useFinanceData = (forceDemo = false) => {
     handleDeleteHucha,
     handleRestoreHucha,
     handleTransfer,
+    handlePrestamo,
     handleUpdateMovimientoConcepto,
     handleUpdateMovimientoCategoria,
     handleDismissCompensation,

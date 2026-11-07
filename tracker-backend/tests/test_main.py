@@ -530,6 +530,22 @@ def test_email_income_repays_lender_and_records_debt_reduction(mock_config):
     }
 
 
+@pytest.mark.parametrize("concept,payment", [("Nómina", 10), ("Ingreso", 0)])
+def test_email_income_preserves_the_monthly_loan_quota(mock_config, concept, payment):
+    huchas = [
+        hucha_doc("debtor", orden=1, tipo_aportacion="flat", valor_aportacion=40,
+                  saldo_acumulado=0, deuda_pendiente=60, deuda_con="rest", deuda_cuota=10),
+        hucha_doc("rest", orden=2, tipo_aportacion="resto", saldo_acumulado=0),
+    ]
+    updates, saved, _ = process_income_email(mock_config, huchas, [50], concepto=concept)
+    assert updates["debtor"]["saldo_acumulado"] == 40 - payment
+    assert "deuda_cuota" not in updates["debtor"]
+    assert saved["income-0"]["reparto_aplicado"] == {
+        "saldos": {"debtor": 40.0 - payment, "rest": 10.0 + payment},
+        "deudas": {"debtor": {"importe": payment, "con": "rest"}} if payment else {},
+    }
+
+
 def test_second_email_income_uses_the_remaining_debt(mock_config):
     huchas = [
         hucha_doc("debtor", orden=1, tipo_aportacion="flat", valor_aportacion=40,

@@ -243,17 +243,21 @@ def test_archive_moves_the_balance_and_refuses_unsafe_cases(world):
 
 def test_loan_between_wallets_and_its_reversal(world):
     db, service = world
+    db.data[("huchas", "fixed")]["deuda_cuota"] = 9
     service.update_hucha("owner", hucha_id="fixed", subsanar_hasta=150, subsanar_con="trip")
     result = service.cover_hucha_shortfall("owner", hucha_id="fixed")
     assert result["amount"] == 150 and result["lender_hucha_id"] == "trip"
     assert balances(db) == {"main": 1000, "trip": 50, "fixed": 150}
     assert db.doc("huchas", "fixed")["deuda_pendiente"] == 150 and db.doc("huchas", "fixed")["deuda_con"] == "trip"
+    assert "deuda_cuota" not in db.doc("huchas", "fixed")
     legs = [m for m in db.docs("movimientos").values() if m.get("transfer_id")]
     assert len(legs) == 2 and all(m["es_interno"] for m in legs)
     refused(world, "not_needed", lambda: service.cover_hucha_shortfall("owner", hucha_id="fixed"))
+    db.data[("huchas", "fixed")]["deuda_cuota"] = 50
     service.revert_hucha_debt("owner", hucha_id="fixed")
     assert balances(db) == {"main": 1000, "trip": 200, "fixed": 0}
     assert "deuda_pendiente" not in db.doc("huchas", "fixed") and "deuda_con" not in db.doc("huchas", "fixed")
+    assert "deuda_cuota" not in db.doc("huchas", "fixed")
     refused(world, "not_needed", lambda: service.revert_hucha_debt("owner", hucha_id="fixed"))
 
 

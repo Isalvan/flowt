@@ -700,7 +700,8 @@ class FinanceService:
         legs = self._internal_legs(owner, amount, (lender_id, f"Préstamo a {hucha.get('nombre')}"),
                                    (hucha_id, f"Subsanación desde {lender.get('nombre')}"))
         changes = self._apply(tx, huchas, {lender_id: -amount, hucha_id: amount},
-                              {hucha_id: {"deuda_pendiente": d.euros(debt + amount), "deuda_con": lender_id}})
+                              {hucha_id: {"deuda_pendiente": d.euros(debt + amount), "deuda_con": lender_id,
+                                          **({"deuda_cuota": DELETE} if not debt else {})}})
         for ref, leg in legs:
             tx.set(ref, leg)
         return {"amount": d.euros(amount), "lender_hucha_id": lender_id, "hucha_changes": changes}
@@ -718,7 +719,7 @@ class FinanceService:
         legs = self._internal_legs(owner, debt, (hucha_id, f"Reversión de subsanación (devuelto a {lender.get('nombre')})"),
                                    (lender_id, f"Reversión de préstamo (recuperado de {hucha.get('nombre')})"))
         changes = self._apply(tx, huchas, {hucha_id: -debt, lender_id: debt},
-                              {hucha_id: {"deuda_pendiente": DELETE, "deuda_con": DELETE}})
+                              {hucha_id: {"deuda_pendiente": DELETE, "deuda_con": DELETE, "deuda_cuota": DELETE}})
         for ref, leg in legs:
             tx.set(ref, leg)
         return {"amount": d.euros(debt), "hucha_changes": changes}

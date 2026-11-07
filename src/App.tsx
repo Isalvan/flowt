@@ -111,6 +111,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     handleDeleteHucha,
     handleRestoreHucha,
     handleTransfer,
+    handlePrestamo,
     handleUpdateMovimientoConcepto,
     handleUpdateMovimientoCategoria,
     handleDismissCompensation,
@@ -708,6 +709,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
           isOpen={isTransferModalOpen}
           onClose={() => setIsTransferModalOpen(false)}
           onTransfer={onSafeTransfer}
+          onPrestamo={handlePrestamo}
           huchas={huchas}
         />
       </DeferredOverlay>

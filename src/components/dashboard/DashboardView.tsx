@@ -389,6 +389,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
               {wallets.map((h, i) => (
                 <div key={h.id} className="min-w-[78vw] snap-start sm:min-w-0">
                   <HuchaCard
+                    lenderName={props.huchas.find(lender => lender.id === h.deuda_con)?.nombre}
                     hucha={h}
                     index={i}
                     onEdit={props.onOpenHuchaModal}
