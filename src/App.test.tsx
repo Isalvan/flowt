@@ -111,6 +111,17 @@ describe('App Dashboard', () => {
     vi.unstubAllEnvs();
   }, 30000);
 
+  it('leaves the demo from the profile panel and returns to the sign-in screen', async () => {
+    vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
+    render(<App />);
+    fireEvent.click(await screen.findByText(/Explorar en modo Demo/i));
+    fireEvent.click((await screen.findAllByRole('button', { name: /Abrir perfil/i }))[0]);
+    fireEvent.click(await screen.findByRole('button', { name: /Cerrar sesión/i }, { timeout: 15000 }));
+    expect(await screen.findByText(/Explorar en modo Demo/i)).toBeInTheDocument();
+    expect(signOut).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  }, 30000);
+
   it('opens and closes the Más acciones menu', async () => {
     vi.stubEnv('VITE_FIREBASE_API_KEY', 'mock-key');
     render(<App />);
