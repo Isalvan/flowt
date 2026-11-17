@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TicketModal, type TicketModalProps } from './TicketModal';
 import { DEMO_TICKET } from '../../utils/demoData';
@@ -8,9 +8,11 @@ vi.mock('../../utils/ticketApi', () => ({ hasTicketApi: () => true, scanTicket: 
 vi.mock('../../utils/ticketImage', () => ({ prepareTicketImage: vi.fn(async () => ({ image: 'photo', mime: 'image/jpeg', preview: 'data:image/jpeg;base64,cGhvdG8=' })) }));
 const props = (overrides: Partial<TicketModalProps> = {}): TicketModalProps => ({ uid: 'owner', demo: true, movimientos: [], huchas: [], onSave: vi.fn(async () => {}), onAttach: vi.fn(async () => {}), onClose: vi.fn(), onManual: vi.fn(), ...overrides });
 const addAna = () => {
-  fireEvent.click(screen.getByRole('switch', { name: 'Repartir entre personas' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Repartir' }));
+  expect(screen.getByRole('button', { name: 'Añade al menos una persona' })).toBeDisabled();
   fireEvent.change(screen.getByRole('textbox', { name: 'Nombre de persona' }), { target: { value: 'Ana' } });
   fireEvent.click(screen.getByRole('button', { name: 'Añadir persona' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Asignar líneas' }));
 };
 
 beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
@@ -31,14 +33,16 @@ describe('TicketModal', () => {
     const p = props();
     render(<TicketModal {...p} />);
     await screen.findByLabelText('Comercio');
+    fireEvent.change(screen.getByLabelText('Total (EUR)'), { target: { value: '25.45' } });
+    expect(screen.getByRole('note')).toHaveTextContent('la diferencia se reparte proporcionalmente');
     addAna();
     const totals = screen.getByLabelText('Totales por persona');
-    expect(totals).toHaveTextContent('Yo11,73 €Ana11,72 €');
-    fireEvent.click(screen.getByRole('button', { name: 'Ana, línea 1' }));
-    expect(totals).toHaveTextContent('Yo8,76 €Ana14,69 €');
-    fireEvent.change(screen.getByLabelText('Total (EUR)'), { target: { value: '25.45' } });
+    expect(totals).toHaveTextContent('Yo12,73 €Ana12,72 €');
+    expect(screen.getByRole('radio', { name: 'Ana' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Asignar Leche entera 6x1L' }));
     expect(totals).toHaveTextContent('Yo9,50 €Ana15,95 €');
-    expect(screen.getByRole('note')).toHaveTextContent('la diferencia se reparte proporcionalmente');
+    fireEvent.click(screen.getByRole('button', { name: 'Ver resumen' }));
+    expect(screen.getByLabelText('Resumen por persona')).toHaveTextContent('Yo');
     fireEvent.click(screen.getByRole('button', { name: 'Guardar gasto' }));
     await waitFor(() => expect(p.onSave).toHaveBeenCalled());
     const saved = vi.mocked(p.onSave).mock.calls[0][0];
@@ -52,13 +56,22 @@ describe('TicketModal', () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
     render(<TicketModal {...props()} />);
     await screen.findByLabelText('Comercio');
-    addAna();
-    fireEvent.click(within(screen.getByLabelText('Personas del reparto')).getByRole('button', { name: 'Ana' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Asignar Leche entera 6x1L' }));
-    expect(screen.getByRole('button', { name: 'Ana, línea 1' })).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Editar línea 1' }));
     fireEvent.change(screen.getByLabelText('Importe de línea 1'), { target: { value: '6.94' } });
+    addAna();
+    fireEvent.click(screen.getByRole('radio', { name: 'Yo' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Ana' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Asignar Leche entera 6x1L' }));
+    expect(screen.getByRole('button', { name: 'Asignar Leche entera 6x1L' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByLabelText('Totales por persona')).toHaveTextContent('Yo8,40 €Ana15,05 €');
+    fireEvent.click(screen.getByRole('button', { name: 'Atrás' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar a Ana' }));
+    expect(screen.getByRole('button', { name: 'Añade al menos una persona' })).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Nombre de persona' }), { target: { value: 'Ana' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Añadir persona' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Asignar líneas' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Asignar Leche entera 6x1L' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ver resumen' }));
     fireEvent.click(screen.getByRole('button', { name: 'Compartir' }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Ana 15,05 €')));
   });
