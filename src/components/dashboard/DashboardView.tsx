@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarClock, Check, ChevronDown, Fingerprint, Lock, Plus } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, Fingerprint, Lock, Plus, ScanLine } from "lucide-react";
 import type { Hucha, Movimiento, Suscripcion } from "../../types";
 import { usePrivacy } from "../../context/PrivacyContext";
 import { groupMovementsByMonth, parseMovimientoDate } from "../../utils/periodStats";
@@ -77,6 +77,7 @@ interface DashboardViewProps {
   onOpenTransferModal: () => void;
   onOpenHistoryModal: () => void;
   onOpenManualMovimientoModal: () => void;
+  onOpenTicket?: () => void;
   onOpenCalendar?: () => void;
 }
 
@@ -270,7 +271,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         style={step(0)}
       >
         {greeting}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={props.onOpenManualMovimientoModal}
@@ -278,6 +279,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
           >
             <Plus size={16} /> Añadir movimiento
           </button>
+          {props.onOpenTicket && <button type="button" onClick={props.onOpenTicket} className="dashboard-secondary-button" aria-label="Escanear ticket" title="Escanear ticket"><ScanLine size={16} /><span className="hidden sm:inline">Escanear ticket</span></button>}
           <div ref={periodRef} className="relative">
             <button
               type="button"
@@ -324,6 +326,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             onNewHucha={() => props.onOpenHuchaModal(null)}
             onTransfer={props.onOpenTransferModal}
             onHistory={props.onOpenHistoryModal}
+            onScanTicket={props.onOpenTicket}
           />
         </div>
       </header>
