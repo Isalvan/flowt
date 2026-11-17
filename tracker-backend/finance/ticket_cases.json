@@ -1,0 +1,3903 @@
+[
+  {
+    "nombre": "contrato, cantidades ya multiplicadas y cupón",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "JSON crudo",
+    "hoy": "2026-11-17",
+    "entrada": "{\"comercio\":\"Mercadona\",\"fecha\":\"2026-11-17\",\"total\":23.45,\"moneda\":\"EUR\",\"categoria_sugerida\":\"alimentacion\",\"lineas\":[{\"descripcion\":\"Leche entera 6x1L\",\"cantidad\":1,\"importe\":5.94},{\"descripcion\":\"Compra\",\"cantidad\":2,\"importe\":18.51},{\"descripcion\":\"Cupón\",\"cantidad\":1,\"importe\":-1}]}",
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "redondeo a céntimos y tolerancia inclusiva",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": "10,055",
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": " Artículo ",
+          "importe": "11.015"
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1.005
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 10.06,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 11.02
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1.01
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0.05
+    }
+  },
+  {
+    "nombre": "diferencia fuera de tolerancia",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.51,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.51,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": false,
+      "diferencia": 0.06
+    }
+  },
+  {
+    "nombre": "diferencia negativa inclusiva",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.4,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.4,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": -0.05
+    }
+  },
+  {
+    "nombre": "diferencia negativa fuera de tolerancia",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.39,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.39,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": false,
+      "diferencia": -0.06
+    }
+  },
+  {
+    "nombre": "fecha inválida o futura 2026-11-18",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-18",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": null,
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "fecha inválida o futura 2026-02-30",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-02-30",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": null,
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "fecha inválida o futura 17/11/2026",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "17/11/2026",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": null,
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "fecha inválida o futura ayer",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "ayer",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": null,
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "fecha inválida o futura null",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": null,
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": null,
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "fecha inválida o futura 0000-01-01",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "0000-01-01",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": null,
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "fecha inválida o futura 2026-13-01",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-13-01",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": null,
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "fecha inválida o futura 2026-11-17T00:00:00Z",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17T00:00:00Z",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": null,
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "fecha bisiesta válida",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2024-02-29",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2024-02-29",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "categoría inválida \"nomina\"",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "nomina",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "sin_categorizar",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "categoría inválida \"inventada\"",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "inventada",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "sin_categorizar",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "categoría inválida null",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": null,
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "sin_categorizar",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "categoría inválida {}",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": {},
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "sin_categorizar",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "categoría inválida [\"alimentacion\"]",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": [
+        "alimentacion"
+      ],
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "sin_categorizar",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "limpia y recorta texto Unicode",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": " 🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒 ",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": " eur ",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": " ááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááá ",
+          "cantidad": 1,
+          "importe": 23.45
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒🛒",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "áááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááá",
+          "cantidad": 1,
+          "importe": 23.45
+        }
+      ],
+      "cuadra": true,
+      "diferencia": 0
+    }
+  },
+  {
+    "nombre": "máximo total y 150 líneas",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 10000,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        }
+      ]
+    },
+    "esperado": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 10000,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        },
+        {
+          "descripcion": "Artículo",
+          "cantidad": 1,
+          "importe": 1
+        }
+      ],
+      "cuadra": false,
+      "diferencia": 9850
+    }
+  },
+  {
+    "nombre": "total inválido 0",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 0,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "total inválido -1",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": -1,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "total inválido 10000.01",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 10000.01,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "total inválido 0.001",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 0.001,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "total inválido true",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": true,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "total inválido null",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": null,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "total inválido \"NaN\"",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": "NaN",
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "total inválido \"Infinity\"",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": "Infinity",
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "total inválido \"12 euros\"",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": "12 euros",
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "total inválido {}",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": {},
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "total inválido []",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": [],
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 33",
+    "hoy": "2026-11-17",
+    "entrada": null,
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 34",
+    "hoy": "2026-11-17",
+    "entrada": [],
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 35",
+    "hoy": "2026-11-17",
+    "entrada": {},
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 36",
+    "hoy": "2026-11-17",
+    "entrada": false,
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 37",
+    "hoy": "2026-11-17",
+    "entrada": "not json",
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 38",
+    "hoy": "2026-11-17",
+    "entrada": "```json\n{}\n```",
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 39",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ],
+      "es_ticket": false
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 40",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": " ",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 41",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": []
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 42",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 43",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        null
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 44",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Item",
+          "importe": true
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 45",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Item",
+          "importe": 1,
+          "cantidad": 0
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 46",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "EUR",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": 1,
+          "importe": 1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  },
+  {
+    "nombre": "ilegible 47",
+    "hoy": "2026-11-17",
+    "entrada": {
+      "comercio": "Mercadona",
+      "fecha": "2026-11-17",
+      "total": 23.45,
+      "moneda": "€",
+      "categoria_sugerida": "alimentacion",
+      "lineas": [
+        {
+          "descripcion": "Leche entera 6x1L",
+          "cantidad": 1,
+          "importe": 5.94
+        },
+        {
+          "descripcion": "Compra",
+          "cantidad": 2,
+          "importe": 18.51
+        },
+        {
+          "descripcion": "Cupón",
+          "cantidad": 1,
+          "importe": -1
+        }
+      ]
+    },
+    "error": "not_a_ticket"
+  }
+]

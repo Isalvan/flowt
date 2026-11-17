@@ -1,0 +1,23 @@
+{
+  "type": "OBJECT",
+  "required": ["es_ticket", "comercio", "fecha", "total", "moneda", "categoria_sugerida", "lineas"],
+  "properties": {
+    "es_ticket": {"type": "BOOLEAN"},
+    "comercio": {"type": "STRING"},
+    "fecha": {"type": "STRING", "nullable": true},
+    "total": {"type": "NUMBER"},
+    "moneda": {"type": "STRING"},
+    "categoria_sugerida": {"type": "STRING"},
+    "lineas": {
+      "type": "ARRAY", "maxItems": 150,
+      "items": {
+        "type": "OBJECT", "required": ["descripcion", "cantidad", "importe"],
+        "properties": {
+          "descripcion": {"type": "STRING"},
+          "cantidad": {"type": "NUMBER"},
+          "importe": {"type": "NUMBER"}
+        }
+      }
+    }
+  }
+}

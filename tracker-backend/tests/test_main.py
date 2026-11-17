@@ -438,6 +438,38 @@ def hucha_doc(doc_id, **data):
     return doc
 
 
+@pytest.mark.parametrize("review_enabled", [False, True])
+def test_sync_retry_preserves_ticket_on_existing_movement(mock_config, review_enabled):
+    from copy import deepcopy
+    from datetime import datetime, timezone
+
+    db, collection = mock_config
+    existing = {"id_propietario": "test_user_123", "email_id": "email", "tipo": "gasto", "importe": 12,
+                "concepto": "Concepto editado", "ticket": {
+                    "comercio": "Mercadona", "lineas": [{"d": "Compra", "i": 12, "p": [0, 1]}],
+                    "personas": [{"nombre": "Yo", "importe": 6, "yo": True}, {"nombre": "Ana", "importe": 6}],
+                    "escaneado_at": datetime(2026, 11, 17, tzinfo=timezone.utc),
+                }}
+    before = deepcopy(existing)
+    snapshot = MagicMock(id="existing", exists=True)
+    snapshot.to_dict.return_value = existing
+    db.get_all.return_value = [snapshot]
+    collection.where.return_value.order_by.return_value.stream.return_value = []
+    collection.where.return_value.where.return_value.stream.return_value = []
+    tx = db.transaction.return_value
+    # A retried bank extraction does not carry the ticket added later by the user.
+    movements = [{"doc_id": "existing", "movimiento": {"tipo": "gasto", "importe": 12, "concepto": "Bank charge"}}]
+    with patch.object(main, "review_enabled", return_value=review_enabled), \
+         patch.object(main, "read_processing", return_value={"movement_ids": ["existing"]}), \
+         patch.object(main, "record_movements") as record:
+        result = main.process_email_movements_transaction.to_wrap(tx, movements, "test_user_123", email_id="email")
+    assert result == (["existing"] if review_enabled else [])
+    assert existing == before
+    tx.set.assert_not_called()
+    tx.update.assert_not_called()
+    assert record.call_count == (1 if review_enabled else 0)
+
+
 def process_income_email(mock_config, huchas, amounts, concepto="Ingreso"):
     """Run one email transaction with distinct movement, stats and wallet references."""
     mock_firestore, mock_collection = mock_config

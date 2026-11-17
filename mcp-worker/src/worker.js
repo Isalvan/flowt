@@ -16,6 +16,7 @@ import { createIdTokenVerifier } from './idToken.js';
 import { AuthorizationServer, SCOPE_READ, SCOPE_WRITE } from './oauth.js';
 import { createRateLimiter } from './rateLimiter.js';
 import { ReviewService } from './reviewService.js';
+import { readTicketBody, scanTicket, TICKET_RATE_LIMIT } from './ticketService.js';
 import { valid } from './schema.js';
 import { ACCESS, INSTRUCTIONS, SCOPE_REVIEW, TOOLS } from './tools.js';
 import { plain, sameSecret } from './util.js';
@@ -85,12 +86,13 @@ async function readForm(request) {
 /**
  * Builds the Worker. `deps` replaces the Firestore client, the Firebase session
  * check and the clock in tests.
- * @param {{ db?: object, verifyIdToken?: (token: string) => Promise<string>, now?: () => Date }} [deps]
+ * @param {{ db?: object, verifyIdToken?: (token: string) => Promise<string>, now?: () => Date, fetch?: typeof fetch }} [deps]
  */
 export function createWorker(deps = {}) {
   const now = deps.now || (() => new Date());
   const ipLimiter = createRateLimiter({ limit: RATE_LIMITS.perIpPerMinute, windowMs: 60_000, now: () => now().getTime() });
   const userLimiter = createRateLimiter({ limit: RATE_LIMITS.perUserToolCallsPerMinute, windowMs: 60_000, now: () => now().getTime() });
+  const ticketLimiter = createRateLimiter({ limit: TICKET_RATE_LIMIT, windowMs: 60_000, now: () => now().getTime() });
 
   async function handle(request, env) {
     const url = new URL(request.url);
@@ -212,6 +214,28 @@ export function createWorker(deps = {}) {
         }
         throw invalid();
       });
+    }
+
+    // --- Web ticket API -----------------------------------------------------
+
+    if (path === '/api/tickets/scan') {
+      if (request.method !== 'POST') return json({ error: 'method_not_allowed', message: 'Usa POST para escanear un ticket' }, 405, { ...cors, Allow: 'POST, OPTIONS' });
+      try {
+        const owner = await webOwner();
+        const used = ticketLimiter.check(owner);
+        if (!used.allowed) return json({ error: 'rate_limited', message: 'Has alcanzado el límite de 10 escaneos por minuto' }, 429,
+          { ...cors, 'Retry-After': String(used.retryAfterSec) });
+        const body = await readTicketBody(request);
+        return json(await scanTicket(body, env, { fetch: deps.fetch, today: now().toISOString().slice(0, 10) }), 200, cors);
+      } catch (error) {
+        if (error instanceof FlowtError) {
+          const status = { unauthorized: 401, invalid_arguments: 400, payload_too_large: 413, not_a_ticket: 422, not_configured: 503, retryable_error: 503 };
+          return json({ error: error.code, message: error.message }, status[error.code] || 503, cors);
+        }
+        // Do not log exceptions: providers can include image data in them.
+        console.error(JSON.stringify({ event: 'ticket_scan_error' }));
+        return json({ error: 'retryable_error', message: 'No se pudo completar la operación' }, 503, cors);
+      }
     }
 
     // --- Web review API -----------------------------------------------------
