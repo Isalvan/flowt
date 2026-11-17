@@ -1,3 +1,5 @@
+import { isNativeApp } from '../native/platform';
+
 // Signed-out visitors to "/" see the public landing; "/entrar" is the sign-in screen it links to.
 
 export const SIGN_IN_PATH = '/entrar';
@@ -25,6 +27,7 @@ function hasSignedInHint(): boolean {
 }
 
 function isInstalledApp(): boolean {
+  if (isNativeApp()) return true;
   const iosStandalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
   return iosStandalone || window.matchMedia?.('(display-mode: standalone)').matches === true;
 }

@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, indexedDBLocalPersistence, initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { isNativeApp } from "./native/platform";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -12,5 +13,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+// In the app, Google sign-in goes through Android (see native/googleSignIn.ts): skip the
+// popup/redirect machinery, whose hidden iframe cannot load inside the web view.
+export const auth = isNativeApp() ? initializeAuth(app, { persistence: indexedDBLocalPersistence }) : getAuth(app);
 export const db = getFirestore(app);

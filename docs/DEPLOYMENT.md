@@ -230,3 +230,7 @@ firebase deploy --only firestore:rules,firestore:indexes
 ```
 
 El sincronizador utiliza el código de la rama que descarga el workflow. Los cambios en secretos se aplican en la siguiente ejecución.
+
+## App de Android
+
+El workflow `Flowt Android` publica el APK en la pre-release `android` en cada cambio de `main`. La puesta en marcha (clave de firma, app de Firebase y secretos) está en [ANDROID.md](ANDROID.md).
