@@ -20,6 +20,7 @@ import { ServiceIcon } from "./ServiceIcon";
 import { walletAccent } from "../../utils/walletAccent";
 import { usePreferences } from "../../context/PreferencesContext";
 import { payrollDates, periodOf, previousPeriod } from "../../utils/periods";
+import { forecastMonthEnd } from "../../utils/monthEndForecast";
 
 type TimePeriod = "este_mes" | "mes_pasado" | "este_anio" | "historico";
 const PERIODS: { value: TimePeriod; label: string }[] = [
@@ -83,6 +84,8 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = (props) => {
   const { isLocked, formatCurrency, biometricEnabled, openUnlockModal } = usePrivacy();
   const { inicioPeriodo, cifraDestacada } = usePreferences();
+  const forecast = useMemo(() => forecastMonthEnd(props.huchas, props.movimientos, props.suscripciones),
+    [props.huchas, props.movimientos, props.suscripciones]);
   const periodConfig = useMemo(() => ({
     inicioPeriodo, nominas: payrollDates([...props.chartMovements, ...(props.olderMovements ?? [])]),
   }), [inicioPeriodo, props.chartMovements, props.olderMovements]);
@@ -391,6 +394,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
                   <HuchaCard
                     lenderName={props.huchas.find(lender => lender.id === h.deuda_con)?.nombre}
                     hucha={h}
+                    prevision={forecast[h.id]}
                     index={i}
                     onEdit={props.onOpenHuchaModal}
                     onDelete={props.onDeleteHucha}

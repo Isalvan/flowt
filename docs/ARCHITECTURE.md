@@ -29,6 +29,7 @@ El frontend se encuentra en `src/` y utiliza React, TypeScript y Vite.
 - `src/hooks/useFinanceData.ts`: suscripciones a Firestore y operaciones financieras.
 - `src/context/PrivacyContext.tsx`: estado de privacidad visual.
 - `src/utils/`: reglas reutilizables para movimientos y suscripciones.
+- `src/utils/monthEndForecast.ts`: previsión del saldo por cartera a fin de mes con ritmo de gasto, suscripciones pendientes y reparto de nómina.
 - `src/types/`: contratos TypeScript compartidos.
 - `src/firebase.ts`: inicialización del SDK web de Firebase.
 
