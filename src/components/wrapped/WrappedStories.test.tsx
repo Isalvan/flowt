@@ -66,7 +66,7 @@ describe('WrappedStories', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('omite diapositivas vacías cuando no hay comercio favorito, racha ni curiosidades', () => {
+  it('muestra solo las tarjetas del inventario que tienen datos', () => {
     // 5 días consecutivos con cargos de suscripción cubriendo todo el periodo [1 oct, 6 oct):
     // comercioFavorito = null, rachaSinGastos.dias = 0, curiosidades = []
     const shortPeriod: WrappedPeriod = { ...october, end: d(10, 6) };
@@ -84,21 +84,26 @@ describe('WrappedStories', () => {
     expect(data.rachaSinGastos.dias).toBe(0);
     expect(data.curiosidades).toEqual([]);
 
+    // Solo entran las tarjetas destacadas que tienen datos: ni comercio favorito ni racha.
+    expect(data.destacados).not.toContain('comercios');
+    expect(data.destacados).not.toContain('racha');
     render(<WrappedStories data={data} onClose={vi.fn()} />);
 
-    // Con las 3 diapositivas vacías omitidas quedan 8 de las 11 diapositivas
+    // Portada, gasto total, categorías, ahorro, personalidad y resumen, más las destacadas.
+    const slides = 6 + data.destacados.length;
     const progress = screen.getByRole('progressbar', { name: /Progreso del Wrapped/i });
-    expect(progress).toHaveAttribute('aria-valuemax', '8');
+    expect(progress).toHaveAttribute('aria-valuemax', String(slides));
 
     const visitedHeadings: string[] = [];
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < slides; i++) {
       visitedHeadings.push(document.body.textContent ?? '');
       fireEvent.keyDown(window, { key: 'ArrowRight' });
     }
     const allText = visitedHeadings.join(' ');
     expect(allText).not.toContain('Tu parada habitual');
     expect(allText).not.toContain('Mayor racha sin gastar');
-    expect(allText).not.toContain('Detalles que quizá no viste');
+    // Una tarjeta genérica del inventario: el peso de las suscripciones.
+    expect(allText).toContain('En piloto automático');
     expect(screen.getByRole('button', { name: /Ver otra vez/i })).toBeInTheDocument();
 
     // "Ver otra vez" vuelve a la portada

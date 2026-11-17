@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Movimiento } from '../types';
-import { availableWrappeds, buildWrapped, featuredWrapped, type WrappedPeriod } from './wrapped';
+import { availableWrappeds, buildWrapped, featuredWrapped, selectHighlights, type WrappedHighlight, type WrappedPeriod } from './wrapped';
 
 const d = (month: number, date = 1, year = 2026) => new Date(year, month - 1, date);
 const now = d(11, 3);
@@ -277,5 +277,55 @@ describe('featuredWrapped', () => {
     expect(featuredWrapped(withNov, d(12, 3), 1)?.key).toBe('mes:2026-11');
     expect(featuredWrapped(withNov, d(12, 3), 1, ['mes:2026-11'])).toMatchObject({ key: 'anio:2026', parcial: true });
     expect(featuredWrapped(withNov, d(12, 15), 1)).toMatchObject({ key: 'anio:2026', parcial: true });
+  });
+});
+
+describe('inventario de tarjetas', () => {
+  const card = (id: string, score: number, grupo?: string): WrappedHighlight => ({ id, score, grupo });
+
+  it('elige las más llamativas, una por grupo, y las ordena como una historia', () => {
+    const inventario = [
+      card('racha', 90, 'sin-gasto'), card('dias-sin-gastar', 85, 'sin-gasto'), card('pequenas', 70, 'pequenas'),
+      card('cafes', 65, 'pequenas'), card('comercios', 60), card('primer-gasto', 10),
+    ];
+    expect(selectHighlights(inventario, 3)).toEqual(['comercios', 'pequenas', 'racha']);
+  });
+
+  it('rota: lo que destacó el periodo anterior pierde peso frente a algo nuevo', () => {
+    const inventario = [card('racha', 80), card('comercios', 70), card('ticket-medio', 55)];
+    expect(selectHighlights(inventario, 2)).toEqual(['comercios', 'racha']);
+    // 80 × 0,6 = 48 < 55: la racha deja sitio al ticket medio.
+    expect(selectHighlights(inventario, 2, ['racha', 'ritmo'])).toEqual(['comercios', 'ticket-medio']);
+  });
+
+  it('detecta cambios frente al mes anterior: categoría que sube, que baja y comercio que desaparece', () => {
+    const september = [
+      ...Array.from({ length: 4 }, (_, i) => expense({ id: `s${i}`, concepto: 'Bar Pepe', categoria: 'restaurantes', importe: 25, fecha_operacion: d(9, 3 + i * 5) })),
+      expense({ id: 's9', concepto: 'Zara', categoria: 'compras', importe: 30, fecha_operacion: d(9, 25) }),
+    ];
+    const octoberMovs = [
+      ...Array.from({ length: 5 }, (_, i) => expense({ id: `o${i}`, concepto: 'Zara', categoria: 'compras', importe: 40, fecha_operacion: d(10, 2 + i * 5) })),
+      expense({ id: 'o9', concepto: 'Mercadona', categoria: 'alimentacion', importe: 20, fecha_operacion: d(10, 28) }),
+    ];
+    const result = build([...september, ...octoberMovs]);
+    const ids = result.inventario.map(c => c.id);
+    expect(ids).toEqual(expect.arrayContaining(['categoria-sube', 'categoria-baja', 'comercio-ausente']));
+    expect(result.inventario.find(c => c.id === 'categoria-baja')).toMatchObject({ titulo: 'Restaurantes' });
+    expect(result.inventario.find(c => c.id === 'comercio-ausente')?.detalle).toBe('En septiembre fuiste 4 veces y este mes ninguna.');
+    expect(result.destacados.length).toBeLessThanOrEqual(5);
+    expect(result.destacados.every(id => ids.includes(id))).toBe(true);
+  });
+
+  it('el mismo patrón dos meses seguidos no repite exactamente las mismas tarjetas', () => {
+    const month = (m: number) => Array.from({ length: 12 }, (_, i) => expense({
+      id: `${m}-${i}`, concepto: i % 3 ? 'Cafetería Luna' : 'Mercadona', categoria: i % 3 ? 'restaurantes' : 'alimentacion',
+      importe: i % 3 ? 2.5 : 45, fecha_operacion: d(m, 1 + i * 2),
+    }));
+    const movements = [...month(9), ...month(10), ...month(11)];
+    const nov: WrappedPeriod = { scope: 'mes', key: 'mes:2026-11', label: 'noviembre', start: d(11), end: d(12) };
+    const oct = buildWrapped(movements, october, { now: d(12, 2) })!;
+    const novData = buildWrapped(movements, nov, { now: d(12, 2) })!;
+    expect(oct.inventario.length).toBeGreaterThan(5);
+    expect(novData.destacados).not.toEqual(oct.destacados);
   });
 });

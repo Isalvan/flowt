@@ -3,6 +3,12 @@ import { createPortal } from 'react-dom';
 import {
   Award,
   Calendar,
+  Coffee,
+  Moon,
+  Receipt,
+  Repeat,
+  Store,
+  Tag,
   Flame,
   RotateCcw,
   Share2,
@@ -14,7 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import type { Movimiento } from '../../types';
-import { buildWrapped, type WrappedData, type WrappedPeriod } from '../../utils/wrapped';
+import { buildWrapped, type WrappedData, type WrappedIcon, type WrappedPeriod, type WrappedTone } from '../../utils/wrapped';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { useCategories } from '../../hooks/useCategories';
 import { CountUp } from '../common/CountUp';
@@ -24,6 +30,28 @@ import { Toast, type ToastType } from '../common/Toast';
 import { ServiceIcon } from '../dashboard/ServiceIcon';
 
 const AUTO_ADVANCE_MS = 6000;
+const TONES: Record<WrappedTone, { gradient: string; chip: string; eyebrow: string }> = {
+  rose: { gradient: 'from-rose-950 via-indigo-950 to-slate-950', chip: 'bg-rose-500/20 text-rose-300', eyebrow: '!text-rose-300' },
+  sky: { gradient: 'from-sky-950 via-indigo-950 to-slate-950', chip: 'bg-sky-500/20 text-sky-300', eyebrow: '!text-sky-300' },
+  violet: { gradient: 'from-violet-950 via-indigo-950 to-slate-950', chip: 'bg-violet-500/20 text-violet-300', eyebrow: '!text-violet-300' },
+  amber: { gradient: 'from-amber-950 via-indigo-950 to-slate-950', chip: 'bg-sun-500/20 text-sun-300', eyebrow: '!text-sun-300' },
+  emerald: { gradient: 'from-emerald-950 via-indigo-950 to-slate-950', chip: 'bg-emerald-500/20 text-emerald-300', eyebrow: '!text-emerald-300' },
+  fuchsia: { gradient: 'from-fuchsia-950 via-indigo-950 to-slate-950', chip: 'bg-fuchsia-500/20 text-fuchsia-300', eyebrow: '!text-fuchsia-300' },
+  teal: { gradient: 'from-teal-950 via-emerald-950 to-slate-950', chip: 'bg-teal-500/20 text-teal-300', eyebrow: '!text-teal-300' },
+  indigo: { gradient: 'from-indigo-950 via-slate-900 to-slate-950', chip: 'bg-indigo-500/25 text-indigo-200', eyebrow: '!text-indigo-300' },
+};
+const ICONS: Record<WrappedIcon, React.ComponentType<{ size?: number }>> = {
+  'trend-up': TrendingUp,
+  'trend-down': TrendingDown,
+  coffee: Coffee,
+  calendar: Calendar,
+  store: Store,
+  sparkles: Sparkles,
+  repeat: Repeat,
+  moon: Moon,
+  tag: Tag,
+  receipt: Receipt,
+};
 const HOLD_THRESHOLD_MS = 220;
 const MONTH_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 const MONTH_FULL = [
@@ -273,11 +301,14 @@ export const WrappedStories: React.FC<WrappedStoriesProps> = ({
       });
     }
 
+    // Pantallas propias de algunas tarjetas del inventario.
+    const pool: SlideDef[] = [];
+
     // 4. Comercio favorito (+ comercioTop si es otro)
     if (data.comercioFavorito) {
       const fav = data.comercioFavorito;
       const topOther = data.comercioTop && data.comercioTop.key !== fav.key ? data.comercioTop : null;
-      list.push({
+      pool.push({
         id: 'comercios',
         gradient: 'from-sky-950 via-indigo-950 to-slate-950',
         render: () => (
@@ -322,7 +353,7 @@ export const WrappedStories: React.FC<WrappedStoriesProps> = ({
     if (data.period.scope === 'mes' && data.diaMasCaro && data.serieDiaria.length > 0) {
       const peak = data.diaMasCaro;
       const maxDaily = Math.max(...data.serieDiaria.map(d => d.total), 1);
-      list.push({
+      pool.push({
         id: 'ritmo',
         gradient: 'from-amber-950 via-indigo-950 to-slate-950',
         render: () => (
@@ -378,7 +409,7 @@ export const WrappedStories: React.FC<WrappedStoriesProps> = ({
       const caro = data.mesMasCaro;
       const barato = data.mesMasBarato;
       const maxMonth = Math.max(...data.serieMensual, 1);
-      list.push({
+      pool.push({
         id: 'ritmo',
         gradient: 'from-amber-950 via-indigo-950 to-slate-950',
         render: () => (
@@ -439,7 +470,7 @@ export const WrappedStories: React.FC<WrappedStoriesProps> = ({
 
     // 6. Compra más grande
     if (data.compraMayor && data.compraMayor.importe > 0) {
-      list.push({
+      pool.push({
         id: 'compra-mayor',
         gradient: 'from-fuchsia-950 via-indigo-950 to-slate-950',
         render: () => (
@@ -473,7 +504,7 @@ export const WrappedStories: React.FC<WrappedStoriesProps> = ({
 
     // 7. Racha sin gastos
     if (data.rachaSinGastos.dias > 0) {
-      list.push({
+      pool.push({
         id: 'racha',
         gradient: 'from-teal-950 via-emerald-950 to-slate-950',
         render: () => (
@@ -503,31 +534,30 @@ export const WrappedStories: React.FC<WrappedStoriesProps> = ({
       });
     }
 
-    // 8. Curiosidades escalonadas
-    if (data.curiosidades.length > 0) {
+    // 3. Tarjetas destacadas: cada Wrapped muestra las más llamativas del inventario.
+    const byId = new Map(data.inventario.map(card => [card.id, card]));
+    for (const id of data.destacados) {
+      const bespoke = pool.find(slide => slide.id === id);
+      if (bespoke) { list.push(bespoke); continue; }
+      const card = byId.get(id);
+      if (!card || card.especial) continue;
+      const tone = TONES[card.tono ?? 'indigo'];
+      const Icon = ICONS[card.icono ?? 'sparkles'];
       list.push({
-        id: 'curiosidades',
-        gradient: 'from-indigo-950 via-slate-900 to-amber-950',
+        id: card.id,
+        gradient: tone.gradient,
         render: () => (
-          <div className={`w-full max-w-md ${enterClass}`}>
-            <p className="eyebrow text-center !text-sun-300">Curiosidades</p>
-            <h3 className="font-title mt-2 text-center text-2xl font-bold text-white sm:text-4xl">
-              Detalles que quizá no viste
-            </h3>
-            <ul className="mt-6 space-y-3">
-              {data.curiosidades.map((texto, idx) => (
-                <li
-                  key={idx}
-                  className={`flex items-start gap-3 rounded-2xl border border-white/12 bg-white/8 p-4 text-sm font-semibold leading-relaxed text-white backdrop-blur-sm ${riseClass}`}
-                  style={step(idx)}
-                >
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sun-500/25 text-xs font-extrabold text-sun-300">
-                    {idx + 1}
-                  </span>
-                  <span>{texto}</span>
-                </li>
-              ))}
-            </ul>
+          <div className={`flex max-w-md flex-col items-center text-center ${enterClass}`}>
+            <span className={`grid h-14 w-14 place-items-center rounded-2xl ${tone.chip}`}>
+              <Icon size={26} />
+            </span>
+            {card.eyebrow && <span className={`eyebrow mt-5 ${tone.eyebrow}`}>{card.eyebrow}</span>}
+            {card.titulo && (
+              <h3 className="font-title mt-3 text-3xl font-extrabold text-white sm:text-5xl">{card.titulo}</h3>
+            )}
+            {card.detalle && (
+              <p className="mt-4 max-w-sm text-base leading-relaxed text-indigo-100/90 sm:text-lg">{card.detalle}</p>
+            )}
           </div>
         ),
       });

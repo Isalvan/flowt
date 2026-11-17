@@ -17,6 +17,28 @@ export interface WrappedOptions {
   categoryLabel?: (id: string) => string;
   previous?: Period;
   now?: Date;
+  /** Internal: how many previous Wrappeds to look back at when rotating cards (default 3). */
+  rotacion?: number;
+}
+export type WrappedTone = 'rose' | 'sky' | 'violet' | 'amber' | 'emerald' | 'fuchsia' | 'teal' | 'indigo';
+export type WrappedIcon = 'trend-up' | 'trend-down' | 'coffee' | 'calendar' | 'store' | 'sparkles' | 'repeat' | 'moon' | 'tag' | 'receipt';
+/**
+ * One card of the Wrapped inventory. `especial` cards have their own screen
+ * (categories, merchants, rhythm, biggest purchase, streak); the rest share a
+ * generic layout built from `eyebrow`, `titulo` and `detalle`.
+ */
+export interface WrappedHighlight {
+  id: string;
+  /** 0–100: how striking this card is for this period. */
+  score: number;
+  especial?: boolean;
+  /** Cards telling the same story share a group; a Wrapped shows one per group. */
+  grupo?: string;
+  eyebrow?: string;
+  titulo?: string;
+  detalle?: string;
+  tono?: WrappedTone;
+  icono?: WrappedIcon;
 }
 export interface WrappedTotals {
   ingresos: number;
@@ -55,6 +77,10 @@ export interface WrappedData {
   suscripciones: number;
   personalidad: WrappedPersonality;
   curiosidades: string[];
+  /** Every card that applies to this period, best first. */
+  inventario: WrappedHighlight[];
+  /** Ids of the cards to show, in display order. */
+  destacados: string[];
 }
 
 const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -95,6 +121,230 @@ const personalities: Record<string, [string, string]> = {
   formacion: ['Eterno aprendiz', 'Tu curiosidad sigue sumando nuevas ideas.'],
   inversion: ['Futuro rentista', 'Hoy plantas semillas para tu yo del futuro.'],
 };
+
+const WEEKDAY_PLURAL = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados', 'domingos'];
+const clamp = (value: number, max = 100) => Math.max(0, Math.min(max, Math.round(value)));
+// Display order: the story flows from where the money went to the habits behind it.
+const STORY_ORDER = [
+  'categoria-sube', 'categoria-baja', 'comercios', 'comercio-ausente', 'comercios-nuevos',
+  'ritmo', 'compra-mayor', 'dia-semana', 'finde', 'pequenas', 'cafes', 'ticket-medio', 'suscripciones',
+  'racha', 'dias-sin-gastar', 'primer-gasto',
+];
+
+interface InventoryInput {
+  period: WrappedPeriod;
+  expenses: Entry[];
+  previousExpenses: Entry[];
+  gastos: number;
+  gastosAnterior: number;
+  categories: CategoryExpense[];
+  merchantList: WrappedMerchant[];
+  comercioFavorito: WrappedMerchant | null;
+  largestCents: number;
+  largestConcepto: string;
+  rachaSinGastos: WrappedStreak;
+  elapsedDays: number;
+  daily: Map<number, number>;
+  monthly: number[];
+  weekdays: number[];
+  pequenas: SmallPurchasesSummary;
+  suscripciones: number;
+  previousLabel: string;
+  categoryLabel: (id: string) => string;
+}
+
+/**
+ * The full pool of cards a Wrapped can show. Each card scores how striking
+ * it is for this period, so a quiet stat never pushes out a surprising one.
+ */
+export function buildInventory(input: InventoryInput): WrappedHighlight[] {
+  const {
+    period, expenses, previousExpenses, gastos, categories, merchantList, comercioFavorito,
+    largestCents, largestConcepto, rachaSinGastos, elapsedDays, daily, monthly, weekdays, pequenas, suscripciones,
+    previousLabel, categoryLabel,
+  } = input;
+  const cards: WrappedHighlight[] = [];
+  const total = gastos * 100;
+  const isMonth = period.scope === 'mes';
+  const unit = isMonth ? 'este mes' : 'este año';
+
+  // Bespoke screens.
+  if (comercioFavorito) {
+    cards.push({ id: 'comercios', especial: true, score: clamp(30 + comercioFavorito.visitas * 3, 90) });
+  }
+  const elapsedBuckets = isMonth ? Math.max(1, elapsedDays) : Math.max(1, monthly.filter(v => v > 0).length);
+  const peakCents = isMonth ? Math.max(0, ...daily.values()) : Math.max(...monthly);
+  const peakRatio = total > 0 ? peakCents / (total / elapsedBuckets) : 0;
+  cards.push({ id: 'ritmo', especial: true, score: clamp(10 + (peakRatio - 1) * (isMonth ? 4 : 15), 80) });
+  cards.push({ id: 'compra-mayor', especial: true, score: clamp(20 + (total > 0 ? largestCents / total * 150 : 0), 90) });
+  if (rachaSinGastos.dias >= 2) cards.push({ id: 'racha', especial: true, grupo: 'sin-gasto', score: clamp(rachaSinGastos.dias * 8, 85) });
+
+  // Generic cards.
+  // The month-on-month comparison lives on the fixed "gasto total" screen, so it is not a card.
+
+  const previousCategories = new Map(groupExpensesByCategory(previousExpenses.map(row => row.movement), m => m.categoria || m.categoria_sugerida)
+    .map(c => [c.categoria, c.total]));
+  if (previousCategories.size) {
+    const changes = categories.map(c => ({ ...c, antes: previousCategories.get(c.categoria) ?? 0 }))
+      .concat([...previousCategories].filter(([id]) => !categories.some(c => c.categoria === id)).map(([categoria, antes]) => ({ categoria, total: 0, porcentaje: 0, antes })))
+      .filter(c => c.categoria !== 'sin_categoria' && c.antes > 0)
+      .map(c => ({ ...c, diff: c.total - c.antes, pct: (c.total - c.antes) / c.antes * 100 }));
+    const up = changes.filter(c => c.diff >= 20 && c.pct >= 30).sort((a, b) => b.diff - a.diff)[0];
+    if (up) {
+      cards.push({
+        id: 'categoria-sube', score: clamp(35 + Math.min(50, up.pct / 3)), tono: 'amber', icono: 'trend-up',
+        eyebrow: 'La que más creció', titulo: categoryLabel(up.categoria),
+        detalle: `Subió un ${Math.round(up.pct)} % frente a ${previousLabel}: ${money.format(up.antes)} → ${money.format(up.total)}.`,
+      });
+    }
+    const down = changes.filter(c => c.diff <= -20 && c.pct <= -30).sort((a, b) => a.diff - b.diff)[0];
+    if (down) {
+      cards.push({
+        id: 'categoria-baja', score: clamp(35 + Math.min(50, -down.pct / 3)), tono: 'emerald', icono: 'trend-down',
+        eyebrow: 'La que más bajó', titulo: categoryLabel(down.categoria),
+        detalle: down.total === 0
+          ? `En ${previousLabel} fueron ${money.format(down.antes)}; ${unit}, ni un euro.`
+          : `Bajó un ${Math.round(-down.pct)} % frente a ${previousLabel}: ${money.format(down.antes)} → ${money.format(down.total)}.`,
+      });
+    }
+  }
+
+  const previousMerchants = new Map<string, { nombre: string; visitas: number }>();
+  for (const { movement } of previousExpenses) {
+    if (movement.suscripcion_id || movement.categoria === 'nomina') continue;
+    const key = merchantKey(movement.concepto);
+    if (key.length < 3 || !/[a-z]{3}/.test(key)) continue;
+    const entry = previousMerchants.get(key) ?? { nombre: movement.concepto, visitas: 0 };
+    entry.visitas++;
+    previousMerchants.set(key, entry);
+  }
+  if (previousMerchants.size) {
+    const current = new Set(merchantList.map(m => m.key));
+    const missing = [...previousMerchants].filter(([key, m]) => !current.has(key) && m.visitas >= 3)
+      .map(([, m]) => m).sort((a, b) => b.visitas - a.visitas)[0];
+    if (missing) {
+      cards.push({
+        id: 'comercio-ausente', score: clamp(40 + missing.visitas * 4, 90), tono: 'sky', icono: 'store',
+        eyebrow: 'Te echan de menos', titulo: missing.nombre,
+        detalle: `En ${previousLabel} fuiste ${missing.visitas} veces y ${unit} ninguna.`,
+      });
+    }
+    const nuevos = merchantList.filter(m => !previousMerchants.has(m.key));
+    if (nuevos.length >= 2) {
+      const best = [...nuevos].sort((a, b) => b.total - a.total)[0];
+      cards.push({
+        id: 'comercios-nuevos', score: clamp(20 + nuevos.length * 3, 70), tono: 'sky', icono: 'sparkles',
+        eyebrow: 'Explorador', titulo: `${nuevos.length} sitios nuevos`,
+        detalle: `Estrenaste ${nuevos.length} comercios ${unit}. El que más te gustó: ${best.nombre} (${money.format(best.total)}).`,
+      });
+    }
+  }
+
+  const favoriteDay = weekdays.indexOf(Math.max(...weekdays));
+  const dayPct = total > 0 ? weekdays[favoriteDay] / total * 100 : 0;
+  if (dayPct >= 22) {
+    cards.push({
+      id: 'dia-semana', grupo: 'semana', score: clamp(dayPct * 1.6, 85), tono: 'violet', icono: 'calendar',
+      eyebrow: 'Tu día', titulo: `Los ${WEEKDAY_PLURAL[favoriteDay]}`,
+      detalle: `Se llevaron el ${Math.round(dayPct)} % de todo tu gasto.`,
+    });
+  }
+  const weekendPct = total > 0 ? (weekdays[5] + weekdays[6]) / total * 100 : 0;
+  if (weekendPct >= 40 || (weekendPct <= 12 && expenses.length >= 10)) {
+    const heavy = weekendPct >= 40;
+    cards.push({
+      id: 'finde', grupo: 'semana', score: clamp(heavy ? weekendPct : 70 - weekendPct * 2, 80), tono: heavy ? 'fuchsia' : 'teal', icono: 'moon',
+      eyebrow: heavy ? 'Modo finde' : 'Finde tranquilo', titulo: `${Math.round(weekendPct)} % en fin de semana`,
+      detalle: heavy
+        ? 'Sábados y domingos concentran casi la mitad de tu gasto.'
+        : 'Tus fines de semana apenas tocan la cartera.',
+    });
+  }
+
+  if (pequenas.count >= 5) {
+    cards.push({
+      id: 'pequenas', grupo: 'pequenas', score: clamp(25 + pequenas.count * 1.5, 80), tono: 'amber', icono: 'coffee',
+      eyebrow: 'Gota a gota', titulo: `${pequenas.count} compras pequeñas`,
+      detalle: `Todas de menos de 5 €, pero juntas suman ${money.format(pequenas.total)}.`,
+    });
+    const cafes = Math.floor(pequenas.total / 1.5);
+    if (cafes >= 10) {
+      cards.push({
+        id: 'cafes', grupo: 'pequenas', score: 18, tono: 'amber', icono: 'coffee',
+        eyebrow: 'Puesto en perspectiva', titulo: `${cafes} cafés`,
+        detalle: `Es lo que pagarías con tus compras pequeñas, a 1,50 € el café.`,
+      });
+    }
+  }
+
+  if (expenses.length >= 8) {
+    const avg = gastos / expenses.length;
+    const prevAvg = previousExpenses.length ? sum(previousExpenses) / previousExpenses.length : 0;
+    const change = prevAvg > 0 ? (avg - prevAvg) / prevAvg * 100 : 0;
+    cards.push({
+      id: 'ticket-medio', score: clamp(12 + Math.min(40, Math.abs(change) / 2), 55), tono: 'indigo', icono: 'receipt',
+      eyebrow: 'Ticket medio', titulo: money.format(avg),
+      detalle: prevAvg > 0 && Math.abs(change) >= 10
+        ? `Un ${Math.round(Math.abs(change))} % ${change < 0 ? 'menos' : 'más'} por compra que en ${previousLabel}.`
+        : `Es lo que gastaste de media en cada una de tus ${expenses.length} compras.`,
+    });
+  }
+
+  if (suscripciones > 0 && gastos > 0) {
+    const pct = suscripciones / gastos * 100;
+    cards.push({
+      id: 'suscripciones', score: clamp(15 + pct * 2, 70), tono: 'rose', icono: 'repeat',
+      eyebrow: 'En piloto automático', titulo: money.format(suscripciones),
+      detalle: `Se fueron en suscripciones: el ${Math.round(pct)} % de tu gasto ${unit}.`,
+    });
+  }
+
+  if (isMonth && elapsedDays > 0) {
+    const sinGasto = [...Array(elapsedDays).keys()].filter(i => {
+      const date = new Date(period.start.getFullYear(), period.start.getMonth(), period.start.getDate() + i);
+      return !daily.get(+date);
+    }).length;
+    if (sinGasto >= 4) {
+      cards.push({
+        id: 'dias-sin-gastar', grupo: 'sin-gasto', score: clamp(sinGasto / elapsedDays * 120, 75), tono: 'teal', icono: 'sparkles',
+        eyebrow: 'Días en cero', titulo: `${sinGasto} días`,
+        detalle: `Sin un solo gasto. Tu cartera también descansa.`,
+      });
+    }
+  }
+
+  const first = [...expenses].sort((a, b) => +a.fecha - +b.fecha)[0];
+  if (first && first.movement.concepto !== largestConcepto) {
+    cards.push({
+      id: 'primer-gasto', score: 10, tono: 'indigo', icono: 'tag',
+      eyebrow: isMonth ? 'Así empezó el mes' : 'Así empezó el año', titulo: first.movement.concepto,
+      detalle: `Tu primer gasto fue el ${first.fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}: ${money.format(first.cents / 100)}.`,
+    });
+  }
+
+  return cards.sort((a, b) => b.score - a.score || STORY_ORDER.indexOf(a.id) - STORY_ORDER.indexOf(b.id));
+}
+
+/**
+ * Picks the `max` most striking cards. Cards that led the previous Wrapped
+ * lose 40 % of their score, so consecutive months rarely look the same.
+ * The result follows the story order, not the score order.
+ */
+export function selectHighlights(inventario: readonly WrappedHighlight[], max: number, previous: readonly string[] = []): string[] {
+  const shown = new Set(previous);
+  const groups = new Set<string>();
+  const picked: string[] = [];
+  const ranked = [...inventario]
+    .map(card => ({ card, score: shown.has(card.id) ? card.score * 0.6 : card.score }))
+    .sort((a, b) => b.score - a.score || STORY_ORDER.indexOf(a.card.id) - STORY_ORDER.indexOf(b.card.id));
+  for (const { card } of ranked) {
+    if (picked.length >= max) break;
+    if (card.grupo && groups.has(card.grupo)) continue;
+    if (card.grupo) groups.add(card.grupo);
+    picked.push(card.id);
+  }
+  return picked.sort((a, b) => STORY_ORDER.indexOf(a) - STORY_ORDER.indexOf(b));
+}
 
 /** Builds a summary for [start, end); all calendar buckets use local days. */
 export function buildWrapped(
@@ -186,6 +436,22 @@ export function buildWrapped(
     const names = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados', 'domingos'];
     curiosidades.push(`Los ${names[favoriteDay]} son tu día: el ${Math.round(diaSemanaFavorito.porcentaje)} % de tu gasto.`);
   }
+  const previousExpenses = entries(movimientos, previous).filter(row => row.movement.tipo === 'gasto');
+  const inventario = buildInventory({
+    period, expenses, previousExpenses, gastos, gastosAnterior, categories, merchantList,
+    comercioFavorito, largestCents: largest.cents, largestConcepto: largest.movement.concepto, rachaSinGastos, elapsedDays,
+    daily, monthly, weekdays, pequenas, suscripciones: sum(expenses.filter(row => Boolean(row.movement.suscripcion_id))),
+    previousLabel: period.scope === 'anio' ? String(previous.start.getFullYear()) : monthlyLabel(previous),
+    categoryLabel: opts.categoryLabel ?? defaultCategoryLabel,
+  });
+  // Rotate: a card that led last period's Wrapped weighs less now, so each month tells something new.
+  // The previous Wrapped is itself rotated against the one before, a few levels deep, so the
+  // penalty hits what was really shown and months do not just alternate between two picks.
+  const depth = opts.rotacion ?? 3;
+  const previousTop = depth <= 0 || period.parcial
+    ? []
+    : buildWrapped(movimientos, { ...period, ...previous, key: `${period.key}:prev` }, { ...opts, previous: undefined, now, rotacion: depth - 1 })?.destacados ?? [];
+  const destacados = selectHighlights(inventario, period.scope === 'anio' ? 7 : 5, previousTop);
   return {
     period, totales: { ingresos, gastos, ahorro, tasaAhorro, numGastos: expenses.length, numComercios: merchants.size },
     comparativa, comercioFavorito, comercioTop, topCategorias,
@@ -198,6 +464,7 @@ export function buildWrapped(
     semanaMasCara: { fecha: new Date(week[0]), total: week[1] / 100 }, diaSemanaFavorito, rachaSinGastos,
     pequenas, suscripciones: sum(expenses.filter(row => Boolean(row.movement.suscripcion_id))),
     personalidad: { titulo, descripcion }, curiosidades: curiosidades.slice(0, 4),
+    inventario, destacados,
   };
 }
 
