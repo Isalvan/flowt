@@ -101,6 +101,7 @@ function entries(movimientos: readonly Movimiento[], period: Period): Entry[] {
     return Number.isFinite(cents) && cents > 0 ? [{ movement, fecha, cents }] : [];
   });
 }
+const isFixedExpense = (m: Movimiento) => Boolean(m.suscripcion_id) || m.categoria === 'vivienda';
 const sum = (rows: Entry[]) => rows.reduce((total, row) => total + row.cents, 0) / 100;
 
 // Bank suffixes commonly start with a terminal/reference number and include a city.
@@ -145,6 +146,7 @@ interface InventoryInput {
   rachaSinGastos: WrappedStreak;
   elapsedDays: number;
   daily: Map<number, number>;
+  spendDays: Set<number>;
   monthly: number[];
   weekdays: number[];
   pequenas: SmallPurchasesSummary;
@@ -160,11 +162,12 @@ interface InventoryInput {
 export function buildInventory(input: InventoryInput): WrappedHighlight[] {
   const {
     period, expenses, previousExpenses, gastos, categories, merchantList, comercioFavorito,
-    largestCents, largestConcepto, rachaSinGastos, elapsedDays, daily, monthly, weekdays, pequenas, suscripciones,
+    largestCents, largestConcepto, rachaSinGastos, elapsedDays, daily, spendDays, monthly, weekdays, pequenas, suscripciones,
     previousLabel, categoryLabel,
   } = input;
   const cards: WrappedHighlight[] = [];
   const total = gastos * 100;
+  const habitTotal = weekdays.reduce((a, b) => a + b, 0);
   const isMonth = period.scope === 'mes';
   const unit = isMonth ? 'este mes' : 'este año';
 
@@ -174,7 +177,7 @@ export function buildInventory(input: InventoryInput): WrappedHighlight[] {
   }
   const elapsedBuckets = isMonth ? Math.max(1, elapsedDays) : Math.max(1, monthly.filter(v => v > 0).length);
   const peakCents = isMonth ? Math.max(0, ...daily.values()) : Math.max(...monthly);
-  const peakRatio = total > 0 ? peakCents / (total / elapsedBuckets) : 0;
+  const peakRatio = isMonth ? (habitTotal > 0 ? peakCents / (habitTotal / elapsedBuckets) : 0) : (total > 0 ? peakCents / (total / elapsedBuckets) : 0);
   cards.push({ id: 'ritmo', especial: true, score: clamp(10 + (peakRatio - 1) * (isMonth ? 4 : 15), 80) });
   cards.push({ id: 'compra-mayor', especial: true, score: clamp(20 + (total > 0 ? largestCents / total * 150 : 0), 90) });
   if (rachaSinGastos.dias >= 2) cards.push({ id: 'racha', especial: true, grupo: 'sin-gasto', score: clamp(rachaSinGastos.dias * 8, 85) });
@@ -241,15 +244,15 @@ export function buildInventory(input: InventoryInput): WrappedHighlight[] {
   }
 
   const favoriteDay = weekdays.indexOf(Math.max(...weekdays));
-  const dayPct = total > 0 ? weekdays[favoriteDay] / total * 100 : 0;
+  const dayPct = habitTotal > 0 ? weekdays[favoriteDay] / habitTotal * 100 : 0;
   if (dayPct >= 22) {
     cards.push({
       id: 'dia-semana', grupo: 'semana', score: clamp(dayPct * 1.6, 85), tono: 'violet', icono: 'calendar',
       eyebrow: 'Tu día', titulo: `Los ${WEEKDAY_PLURAL[favoriteDay]}`,
-      detalle: `Se llevaron el ${Math.round(dayPct)} % de todo tu gasto.`,
+      detalle: `Se llevaron el ${Math.round(dayPct)} % de tu gasto del día a día (sin alquiler ni suscripciones).`,
     });
   }
-  const weekendPct = total > 0 ? (weekdays[5] + weekdays[6]) / total * 100 : 0;
+  const weekendPct = habitTotal > 0 ? (weekdays[5] + weekdays[6]) / habitTotal * 100 : 0;
   if (weekendPct >= 40 || (weekendPct <= 12 && expenses.length >= 10)) {
     const heavy = weekendPct >= 40;
     cards.push({
@@ -302,7 +305,7 @@ export function buildInventory(input: InventoryInput): WrappedHighlight[] {
   if (isMonth && elapsedDays > 0) {
     const sinGasto = [...Array(elapsedDays).keys()].filter(i => {
       const date = new Date(period.start.getFullYear(), period.start.getMonth(), period.start.getDate() + i);
-      return !daily.get(+date);
+      return !spendDays.has(+date);
     }).length;
     if (sinGasto >= 4) {
       cards.push({
@@ -325,9 +328,11 @@ export function buildInventory(input: InventoryInput): WrappedHighlight[] {
   return cards.sort((a, b) => b.score - a.score || STORY_ORDER.indexOf(a.id) - STORY_ORDER.indexOf(b.id));
 }
 
+const ROTATION_FACTOR = 0.4;
+
 /**
  * Picks the `max` most striking cards. Cards that led the previous Wrapped
- * lose 40 % of their score, so consecutive months rarely look the same.
+ * lose 60 % of their score, so consecutive months rarely look the same.
  * The result follows the story order, not the score order.
  */
 export function selectHighlights(inventario: readonly WrappedHighlight[], max: number, previous: readonly string[] = []): string[] {
@@ -335,7 +340,7 @@ export function selectHighlights(inventario: readonly WrappedHighlight[], max: n
   const groups = new Set<string>();
   const picked: string[] = [];
   const ranked = [...inventario]
-    .map(card => ({ card, score: shown.has(card.id) ? card.score * 0.6 : card.score }))
+    .map(card => ({ card, score: shown.has(card.id) ? card.score * ROTATION_FACTOR : card.score }))
     .sort((a, b) => b.score - a.score || STORY_ORDER.indexOf(a.card.id) - STORY_ORDER.indexOf(b.card.id));
   for (const { card } of ranked) {
     if (picked.length >= max) break;
@@ -363,13 +368,20 @@ export function buildWrapped(
   const weekly = new Map<number, number>();
   const monthly = Array<number>(12).fill(0);
   const weekdays = Array<number>(7).fill(0);
-  for (const { movement, fecha, cents } of expenses) {
+  // Rent and subscriptions land on the same day every month; leaving them out of
+  // peaks, weekdays and the biggest purchase keeps those cards about real habits.
+  const variable = expenses.filter(row => !isFixedExpense(row.movement));
+  const habitRows = variable.length >= 3 ? variable : expenses;
+  const spendDays = new Set(expenses.map(row => +day(row.fecha)));
+  for (const { fecha, cents } of habitRows) {
     const date = day(fecha);
     daily.set(+date, (daily.get(+date) ?? 0) + cents);
     const weekday = (fecha.getDay() + 6) % 7;
     weekdays[weekday] += cents;
     date.setDate(date.getDate() - weekday);
     weekly.set(+date, (weekly.get(+date) ?? 0) + cents);
+  }
+  for (const { movement, fecha, cents } of expenses) {
     monthly[fecha.getMonth()] += cents;
     if (movement.suscripcion_id || movement.categoria === 'nomina') continue;
     const key = merchantKey(movement.concepto);
@@ -385,7 +397,7 @@ export function buildWrapped(
   const comercioTop = [...merchantList].sort((a, b) => b.total - a.total || b.visitas - a.visitas || a.key.localeCompare(b.key))[0] ?? null;
   const categories = groupExpensesByCategory(expenses.map(({ movement }) => movement), m => m.categoria || m.categoria_sugerida);
   const topCategorias = categories.slice(0, 3).map(category => ({ ...category, label: (opts.categoryLabel ?? defaultCategoryLabel)(category.categoria) }));
-  const largest = [...expenses].sort((a, b) => b.cents - a.cents || +a.fecha - +b.fecha)[0];
+  const largest = [...habitRows].sort((a, b) => b.cents - a.cents || +a.fecha - +b.fecha)[0];
   const serieDiaria: WrappedDay[] = [];
   let rachaSinGastos: WrappedStreak = { dias: 0, desde: null, hasta: null };
   let streakStart: Date | null = null;
@@ -396,7 +408,7 @@ export function buildWrapped(
     if (period.scope === 'mes') serieDiaria.push({ fecha: date, total });
     if (date > now) continue;
     elapsedDays++;
-    if (total > 0) { streakStart = null; streakLength = 0; continue; }
+    if (spendDays.has(+date)) { streakStart = null; streakLength = 0; continue; }
     streakStart ??= date;
     streakLength++;
     if (streakLength > rachaSinGastos.dias) rachaSinGastos = { dias: streakLength, desde: streakStart, hasta: date };
@@ -406,7 +418,8 @@ export function buildWrapped(
   const elapsedMonths = months.filter(({ mes }) => new Date(period.start.getFullYear(), mes, 1) < period.end && new Date(period.start.getFullYear(), mes, 1) <= now);
   const week = [...weekly].sort(([a, x], [b, y]) => y - x || a - b)[0];
   const favoriteDay = weekdays.indexOf(Math.max(...weekdays));
-  const diaSemanaFavorito = { dia: favoriteDay, porcentaje: round(weekdays[favoriteDay] / (gastos * 100) * 100) };
+  const weekdayTotal = weekdays.reduce((a, b) => a + b, 0);
+  const diaSemanaFavorito = { dia: favoriteDay, porcentaje: weekdayTotal ? round(weekdays[favoriteDay] / weekdayTotal * 100) : 0 };
   const nominas = payrollDates(movimientos);
   const payrollPeriod = nominas.some(date => +date === +period.start) && nominas.some(date => +date === +period.end);
   const previous = opts.previous ?? (period.scope === 'anio'
@@ -440,7 +453,7 @@ export function buildWrapped(
   const inventario = buildInventory({
     period, expenses, previousExpenses, gastos, gastosAnterior, categories, merchantList,
     comercioFavorito, largestCents: largest.cents, largestConcepto: largest.movement.concepto, rachaSinGastos, elapsedDays,
-    daily, monthly, weekdays, pequenas, suscripciones: sum(expenses.filter(row => Boolean(row.movement.suscripcion_id))),
+    daily, spendDays, monthly, weekdays, pequenas, suscripciones: sum(expenses.filter(row => Boolean(row.movement.suscripcion_id))),
     previousLabel: period.scope === 'anio' ? String(previous.start.getFullYear()) : monthlyLabel(previous),
     categoryLabel: opts.categoryLabel ?? defaultCategoryLabel,
   });

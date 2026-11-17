@@ -294,7 +294,7 @@ describe('inventario de tarjetas', () => {
   it('rota: lo que destacó el periodo anterior pierde peso frente a algo nuevo', () => {
     const inventario = [card('racha', 80), card('comercios', 70), card('ticket-medio', 55)];
     expect(selectHighlights(inventario, 2)).toEqual(['comercios', 'racha']);
-    // 80 × 0,6 = 48 < 55: la racha deja sitio al ticket medio.
+    // 80 × 0,4 = 32 < 55: la racha deja sitio al ticket medio.
     expect(selectHighlights(inventario, 2, ['racha', 'ritmo'])).toEqual(['comercios', 'ticket-medio']);
   });
 
