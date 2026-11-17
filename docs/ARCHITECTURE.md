@@ -53,6 +53,7 @@ Flowt expone un conector compatible con el protocolo Model Context Protocol (MCP
 
 - **Conector MCP**: permite a asistentes de IA externos (como Claude o ChatGPT) consultar y operar datos financieros mediante autorización OAuth 2.1 con PKCE (ámbitos `flowt:read` y `flowt:write`), o ejecutar revisiones automáticas desatendidas con un token de larga duración (`flowt:review`).
 - **API web de revisión**: permite a la aplicación web consultar el historial de revisiones, revertir revisiones automáticas y realizar ediciones de movimientos con reasignación coherente de saldos y carteras, autenticándose con Firebase ID tokens.
+- **Escaneo de tickets** (`POST /api/tickets/scan`): recibe la foto de un ticket, la envía a Gemini y devuelve comercio, fecha, total y líneas validados. No guarda la imagen. Ver [tickets.md](tickets.md).
 
 El repositorio cuenta con dos implementaciones independientes del servicio:
 
@@ -75,6 +76,8 @@ Las colecciones principales de Firestore son:
 | `stats` | Agregados por UID de usuario |
 
 Los documentos de dominio incluyen `id_propietario` o utilizan el UID como identificador cuando corresponde.
+
+Un gasto puede llevar el campo opcional `ticket` (`comercio`, `lineas` con `d`, `i` y `p`, `personas` y `escaneado_at`) con el detalle del ticket escaneado y, si se repartió, la parte de cada persona. El importe del movimiento sigue siendo el total y el reparto no modifica saldos.
 
 ### Préstamos entre carteras
 
