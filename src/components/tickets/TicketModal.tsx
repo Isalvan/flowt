@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { LoaderCircle, Plus, Share2, ScanLine } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import type { Hucha, Movimiento, MovementTicket, TicketPersona, TicketScanResult } from '../../types';
@@ -41,6 +41,15 @@ function recentPeople(uid: string): string[] {
 
 const today = () => new Date().toLocaleDateString('en-CA');
 const chip = 'rounded-full border border-line px-3 py-2 text-xs font-semibold text-ink hover:bg-surface-2';
+// One colour per person, legible on light and dark themes, so equal initials never look alike.
+const PERSON_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#d946ef', '#84cc16', '#f97316', '#3b82f6', '#ec4899', '#14b8a6', '#a855f7'];
+const personColor = (index: number) => PERSON_COLORS[index % PERSON_COLORS.length];
+const personChip = 'inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border-2 px-4 text-sm font-semibold text-ink transition-colors';
+const personStyle = (index: number, active: boolean): React.CSSProperties => ({
+  borderColor: active ? personColor(index) : 'var(--line-strong)',
+  backgroundColor: active ? `${personColor(index)}33` : 'transparent',
+});
+const Dot = ({ index }: { index: number }) => <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: personColor(index) }} />;
 
 /** Mounted once per photo: closing drops the photo, scan result and unsaved split. */
 export function TicketModal({ file, demo = false, uid, movimientos, huchas, onSave, onAttach, onClose, onManual }: TicketModalProps) {
@@ -178,7 +187,7 @@ export function TicketModal({ file, demo = false, uid, movimientos, huchas, onSa
         {mismatch && <p role="note" className="rounded-xl bg-amber-500/10 p-3 text-xs text-ink-soft">Las líneas suman {ticketMoney(lineTotal / 100, ticket.moneda)} y el total es {ticketMoney(ticket.total, ticket.moneda)}; la diferencia se reparte proporcionalmente.</p>}
         <label className="flex items-center gap-3 text-sm font-semibold text-ink"><input type="checkbox" role="switch" checked={split} onChange={e => setSplit(e.target.checked)} className="h-5 w-5 accent-brand" /> Repartir entre personas</label>
         {split && <div className="space-y-3">
-          <div className="flex flex-wrap gap-2" aria-label="Personas del reparto">{people.map((p, i) => <button type="button" key={i} aria-pressed={selectedPerson === i} onClick={() => setSelectedPerson(selectedPerson === i ? null : i)} className={`${chip} ${selectedPerson === i ? '!border-brand bg-brand-tint' : ''}`}>{p.nombre}</button>)}</div>
+          <div className="flex flex-wrap gap-2" aria-label="Personas del reparto">{people.map((p, i) => <button type="button" key={i} aria-pressed={selectedPerson === i} onClick={() => setSelectedPerson(selectedPerson === i ? null : i)} className={personChip} style={personStyle(i, selectedPerson === i)}><Dot index={i} /><span className="truncate">{p.nombre}</span></button>)}</div>
           <p className="text-xs text-ink-soft">{selectedPerson === null ? 'Elige una persona y toca líneas para asignarlas. Sin asignar: todos.' : `Toca una línea para asignarla a ${people[selectedPerson].nombre}.`}</p>
           {people.length < 12 && <div className="flex min-w-0 gap-2"><input aria-label="Nombre de persona" value={name} maxLength={40} placeholder="Añadir nombre" className="field min-w-0 flex-1" onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addPerson(name); } }} /><button type="button" className="dashboard-secondary-button shrink-0" aria-label="Añadir persona" disabled={!name.trim()} onClick={() => addPerson(name)}><Plus size={18} /></button></div>}
           {people.length < 12 && recent.some(n => !people.some(p => normalizeTicketText(p.nombre) === normalizeTicketText(n))) && <div className="flex flex-wrap gap-2" aria-label="Personas recientes">{recent.filter(n => !people.some(p => normalizeTicketText(p.nombre) === normalizeTicketText(n))).map(n => <button type="button" className={chip} key={n} onClick={() => addPerson(n)}>{n}</button>)}</div>}
@@ -192,15 +201,17 @@ export function TicketModal({ file, demo = false, uid, movimientos, huchas, onSa
               <button type="button" aria-label={`${split && selectedPerson !== null ? 'Asignar' : 'Editar'} ${line.descripcion}`} className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left text-sm text-ink" onClick={() => { if (split && selectedPerson !== null) toggleAssignment(i, selectedPerson); else setEditingLine(i); }}><span className="min-w-0 break-words">{line.descripcion}</span><span className="shrink-0 tabular-nums">{ticketMoney(line.importe, ticket.moneda)}</span></button>
               {split && selectedPerson !== null && <button type="button" aria-label={`Editar línea ${i + 1}`} className="text-xs text-brand-ink underline" onClick={() => setEditingLine(i)}>Editar</button>}
             </div>}
-            {split && <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {!assignments[i]?.length && <span className="mr-1 text-xs text-ink-faint">Todos</span>}
-              {people.map((p, index) => <button type="button" key={index} title={p.nombre} aria-label={`${p.nombre}, línea ${i + 1}`} aria-pressed={assignments[i]?.includes(index) ?? false} className={`${chip} !px-2 !py-1.5 ${assignments[i]?.includes(index) ? '!border-brand bg-brand-tint' : ''}`} onClick={() => toggleAssignment(i, index)}>{p.nombre.split(/\s+/).slice(0, 2).map(n => n[0]).join('').toUpperCase()}</button>)}
-            </div>}
+            {split && <>
+            {!assignments[i]?.length && <p className="mt-1 text-xs text-ink-faint">Sin asignar: entre todos</p>}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {people.map((p, index) => <button type="button" key={index} title={p.nombre} aria-label={`${p.nombre}, línea ${i + 1}`} aria-pressed={assignments[i]?.includes(index) ?? false} className={`${personChip} !px-3`} style={personStyle(index, assignments[i]?.includes(index) ?? false)} onClick={() => toggleAssignment(i, index)}><Dot index={index} /><span className="max-w-[7rem] truncate">{p.nombre}</span></button>)}
+            </div>
+            </>}
           </li>)}
         </ul>
       </fieldset>
       <footer className="sticky bottom-0 z-10 space-y-3 border-t border-line bg-surface pt-3 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
-        {split && <div aria-label="Totales por persona" aria-live="polite" className="grid max-h-32 grid-cols-2 gap-x-3 gap-y-1 overflow-y-auto text-xs text-ink">{shares.map((p, i) => <p key={i} className="flex min-w-0 justify-between gap-2"><span className="truncate">{p.nombre}</span><strong className="shrink-0 tabular-nums">{ticketMoney(p.importe, ticket.moneda)}</strong></p>)}</div>}
+        {split && <div aria-label="Totales por persona" aria-live="polite" className="grid max-h-32 grid-cols-2 gap-x-3 gap-y-1 overflow-y-auto text-xs text-ink">{shares.map((p, i) => <p key={i} className="flex min-w-0 items-center justify-between gap-2"><span className="flex min-w-0 items-center gap-1.5"><Dot index={i} /><span className="truncate">{p.nombre}</span></span><strong className="shrink-0 tabular-nums">{ticketMoney(p.importe, ticket.moneda)}</strong></p>)}</div>}
         {error && <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
         {shareStatus && <p role="status" className="text-xs text-ink-soft">{shareStatus}</p>}
         <div className="flex flex-wrap gap-2">
