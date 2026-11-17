@@ -3,7 +3,9 @@ import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { useTheme } from './hooks/useTheme';
 import { useFinanceData } from './hooks/useFinanceData';
+import { writeWrappedSeen } from './hooks/useWrappedSeen';
 import { type Hucha, type Suscripcion, type Movimiento } from './types';
+import { type WrappedPeriod } from './utils/wrapped';
 
 // Tab subviews
 import { DashboardView } from './components/dashboard/DashboardView';
@@ -52,6 +54,8 @@ const ConvertModal = React.lazy(() => import('./components/modals/ConvertModal')
 const LinkModal = React.lazy(() => import('./components/modals/LinkModal').then((m) => ({ default: m.LinkModal })));
 const SuscripcionModal = React.lazy(() => import('./components/modals/SuscripcionModal').then((m) => ({ default: m.SuscripcionModal })));
 const HistoryModal = React.lazy(() => import('./components/modals/HistoryModal').then((m) => ({ default: m.HistoryModal })));
+const WrappedSelector = React.lazy(() => import('./components/wrapped/WrappedSelector').then((m) => ({ default: m.WrappedSelector })));
+const WrappedStories = React.lazy(() => import('./components/wrapped/WrappedStories').then((m) => ({ default: m.WrappedStories })));
 const ManualMovimientoModal = React.lazy(() => import('./components/modals/ManualMovimientoModal').then((m) => ({ default: m.ManualMovimientoModal })));
 const ProfilePanel = React.lazy(() => import('./components/profile/ProfilePanel').then((m) => ({ default: m.ProfilePanel })));
 const DemoSimulator = React.lazy(() => import('./components/demo/DemoSimulator').then((m) => ({ default: m.DemoSimulator })));
@@ -170,6 +174,8 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
   const [editingSuscripcion, setEditingSuscripcion] = useState<Suscripcion | null>(null);
   
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [wrappedPeriod, setWrappedPeriod] = useState<WrappedPeriod | null>(null);
+  const [isWrappedSelectorOpen, setIsWrappedSelectorOpen] = useState(false);
   const [isManualMovimientoModalOpen, setIsManualMovimientoModalOpen] = useState(false);
   const [isProfilePanelOpen, setIsProfilePanelOpen] = useState(false);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
@@ -538,6 +544,14 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
             onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
             onOpenCalendar={() => setActiveTab('calendario')}
+            onOpenWrapped={(period) =>
+              secureAction(() => {
+                writeWrappedSeen(!isFirebaseConfigured ? 'demo' : (user?.uid ?? 'demo'), period.key);
+                setWrappedPeriod(period);
+              })
+            }
+            onOpenWrappedSelector={() => secureAction(() => setIsWrappedSelectorOpen(true))}
+            userId={!isFirebaseConfigured ? 'demo' : (user?.uid ?? 'demo')}
             onDeleteMovimiento={onDeleteMovimientoWrapper}
             onSubsanar={handleSubsanarHucha}
             onRevertirDeuda={handleRevertirDeuda}
@@ -780,6 +794,28 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
           onUpdateCategoria={handleUpdateMovimientoCategoria}
           onUnlink={handleUnlinkMovimiento}
           onDeleteMovimiento={onDeleteMovimientoWrapper}
+        />
+      </DeferredOverlay>
+
+      <DeferredOverlay active={isWrappedSelectorOpen}>
+        <WrappedSelector
+          isOpen={isWrappedSelectorOpen}
+          movimientos={chartMovements}
+          onClose={() => setIsWrappedSelectorOpen(false)}
+          onSelect={(period) => {
+            writeWrappedSeen(!isFirebaseConfigured ? 'demo' : (user?.uid ?? 'demo'), period.key);
+            setWrappedPeriod(period);
+          }}
+        />
+      </DeferredOverlay>
+
+      <DeferredOverlay active={wrappedPeriod !== null}>
+        <WrappedStories
+          isOpen={wrappedPeriod !== null}
+          period={wrappedPeriod}
+          movimientos={chartMovements}
+          onClose={() => setWrappedPeriod(null)}
+          onShareToast={(message, type) => showToast(message, type === 'error' ? 'error' : 'success')}
         />
       </DeferredOverlay>
 

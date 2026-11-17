@@ -5,6 +5,7 @@ import { MoreActionsMenu } from "./MoreActionsMenu";
 
 const renderMenu = () => {
   const onNewHucha = vi.fn();
+  const onWrapped = vi.fn();
   const Wrapper = () => {
     const [open, setOpen] = useState(false);
     return (
@@ -15,6 +16,7 @@ const renderMenu = () => {
         onNewHucha={onNewHucha}
         onTransfer={vi.fn()}
         onHistory={vi.fn()}
+        onWrapped={onWrapped}
       />
     );
   };
@@ -26,7 +28,7 @@ const renderMenu = () => {
   );
   const trigger = screen.getByRole("button", { name: /más acciones/i });
   fireEvent.click(trigger);
-  return { trigger, onNewHucha };
+  return { trigger, onNewHucha, onWrapped };
 };
 
 describe("MoreActionsMenu", () => {
@@ -66,6 +68,13 @@ describe("MoreActionsMenu", () => {
     const { onNewHucha } = renderMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: /nueva hucha/i }));
     expect(onNewHucha).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("includes Wrapped action and invokes onWrapped when clicked", () => {
+    const { onWrapped } = renderMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: /wrapped/i }));
+    expect(onWrapped).toHaveBeenCalledOnce();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 });

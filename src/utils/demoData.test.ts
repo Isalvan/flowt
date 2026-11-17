@@ -5,6 +5,7 @@ import { applySplit, extraMonth, recordedSplit, roundMoney, splitIncome } from '
 import { cuentaEnEstadisticas, importeEnEstadisticas } from './movements';
 import { findDuplicateCharges } from './movementSuggestions';
 import { getMonthlySubscriptionAmount, getSubscriptionChargeForMonth, toLocalDateKey } from './subscriptions';
+import { availableWrappeds } from './wrapped';
 import type { Hucha } from '../types';
 
 const now = new Date(2026, 9, 12, 13, 30);
@@ -129,5 +130,11 @@ describe('buildDemoData', () => {
       expect(new Date(email.fecha_envio).getTime()).toBeLessThanOrEqual(date.getTime());
       expect(email.cuerpo).toContain(new Date(email.fecha_envio).toLocaleDateString('es-ES'));
     }
+  });
+
+  it('provides at least one monthly Wrapped in demo mode for natural and payroll periods', () => {
+    const { movimientos } = buildDemoData(now);
+    expect(availableWrappeds(movimientos, now, 1).some(p => p.scope === 'mes')).toBe(true);
+    expect(availableWrappeds(movimientos, now, 'nomina').some(p => p.scope === 'mes')).toBe(true);
   });
 });
