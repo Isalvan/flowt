@@ -215,6 +215,15 @@ export const useFinanceData = (forceDemo = false) => {
       return;
     }
 
+    // Leaving the demo: back to Firebase, without the demo's movements on screen.
+    setIsFirebaseConfigured(true);
+    setMovimientos([]);
+    setChartMovements([]);
+    setHuchas([]);
+    setSuscripciones([]);
+    setPendingEmails([]);
+    setUserStats(null);
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser && !isAllowedUser(currentUser)) {
         setAccessDenied(true);

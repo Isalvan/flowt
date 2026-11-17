@@ -6,6 +6,14 @@ const config: CapacitorConfig = {
   appId: 'com.isalvan.flowt',
   appName: 'Flowt',
   webDir: 'dist',
+  server: {
+    // Serve the bundled files as https://flowt-63536.web.app instead of https://localhost, so
+    // the app sends the same Origin and Referer as the website. The Firebase web API key only
+    // accepts the site as referrer, and the Worker's CORS already allows it (APP_URL).
+    // Requests to this host never reach the network: Capacitor answers them from the APK.
+    hostname: 'flowt-63536.web.app',
+    androidScheme: 'https',
+  },
   // Painted behind the web layer while it loads and around it under the system bars.
   backgroundColor: '#080a10',
   android: {

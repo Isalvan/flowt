@@ -63,10 +63,9 @@ Después, *Actions → Flowt Android → Run workflow* genera el primer APK sin 
 
 ### 4. Backend
 
-- **Worker**: `wrangler.json` añade `https://localhost` (el origen de la app) a `ALLOWED_ORIGINS`. Publícalo con `npx wrangler deploy` para que el lector de tickets y la revisión respondan a la app.
 - **Reglas de Firestore**: las reglas añaden `push_tokens`. Publícalas con `npx firebase deploy --only firestore:rules`.
 - **Avisos**: el tracker envía con la cuenta de servicio que ya usa. Si el envío falla con un error de permisos, activa la *Firebase Cloud Messaging API* en Google Cloud para `flowt-63536`.
-- **Clave web de Firebase**: si en Google Cloud la clave de API está restringida por *referentes HTTP*, añade `https://localhost/*` o la app no podrá iniciar sesión.
+- **Origen de la app**: dentro de la app la web se sirve como `https://flowt-63536.web.app` (`server.hostname` en `capacitor.config.ts`), aunque los archivos salen del APK. Así la clave web de Firebase, restringida a ese referente, y el CORS del Worker (`APP_URL`) la aceptan sin configurar nada más. Si cambia el dominio de la web, hay que cambiarlo también ahí.
 
 ## Desarrollo local
 

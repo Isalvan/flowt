@@ -219,11 +219,19 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
       showToast('Sesión iniciada correctamente', 'success');
     } catch (error) {
       console.error('Login failed:', error);
-      showToast('Error al iniciar sesión con Google.');
+      // In the app there is no console to look at: show why it failed.
+      const reason = isNativeApp() && error instanceof Error && error.message ? ` (${error.message.slice(0, 140)})` : '';
+      showToast(`Error al iniciar sesión con Google.${reason}`);
     }
   };
 
   const handleLogout = async () => {
+    // The demo has no Firebase session: leaving it means going back to the sign-in screen.
+    if (forceDemo) {
+      setIsProfilePanelOpen(false);
+      setForceDemo(false);
+      return;
+    }
     try {
       // Drop this phone's push token while the session can still delete it.
       if (isNativeApp()) await import('./native/push').then(m => m.disablePush()).catch(() => undefined);
