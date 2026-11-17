@@ -7,6 +7,7 @@ import {
   Plus,
   HelpCircle,
   ScanLine,
+  Sparkles,
 } from "lucide-react";
 
 interface MoreActionsMenuProps {
@@ -17,6 +18,7 @@ interface MoreActionsMenuProps {
   onTransfer: () => void;
   onHistory: () => void;
   onScanTicket?: () => void;
+  onWrapped?: () => void;
 }
 
 export const MoreActionsMenu: React.FC<MoreActionsMenuProps> = ({
@@ -27,6 +29,7 @@ export const MoreActionsMenu: React.FC<MoreActionsMenuProps> = ({
   onTransfer,
   onHistory,
   onScanTicket,
+  onWrapped,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -73,6 +76,7 @@ export const MoreActionsMenu: React.FC<MoreActionsMenuProps> = ({
     { label: "Nueva hucha", icon: Plus, onClick: onNewHucha },
     { label: "Traspasar fondos", icon: ArrowRightLeft, onClick: onTransfer },
     { label: "Historial completo", icon: History, onClick: onHistory },
+    { label: "Wrapped", icon: Sparkles, onClick: () => onWrapped?.() },
     {
       label: "Ayuda de atajos",
       icon: HelpCircle,

@@ -25,6 +25,7 @@ You can try it without an account at [flowt-63536.web.app](https://flowt-63536.w
 - **Wallets** that split every income by your own rules (a percentage, a fixed amount, or the rest), with goals and extra pay in the months you choose.
 - **Money flow**: a diagram from your income to each category and what is left unspent, shareable without amounts.
 - **Spending by category**, a monthly income and spending trend, and a card for the small purchases that add up.
+- **Flowt Wrapped** (monthly and yearly): an animated stories-style recap. Each Wrapped picks, from an inventory of cards (favourite merchant, spending peaks, streaks, biggest category rise or drop, new or abandoned merchants, small purchases, subscriptions…), the most striking ones for that period and avoids repeating the previous one.
 - **Banks**: an estimated balance per bank from your transactions, anchored to a balance you note down, and reconciled against your wallets.
 
 <picture>

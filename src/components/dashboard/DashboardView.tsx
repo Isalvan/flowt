@@ -17,10 +17,12 @@ import { MoreActionsMenu } from "./MoreActionsMenu";
 import { PredictiveChart } from "./LazyCharts";
 import { MoneyFlowCard } from "./MoneyFlowCard";
 import { ServiceIcon } from "./ServiceIcon";
+import { WrappedCard } from "../wrapped/WrappedCard";
 import { walletAccent } from "../../utils/walletAccent";
 import { usePreferences } from "../../context/PreferencesContext";
 import { payrollDates, periodOf, previousPeriod } from "../../utils/periods";
 import { forecastMonthEnd } from "../../utils/monthEndForecast";
+import type { WrappedPeriod } from "../../utils/wrapped";
 
 type TimePeriod = "este_mes" | "mes_pasado" | "este_anio" | "historico";
 const PERIODS: { value: TimePeriod; label: string }[] = [
@@ -80,6 +82,9 @@ interface DashboardViewProps {
   onOpenManualMovimientoModal: () => void;
   onOpenTicket?: () => void;
   onOpenCalendar?: () => void;
+  onOpenWrapped?: (period: WrappedPeriod) => void;
+  onOpenWrappedSelector?: () => void;
+  userId?: string | null;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = (props) => {
@@ -331,6 +336,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             onTransfer={props.onOpenTransferModal}
             onHistory={props.onOpenHistoryModal}
             onScanTicket={props.onOpenTicket}
+            onWrapped={props.onOpenWrappedSelector}
           />
         </div>
       </header>
@@ -346,6 +352,17 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
           trend={trend}
         />
       </div>
+
+      {!isLocked && props.onOpenWrapped && (
+        <WrappedCard
+          className="rise"
+          style={step(1)}
+          movimientos={props.chartMovements}
+          inicioPeriodo={inicioPeriodo}
+          userId={props.userId}
+          onOpen={props.onOpenWrapped}
+        />
+      )}
 
       <section className="rise" style={step(2)}>
         <div className="mb-3 flex items-end justify-between gap-3">
@@ -562,6 +579,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
           onDeleteMovimiento={props.onDeleteMovimiento}
         />
       </div>
+
     </div>
   );
 };
