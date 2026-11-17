@@ -154,8 +154,9 @@ export function TicketModal({ file, demo = false, uid, movimientos, huchas, onSa
           <button type="button" className="dashboard-secondary-button" onClick={onManual}>Escribirlo a mano</button>
         </div>
       </>}
-    </div> : <form onSubmit={e => { e.preventDefault(); void save(); }} className="flex max-h-[70dvh] min-w-0 flex-col">
-      <fieldset disabled={saving} className="min-h-0 min-w-0 space-y-4 overflow-y-auto overflow-x-hidden pr-1 pb-4">
+    </div> : <form onSubmit={e => { e.preventDefault(); void save(); }} className="min-w-0">
+      {/* The modal body is the only scroll area; the footer sticks to its bottom edge. */}
+      <fieldset disabled={saving} className="min-w-0 space-y-4 pb-4">
         {example && <p className="text-xs text-ink-soft">Ticket de ejemplo · {demo ? 'modo demo' : 'lector sin configurar'}</p>}
         <div className="grid min-w-0 grid-cols-2 gap-3">
           <label className="col-span-2 min-w-0"><span className="field-label">Comercio</span><input className="field min-w-0" value={ticket.comercio} maxLength={120} required onChange={e => setTicket({ ...ticket, comercio: e.target.value })} /></label>
@@ -198,7 +199,7 @@ export function TicketModal({ file, demo = false, uid, movimientos, huchas, onSa
           </li>)}
         </ul>
       </fieldset>
-      <footer className="sticky bottom-0 shrink-0 space-y-3 border-t border-line bg-surface pt-3 pb-[env(safe-area-inset-bottom)]">
+      <footer className="sticky bottom-0 z-10 space-y-3 border-t border-line bg-surface pt-3 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
         {split && <div aria-label="Totales por persona" aria-live="polite" className="grid max-h-32 grid-cols-2 gap-x-3 gap-y-1 overflow-y-auto text-xs text-ink">{shares.map((p, i) => <p key={i} className="flex min-w-0 justify-between gap-2"><span className="truncate">{p.nombre}</span><strong className="shrink-0 tabular-nums">{ticketMoney(p.importe, ticket.moneda)}</strong></p>)}</div>}
         {error && <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
         {shareStatus && <p role="status" className="text-xs text-ink-soft">{shareStatus}</p>}
