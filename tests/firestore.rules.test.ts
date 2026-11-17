@@ -599,3 +599,33 @@ describeRules('Firestore Rules - Frontend fields', () => {
     }));
   });
 });
+
+describeRules('Firestore Rules - Tokens push del móvil', () => {
+  const deviceId = 'a'.repeat(32);
+  const token = { token: 'fcm-token-'.padEnd(160, 'x'), platform: 'android', updated_at: serverTimestamp() };
+
+  it('lets the owner save, refresh, read and delete their own device token', async () => {
+    if (!testEnv) return;
+    const db = testEnv.authenticatedContext('user_123').firestore();
+    const ref = doc(db, 'push_tokens', 'user_123', 'devices', deviceId);
+    await assertSucceeds(setDoc(ref, token));
+    await assertSucceeds(setDoc(ref, { ...token, token: 'otro-token-'.padEnd(160, 'y') }));
+    await assertSucceeds(getDoc(ref));
+    await assertSucceeds(deleteDoc(ref));
+  });
+
+  it('rejects other accounts, malformed ids and unexpected fields or values', async () => {
+    if (!testEnv) return;
+    const owner = testEnv.authenticatedContext('user_123').firestore();
+    await assertSucceeds(setDoc(doc(owner, 'push_tokens', 'user_123', 'devices', deviceId), token));
+    const other = testEnv.authenticatedContext('other_user').firestore();
+    await assertFails(getDoc(doc(other, 'push_tokens', 'user_123', 'devices', deviceId)));
+    await assertFails(setDoc(doc(other, 'push_tokens', 'user_123', 'devices', 'b'.repeat(32)), token));
+    await assertFails(deleteDoc(doc(other, 'push_tokens', 'user_123', 'devices', deviceId)));
+    await assertFails(setDoc(doc(owner, 'push_tokens', 'user_123', 'devices', 'not-a-hash'), token));
+    await assertFails(setDoc(doc(owner, 'push_tokens', 'user_123', 'devices', deviceId), { ...token, uid: 'user_123' }));
+    await assertFails(setDoc(doc(owner, 'push_tokens', 'user_123', 'devices', deviceId), { ...token, platform: 'windows' }));
+    await assertFails(setDoc(doc(owner, 'push_tokens', 'user_123', 'devices', deviceId), { ...token, token: 'corto' }));
+    await assertFails(setDoc(doc(owner, 'push_tokens', 'user_123', 'devices', deviceId), { ...token, updated_at: new Date(0) }));
+  });
+});

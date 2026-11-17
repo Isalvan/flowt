@@ -6,8 +6,16 @@ import { registerSW } from 'virtual:pwa-register'
 import { LazyDocsView } from './components/docs/LazyDocsView'
 import { LANDING_URL, shouldOpenLanding } from './utils/landing'
 
-// Register service worker for PWA automatic updates
-registerSW({ immediate: true })
+import { isNativeApp } from './native/platform'
+
+// The app ships its files inside the APK and updates through new builds: only the web uses
+// the service worker, which would otherwise keep serving an older cached build.
+if (isNativeApp()) {
+  void import('./native/shell').then(({ startNativeShell }) => startNativeShell())
+} else {
+  // Register service worker for PWA automatic updates
+  registerSW({ immediate: true })
+}
 
 const isDocsRoute = window.location.pathname === '/docs';
 

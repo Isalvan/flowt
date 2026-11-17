@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import * as biometrics from '../utils/biometricUnlock';
 import { auth, db } from '../firebase';
-import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
+import { signInWithGoogle } from '../native/googleSignIn';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface PrivacyContextType {
@@ -280,10 +281,8 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const resetPinWithGoogle = useCallback(async (): Promise<boolean> => {
     try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
       // Re-authenticate user to prove identity
-      const result = await signInWithPopup(auth, provider);
+      const result = await signInWithGoogle(auth, { selectAccount: true });
       
       // Strict check: ensures they signed in with the same active account
       if (userId && result.user.uid !== userId) {

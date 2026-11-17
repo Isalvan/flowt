@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand indigo (the dark-theme brand colour in index.css); tints the notification icon. -->
+    <color name="flowt_brand">#6366F1</color>
+    <color name="flowt_background">#080A10</color>
+</resources>

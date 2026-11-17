@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TicketCapture, type TicketCaptureHandle } from './components/tickets/TicketCapture';
-import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { auth } from './firebase';
+import { isNativeApp } from './native/platform';
+import { signInWithGoogle, signOutOfGoogle } from './native/googleSignIn';
 import { useTheme } from './hooks/useTheme';
 import { useFinanceData } from './hooks/useFinanceData';
 import { writeWrappedSeen } from './hooks/useWrappedSeen';
@@ -152,6 +154,25 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     }
   }, [user, loading, isFirebaseConfigured]);
 
+  // App only: notify this phone about new movements, and open photos shared to Flowt
+  // ("Compartir" → Flowt) in the ticket reader once the session is signed in and unlocked.
+  const pushUid = isNativeApp() && isFirebaseConfigured ? user?.uid : undefined;
+  useEffect(() => {
+    if (!pushUid) return;
+    void import('./native/push').then(m => m.enablePush(pushUid)).catch(error => console.error('Push could not be enabled:', error));
+  }, [pushUid]);
+  const sharedTicket = useRef<File | null>(null);
+  const [sharedTicketCount, setSharedTicketCount] = useState(0);
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+    void import('./native/shareTarget').then(m => {
+      if (!cancelled) stop = m.onSharedImage(file => { sharedTicket.current = file; setSharedTicketCount(n => n + 1); });
+    });
+    return () => { cancelled = true; stop?.(); };
+  }, []);
+
   // Tab switching state
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
   const [prevMobileIndex, setPrevMobileIndex] = useState(0);
@@ -181,15 +202,20 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
   const [isWrappedSelectorOpen, setIsWrappedSelectorOpen] = useState(false);
   const [isManualMovimientoModalOpen, setIsManualMovimientoModalOpen] = useState(false);
   const ticketCapture = useRef<TicketCaptureHandle>(null);
+  useEffect(() => {
+    const file = sharedTicket.current;
+    if (!file || isLocked || !user) return;
+    sharedTicket.current = null;
+    ticketCapture.current?.openWith(file);
+  }, [sharedTicketCount, isLocked, user]);
   const [isProfilePanelOpen, setIsProfilePanelOpen] = useState(false);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
 
   // Google authentication actions
   const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      await signInWithGoogle(auth);
       showToast('Sesión iniciada correctamente', 'success');
     } catch (error) {
       console.error('Login failed:', error);
@@ -199,7 +225,10 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
 
   const handleLogout = async () => {
     try {
+      // Drop this phone's push token while the session can still delete it.
+      if (isNativeApp()) await import('./native/push').then(m => m.disablePush()).catch(() => undefined);
       await signOut(auth);
+      await signOutOfGoogle();
       showToast('Sesión cerrada', 'success');
     } catch (error) {
       console.error('Logout failed:', error);

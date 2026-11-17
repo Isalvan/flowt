@@ -24,6 +24,7 @@ from gmail_client import get_unread_emails_from_bank, mark_email_as_read
 from fallback_logic import fallback_extract_movement
 from ai_parser import clean_body, extract_with_gemini
 from category_suggestions import category_fields
+from push import notify_new_movements
 from finance.domain import amount_cents, cents, distribute_income, extra_month, euros, percentage_total, recorded_split
 from reviews.domain import ReviewError
 from reviews.processing import (
@@ -545,6 +546,18 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
         return persisted_ids
     return recorded_ids
 
+def notify_owner(movements: List[Dict[str, Any]]) -> None:
+    """Avisa al móvil del propietario; un fallo del aviso nunca detiene el tracker."""
+    if not movements:
+        return
+    try:
+        sent = notify_new_movements(db, UID_PROPIETARIO, movements)
+        if sent:
+            logger.info(f"Push notification sent to {sent} device(s).")
+    except Exception as e:
+        logger.warning(f"Push notification skipped: {e}")
+
+
 def extract_email(header_value: str) -> str:
     """Extracts the email address from a From header (e.g. 'Name <email@domain.com>' -> 'email@domain.com')"""
     match = re.search(r'<([^>]+)>', header_value)
@@ -837,6 +850,7 @@ def process_emails():
                     transaction, movements_to_process, UID_PROPIETARIO,
                     email_id=email_id if review_enabled() else None,
                 )
+                notify_owner([m["movimiento"] for m in movements_to_process if m["doc_id"] in recorded_ids])
 
                 if review_enabled():
                     if has_low_confidence and not save_to_pending_review(

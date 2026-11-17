@@ -1,0 +1,103 @@
+name: Flowt Android
+
+# Builds the Android app from the same web build as Hosting.
+# - Pull requests that touch the app: compile check only (no secrets needed).
+# - main and manual runs: a signed APK published as the "android" pre-release, so the
+#   phone can download https://github.com/Isalvan/flowt/releases/tag/android and install it.
+#
+# Repository secrets (Settings → Secrets and variables → Actions), see docs/ANDROID.md:
+#   GOOGLE_SERVICES_JSON        contents of google-services.json for com.isalvan.flowt
+#   ANDROID_KEYSTORE_BASE64     the signing keystore, base64-encoded
+#   ANDROID_KEYSTORE_PASSWORD   its password (also used for the key)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'capacitor.config.ts'
+      - 'src/native/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+      VITE_REVIEW_API_URL: ${{ vars.VITE_REVIEW_API_URL }}
+      PUBLISH: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build the web app and copy it into Android
+        run: |
+          npm ci
+          npm run build
+          npx cap sync android
+      - name: Add Firebase config and signing key
+        if: env.PUBLISH == 'true'
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ] || [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::Faltan los secretos GOOGLE_SERVICES_JSON y ANDROID_KEYSTORE_BASE64. Ver docs/ANDROID.md."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/flowt.jks"
+          echo "FLOWT_KEYSTORE_FILE=$RUNNER_TEMP/flowt.jks" >> "$GITHUB_ENV"
+      - name: Compile (pull request)
+        if: env.PUBLISH != 'true'
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug
+      - name: Build signed APK
+        if: env.PUBLISH == 'true'
+        working-directory: android
+        env:
+          FLOWT_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          FLOWT_VERSION_CODE: ${{ github.run_number }}
+          FLOWT_VERSION_NAME: 1.0.${{ github.run_number }}
+        run: |
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/flowt.apk"
+      - name: Publish the "android" pre-release
+        if: env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android --cleanup-tag --yes || true
+          gh release create android "$RUNNER_TEMP/flowt.apk" \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Flowt para Android (build ${{ github.run_number }})" \
+            --notes "APK de Flowt generado desde ${GITHUB_SHA::7}. Ábrelo desde el móvil, descarga flowt.apk e instálalo encima de la versión anterior."

@@ -263,6 +263,19 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // App Android: el token FCM de cada móvil, para que el tracker avise de movimientos nuevos.
+    // Solo su dueño lo guarda o lo borra; el tracker lo lee con el Admin SDK.
+    match /push_tokens/{userId}/devices/{deviceId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) &&
+        deviceId.matches('[a-f0-9]{32}') &&
+        request.resource.data.keys().hasOnly(['token', 'platform', 'updated_at']) &&
+        request.resource.data.keys().hasAll(['token', 'platform', 'updated_at']) &&
+        isStringWithLength('token', 20, 4096) &&
+        request.resource.data.platform in ['android', 'ios'] &&
+        request.resource.data.updated_at == request.time;
+    }
+
     // Conector MCP: clientes, códigos, tokens y registro de operaciones.
     // Solo el servicio (Admin SDK) los lee o escribe; la web usa su API.
     match /oauth_clients/{clientId} { allow read, write: if false; }
