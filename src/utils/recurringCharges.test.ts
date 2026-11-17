@@ -35,6 +35,12 @@ describe('detectNewSubscriptions', () => {
       expense('c', { fecha_operacion: new Date(2026, 1, 28) }),
     ], [], today)[0]).toMatchObject({ meses: 3, fecha_inicio: '2026-02-28', dia_pago: 28 });
   });
+  it('ignora el precio de cobros antiguos fuera de la racha actual', () => {
+    expect(detectNewSubscriptions([
+      expense('2025-09-10', { importe: 15 }), expense('2025-10-10', { importe: 15 }),
+      ...history(),
+    ], [], today)[0]).toMatchObject({ importe: 29.9, meses: 3 });
+  });
   it('rechaza variación del 40 %', () => {
     const movements = history();
     movements[2].importe *= 1.4;

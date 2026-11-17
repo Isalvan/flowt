@@ -74,7 +74,7 @@ export function detectNewSubscriptions(
     const oldestAllowed = new Date(boundary);
     oldestAllowed.setDate(oldestAllowed.getDate() - 45);
     if (latest.date < oldestAllowed) continue;
-    const amounts = group.map(({ movement }) => movement.importe).sort((a, b) => a - b);
+    const amounts = run.map(({ movement }) => movement.importe).sort((a, b) => a - b);
     const middle = Math.floor(amounts.length / 2);
     const median = amounts.length % 2 ? amounts[middle] : (amounts[middle - 1] + amounts[middle]) / 2;
     if (amounts.some(amount => Math.abs(amount - median) > Math.max(1, median * 0.15))) continue;
