@@ -9,6 +9,7 @@ import {
   limit,
   doc,
   serverTimestamp,
+  Timestamp,
   runTransaction,
   getDocs,
   setDoc,
@@ -1572,6 +1573,7 @@ export const useFinanceData = (forceDemo = false) => {
     } catch (error) {
       console.error('Error al guardar suscripción:', error);
       showToast('Error al guardar la suscripción');
+      throw error;
     }
   };
 
@@ -1878,6 +1880,31 @@ export const useFinanceData = (forceDemo = false) => {
     }
   };
 
+  const handleAttachTicket = async (id: string, ticket: NonNullable<Movimiento['ticket']>) => {
+    if (isLocked) throw new Error('Desbloquea Flowt para guardar el ticket.');
+    const detail = { ...ticket, escaneado_at: Timestamp.now() };
+    const assertTarget = (movement: Movimiento | undefined) => {
+      if (!movement || movement.tipo !== 'gasto' || movement.es_interno || movement.transfer_id || movement.ticket) {
+        throw new Error('El gasto ya tiene un ticket o no está disponible. Vuelve a revisarlo.');
+      }
+    };
+    if (!isFirebaseConfigured) {
+      assertTarget(movimientos.find(m => m.id === id));
+      saveDemoState(movimientos.map(m => m.id === id ? { ...m, ticket: detail } : m), huchas, suscripciones, userStats || { total_ingresos: 0, total_gastos: 0 });
+    } else {
+      if (!user) throw new Error('Inicia sesión para guardar.');
+      await runTransaction(db, async transaction => {
+        const ref = doc(db, 'movimientos', id);
+        const snapshot = await transaction.get(ref);
+        const current = snapshot.exists() ? { id, ...snapshot.data() } as Movimiento : undefined;
+        assertTarget(current);
+        if (current?.id_propietario !== user.uid) throw new Error('El gasto no está disponible.');
+        transaction.update(ref, { ticket: detail });
+      });
+    }
+    showToast('Detalle del ticket añadido al gasto', 'success');
+  };
+
   const handleCreateManualMovimiento = async (movData: {
     tipo: 'gasto' | 'ingreso';
     concepto: string;
@@ -1889,6 +1916,8 @@ export const useFinanceData = (forceDemo = false) => {
     es_retirada_efectivo?: boolean;
     hucha_origen_id?: string;
     banco?: string;
+    categoria?: string;
+    ticket?: Movimiento['ticket'];
   }) => {
     const amt = roundMoney(Number(movData.importe));
     const isIngreso = movData.tipo === 'ingreso';
@@ -1896,6 +1925,11 @@ export const useFinanceData = (forceDemo = false) => {
     const isCashWithdrawal = !!movData.es_retirada_efectivo;
     const isInternal = !!movData.es_interno || isCashWithdrawal;
     const bankFields = !isMetalico && !isCashWithdrawal && movData.banco ? { banco: movData.banco } : {};
+    const ticketFields = movData.ticket ? {
+      ticket: { ...movData.ticket, escaneado_at: Timestamp.now() },
+      ...(movData.categoria ? { categoria: movData.categoria } : {}),
+    } : {};
+    if (movData.ticket && isLocked) throw new Error('Desbloquea Flowt para guardar el ticket.');
 
     if (isCashWithdrawal && (!isIngreso || !movData.hucha_origen_id)) {
       showToast('Selecciona la cartera bancaria de origen para la retirada.');
@@ -1939,6 +1973,7 @@ export const useFinanceData = (forceDemo = false) => {
         es_metalico: isMetalico,
         es_interno: isInternal,
         ...bankFields,
+        ...ticketFields,
       };
 
       if (isCashWithdrawal) {
@@ -1990,7 +2025,10 @@ export const useFinanceData = (forceDemo = false) => {
     }
 
     // 2. MODO FIREBASE
-    if (!user) return;
+    if (!user) {
+      if (movData.ticket) throw new Error('Inicia sesión para guardar.');
+      return;
+    }
     try {
       await runTransaction(db, async (transaction) => {
         let targetHuchaId = movData.hucha_id;
@@ -2116,6 +2154,7 @@ export const useFinanceData = (forceDemo = false) => {
           es_metalico: isMetalico,
           es_interno: isInternal,
           ...bankFields,
+          ...ticketFields,
           created_at: serverTimestamp()
         });
       });
@@ -2125,6 +2164,7 @@ export const useFinanceData = (forceDemo = false) => {
       if (isIncomeSplitError(error)) throw error;
       console.error('Error creating manual movement:', error);
       showToast('Error al registrar el movimiento.');
+      if (movData.ticket) throw error;
     }
   };
 
@@ -2451,6 +2491,7 @@ export const useFinanceData = (forceDemo = false) => {
     handleApprovePendingEmail,
     handleDiscardPendingEmail,
     handleCreateManualMovimiento,
+    handleAttachTicket,
     countMovimientosWithoutBank,
     assignMovimientosWithoutBank,
     handleDeleteMovimiento,

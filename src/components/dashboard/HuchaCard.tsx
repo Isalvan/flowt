@@ -1,12 +1,14 @@
 import React from 'react';
-import { CheckCircle, CreditCard, Edit3, Gift, Lock, PiggyBank, Trash2, User, Wallet, WalletCards } from 'lucide-react';
+import { CheckCircle, CreditCard, Edit3, Gift, Lock, PiggyBank, Trash2, TrendingDown, TrendingUp, User, Wallet, WalletCards } from 'lucide-react';
 import { CountUp } from '../common/CountUp';
 import { type Hucha } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { walletAccent } from '../../utils/walletAccent';
+import type { WalletForecast } from '../../utils/monthEndForecast';
 
 interface HuchaCardProps {
   hucha: Hucha;
+  prevision?: WalletForecast;
   lenderName?: string;
   /** Position among the active wallets; picks the wallet's colour. */
   index?: number;
@@ -30,9 +32,15 @@ const renderHuchaIcon = (hucha: Hucha) => {
   return <WalletCards size={18} />;
 };
 
-export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, lenderName, index = 0, onEdit, onDelete, onSubsanar, onRevertirDeuda }) => {
+export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, prevision, lenderName, index = 0, onEdit, onDelete, onSubsanar, onRevertirDeuda }) => {
   const { isLocked, formatCurrency } = usePrivacy();
   const accent = walletAccent(index);
+  const forecastTitle = prevision && !isLocked ? [
+    prevision.gastoVariable ? `Ritmo de gasto −${formatCurrency(prevision.gastoVariable)}` : '',
+    prevision.suscripciones ? `Suscripciones −${formatCurrency(prevision.suscripciones)}` : '',
+    prevision.ingresos ? `Nómina +${formatCurrency(prevision.ingresos)}` : '',
+    prevision.sinHistorial ? 'pocos datos de gasto' : '',
+  ].filter(Boolean).join(' · ') : undefined;
   const months = [...(hucha.extra_meses || [])].sort((a, b) => a - b).map(month => monthNames[month - 1]);
   const extraMonths = months.length > 1 ? `${months.slice(0, -1).join(', ')} y ${months[months.length - 1]}` : months[0];
   const hasGoal = Boolean(hucha.objetivo && hucha.objetivo > 0);
@@ -74,6 +82,15 @@ export const HuchaCard: React.FC<HuchaCardProps> = ({ hucha, lenderName, index =
           </span>
         )}
       </div>
+
+      {prevision && prevision.diasRestantes > 0 && (
+        <p title={forecastTitle} className={`mt-1 flex items-center gap-1 text-[11px] ${!isLocked && prevision.previsto < 0 ? 'text-rose-500' : 'text-ink-soft'}`}>
+          {!isLocked && (prevision.previsto >= hucha.saldo_acumulado
+            ? <TrendingUp size={12} aria-hidden="true" />
+            : <TrendingDown size={12} aria-hidden="true" />)}
+          <span>A fin de mes: {isLocked ? '•••• €' : `~${formatCurrency(prevision.previsto)}`}</span>
+        </p>
+      )}
 
       {hasGoal ? (
         <div className="mt-4">

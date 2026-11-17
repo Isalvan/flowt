@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { TicketCapture, type TicketCaptureHandle } from './components/tickets/TicketCapture';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { useTheme } from './hooks/useTheme';
@@ -132,6 +133,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     handleApprovePendingEmail,
     handleDiscardPendingEmail,
     handleCreateManualMovimiento,
+    handleAttachTicket,
     countMovimientosWithoutBank,
     assignMovimientosWithoutBank,
     handleDeleteMovimiento,
@@ -172,11 +174,13 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
   
   const [isSuscripcionModalOpen, setIsSuscripcionModalOpen] = useState(false);
   const [editingSuscripcion, setEditingSuscripcion] = useState<Suscripcion | null>(null);
+  const [suscripcionDraft, setSuscripcionDraft] = useState<Partial<Suscripcion> | undefined>();
   
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [wrappedPeriod, setWrappedPeriod] = useState<WrappedPeriod | null>(null);
   const [isWrappedSelectorOpen, setIsWrappedSelectorOpen] = useState(false);
   const [isManualMovimientoModalOpen, setIsManualMovimientoModalOpen] = useState(false);
+  const ticketCapture = useRef<TicketCaptureHandle>(null);
   const [isProfilePanelOpen, setIsProfilePanelOpen] = useState(false);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
@@ -543,6 +547,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             onOpenTransferModal={() => secureAction(() => setIsTransferModalOpen(true))}
             onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
             onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
+            onOpenTicket={() => secureAction(() => ticketCapture.current?.open())}
             onOpenCalendar={() => setActiveTab('calendario')}
             onOpenWrapped={(period) =>
               secureAction(() => {
@@ -594,10 +599,12 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
               suscripciones={suscripciones}
               huchas={huchas}
               ingresoMensualHabitual={chartMovementsLoading ? undefined : mediaIngresos}
-              onOpenSuscripcionModal={(s) => {
+              onOpenSuscripcionModal={(s, draft) => {
                 setEditingSuscripcion(s || null);
+                setSuscripcionDraft(draft);
                 setIsSuscripcionModalOpen(true);
               }}
+              onUpdateSuscripcion={s => handleCreateOrUpdateSuscripcion(s, s.id)}
               onDeleteSuscripcion={handleDeleteSuscripcion}
               onToggleSuscripcion={handleToggleSuscripcion}
               onCancelSuscripcion={handleCancelSuscripcion}
@@ -773,9 +780,11 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
           onClose={() => {
             setIsSuscripcionModalOpen(false);
             setEditingSuscripcion(null);
+            setSuscripcionDraft(undefined);
           }}
           onSave={handleCreateOrUpdateSuscripcion}
           editingSuscripcion={editingSuscripcion}
+          draft={suscripcionDraft}
           huchas={huchas}
         />
       </DeferredOverlay>
@@ -797,6 +806,11 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
         />
       </DeferredOverlay>
 
+      {!isLocked && <TicketCapture
+        key={user?.uid ?? 'demo'} ref={ticketCapture} uid={user?.uid ?? 'demo'} demo={!isFirebaseConfigured}
+        movimientos={chartMovements} huchas={huchas} onSave={handleCreateManualMovimiento} onAttach={handleAttachTicket}
+        onManual={() => setIsManualMovimientoModalOpen(true)}
+      />}
       <DeferredOverlay active={isWrappedSelectorOpen}>
         <WrappedSelector
           isOpen={isWrappedSelectorOpen}

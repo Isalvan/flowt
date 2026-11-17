@@ -1,3 +1,29 @@
+import type { Timestamp } from 'firebase/firestore';
+
+export interface TicketPersona {
+  nombre: string;
+  importe: number;
+  yo?: boolean;
+}
+
+export interface MovementTicket {
+  comercio: string;
+  lineas: { d: string; i: number; p?: number[] }[];
+  personas?: TicketPersona[];
+  escaneado_at?: Timestamp;
+}
+
+export interface TicketScanResult {
+  comercio: string;
+  fecha: string | null;
+  total: number;
+  moneda: string;
+  categoria_sugerida: string;
+  lineas: { descripcion: string; cantidad: number; importe: number }[];
+  cuadra: boolean;
+  diferencia: number;
+}
+
 export interface Movimiento {
   id: string;
   tipo: 'gasto' | 'ingreso';
@@ -23,6 +49,7 @@ export interface Movimiento {
     extras?: Record<string, string>;
   } | null;
   importe: number;
+  ticket?: MovementTicket;
   fecha_operacion: any; // Firestore Timestamp, Date, or string representation
   hucha_id?: string;
   id_propietario?: string;

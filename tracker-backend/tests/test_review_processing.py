@@ -127,6 +127,20 @@ def test_internal_movement_does_not_get_a_review_job():
     assert not any(key[0] == "review_jobs" for key in db.data)
 
 
+def test_sync_review_handoff_preserves_ticket():
+    db = MemoryDB()
+    seed(db)
+    movement = db.data[("movimientos", "movement")]
+    movement["ticket"] = {"comercio": "Mercadona", "lineas": [{"d": "Leche", "i": 6, "p": [0, 1]}],
+                          "personas": [{"nombre": "Yo", "importe": 3, "yo": True}, {"nombre": "Ana", "importe": 3}]}
+    before = deepcopy(movement)
+    processing.record_resolved_branches(db, "owner", "email", False)
+    complete(db)
+    complete(db)
+    assert db.data[("movimientos", "movement")] == before
+    assert all(key[0] != "movimientos" for key, _data in db.writes)
+
+
 def test_feature_flag_defaults_off(monkeypatch):
     monkeypatch.delenv("FLOWT_REVIEW_ENABLED", raising=False)
     assert processing.review_enabled() is False
