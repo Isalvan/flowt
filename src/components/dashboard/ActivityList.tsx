@@ -30,6 +30,7 @@ import { ServiceIcon } from './ServiceIcon';
 import { resolveServiceKey } from '../../utils/serviceNames';
 import { CategoryPicker } from './CategoryPicker';
 import { MovementReview } from './MovementReview';
+import { TicketDetail } from '../tickets/TicketDetail';
 import { DuplicateChargeReview } from './DuplicateChargeReview';
 import { cuentaEnEstadisticas, gmailUrlFor, importeEnEstadisticas } from '../../utils/movements';
 import { detectPayroll, formatWorkTime, hourlyRate } from '../../utils/payroll';
@@ -714,6 +715,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                     </div>
                   </div>
                 </div>
+                {m.ticket && !isLocked && <TicketDetail movimiento={m} movimientos={allMovimientos} />}
                 {duplicate?.b.id === m.id && onDismissDuplicate && (
                   <div className="mt-3 sm:pl-[3.25rem]">
                     <DuplicateChargeReview key={`${duplicate.a.id}:${duplicate.b.id}`} pair={duplicate} onDismiss={onDismissDuplicate} />

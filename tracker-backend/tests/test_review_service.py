@@ -159,6 +159,26 @@ def test_preview_uses_real_financial_plan_without_writes(setup):
     assert db.committed_writes == 0
 
 
+@pytest.mark.parametrize("changes", [{"name": "Nuevo concepto"}, {"category": "custom-food"}, {"hucha_id": "food"},
+                                    {"name": "Compra", "category": "custom-food", "hucha_id": "food"}])
+def test_manual_edit_preserves_complete_ticket(setup, changes):
+    db, service, _ = setup
+    ticket = {"comercio": "Mercadona", "lineas": [{"d": "Compra", "i": 12, "p": [0, 1]}],
+              "personas": [{"nombre": "Yo", "importe": 6, "yo": True}, {"nombre": "Ana", "importe": 6}],
+              "escaneado_at": datetime(2026, 10, 10, tzinfo=timezone.utc)}
+    db.data[("movimientos", "movement")]["ticket"] = deepcopy(ticket)
+    service.edit_movement("owner", "movement", **changes)
+    movement = db.data[("movimientos", "movement")]
+    assert movement["ticket"] == ticket
+    assert movement["importe"] == 12
+    if "name" in changes:
+        assert movement["concepto"] == changes["name"]
+    if "category" in changes:
+        assert movement["categoria"] == changes["category"]
+    if "hucha_id" in changes or "category" in changes:
+        assert movement["hucha_id"] == "food"
+
+
 def test_related_evidence_waits_for_its_processing_receipt(setup):
     db, service, _ = setup
     movement = db.data[("movimientos", "movement")]

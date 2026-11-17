@@ -19,6 +19,10 @@ Se comparan ingresos y gastos del mismo día de calendario en **Europe/Madrid**,
 
 Aceptar y deshacer no alteran los saldos de las carteras: el dinero ya fue registrado. Los resúmenes usan el gasto neto y la parte del ingreso que no se ha asignado a una compensación. Las transacciones releen los documentos y validan propietario, tipos, céntimos e importes disponibles antes de guardar ambos lados. Los movimientos internos, nóminas explícitas, parejas ya vinculadas o descartadas no se proponen.
 
+### Partes de un ticket repartido
+
+Si un gasto tiene un ticket repartido entre personas (ver [tickets.md](tickets.md)), un ingreso recibido entre el día del gasto y 30 días después cuyo importe coincida, con un céntimo de margen, con la parte de una persona distinta de «Yo» se propone como su pago, con confianza media y el motivo «Parte de Ana del ticket de Mercadona». Si el concepto del ingreso (por ejemplo, un Bizum) contiene el nombre de la persona, la propuesta gana a cualquier otra. Si dos personas deben el mismo importe y el concepto no lo desempata, la confianza es baja. Una persona cuenta como pagada cuando el gasto ya tiene compensado un ingreso por su importe exacto, y deja de proponerse. Los descartes se respetan igual que en el resto de compensaciones.
+
 La propuesta **¿Compensa este gasto?** aparece dentro del ingreso, con el gasto candidato y el importe que se aceptaría. **Ver coincidencia** o **Revisar coincidencia** despliega el motivo y el gasto neto previsto. Nada se vincula antes de aceptar.
 
 La actividad trabaja con los movimientos recientes cargados (actualmente hasta 150). No garantiza encontrar una pareja que haya quedado fuera de esa ventana. El rechazo afecta a una pareja concreta, no a todas las operaciones futuras de una persona.

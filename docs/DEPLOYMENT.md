@@ -151,6 +151,29 @@ Descarga una clave de una cuenta de servicio dedicada como `serviceAccountKey.js
 
 Crea una clave de Gemini en Google AI Studio y selecciona el modelo mediante `AI_MODEL`.
 
+### Escaneo de tickets (Worker y Flask)
+
+La web utiliza `POST /api/tickets/scan` en el mismo servicio que la API de revisiones (`VITE_REVIEW_API_URL`). Requiere un ID token de Firebase de una cuenta permitida. Configura el secreto de Gemini en el Worker desde la raíz del repositorio:
+
+```bash
+npx wrangler secret put GEMINI_API_KEY
+npx wrangler deploy
+```
+
+El modelo del escáner se configura con `TICKET_AI_MODEL`, opcional en `vars` de `wrangler.json`; por defecto es `gemini-3.5-flash`. Es independiente de `AI_MODEL`, que sigue seleccionando el modelo del sincronizador de correos. La clave nunca debe incluirse en variables `VITE_*` ni en el código del cliente.
+
+En Flask, configura `GEMINI_API_KEY` y, si hace falta, `TICKET_AI_MODEL` en el entorno del servicio. `Dockerfile.review` incluye el prompt, el esquema de respuesta y la lista de cuentas permitidas. La copia `tracker-backend/prompts/allowed_uids.json` debe coincidir con `src/shared/allowedUids.json`; un test comprueba esa igualdad. El prompt `tracker-backend/prompts/ticket.md` tiene una copia en `mcp-worker/src/ticketPrompt.js`, también comprobada por un test.
+
+Despliega las reglas que permiten el campo `ticket` de los movimientos antes de publicar la web:
+
+```bash
+npx firebase deploy --only firestore:rules
+```
+
+La petición JSON contiene `image` (base64 sin prefijo `data:`) y `mime` (`image/jpeg`, `image/png` o `image/webp`). El límite es **2 MiB del cuerpo JSON completo**, no de la imagen decodificada; las demás rutas conservan su límite de 64 KiB. El escáner admite 10 intentos por minuto y UID; devuelve 429 con `Retry-After` en segundos al superarlo. Los contadores viven en memoria por isolate del Worker o proceso Flask: el límite es de mejor esfuerzo y no se comparte entre réplicas.
+
+La foto se envía a Gemini para extraer el ticket; el backend no la persiste ni la incluye en logs. Un resultado con más de 150 líneas se rechaza para no guardar detalles incompletos. Sin clave Gemini, el escáner devuelve 503 con `{"error":"not_configured","message":"El escaneo de tickets no está configurado"}`. Una foto ilegible devuelve 422 con `{"error":"not_a_ticket","message":"No he podido leer el ticket. Prueba con más luz y el ticket entero."}`. El resto de errores de escaneo usa `{"error":"código","message":"texto"}`: 400 `invalid_arguments`, 401 `unauthorized`, 413 `payload_too_large`, 429 `rate_limited` o 503 `retryable_error`.
+
 ## 6. Secretos de GitHub Actions
 
 El workflow `.github/workflows/run_tracker.yml` espera:

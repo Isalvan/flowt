@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { TicketCapture, type TicketCaptureHandle } from './components/tickets/TicketCapture';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { useTheme } from './hooks/useTheme';
@@ -128,6 +129,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     handleApprovePendingEmail,
     handleDiscardPendingEmail,
     handleCreateManualMovimiento,
+    handleAttachTicket,
     countMovimientosWithoutBank,
     assignMovimientosWithoutBank,
     handleDeleteMovimiento,
@@ -172,6 +174,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
   
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isManualMovimientoModalOpen, setIsManualMovimientoModalOpen] = useState(false);
+  const ticketCapture = useRef<TicketCaptureHandle>(null);
   const [isProfilePanelOpen, setIsProfilePanelOpen] = useState(false);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
@@ -538,6 +541,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
             onOpenTransferModal={() => secureAction(() => setIsTransferModalOpen(true))}
             onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
             onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
+            onOpenTicket={() => secureAction(() => ticketCapture.current?.open())}
             onOpenCalendar={() => setActiveTab('calendario')}
             onDeleteMovimiento={onDeleteMovimientoWrapper}
             onSubsanar={handleSubsanarHucha}
@@ -788,6 +792,11 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
         />
       </DeferredOverlay>
 
+      {!isLocked && <TicketCapture
+        key={user?.uid ?? 'demo'} ref={ticketCapture} uid={user?.uid ?? 'demo'} demo={!isFirebaseConfigured}
+        movimientos={chartMovements} huchas={huchas} onSave={handleCreateManualMovimiento} onAttach={handleAttachTicket}
+        onManual={() => setIsManualMovimientoModalOpen(true)}
+      />}
       <DeferredOverlay active={isManualMovimientoModalOpen}>
         <ManualMovimientoModal
           isOpen={isManualMovimientoModalOpen}

@@ -7,21 +7,28 @@ web app. A separately configured long-lived bearer token can still drive the
 scheduled review, limited to the review tools.
 """
 import hmac
+import json
 import os
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import NamedTuple
 from urllib.parse import unquote_plus
 
 import firebase_admin
 from firebase_admin import auth, firestore
 from flask import Flask, jsonify, request
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from finance.domain import SUBSCRIPTION_CATEGORIES
 from finance.service import FinanceService
+from finance.tickets import MAX_TICKET_BODY, TicketRateLimiter, scan_ticket, validate_ticket_image
 from mcp_auth import SCOPE_READ, SCOPE_WRITE, AuthorizationServer, OAuthError, Settings
 from reviews.domain import ReviewError
 from reviews.service import ReviewService, serialize
 
 SCOPE_REVIEW = "flowt:review"  # The pilot token: scheduled review tools only.
+# Bundled for the standalone Flask image; tested against the web/Worker list.
+ALLOWED_UIDS = json.loads((Path(__file__).parent / "prompts" / "allowed_uids.json").read_text(encoding="utf-8"))
 
 
 class Principal(NamedTuple):
@@ -235,10 +242,12 @@ def finance_writes_enabled():
 PUBLIC_PATHS = ("/.well-known/", "/oauth/register", "/oauth/token", "/oauth/revoke")
 
 
-def create_app(service=None, verifier=None, finance=None, oauth=None):
+def create_app(service=None, verifier=None, finance=None, oauth=None, ticket_client=None, ticket_now=None, ticket_limiter=None):
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
     oauth_ready = oauth is not None
+    ticket_now = ticket_now or (lambda: datetime.now(timezone.utc))
+    ticket_limiter = ticket_limiter or TicketRateLimiter()
 
     def firestore_client():
         if not firebase_admin._apps:
@@ -276,6 +285,11 @@ def create_app(service=None, verifier=None, finance=None, oauth=None):
 
     @app.before_request
     def validate_origin():
+        if request.path == "/api/tickets/scan":
+            # Read one sentinel byte to detect overflow on chunked WSGI streams;
+            # Werkzeug otherwise silently stops at the limit on read-all.
+            # All other routes retain the application's 64 KB limit.
+            request.max_content_length = MAX_TICKET_BODY + 1
         allowed = set(filter(None, (value.strip() for value in os.getenv("FLOWT_REVIEW_ALLOWED_ORIGINS", "").split(","))))
         origin = request.headers.get("Origin")
         if origin and origin not in allowed and not request.path.startswith(PUBLIC_PATHS):
@@ -367,6 +381,39 @@ def create_app(service=None, verifier=None, finance=None, oauth=None):
         else:
             response["error"] = {"code": -32601, "message": "Method not found"}
         return jsonify(response)
+
+    @app.route("/api/tickets/scan", methods=["POST", "GET", "PUT", "PATCH", "DELETE", "OPTIONS"])
+    def web_ticket_scan():
+        if request.method == "OPTIONS":
+            return "", 204
+        if request.method != "POST":
+            return jsonify({"error": "method_not_allowed", "message": "Usa POST para escanear un ticket"}), 405, {"Allow": "POST, OPTIONS"}
+        try:
+            owner = verify_web(request.headers.get("Authorization", ""))
+            if owner not in ALLOWED_UIDS:
+                raise ReviewError("unauthorized", "Credenciales no válidas")
+            allowed, retry_after = ticket_limiter.check(owner)
+            if not allowed:
+                return jsonify({"error": "rate_limited", "message": "Has alcanzado el límite de 10 escaneos por minuto"}), 429, {"Retry-After": str(retry_after)}
+            # Reading bytes first also bounds malformed JSON and non-JSON requests.
+            raw = request.get_data(cache=False)
+            if len(raw) > MAX_TICKET_BODY:
+                raise RequestEntityTooLarge()
+            try:
+                arguments = json.loads(raw)
+            except (ValueError, UnicodeError, RecursionError):
+                arguments = None
+            body = validate_ticket_image(arguments)
+            return jsonify(scan_ticket(body, ticket_now().date().isoformat(), client=ticket_client))
+        except RequestEntityTooLarge:
+            return jsonify({"error": "payload_too_large", "message": "Petición demasiado grande"}), 413
+        except ReviewError as error:
+            status = {"unauthorized": 401, "invalid_arguments": 400, "not_a_ticket": 422, "not_configured": 503, "retryable_error": 503}
+            return jsonify({"error": error.code, "message": str(error)}), status.get(error.code, 503)
+        except Exception:
+            # Provider exceptions may contain the image; log a fixed event only.
+            app.logger.error("Ticket scan failed")
+            return jsonify({"error": "retryable_error", "message": "No se pudo completar la operación"}), 503
 
     @app.route("/api/reviews/<action>", methods=["POST", "OPTIONS"])
     def web_review(action):

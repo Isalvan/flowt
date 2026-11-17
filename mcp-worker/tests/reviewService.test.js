@@ -30,6 +30,20 @@ beforeEach(async () => {
 
 const apply = (owner = 'owner', given = proposal) => service.apply_review(owner, { movement_id: 'movement', proposal: given });
 
+it.each([{ name: 'Nuevo concepto' }, { category: 'custom-food' }, { hucha_id: 'food' },
+  { name: 'Compra', category: 'custom-food', hucha_id: 'food' }])('manual edit preserves the complete ticket: %o', async (changes) => {
+  const ticket = { comercio: 'Mercadona', lineas: [{ d: 'Compra', i: 12, p: [0, 1] }],
+    personas: [{ nombre: 'Yo', importe: 6, yo: true }, { nombre: 'Ana', importe: 6 }], escaneado_at: NOW };
+  db.patch('movimientos', 'movement', { ticket });
+  await service.edit_movement('owner', { movement_id: 'movement', ...changes });
+  const movement = db.read('movimientos', 'movement');
+  expect(movement.ticket).toEqual(ticket);
+  expect(movement.importe).toBe(12);
+  if (changes.name) expect(movement.concepto).toBe(changes.name);
+  if (changes.category) expect(movement.categoria).toBe(changes.category);
+  if (changes.hucha_id || changes.category) expect(movement.hucha_id).toBe('food');
+});
+
 /** The call fails with `code` and leaves every document untouched. */
 async function refused(code, call) {
   const before = db.snapshotAll();

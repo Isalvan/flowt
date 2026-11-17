@@ -2,8 +2,46 @@ import { describe, expect, it } from 'vitest';
 import type { Movimiento } from '../types';
 import { availableAmount, compensationUpdates, suggestCategory, suggestCompensations } from './movementSuggestions';
 import { cuentaEnEstadisticas, importeEnEstadisticas } from './movements';
+import { paidTicketPeople } from './ticketPayments';
 
 const movement = (id: string, tipo: Movimiento['tipo'], importe: number, concepto = id, date = '2026-05-12T12:00:00+02:00'): Movimiento => ({ id, tipo, importe, concepto, fecha_operacion: date });
+
+describe('compensaciones de tickets', () => {
+  const expense: Movimiento = { ...movement('g', 'gasto', 60), ticket: { comercio: 'Mercadona', lineas: [], personas: [{ nombre: 'Yo', importe: 40, yo: true }, { nombre: 'Ana', importe: 20 }] } };
+  const income = (amount = 20, date = '2026-05-15', concept = 'Bizum Ana') => movement('i', 'ingreso', amount, concept, date);
+  it('matches Ana three days later and prefers the name over a same-day expense', () => {
+    const i = income();
+    expect(suggestCompensations([expense, i, movement('other', 'gasto', 20, 'Otro', '2026-05-15')])[0])
+      .toMatchObject({ gasto: expense, importe: 20, confianza: 'media', motivo: 'Parte de Ana del ticket de Mercadona' });
+  });
+  it('requires the share amount and the inclusive zero-to-thirty calendar-day window', () => {
+    for (const i of [income(22), income(20, '2026-06-21'), income(20, '2026-05-11')]) expect(suggestCompensations([expense, i])).toHaveLength(0);
+    expect(suggestCompensations([expense, income(20.01, '2026-06-11')])).toHaveLength(1);
+    expect(suggestCompensations([expense, income(20, '2026-06-12')])).toHaveLength(0);
+  });
+  it('respects dismissals, already paid people and existing allocations', () => {
+    expect(suggestCompensations([{ ...expense, compensaciones_descartadas: ['i'] }, income()])).toHaveLength(0);
+    expect(suggestCompensations([expense, { ...income(), compensaciones_descartadas: ['g'] }])).toHaveLength(0);
+    expect(suggestCompensations([{ ...expense, compensado_por_detalles: [{ ingreso_id: 'paid', importe: 20 }] }, income()])).toHaveLength(0);
+    expect(suggestCompensations([expense, { ...income(), compensaciones_destinos: [{ gasto_id: 'g', importe: 20 }] }])).toHaveLength(0);
+    expect(suggestCompensations([expense, { ...income(30), compensaciones_destinos: [{ gasto_id: 'other', importe: 10 }] }])).toHaveLength(0);
+  });
+  it('lowers confidence for equal shares unless the name distinguishes them', () => {
+    const g = { ...expense, ticket: { ...expense.ticket!, personas: [{ nombre: 'Yo', importe: 20, yo: true }, { nombre: 'Ana', importe: 20 }, { nombre: 'Luis', importe: 20 }] } };
+    expect(suggestCompensations([g, income(20, '2026-05-15', 'Bizum')])[0].confianza).toBe('baja');
+    expect(suggestCompensations([g, income(20, '2026-05-15', 'Bizum Luis')])[0]).toMatchObject({ confianza: 'media', motivo: 'Parte de Luis del ticket de Mercadona' });
+    const paid = { ...g, compensado_por_detalles: [{ ingreso_id: 'paid', importe: 20 }] };
+    const previous = { ...income(20, '2026-05-14', 'Bizum Luis'), id: 'paid' };
+    expect([...paidTicketPeople(paid, [previous])]).toEqual([2]);
+    expect(suggestCompensations([paid, previous, income(20, '2026-05-15', 'Bizum Luis')])).toHaveLength(0);
+    expect(suggestCompensations([paid, previous, income()])[0]?.motivo).toContain('Ana');
+  });
+  it('settles one person per exact payment, including legacy links', () => {
+    const g = { ...expense, compensado_por: ['i'] };
+    expect([...paidTicketPeople(g, [income()])]).toEqual([1]);
+    expect([...paidTicketPeople(g, [income(20.01)])]).toEqual([]);
+  });
+});
 
 describe('categorías propuestas', () => {
   it('reconoce comercios y conceptos de Bizum conservando la incertidumbre', () => {

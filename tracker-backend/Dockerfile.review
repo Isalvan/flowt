@@ -5,6 +5,7 @@ RUN pip install --no-cache-dir -r requirements.txt -r requirements-review.in
 COPY reviews ./reviews
 COPY finance ./finance
 COPY prompts/categories.json ./prompts/categories.json
+COPY prompts/ticket.md prompts/ticket_schema.json prompts/allowed_uids.json ./prompts/
 COPY mcp_server.py mcp_auth.py ./
 ENV PORT=8080
 USER 65532:65532

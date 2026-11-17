@@ -36,7 +36,7 @@ export function MovementReview({ suggestion: s, onAccept, onDismiss, onAdjust }:
         {s.gasto.concepto} <span className="text-ink-faint">· {formatCurrency(s.gasto.importe)}</span>
       </p>
       <details className="mt-1 text-[11px] text-ink-soft">
-        <summary className="cursor-pointer hover:text-ink">Mismo día · {s.confianza === 'baja' ? 'Revisar coincidencia' : 'Ver coincidencia'}</summary>
+        <summary className="cursor-pointer hover:text-ink">{s.gasto.ticket?.personas?.length ? 'Reparto del ticket' : 'Mismo día'} · {s.confianza === 'baja' ? 'Revisar coincidencia' : 'Ver coincidencia'}</summary>
         <p className="mt-1">{s.motivo} Gasto neto si aceptas: {formatCurrency(availableAmount(s.gasto) - s.importe)}.</p>
       </details>
       </div>

@@ -1,6 +1,8 @@
 import catalog from '../../tracker-backend/prompts/categories.json';
 import type { Movimiento } from '../types';
 import { cuentaEnEstadisticas } from './movements';
+import { ticketDay } from './ticketSplit';
+import { paidTicketPeople, ticketPersonNamed } from './ticketPayments';
 
 export const MOVEMENT_CATEGORIES = catalog;
 export interface MovementCategory { id: string; label: string; tipo: 'gasto' | 'ingreso' | 'ambos' }
@@ -136,10 +138,33 @@ export function suggestCompensations(movements: Movimiento[]): CompensationSugge
     const amount = availableAmount(ingreso);
     const candidates: CompensationSuggestion[] = [];
     for (const gasto of expenses) {
-      if (calendarDay(gasto) !== day || ingreso.compensaciones_descartadas?.includes(gasto.id) || gasto.compensaciones_descartadas?.includes(ingreso.id)) continue;
+      if (ingreso.compensaciones_descartadas?.includes(gasto.id) || gasto.compensaciones_descartadas?.includes(ingreso.id)) continue;
       if (ingreso.compensaciones_destinos?.some(d => d.gasto_id === gasto.id) || gasto.compensado_por?.includes(ingreso.id) || gasto.compensado_por_detalles?.some(d => d.ingreso_id === ingreso.id)) continue;
       const available = availableAmount(gasto);
       if (amount > available) continue;
+      if (gasto.ticket?.personas?.length) {
+        const expenseDay = ticketDay(gasto.fecha_operacion);
+        const incomeDay = ticketDay(ingreso.fecha_operacion);
+        if (expenseDay === null || incomeDay === null || incomeDay < expenseDay || incomeDay - expenseDay > 30) continue;
+        // An already allocated income must not masquerade as a smaller person's share.
+        if (Math.round(amount * 100) !== Math.round(ingreso.importe * 100)) continue;
+        const paid = paidTicketPeople(gasto, movements);
+        const people = gasto.ticket.personas;
+        const named = people.flatMap((p, i) => !p.yo && ticketPersonNamed(ingreso.concepto, p.nombre) ? [i] : []);
+        const compatible = people.flatMap((p, i) => !p.yo && !paid.has(i) && p.importe > 0 &&
+          Math.abs(Math.round(p.importe * 100) - Math.round(amount * 100)) <= 1 && (!named.length || named.includes(i)) ? [i] : []);
+        if (compatible.length) {
+          const person = people[compatible[0]];
+          candidates.push({
+            id: `${ingreso.id}:${gasto.id}`, ingreso, gasto, importe: amount,
+            confianza: compatible.length > 1 ? 'baja' : 'media',
+            motivo: `Parte de ${person.nombre} del ticket de ${gasto.ticket.comercio}${compatible.length > 1 ? '. Hay varias personas con ese importe; revisa quién ha pagado.' : ''}`,
+            score: (named.length ? 180 : 130) - (compatible.length > 1 ? 10 : 0),
+          });
+        }
+        continue;
+      }
+      if (calendarDay(gasto) !== day) continue;
       const tolerance = Math.min(1, Math.max(0.05, available * 0.02));
       const fractions = [1, 1 / 2, 1 / 3, 1 / 4, 2 / 3, 3 / 4];
       const fraction = fractions.find(f => Math.abs(amount - available * f) <= tolerance);

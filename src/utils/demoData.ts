@@ -1,10 +1,21 @@
-import type { Hucha, Movimiento, PendingEmail, Suscripcion } from '../types';
+import type { Hucha, Movimiento, PendingEmail, Suscripcion, TicketScanResult } from '../types';
 import type { Bank } from '../context/bankContext';
 import { estimateBankBalance } from './banks';
 import { applySplit, extraMonth, recordedSplit, roundMoney, splitIncome } from './incomeSplit';
 import { crearRetiradaEfectivo, cuentaEnEstadisticas, importeEnEstadisticas } from './movements';
 import { parseMovimientoDate } from './periodStats';
 import { getEffectiveSubscriptionAmount, getMonthlySubscriptionAmount, getSubscriptionChargeForMonth, toLocalDateKey } from './subscriptions';
+
+export const DEMO_TICKET: TicketScanResult = {
+  comercio: 'Mercadona', fecha: '2026-11-17', total: 23.45, moneda: 'EUR', categoria_sugerida: 'alimentacion',
+  lineas: [
+    { descripcion: 'Leche entera 6x1L', cantidad: 1, importe: 5.94 },
+    { descripcion: 'Pan de masa madre', cantidad: 2, importe: 3.5 },
+    { descripcion: 'Fruta y verduras', cantidad: 1, importe: 8.01 },
+    { descripcion: 'Queso curado', cantidad: 1, importe: 7 },
+    { descripcion: 'Cupón descuento', cantidad: 1, importe: -1 },
+  ], cuadra: true, diferencia: 0,
+};
 
 export const sortDemoMovements = (movimientos: Movimiento[]): Movimiento[] => [...movimientos].sort((a, b) =>
   (parseMovimientoDate(b.fecha_operacion)?.getTime() ?? 0) - (parseMovimientoDate(a.fecha_operacion)?.getTime() ?? 0));
