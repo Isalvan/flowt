@@ -84,8 +84,9 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = (props) => {
   const { isLocked, formatCurrency, biometricEnabled, openUnlockModal } = usePrivacy();
   const { inicioPeriodo, cifraDestacada } = usePreferences();
-  const forecast = useMemo(() => forecastMonthEnd(props.huchas, props.movimientos, props.suscripciones),
-    [props.huchas, props.movimientos, props.suscripciones]);
+  // `movimientos` only holds the latest few; the pace needs the loaded 12-month window.
+  const forecast = useMemo(() => forecastMonthEnd(props.huchas, props.chartMovements, props.suscripciones),
+    [props.huchas, props.chartMovements, props.suscripciones]);
   const periodConfig = useMemo(() => ({
     inicioPeriodo, nominas: payrollDates([...props.chartMovements, ...(props.olderMovements ?? [])]),
   }), [inicioPeriodo, props.chartMovements, props.olderMovements]);
