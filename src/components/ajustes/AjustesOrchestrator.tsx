@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Layers, Download, Archive, RefreshCw, Tags, Plug, Landmark } from 'lucide-react';
 import { BancosView } from './BancosView';
 import { CategoryHuchasView } from './CategoryHuchasView';
@@ -8,13 +8,15 @@ import { SuscripcionesView } from '../suscripciones/SuscripcionesView';
 import { ExportView } from '../export/ExportView';
 import { usePrivacy } from '../../context/PrivacyContext';
 import type { Suscripcion, Hucha, Movimiento } from '../../types';
+import { useRecurringAlerts } from '../../hooks/useRecurringAlerts';
 
 interface AjustesOrchestratorProps {
   // Suscripciones props
   suscripciones: Suscripcion[];
   huchas: Hucha[];
   ingresoMensualHabitual?: number;
-  onOpenSuscripcionModal: (suscripcion: Suscripcion | null) => void;
+  onOpenSuscripcionModal: (suscripcion: Suscripcion | null, draft?: Partial<Suscripcion>) => void;
+  onUpdateSuscripcion: (s: Suscripcion) => Promise<void>;
   onDeleteSuscripcion: (s: Suscripcion) => void;
   onToggleSuscripcion: (s: Suscripcion) => void;
   onCancelSuscripcion: (s: Suscripcion) => void;
@@ -40,6 +42,7 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
   huchas,
   ingresoMensualHabitual,
   onOpenSuscripcionModal,
+  onUpdateSuscripcion,
   onDeleteSuscripcion,
   onToggleSuscripcion,
   onCancelSuscripcion,
@@ -59,6 +62,11 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
 }) => {
   const [subTab, setSubTab] = useState<'suscripciones' | 'bancos' | 'exportar' | 'carteras_inactivas' | 'categorias' | 'revisiones' | 'conexiones'>('suscripciones');
   const { formatCurrency } = usePrivacy();
+  const recurringMovements = useMemo(() => [...new Map(
+    [...chartMovements, ...olderMovements].map(m => [m.id, m]),
+  ).values()], [chartMovements, olderMovements]);
+  const recurringUserId = demo ? 'demo' : userId ?? 'anonymous';
+  const { count: alertCount } = useRecurringAlerts(recurringMovements, suscripciones, recurringUserId);
 
   return (
     <div className="w-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -77,6 +85,7 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
           >
             <Layers size={16} />
             Suscripciones
+            {alertCount > 0 && <span aria-label={`${alertCount} avisos pendientes`} className="rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-white">{alertCount}</span>}
           </button>
           <button type="button" onClick={() => setSubTab('bancos')} aria-pressed={subTab === 'bancos'} className="segmented-item"><Landmark size={16} />Bancos</button>
           
@@ -118,6 +127,9 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
         ) : subTab === 'suscripciones' ? (
           <SuscripcionesView
             suscripciones={suscripciones}
+            movimientos={recurringMovements}
+            userId={recurringUserId}
+            onUpdateSuscripcion={onUpdateSuscripcion}
             huchas={huchas}
             ingresoMensualHabitual={ingresoMensualHabitual}
             onOpenSuscripcionModal={onOpenSuscripcionModal}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { type Suscripcion, type Hucha } from '../../types';
+import { type Suscripcion, type Hucha, type Movimiento } from '../../types';
 import { SuscripcionCard } from './SuscripcionCard';
 import { Card } from '../common/Card';
 import { EmptyIllustration } from '../common/EmptyIllustration';
@@ -13,12 +13,16 @@ import {
 import { CATEGORIA_OPTIONS, calcMensual } from '../../hooks/useFinanceData';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { calcAnual } from '../../utils/subscriptions';
+import { useRecurringAlerts } from '../../hooks/useRecurringAlerts';
 
 interface SuscripcionesViewProps {
   suscripciones: Suscripcion[];
   huchas: Hucha[];
   ingresoMensualHabitual?: number;
-  onOpenSuscripcionModal: (editingSub: Suscripcion | null) => void;
+  movimientos?: Movimiento[];
+  userId?: string;
+  onOpenSuscripcionModal: (editingSub: Suscripcion | null, draft?: Partial<Suscripcion>) => void;
+  onUpdateSuscripcion?: (s: Suscripcion) => Promise<void>;
   onDeleteSuscripcion: (s: Suscripcion) => void;
   onToggleSuscripcion: (s: Suscripcion) => void;
   onCancelSuscripcion: (s: Suscripcion) => void;
@@ -29,6 +33,9 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
   suscripciones,
   huchas,
   ingresoMensualHabitual,
+  movimientos = [],
+  userId = 'demo',
+  onUpdateSuscripcion,
   onOpenSuscripcionModal,
   onDeleteSuscripcion,
   onToggleSuscripcion,
@@ -36,6 +43,9 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
   onUndoCancelSuscripcion,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
+  const [updating, setUpdating] = useState<string | null>(null);
+  const { candidates, priceChanges, dismiss, count } = useRecurringAlerts(movimientos, suscripciones, userId);
 
   const { formatCurrency } = usePrivacy();
 
@@ -178,6 +188,53 @@ export const SuscripcionesView: React.FC<SuscripcionesViewProps> = ({
           </div>
         </Card>
       </div>
+
+      {notice && <p role="status" className="text-sm text-ink-soft">{notice}</p>}
+      {count > 0 && (
+        <section aria-label="Avisos" className="space-y-3">
+          <h3 className="dashboard-heading">Avisos</h3>
+          {candidates.map(candidate => (
+            <Card key={`new:${candidate.key}`} className="space-y-3">
+              <p className="text-sm text-ink">
+                Hemos detectado un cargo que se repite: <strong>{candidate.nombre}</strong>, {formatCurrency(candidate.importe)} al mes desde hace {candidate.meses} meses.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="dashboard-primary-button" onClick={() => onOpenSuscripcionModal(null, {
+                  nombre: candidate.nombre, importe: candidate.importe, frecuencia: 'mensual',
+                  dia_pago: candidate.dia_pago, fecha_inicio: candidate.fecha_inicio, categoria: candidate.categoria,
+                  hucha_id: huchas.find(h => h.es_suscripciones)?.id ?? null,
+                })}>Añadir como suscripción</button>
+                <button type="button" className="dashboard-secondary-button" onClick={() => dismiss(`new:${candidate.key}`)}>No es una suscripción</button>
+              </div>
+            </Card>
+          ))}
+          {priceChanges.map(change => (
+            <Card key={`price:${change.suscripcionId}:${change.movimientoId}`} className="space-y-3">
+              <p className="text-sm text-ink">
+                <strong>{change.nombre}</strong> ha subido de {formatCurrency(change.importeAnterior)} a {formatCurrency(change.importeNuevo)} (+{formatCurrency(change.diferenciaMensual)} al mes, +{formatCurrency(change.diferenciaAnual)} al año).
+              </p>
+              {suscripciones.find(s => s.id === change.suscripcionId)?.mi_parte != null && (
+                <p className="text-xs text-ink-soft">Es compartida: conservaremos tu parte. Revisa si necesitas ajustarla.</p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="dashboard-primary-button" disabled={updating !== null || !onUpdateSuscripcion} onClick={async () => {
+                  const subscription = suscripciones.find(s => s.id === change.suscripcionId);
+                  if (!subscription || !onUpdateSuscripcion) return;
+                  setUpdating(subscription.id);
+                  try {
+                    await onUpdateSuscripcion({ ...subscription, importe: change.importeNuevo });
+                    setNotice(subscription.mi_parte != null ? 'Importe actualizado. Revisa tu parte de la suscripción compartida.' : 'Importe actualizado.');
+                    dismiss(`price:${change.suscripcionId}:${change.movimientoId}`);
+                  } catch {
+                    setNotice('No se ha podido actualizar el importe. Vuelve a intentarlo.');
+                  } finally { setUpdating(null); }
+                }}>{updating === change.suscripcionId ? 'Actualizando…' : 'Actualizar importe'}</button>
+                <button type="button" className="dashboard-secondary-button" onClick={() => dismiss(`price:${change.suscripcionId}:${change.movimientoId}`)}>Ignorar</button>
+              </div>
+            </Card>
+          ))}
+        </section>
+      )}
 
       {/* 3. Category Filters */}
       <div className="space-y-2">

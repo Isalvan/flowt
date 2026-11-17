@@ -1572,6 +1572,7 @@ export const useFinanceData = (forceDemo = false) => {
     } catch (error) {
       console.error('Error al guardar suscripción:', error);
       showToast('Error al guardar la suscripción');
+      throw error;
     }
   };
 

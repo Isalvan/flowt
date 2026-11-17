@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import type { Suscripcion } from '../../types';
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Movimiento, Suscripcion } from '../../types';
 import { SuscripcionesView } from './SuscripcionesView';
 
 vi.mock('../../context/PrivacyContext', () => ({
@@ -12,6 +12,90 @@ vi.mock('../../context/PrivacyContext', () => ({
 const subscription = (id: string, overrides: Partial<Suscripcion> = {}): Suscripcion => ({
   id, nombre: id, importe: 10, frecuencia: 'mensual', dia_pago: 1,
   categoria: 'otros', color: '#000000', activa: true, ...overrides,
+});
+
+describe('avisos de suscripciones', () => {
+  const props = () => ({
+    suscripciones: [] as Suscripcion[], huchas: [], userId: 'test-alerts',
+    onOpenSuscripcionModal: vi.fn(), onDeleteSuscripcion: vi.fn(), onToggleSuscripcion: vi.fn(),
+    onCancelSuscripcion: vi.fn(), onUndoCancelSuscripcion: vi.fn(), onUpdateSuscripcion: vi.fn().mockResolvedValue(undefined),
+  });
+  const movements = (): Movimiento[] => [2, 1, 0].map(offset => {
+    const date = new Date();
+    date.setDate(1); date.setMonth(date.getMonth() - offset);
+    return { id: `gym-${offset}`, tipo: 'gasto', concepto: 'Gimnasio X', importe: 29.9, fecha_operacion: date };
+  });
+  const sub: Suscripcion = { id: 'netflix', nombre: 'Netflix', importe: 12.99, frecuencia: 'mensual', dia_pago: 1, categoria: 'ocio', color: '#000', activa: true, mi_parte: 5 };
+  const priceMovement = (): Movimiento => ({ id: 'price-test', tipo: 'gasto', concepto: 'Netflix', importe: 13.99, fecha_operacion: new Date(), suscripcion_id: 'netflix' });
+  beforeEach(() => localStorage.clear());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('renderiza y descarta el aviso, conservándolo al volver y aislándolo por usuario', () => {
+    const p = props();
+    const { unmount } = render(<SuscripcionesView {...p} movimientos={movements()} />);
+    expect(screen.getByRole('region', { name: 'Avisos' })).toHaveTextContent('Gimnasio X');
+    expect(screen.getByRole('region', { name: 'Avisos' })).toHaveTextContent('desde hace 3 meses');
+    fireEvent.click(screen.getByRole('button', { name: 'No es una suscripción' }));
+    expect(screen.queryByRole('region', { name: 'Avisos' })).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('flowt:recurring-dismissed:test-alerts')!)).toEqual(['new:gimnasio x']);
+    unmount();
+    const { rerender } = render(<SuscripcionesView {...p} movimientos={movements()} />);
+    expect(screen.queryByRole('region', { name: 'Avisos' })).not.toBeInTheDocument();
+    rerender(<SuscripcionesView {...p} userId="other-user" movimientos={movements()} />);
+    expect(screen.getByRole('region', { name: 'Avisos' })).toBeInTheDocument();
+  });
+  it('abre el modal como alta con el borrador y la hucha de suscripciones', () => {
+    const p = props();
+    render(<SuscripcionesView {...p} movimientos={movements()} huchas={[{ id: 'subs', nombre: 'Suscripciones', saldo_acumulado: 0, objetivo: null, tipo_aportacion: 'flat', orden: 0, es_suscripciones: true }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Añadir como suscripción' }));
+    expect(p.onOpenSuscripcionModal).toHaveBeenCalledWith(null, expect.objectContaining({
+      nombre: 'Gimnasio X', importe: 29.9, frecuencia: 'mensual', dia_pago: 1, hucha_id: 'subs',
+    }));
+  });
+  it('actualiza el total sin cambiar mi_parte y avisa de revisarla', async () => {
+    const p = props();
+    render(<SuscripcionesView {...p} suscripciones={[sub]} movimientos={[priceMovement()]} />);
+    expect(screen.getByRole('region', { name: 'Avisos' })).toHaveTextContent('ha subido de');
+    fireEvent.click(screen.getByRole('button', { name: 'Actualizar importe' }));
+    await waitFor(() => expect(p.onUpdateSuscripcion).toHaveBeenCalledWith({ ...sub, importe: 13.99 }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Revisa tu parte');
+    expect(screen.queryByRole('region', { name: 'Avisos' })).not.toBeInTheDocument();
+  });
+  it('permite ignorar una subida concreta', () => {
+    render(<SuscripcionesView {...props()} suscripciones={[sub]} movimientos={[priceMovement()]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Ignorar' }));
+    expect(screen.queryByRole('region', { name: 'Avisos' })).not.toBeInTheDocument();
+    expect(localStorage.getItem('flowt:recurring-dismissed:test-alerts')).toContain('price:netflix:price-test');
+  });
+  it('mantiene el aviso si falla la actualización', async () => {
+    const p = props(); p.onUpdateSuscripcion.mockRejectedValue(new Error('save failed'));
+    render(<SuscripcionesView {...p} suscripciones={[sub]} movimientos={[priceMovement()]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Actualizar importe' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('No se ha podido');
+    expect(screen.getByRole('region', { name: 'Avisos' })).toBeInTheDocument();
+  });
+  it('actualiza el total conservando mi_parte y retira el aviso; otro cobro vuelve a avisar', async () => {
+    const p = props();
+    const { rerender } = render(<SuscripcionesView {...p} suscripciones={[sub]} movimientos={[priceMovement()]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Actualizar importe' }));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Avisos' })).not.toBeInTheDocument());
+    expect(p.onUpdateSuscripcion).toHaveBeenCalledWith(expect.objectContaining({ id: 'netflix', importe: 13.99, mi_parte: 5 }));
+    expect(screen.getByRole('status')).toHaveTextContent('Revisa tu parte');
+    rerender(<SuscripcionesView {...p} suscripciones={[sub]} movimientos={[priceMovement(), { ...priceMovement(), id: 'price-test-next' }]} />);
+    expect(screen.getByRole('region', { name: 'Avisos' })).toBeInTheDocument();
+  });
+  it('funciona si el almacenamiento está bloqueado', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+    render(<SuscripcionesView {...props()} userId="storage-unavailable" movimientos={movements()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'No es una suscripción' }));
+    expect(screen.queryByRole('region', { name: 'Avisos' })).not.toBeInTheDocument();
+  });
+  it('tolera descartes corruptos', () => {
+    localStorage.setItem('flowt:recurring-dismissed:test-alerts', '{invalid');
+    render(<SuscripcionesView {...props()} movimientos={movements()} />);
+    expect(screen.getByRole('region', { name: 'Avisos' })).toBeInTheDocument();
+  });
 });
 const props = {
   huchas: [],

@@ -10,6 +10,7 @@ interface SuscripcionModalProps {
   onClose: () => void;
   onSave: (newSub: any, editingSubId: string | null) => Promise<void>;
   editingSuscripcion: Suscripcion | null;
+  draft?: Partial<Suscripcion>;
   huchas: Hucha[];
 }
 
@@ -18,6 +19,7 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
   onClose,
   onSave,
   editingSuscripcion,
+  draft,
   huchas,
 }) => {
   const [nombre, setNombre] = useState('');
@@ -46,20 +48,20 @@ export const SuscripcionModal: React.FC<SuscripcionModalProps> = ({
       setCompartida(editingSuscripcion.mi_parte !== null && editingSuscripcion.mi_parte !== undefined);
       setMiParte(editingSuscripcion.mi_parte?.toString() || '');
     } else {
-      setNombre('');
-      setImporte('');
-      setFrecuencia('mensual');
-      setFechaInicio(toLocalDateKey(new Date()));
-      setCategoria('otros');
+      setNombre(draft?.nombre ?? '');
+      setImporte(draft?.importe?.toString() ?? '');
+      setFrecuencia(draft?.frecuencia ?? 'mensual');
+      setFechaInicio(draft?.fecha_inicio ?? toLocalDateKey(new Date()));
+      setCategoria(draft?.categoria ?? 'otros');
       setColor(SUBSCRIPTION_COLORS[0]);
       setActiva(true);
       // Auto pre-select Suscripciones system hucha if it exists
       const subHucha = huchas.find(h => h.es_suscripciones);
-      setHuchaId(subHucha?.id || '');
+      setHuchaId(draft?.hucha_id ?? subHucha?.id ?? '');
       setCompartida(false);
       setMiParte('');
     }
-  }, [editingSuscripcion, isOpen, huchas]);
+  }, [editingSuscripcion, draft, isOpen, huchas]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
