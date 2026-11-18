@@ -5,6 +5,9 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "config:apply": "node scripts/apply-config.mjs",
+    "config:check": "node scripts/apply-config.mjs --check",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

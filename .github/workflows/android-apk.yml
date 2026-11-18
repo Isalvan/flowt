@@ -3,10 +3,10 @@ name: Flowt Android
 # Builds the Android app from the same web build as Hosting.
 # - Pull requests that touch the app: compile check only (no secrets needed).
 # - main and manual runs: a signed APK published as the "android" pre-release, so the
-#   phone can download https://github.com/Isalvan/flowt/releases/tag/android and install it.
+#   phone can download <repo>/releases/tag/android and install it.
 #
 # Repository secrets (Settings → Secrets and variables → Actions), see docs/ANDROID.md:
-#   GOOGLE_SERVICES_JSON        contents of google-services.json for com.isalvan.flowt
+#   GOOGLE_SERVICES_JSON        contents of google-services.json for androidAppId (flowt.config.json)
 #   ANDROID_KEYSTORE_BASE64     the signing keystore, base64-encoded
 #   ANDROID_KEYSTORE_PASSWORD   its password (also used for the key)
 
@@ -45,7 +45,8 @@ jobs:
       VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
       VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
       VITE_REVIEW_API_URL: ${{ vars.VITE_REVIEW_API_URL }}
-      PUBLISH: ${{ github.event_name != 'pull_request' }}
+      # Publish only from main/manual runs, and only once the signing secrets exist (see docs/ANDROID.md).
+      PUBLISH: ${{ github.event_name != 'pull_request' && secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.GOOGLE_SERVICES_JSON != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -59,6 +60,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Note missing signing secrets
+        if: github.event_name != 'pull_request' && env.PUBLISH != 'true'
+        run: echo "::notice::Sin GOOGLE_SERVICES_JSON y ANDROID_KEYSTORE_BASE64 solo se comprueba que compila; no se publica el APK. Ver docs/ANDROID.md."
       - name: Build the web app and copy it into Android
         run: |
           npm ci

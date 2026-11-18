@@ -4,7 +4,8 @@ import { auth } from '../../firebase';
 import { FlowtLogo } from '../common/FlowtLogo';
 
 export { MANUAL_LOGIN_PATH } from './manualLoginPath';
-const MANUAL_ACCOUNT_EMAIL = 'chati@flowt-63536.firebaseapp.com';
+// The hidden manual-access account lives in this installation's own Firebase project.
+const manualAccountEmail = () => `chati@${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`;
 
 export function ManualLogin({ configured }: { configured: boolean }) {
   const [username, setUsername] = useState('');
@@ -22,7 +23,7 @@ export function ManualLogin({ configured }: { configured: boolean }) {
     }
     setPending(true);
     try {
-      await signInWithEmailAndPassword(auth, MANUAL_ACCOUNT_EMAIL, password);
+      await signInWithEmailAndPassword(auth, manualAccountEmail(), password);
       setPassword('');
       window.history.replaceState(null, '', '/');
     } catch (cause) {

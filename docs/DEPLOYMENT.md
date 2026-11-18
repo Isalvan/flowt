@@ -2,6 +2,8 @@
 
 Esta guía describe el despliegue del frontend en Firebase Hosting y la ejecución programada del sincronizador mediante GitHub Actions.
 
+> Para montar una instalación nueva, `npm run setup` hace todo esto por ti: ver [INSTALAR.md](INSTALAR.md). Esta guía explica cada pieza por si quieres hacerlo a mano.
+
 ## Despliegue automático desde GitHub
 
 Una vez configurado el acceso que se describe abajo:
@@ -12,7 +14,7 @@ Una vez configurado el acceso que se describe abajo:
 - En cada PR hacia `main` y en cada push a `main`, **Backend tests** instala las dependencias de `tracker-backend` y ejecuta su batería de Pytest con el mismo Python que el sincronizador. No despliega nada ni usa secretos. El sincronizador programado ejecuta el código de `main`, así que conviene no fusionar una PR con este workflow en rojo.
 - Solo se despliega **Firebase Hosting**. Las reglas e índices de Firestore siguen siendo manuales; si un cambio los necesita, publícalos antes de la web. El workflow no ejecuta el sincronizador ni modifica Firebase Auth.
 
-El proyecto por defecto de `.firebaserc` es `flowt-63536`. El helper comprueba que la configuración web y la cuenta de despliegue pertenezcan a ese proyecto. Para otro proyecto, cambia el alias y la URL del environment `production` del workflow, además de las variables y credenciales.
+El proyecto de destino es `firebaseProjectId` de [`flowt.config.json`](../flowt.config.json); `npm run config:apply` lo copia a `.firebaserc` y a la URL del environment `production`. El helper comprueba que la configuración web y la cuenta de despliegue pertenezcan a ese proyecto.
 
 ### Configuración inicial, una sola vez
 
@@ -22,26 +24,26 @@ El proyecto por defecto de `.firebaserc` es `flowt-63536`. El helper comprueba q
    |---|---|
    | `VITE_FIREBASE_API_KEY` | `apiKey` |
    | `VITE_FIREBASE_AUTH_DOMAIN` | `authDomain` |
-   | `VITE_FIREBASE_PROJECT_ID` | `projectId` (`flowt-63536`) |
+   | `VITE_FIREBASE_PROJECT_ID` | `projectId` (el de `flowt.config.json`) |
    | `VITE_FIREBASE_STORAGE_BUCKET` | `storageBucket` |
    | `VITE_FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` |
    | `VITE_FIREBASE_APP_ID` | `appId` |
 
    Son parámetros del cliente web y quedan incluidos en el JavaScript publicado. La protección de los datos depende de Authentication y de las reglas de Firestore. Las variables se pasan a la compilación; Actions no genera un `.env.production.local`.
 
-2. En **Google Cloud → IAM y administración → Cuentas de servicio**, dentro de `flowt-63536`, crea una cuenta dedicada a Hosting, por ejemplo `flowt-hosting-deploy`. Asígnale estos roles del proyecto:
+2. En **Google Cloud → IAM y administración → Cuentas de servicio**, dentro de tu proyecto, crea una cuenta dedicada a Hosting, por ejemplo `flowt-hosting-deploy`. Asígnale estos roles del proyecto:
 
    - **Firebase Hosting Admin** (`roles/firebasehosting.admin`), para publicar versiones y canales de Hosting.
    - **Service Usage Consumer** (`roles/serviceusage.serviceUsageConsumer`), para las llamadas de Firebase CLI.
    - **API Keys Viewer** (`roles/serviceusage.apiKeysViewer`), para las consultas de configuración que usa Firebase CLI.
 
-   Genera una clave JSON de esa cuenta. En **GitHub → Settings → Secrets and variables → Actions → Secrets**, crea **`FIREBASE_SERVICE_ACCOUNT_FLOWT_63536`** pegando el JSON completo, **sin codificar en base64**. El archivo no se añade al repositorio. Esta cuenta no necesita permisos de escritura sobre Firestore o Auth ni acceso a Gmail; no se reutiliza la cuenta del tracker.
+   Genera una clave JSON de esa cuenta. En **GitHub → Settings → Secrets and variables → Actions → Secrets**, crea **`FIREBASE_SERVICE_ACCOUNT`** pegando el JSON completo, **sin codificar en base64**. Se sigue aceptando el nombre antiguo `FIREBASE_SERVICE_ACCOUNT_FLOWT_63536`. El archivo no se añade al repositorio. Esta cuenta no necesita permisos de escritura sobre Firestore o Auth ni acceso a Gmail; no se reutiliza la cuenta del tracker.
 
 3. Vuelve a ejecutar el workflow que hubiera fallado por falta de configuración. Puedes publicar el `main` actual con **Run workflow**; no hace falta otro commit. Si el environment `production` tiene una aprobación obligatoria configurada en GitHub, la publicación esperará esa aprobación.
 
 ### Previews y comprobación de la publicación
 
-La URL de preview aparece en un comentario de la PR y en el resumen de la ejecución. Producción se publica en [Flowt](https://flowt-63536.web.app); el historial de versiones está en **Firebase → Hosting**.
+La URL de preview aparece en un comentario de la PR y en el resumen de la ejecución. Producción se publica en `appUrl` de `flowt.config.json`; el historial de versiones está en **Firebase → Hosting**.
 
 Las previews usan la configuración del proyecto de producción. Usa el modo demo para probar con datos ficticios: iniciar sesión en una preview da acceso a tus datos reales. El despliegue de preview utiliza `--no-authorized-domains` para no cambiar Firebase Auth. Si necesitas probar Google login desde una preview, autoriza su dominio manualmente desde Firebase Authentication.
 
@@ -76,11 +78,11 @@ firebase login
 firebase use --add
 ```
 
-El repositorio contiene `firebase.json`, reglas e índices de Firestore. El alias por defecto apunta a `flowt-63536`; selecciona el proyecto de destino correcto antes de publicar.
+El repositorio contiene `firebase.json`, reglas e índices de Firestore. El alias por defecto sale de `flowt.config.json`; si cambias de proyecto, edítalo allí y ejecuta `npm run config:apply`.
 
 ## 2. Configuración del frontend
 
-Crea `.env.production.local` en la raíz:
+Crea `.env.production.local` (o `.env.local`, que es lo que genera `npm run setup`) en la raíz:
 
 ```dotenv
 VITE_FIREBASE_API_KEY=...

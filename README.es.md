@@ -100,6 +100,20 @@ Gmail → Sincronizador Python → Gemini → Firestore ⇄ Aplicación web Reac
 
 Consulta la [guía de arquitectura](docs/ARCHITECTURE.md) para ver los límites de cada componente y los flujos de datos.
 
+## Monta tu propio Flowt
+
+No hace falta saber programar. Haz un fork, descárgalo y ejecuta el asistente:
+
+```bash
+git clone https://github.com/TU_USUARIO/flowt
+cd flowt
+npm run setup
+```
+
+El asistente crea tu proyecto de Firebase, publica la web y deja tu cuenta de Google como la única que puede entrar. Si quieres, también configura el lector de tickets, la app de Android, la publicación automática desde GitHub y la lectura de los correos del banco. Todo con planes gratuitos. La guía paso a paso está en [docs/INSTALAR.md](docs/INSTALAR.md).
+
+La configuración de cada instalación vive en [`flowt.config.json`](flowt.config.json). Tras editarlo, `npm run config:apply` la copia a las reglas, el Worker y la app de Android.
+
 ## Requisitos
 
 - Node.js y npm.
@@ -145,6 +159,8 @@ python main.py
 
 | Comando | Descripción |
 |---|---|
+| `npm run setup` | Asistente para montar tu propio Flowt ([guía](docs/INSTALAR.md)) |
+| `npm run config:apply` | Copia `flowt.config.json` a los archivos que lo necesitan |
 | `npm run dev` | Arranca Vite en modo desarrollo |
 | `npm run build` | Comprueba los tipos y compila la aplicación |
 | `npm run lint` | Ejecuta ESLint |
@@ -165,6 +181,7 @@ Consulta la [guía de despliegue](docs/DEPLOYMENT.md).
 
 ## Documentación
 
+- [Monta tu propio Flowt](docs/INSTALAR.md)
 - [Arquitectura](docs/ARCHITECTURE.md)
 - [Despliegue](docs/DEPLOYMENT.md)
 - [Backend](tracker-backend/README.md)

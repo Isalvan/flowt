@@ -38,6 +38,7 @@ jobs:
         uses: ./.github/actions/validate-frontend
       - name: Publish Hosting live
         env:
-          FIREBASE_SERVICE_ACCOUNT_FLOWT_63536: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_FLOWT_63536 }}
+          # FIREBASE_SERVICE_ACCOUNT_FLOWT_63536 is the original secret name, still accepted.
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_FLOWT_63536 }}
           FIREBASE_HOSTING_CHANNEL: live
         run: node .github/scripts/firebase-hosting.mjs deploy
