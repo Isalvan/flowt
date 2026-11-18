@@ -1,0 +1,285 @@
+/* Flowt Wrapped: full-screen, story-style recap. Everything here is scoped under .wr-root. */
+
+.wr-root {
+  --wr-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --wr-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The phone-shaped stage: full screen on mobile, a 9:16 card on larger screens. */
+.wr-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  container-type: inline-size;
+  background: var(--wr-base, #0b0b2b);
+}
+@media (min-width: 640px) {
+  .wr-stage {
+    width: auto;
+    height: min(92vh, 880px);
+    aspect-ratio: 9 / 16;
+    border-radius: 2rem;
+    box-shadow: 0 40px 120px -20px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* ── Backdrop: animated colour blobs + a pattern + grain ─────────────── */
+.wr-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--wr-base);
+}
+.wr-backdrop--enter {
+  animation: wr-backdrop-in 700ms var(--wr-ease) both;
+}
+.wr-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(48px);
+  opacity: 0.85;
+  will-change: transform;
+}
+.wr-blob--a {
+  width: 85%;
+  aspect-ratio: 1;
+  top: -22%;
+  left: -25%;
+  background: radial-gradient(circle at 50% 50%, var(--wr-a) 0%, transparent 68%);
+  animation: wr-drift-a 16s ease-in-out infinite alternate;
+}
+.wr-blob--b {
+  width: 95%;
+  aspect-ratio: 1;
+  bottom: -30%;
+  right: -35%;
+  background: radial-gradient(circle at 50% 50%, var(--wr-b) 0%, transparent 66%);
+  animation: wr-drift-b 19s ease-in-out infinite alternate;
+}
+.wr-blob--c {
+  width: 55%;
+  aspect-ratio: 1;
+  top: 38%;
+  left: 30%;
+  opacity: 0.55;
+  background: radial-gradient(circle at 50% 50%, var(--wr-c) 0%, transparent 70%);
+  animation: wr-drift-c 13s ease-in-out infinite alternate;
+}
+.wr-grain {
+  position: absolute;
+  inset: -50%;
+  opacity: 0.16;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.wr-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 80% at 50% 45%, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
+  pointer-events: none;
+}
+
+/* Patterns: one per slide, so consecutive screens never look alike. */
+.wr-pattern {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.09);
+}
+.wr-pattern--stripes {
+  inset: -40%;
+  background: repeating-linear-gradient(-28deg, transparent 0 46px, rgba(255, 255, 255, 0.055) 46px 92px);
+  animation: wr-slide-stripes 30s linear infinite;
+}
+.wr-pattern--dots {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1.4px, transparent 1.6px);
+  background-size: 22px 22px;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 35%, #000 65%, transparent 100%);
+}
+.wr-pattern--rings svg,
+.wr-pattern--arc svg,
+.wr-pattern--waves svg {
+  position: absolute;
+  width: 140%;
+  left: -20%;
+}
+.wr-pattern--rings svg { top: 8%; animation: wr-spin 60s linear infinite; }
+.wr-pattern--arc svg { bottom: -55%; }
+.wr-pattern--waves svg { bottom: 4%; animation: wr-wave 9s ease-in-out infinite alternate; }
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+.wr-progress-track {
+  height: 3px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+.wr-progress-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 9999px;
+  background: #fff;
+  transform-origin: left;
+}
+.wr-icon-button {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(10px);
+  transition: background 160ms ease, transform 160ms ease;
+}
+.wr-icon-button:hover { background: rgba(0, 0, 0, 0.36); }
+.wr-icon-button:active { transform: scale(0.92); }
+
+/* ── Type ─────────────────────────────────────────────────────────────── */
+.wr-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(8px);
+}
+.wr-headline {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2.1rem, 9.5cqw, 3.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  color: #fff;
+}
+.wr-headline--xl {
+  font-size: clamp(3rem, 15cqw, 5.6rem);
+  line-height: 0.88;
+  letter-spacing: -0.05em;
+}
+.wr-figure {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(3.4rem, 16cqw, 6rem);
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #fff 30%, var(--wr-accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  overflow-wrap: anywhere;
+}
+.wr-figure--md { font-size: clamp(2.6rem, 12cqw, 4.4rem); }
+.wr-detail {
+  font-size: 1.05rem;
+  line-height: 1.5;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.82);
+  text-wrap: pretty;
+}
+.wr-accent { color: var(--wr-accent); }
+.wr-glass {
+  border-radius: 1.4rem;
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px);
+}
+
+/* ── Motion ──────────────────────────────────────────────────────────── */
+.wr-in {
+  animation: wr-rise 760ms var(--wr-ease) backwards;
+  animation-delay: calc(140ms + var(--d, 0) * 120ms);
+}
+.wr-pop {
+  animation: wr-pop 720ms var(--wr-spring) backwards;
+  animation-delay: calc(140ms + var(--d, 0) * 120ms);
+}
+.wr-mask { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.wr-mask > span {
+  display: block;
+  animation: wr-mask-up 820ms var(--wr-ease) backwards;
+  animation-delay: calc(120ms + var(--d, 0) * 110ms);
+}
+.wr-grow-y {
+  transform-origin: bottom;
+  animation: wr-grow-y 900ms var(--wr-ease) backwards;
+  animation-delay: calc(300ms + var(--d, 0) * 45ms);
+}
+.wr-grow-x {
+  transform-origin: left;
+  animation: wr-grow-x 1000ms var(--wr-ease) backwards;
+  animation-delay: calc(350ms + var(--d, 0) * 140ms);
+}
+.wr-dot {
+  animation: wr-dot 420ms var(--wr-spring) backwards;
+  animation-delay: calc(250ms + var(--d, 0) * 22ms);
+}
+.wr-ring-value {
+  stroke-dasharray: var(--len) var(--len);
+  stroke-dashoffset: var(--off);
+  animation: wr-ring 1400ms var(--wr-ease) 300ms backwards;
+}
+.wr-streak { animation: wr-glow 1.8s ease-in-out 1.1s infinite alternate; }
+.wr-badge-spin { animation: wr-spin 18s linear infinite; }
+.wr-float { animation: wr-float 5s ease-in-out infinite alternate; }
+.wr-holo {
+  position: relative;
+  border-radius: 1.75rem;
+  padding: 2px;
+  background: conic-gradient(from var(--wr-angle, 0deg), var(--wr-a), var(--wr-c), var(--wr-b), #fff, var(--wr-a));
+  animation: wr-holo 6s linear infinite;
+}
+@property --wr-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+
+@keyframes wr-backdrop-in { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: scale(1); } }
+@keyframes wr-drift-a { to { transform: translate(18%, 14%) scale(1.15); } }
+@keyframes wr-drift-b { to { transform: translate(-16%, -12%) scale(0.92); } }
+@keyframes wr-drift-c { from { transform: translate(-30%, -20%); } to { transform: translate(10%, 18%) scale(1.25); } }
+@keyframes wr-slide-stripes { to { transform: translateX(92px); } }
+@keyframes wr-spin { to { transform: rotate(360deg); } }
+@keyframes wr-wave { to { transform: translateY(-6%) scaleY(1.15); } }
+@keyframes wr-rise { from { opacity: 0; transform: translateY(26px); filter: blur(8px); } }
+@keyframes wr-pop { from { opacity: 0; transform: scale(0.6) rotate(-4deg); } }
+@keyframes wr-mask-up { from { transform: translateY(110%); } }
+@keyframes wr-grow-y { from { transform: scaleY(0); } }
+@keyframes wr-grow-x { from { transform: scaleX(0); } }
+@keyframes wr-dot { from { opacity: 0; transform: scale(0); } }
+@keyframes wr-ring { from { stroke-dashoffset: var(--len); } }
+@keyframes wr-glow { to { filter: drop-shadow(0 0 10px var(--wr-accent)); transform: scale(1.06); } }
+@keyframes wr-float { to { transform: translateY(-10px) rotate(2deg); } }
+@keyframes wr-holo { to { --wr-angle: 360deg; } }
+@keyframes wr-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Reduced motion: no entrance choreography and a still backdrop. */
+.wr-reduced *,
+.wr-reduced *::before,
+.wr-reduced *::after {
+  animation: none !important;
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wr-root *,
+  .wr-root *::before,
+  .wr-root *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
