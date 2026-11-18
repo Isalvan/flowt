@@ -363,7 +363,6 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             onNewHucha={() => props.onOpenHuchaModal(null)}
             onTransfer={props.onOpenTransferModal}
             onHistory={props.onOpenHistoryModal}
-            onScanTicket={props.onOpenTicket}
             onWrapped={props.onOpenWrappedSelector}
           />
         </div>
