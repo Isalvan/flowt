@@ -16,7 +16,7 @@ import { DashboardView } from './components/dashboard/DashboardView';
 
 // Demo, Feedback, and Premium Visuals
 import { Toast } from './components/common/Toast';
-import { DashboardSkeleton } from './components/dashboard/DashboardSkeleton';
+import { DashboardSkeleton, DashboardSkeletonBody } from './components/dashboard/DashboardSkeleton';
 import { MANUAL_LOGIN_PATH } from './components/auth/manualLoginPath';
 import { SIGN_IN_PATH, rememberSignedIn } from './utils/landing';
 import { ConnectConsent, CONNECT_PATH } from './components/auth/ConnectConsent';
@@ -96,6 +96,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     movimientos,
     chartMovements,
     chartMovementsLoading,
+    huchasLoading,
     olderMovements,
     olderMovementsLoading,
     olderMovementsLoaded,
@@ -194,12 +195,16 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     }, slideDuration);
   };
   // On a phone, swiping sideways on the page moves between the bottom bar's tabs.
-  useSwipeTabs(mainEl, (direction) => {
-    if (window.matchMedia('(min-width: 768px)').matches) return;
+  const swipeTarget = (direction: 1 | -1) => {
     const currentIndex = NAV_TABS.findIndex(t => t.id === activeTab);
-    if (currentIndex < 0) return;
-    const next = NAV_TABS[currentIndex + direction];
-    if (next) goToMobileTab(next.id);
+    return currentIndex < 0 ? undefined : NAV_TABS[currentIndex + direction];
+  };
+  useSwipeTabs(mainEl, {
+    canGo: (direction) => Boolean(swipeTarget(direction)),
+    onSwipe: (direction) => {
+      const next = swipeTarget(direction);
+      if (next) goToMobileTab(next.id);
+    },
   });
 
   // Form modals state overlays
@@ -423,6 +428,9 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
     });
   };
 
+  // Signed in and unlocked but Firestore hasn't answered yet: placeholders instead of empty lists and zeros.
+  const dataLoading = Boolean(user) && isFirebaseConfigured && !isLocked && (chartMovementsLoading || huchasLoading);
+
   // Rendering loading state
   if (loading) {
     return <DashboardSkeleton />;
@@ -576,7 +584,9 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
 
       {/* 2. Main Content Container */}
       <main ref={setMainEl} className="flowt-container mx-auto mt-5 sm:mt-8">
-        {activeTab === 'dashboard' && (
+        {dataLoading && activeTab !== 'ajustes' && (activeTab === 'dashboard' ? <DashboardSkeletonBody /> : <TabLoading />)}
+
+        {activeTab === 'dashboard' && !dataLoading && (
           <DashboardView
             userName={firstName}
             hasPin={hasPin}
@@ -625,7 +635,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
           />
         )}
 
-        {activeTab === 'calendario' && (
+        {activeTab === 'calendario' && !dataLoading && (
           <React.Suspense fallback={<TabLoading />}>
             <CalendarioView
               suscripciones={suscripciones}
@@ -636,13 +646,13 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
           </React.Suspense>
         )}
 
-        {activeTab === 'nomina' && (
+        {activeTab === 'nomina' && !dataLoading && (
           <React.Suspense fallback={<TabLoading />}>
             <NominaView movimientos={chartMovements} huchas={huchas} suscripciones={suscripciones} />
           </React.Suspense>
         )}
 
-        {activeTab === 'correos' && (
+        {activeTab === 'correos' && !dataLoading && (
           <React.Suspense fallback={<TabLoading />}>
             <CorreosOrchestrator
               pendingEmails={pendingEmails}

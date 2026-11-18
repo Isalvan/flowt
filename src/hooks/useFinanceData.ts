@@ -110,6 +110,7 @@ export const useFinanceData = (forceDemo = false) => {
     return getMovementWindowStart(windowAnchor, { inicioPeriodo, nominas: [] });
   }, [windowAnchor, inicioPeriodo]);
   const [chartMovementsLoading, setChartMovementsLoading] = useState(true);
+  const [huchasLoading, setHuchasLoading] = useState(true);
   const uid = user?.uid;
   // Each unlocked user session owns its older-movements listener.
   const olderSession = useMemo(() => ({ uid, isFirebaseConfigured, isLocked, forceDemo, windowStart }), [uid, isFirebaseConfigured, isLocked, forceDemo, windowStart]);
@@ -191,6 +192,7 @@ export const useFinanceData = (forceDemo = false) => {
     setUserStats(data.stats);
     setPendingEmails(data.pending);
     setChartMovementsLoading(false);
+    setHuchasLoading(false);
     setLoading(false);
   };
 
@@ -247,6 +249,7 @@ export const useFinanceData = (forceDemo = false) => {
     // This flag follows the lifecycle of the Firestore listener below.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setChartMovementsLoading(true);
+    setHuchasLoading(true);
     if (!user || isLocked) {
       // Clear data states when locked or signed out to prevent network & memory exposure
       setMovimientos([]);
@@ -311,6 +314,10 @@ export const useFinanceData = (forceDemo = false) => {
     const unsubHuchas = onSnapshot(qHuchas, (snapshot) => {
       const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Hucha));
       setHuchas(docs);
+      setHuchasLoading(false);
+    }, (error) => {
+      console.error('Error loading huchas:', error);
+      setHuchasLoading(false);
     });
 
     // Load stats
@@ -2456,6 +2463,7 @@ export const useFinanceData = (forceDemo = false) => {
     movimientos,
     chartMovements,
     chartMovementsLoading,
+    huchasLoading,
     olderMovements,
     olderMovementsLoading,
     olderMovementsLoaded,
