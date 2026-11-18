@@ -601,7 +601,7 @@ const TEMPLATES: Template[] = [
 
 const unit = (ctx: InsightContext) => ctx.scope === 'mes' ? 'este mes' : 'este año';
 const cap = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
-const shortLabel = (ctx: InsightContext) => ctx.scope === 'mes' ? MONTH_SHORT[ctx.start.getMonth()] : String(ctx.start.getFullYear());
+const shortLabel = (ctx: InsightContext) => ctx.scope === 'mes' ? ctx.label.slice(0, 3) : String(ctx.start.getFullYear());
 
 /** Spending level (0 none … 3 heavy) for each elapsed day of the period. */
 function calendar(ctx: InsightContext): number[] {

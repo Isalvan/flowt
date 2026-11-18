@@ -7,9 +7,18 @@ const COMMIT_SHARE = 0.3;
 /** A flick this fast (px/ms) changes tab even if it was short. */
 const FLICK_SPEED = 0.45;
 const FLICK_MIN = 40;
-const OUT_MS = 160;
-const IN_MS = 260;
+const IN_MS = 240;
 const EASE_OUT = "cubic-bezier(0.22, 1, 0.36, 1)";
+/**
+ * The page leaves at the speed the finger let go of it. An ease-in curve here
+ * starts from rest, which reads as the page stopping for a moment and then
+ * jumping away; this curve starts at full speed and settles.
+ */
+const EASE_CARRY = "cubic-bezier(0.25, 0.75, 0.45, 1)";
+const OUT_MIN_MS = 90;
+const OUT_MAX_MS = 190;
+/** Only the last stretch of the drag counts for the release speed. */
+const VELOCITY_WINDOW_MS = 90;
 
 const mediaMatches = (query: string) => window.matchMedia?.(query)?.matches ?? false;
 
@@ -29,6 +38,14 @@ export function ownsHorizontalGesture(target: EventTarget | null, root: Element)
   return false;
 }
 
+/**
+ * The page itself, or the blank space around it (one of its ancestors); never the
+ * header, the bottom bar, or anything portalled next to the app such as dialogs.
+ */
+export function isOnPage(target: EventTarget | null, root: Element): boolean {
+  return target instanceof Node && (root.contains(target) || target.contains(root));
+}
+
 interface SwipeTabsOptions {
   /** Whether there is a tab in that direction (1 = next, -1 = previous). */
   canGo: (direction: 1 | -1) => boolean;
@@ -40,8 +57,8 @@ interface SwipeTabsOptions {
  * Lets the user drag `root` sideways on a phone to move between tabs: the
  * page follows the finger, and on release it either slides out and the next
  * tab slides in, or springs back. Takes the element itself (not a ref) so it
- * attaches once the element mounts. Native listeners, so touches inside
- * portalled modals never reach it.
+ * attaches once the element mounts. Touches start anywhere on the page or the
+ * empty space around it, never on portalled modals, the header or the bar.
  */
 export function useSwipeTabs(root: HTMLElement | null, options: SwipeTabsOptions, enabled = true) {
   const opts = useRef(options);
@@ -55,6 +72,7 @@ export function useSwipeTabs(root: HTMLElement | null, options: SwipeTabsOptions
     let start: { x: number; y: number; t: number } | null = null;
     let axis: "x" | "y" | null = null;
     let dx = 0;
+    let samples: { x: number; t: number }[] = [];
     let animating = false;
     const timers: number[] = [];
 
@@ -79,9 +97,11 @@ export function useSwipeTabs(root: HTMLElement | null, options: SwipeTabsOptions
       dx = 0;
       if (animating || e.touches.length !== 1) return;
       if (mediaMatches("(min-width: 768px)")) return;
-      if (ownsHorizontalGesture(e.target, root)) return;
+      if (!isOnPage(e.target, root)) return;
+      if (root.contains(e.target as Node) && ownsHorizontalGesture(e.target, root)) return;
       const t = e.touches[0];
-      start = { x: t.clientX, y: t.clientY, t: Date.now() };
+      start = { x: t.clientX, y: t.clientY, t: performance.now() };
+      samples = [{ x: 0, t: start.t }];
     };
 
     const onMove = (e: TouchEvent) => {
@@ -103,6 +123,9 @@ export function useSwipeTabs(root: HTMLElement | null, options: SwipeTabsOptions
       const direction = rawX < 0 ? 1 : -1;
       // Past the first or last tab it only gives a little, like a rubber band.
       dx = opts.current.canGo(direction) ? rawX : rawX * 0.25;
+      const now = performance.now();
+      samples.push({ x: dx, t: now });
+      while (samples.length > 2 && now - samples[0].t > VELOCITY_WINDOW_MS) samples.shift();
       const width = root.clientWidth || window.innerWidth;
       setStyle(`translate3d(${dx}px,0,0)`, String(1 - Math.min(0.35, (Math.abs(dx) / width) * 0.5)), "none");
     };
@@ -112,11 +135,14 @@ export function useSwipeTabs(root: HTMLElement | null, options: SwipeTabsOptions
         start = null;
         return;
       }
-      const elapsed = Math.max(1, Date.now() - start.t);
       start = null;
+      const first = samples[0];
+      const last = samples[samples.length - 1];
+      // Signed release speed in px/ms, from the last few move events.
+      const velocity = first && last && last.t > first.t ? (last.x - first.x) / (last.t - first.t) : 0;
       const width = root.clientWidth || window.innerWidth;
       const direction: 1 | -1 = dx < 0 ? 1 : -1;
-      const fast = Math.abs(dx) / elapsed > FLICK_SPEED && Math.abs(dx) > FLICK_MIN;
+      const fast = Math.abs(velocity) > FLICK_SPEED && Math.sign(velocity) === Math.sign(dx) && Math.abs(dx) > FLICK_MIN;
       const commit = opts.current.canGo(direction) && (Math.abs(dx) > width * COMMIT_SHARE || fast);
 
       if (!commit) {
@@ -134,33 +160,38 @@ export function useSwipeTabs(root: HTMLElement | null, options: SwipeTabsOptions
         return;
       }
       animating = true;
-      // Out: the current tab keeps going the way the finger went.
-      setStyle(`translate3d(${-direction * width}px,0,0)`, "0", `transform ${OUT_MS}ms ease-in, opacity ${OUT_MS}ms ease-in`);
+      // Out: the current tab keeps going the way, and at the speed, the finger went.
+      const remaining = width - Math.abs(dx);
+      const speed = Math.max(Math.abs(velocity), 1.4);
+      const outMs = Math.round(Math.min(OUT_MAX_MS, Math.max(OUT_MIN_MS, remaining / speed)));
+      setStyle(`translate3d(${-direction * width}px,0,0)`, "0.3", `transform ${outMs}ms ${EASE_CARRY}, opacity ${outMs}ms linear`);
       later(() => {
+        // In: the new tab arrives from the other side. It is already rendered
+        // (neighbouring tabs are pre-rendered), so start moving on the next frame.
+        setStyle(`translate3d(${direction * width * 0.3}px,0,0)`, "0.4", "none");
         opts.current.onSwipe(direction);
-        // In: the new tab arrives from the other side.
-        setStyle(`translate3d(${direction * width * 0.35}px,0,0)`, "0", "none");
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => {
-            setStyle("translate3d(0,0,0)", "1", `transform ${IN_MS}ms ${EASE_OUT}, opacity ${IN_MS}ms ${EASE_OUT}`);
-            later(() => {
-              clearStyle();
-              animating = false;
-            }, IN_MS);
-          }),
-        );
-      }, OUT_MS);
+        requestAnimationFrame(() => {
+          setStyle("translate3d(0,0,0)", "1", `transform ${IN_MS}ms ${EASE_OUT}, opacity ${IN_MS}ms ${EASE_OUT}`);
+          later(() => {
+            clearStyle();
+            animating = false;
+          }, IN_MS);
+        });
+      }, outMs);
     };
 
-    root.addEventListener("touchstart", onStart, { passive: true });
-    root.addEventListener("touchmove", onMove, { passive: false });
-    root.addEventListener("touchend", onEnd, { passive: true });
-    root.addEventListener("touchcancel", onEnd, { passive: true });
+    // Listen on the whole document: when a tab has little content the page is short,
+    // and the empty space below it (which belongs to the page's ancestors) must swipe too.
+    const surface = root.ownerDocument;
+    surface.addEventListener("touchstart", onStart, { passive: true });
+    surface.addEventListener("touchmove", onMove, { passive: false });
+    surface.addEventListener("touchend", onEnd, { passive: true });
+    surface.addEventListener("touchcancel", onEnd, { passive: true });
     return () => {
-      root.removeEventListener("touchstart", onStart);
-      root.removeEventListener("touchmove", onMove);
-      root.removeEventListener("touchend", onEnd);
-      root.removeEventListener("touchcancel", onEnd);
+      surface.removeEventListener("touchstart", onStart);
+      surface.removeEventListener("touchmove", onMove);
+      surface.removeEventListener("touchend", onEnd);
+      surface.removeEventListener("touchcancel", onEnd);
       timers.forEach((id) => window.clearTimeout(id));
       clearStyle();
     };

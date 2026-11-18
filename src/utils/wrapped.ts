@@ -73,19 +73,59 @@ const day = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.g
 const nextDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
 const monthName = (date: Date) => date.toLocaleDateString('es-ES', { month: 'long' });
 const natural = (period: Period) => period.start.getDate() === 1 && period.end.getDate() === 1;
-const monthlyLabel = (period: Period) => natural(period) ? monthName(period.start) : periodName(period);
+const FULL_MONTHS: Record<string, string> = {
+  ene: 'enero', feb: 'febrero', mar: 'marzo', abr: 'abril', may: 'mayo', jun: 'junio',
+  jul: 'julio', ago: 'agosto', sep: 'septiembre', oct: 'octubre', nov: 'noviembre', dic: 'diciembre',
+};
+// A payroll month (10 Oct – 9 Nov) is named after the calendar month it mostly covers.
+const monthlyLabel = (period: Period) => natural(period) ? monthName(period.start) : FULL_MONTHS[periodName(period)] ?? periodName(period);
 const money = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
 
 type Entry = InsightEntry;
-function entries(movimientos: readonly Movimiento[], period: Period): Entry[] {
-  return movimientos.flatMap(movement => {
-    if (!cuentaEnEstadisticas(movement)) return [];
-    const fecha = parseMovimientoDate(movement.fecha_operacion);
-    if (!fecha || fecha < period.start || fecha >= period.end) return [];
-    const cents = Math.round(importeEnEstadisticas(movement) * 100);
-    return Number.isFinite(cents) && cents > 0 ? [{ movement, fecha, cents }] : [];
-  });
+// Parsing dates and amounts is the expensive part, and a Wrapped looks at the same
+// movements many times (previous periods, history, rotation). Parse each list once,
+// sorted by date, and slice periods out of it with a binary search.
+const prepared = new WeakMap<readonly Movimiento[], Entry[]>();
+function allEntries(movimientos: readonly Movimiento[]): Entry[] {
+  let rows = prepared.get(movimientos);
+  if (!rows) {
+    rows = movimientos.flatMap((movement, index) => {
+      if (!cuentaEnEstadisticas(movement)) return [];
+      const fecha = parseMovimientoDate(movement.fecha_operacion);
+      if (!fecha) return [];
+      const cents = Math.round(importeEnEstadisticas(movement) * 100);
+      return Number.isFinite(cents) && cents > 0 ? [{ movement, fecha, cents, index }] : [];
+    }).sort((a, b) => +a.fecha - +b.fecha || a.index - b.index)
+      .map(({ movement, fecha, cents }) => ({ movement, fecha, cents }));
+    prepared.set(movimientos, rows);
+  }
+  return rows;
 }
+function firstAtOrAfter(rows: Entry[], time: number): number {
+  let lo = 0;
+  let hi = rows.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (+rows[mid].fecha < time) lo = mid + 1; else hi = mid;
+  }
+  return lo;
+}
+function entries(movimientos: readonly Movimiento[], period: Period): Entry[] {
+  const rows = allEntries(movimientos);
+  return rows.slice(firstAtOrAfter(rows, +period.start), firstAtOrAfter(rows, +period.end));
+}
+const payrollCache = new WeakMap<readonly Movimiento[], Date[]>();
+function cachedPayrollDates(movimientos: readonly Movimiento[]): Date[] {
+  let dates = payrollCache.get(movimientos);
+  if (!dates) {
+    dates = payrollDates(movimientos);
+    payrollCache.set(movimientos, dates);
+  }
+  return dates;
+}
+const hasStory = (movimientos: readonly Movimiento[], period: Period) =>
+  entries(movimientos, period).reduce((n, row) => n + (row.movement.tipo === 'gasto' ? 1 : 0), 0) >= MIN_EXPENSES;
+const MIN_EXPENSES = 5;
 const isFixedExpense = (m: Movimiento) => Boolean(m.suscripcion_id) || m.categoria === 'vivienda';
 const sum = (rows: Entry[]) => rows.reduce((total, row) => total + row.cents, 0) / 100;
 
@@ -98,7 +138,6 @@ function merchantKey(concepto: string): string {
 
 const HIGHLIGHTS_MONTH = 7;
 const HIGHLIGHTS_YEAR = 10;
-const SHORT_MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 /** Spending of up to six earlier months (or two earlier years), oldest first, skipping periods without data. */
 function history(movimientos: readonly Movimiento[], period: WrappedPeriod, previous: Period, inicio: InicioPeriodo, nominas: readonly Date[]): HistoryPoint[] {
@@ -110,7 +149,7 @@ function history(movimientos: readonly Movimiento[], period: WrappedPeriod, prev
     if (gastos > 0) {
       points.unshift({
         label: period.scope === 'anio' ? String(current.start.getFullYear()) : monthlyLabel(current),
-        corto: period.scope === 'anio' ? String(current.start.getFullYear()) : SHORT_MONTHS[current.start.getMonth()],
+        corto: period.scope === 'anio' ? String(current.start.getFullYear()) : periodName(current),
         gastos, ingresos: sum(rows.filter(row => row.movement.tipo === 'ingreso')),
       });
     }
@@ -128,7 +167,7 @@ export function buildWrapped(
   const now = opts.now ?? new Date();
   const rows = entries(movimientos, period);
   const expenses = rows.filter(row => row.movement.tipo === 'gasto');
-  if (expenses.length < 5) return null;
+  if (expenses.length < MIN_EXPENSES) return null;
   const gastos = sum(expenses);
   const ingresos = sum(rows.filter(row => row.movement.tipo === 'ingreso'));
   const ahorro = round(ingresos - gastos);
@@ -191,7 +230,7 @@ export function buildWrapped(
   const favoriteDay = weekdays.indexOf(Math.max(...weekdays));
   const weekdayTotal = weekdays.reduce((a, b) => a + b, 0);
   const diaSemanaFavorito = { dia: favoriteDay, porcentaje: weekdayTotal ? round(weekdays[favoriteDay] / weekdayTotal * 100) : 0 };
-  const nominas = payrollDates(movimientos);
+  const nominas = cachedPayrollDates(movimientos);
   const payrollPeriod = nominas.some(date => +date === +period.start) && nominas.some(date => +date === +period.end);
   const previous = opts.previous ?? (period.scope === 'anio'
     // A partial year ("hasta hoy") is compared with the same span of the previous year.
@@ -265,20 +304,32 @@ export function buildWrapped(
   };
 }
 
+/**
+ * The user's month for the Wrapped: their chosen period start, or, when they kept the
+ * calendar month (the default) but get paid regularly, the month from payroll to payroll.
+ */
+export function wrappedInicio(movimientos: readonly Movimiento[], inicioPeriodo: InicioPeriodo): InicioPeriodo {
+  return inicioPeriodo === 1 && cachedPayrollDates(movimientos).length >= 2 ? 'nomina' : inicioPeriodo;
+}
+
 /** Completed monthly periods (at most eleven), followed by the seasonal annual recap. */
 export function availableWrappeds(
   movimientos: readonly Movimiento[], now = new Date(), inicioPeriodo: InicioPeriodo = 1,
 ): WrappedPeriod[] {
-  const nominas = inicioPeriodo === 'nomina' ? payrollDates(movimientos) : [];
-  let current = periodOf(now, inicioPeriodo, nominas);
+  const inicio = wrappedInicio(movimientos, inicioPeriodo);
+  const nominas = inicio === 'nomina' ? cachedPayrollDates(movimientos) : [];
+  let current = periodOf(now, inicio, nominas);
   const result: WrappedPeriod[] = [];
   for (let i = 0; i < 11; i++) {
-    current = previousPeriod(current, inicioPeriodo, nominas);
+    const previous = previousPeriod(current, inicio, nominas);
+    // Before the first detected payroll the chain falls back to calendar months, which would overlap.
+    if (previous.end > current.start) break;
+    current = previous;
     const period: WrappedPeriod = {
       ...current, scope: 'mes', key: `mes:${current.start.getFullYear()}-${String(current.start.getMonth() + 1).padStart(2, '0')}`,
       label: monthlyLabel(current),
     };
-    if (buildWrapped(movimientos, period, { now, previous: previousPeriod(current, inicioPeriodo, nominas) })) result.push(period);
+    if (hasStory(movimientos, period)) result.push(period);
   }
   if (now.getMonth() === 0 || now.getMonth() === 11) {
     const year = now.getFullYear() - (now.getMonth() === 0 ? 1 : 0);
@@ -287,7 +338,7 @@ export function availableWrappeds(
       end: now.getMonth() === 0 ? new Date(year + 1, 0, 1) : new Date(now), label: String(year),
       ...(now.getMonth() === 11 ? { parcial: true } : {}),
     };
-    if (buildWrapped(movimientos, period, { now })) result.push(period);
+    if (hasStory(movimientos, period)) result.push(period);
   }
   return result;
 }

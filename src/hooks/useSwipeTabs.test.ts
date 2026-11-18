@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { ownsHorizontalGesture } from "./useSwipeTabs";
+import { isOnPage, ownsHorizontalGesture } from "./useSwipeTabs";
 
 function setup(html: string) {
   const root = document.createElement("main");
@@ -29,5 +29,19 @@ describe("ownsHorizontalGesture", () => {
     Object.defineProperty(scroller, "scrollWidth", { value: 800 });
     Object.defineProperty(scroller, "clientWidth", { value: 400 });
     expect(ownsHorizontalGesture(root.querySelector("#t"), root)).toBe(true);
+  });
+});
+
+describe("isOnPage", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("counts the page and the empty space around a short page, not the bars or dialogs", () => {
+    document.body.innerHTML = "<div id='app'><header id='h'><b id='hb'>x</b></header><main id='m'><p id='p'>x</p></main><nav id='n'>x</nav></div><div role='dialog' id='d'>x</div>";
+    const root = document.querySelector("#m")!;
+    for (const id of ["m", "p", "app"]) expect(isOnPage(document.querySelector(`#${id}`), root)).toBe(true);
+    expect(isOnPage(document.body, root)).toBe(true);
+    for (const id of ["h", "hb", "n", "d"]) expect(isOnPage(document.querySelector(`#${id}`), root)).toBe(false);
   });
 });
