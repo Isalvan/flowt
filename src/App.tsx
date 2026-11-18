@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { Activity, useState, useEffect, useRef } from 'react';
 import { TicketCapture, type TicketCaptureHandle } from './components/tickets/TicketCapture';
 import { signOut } from 'firebase/auth';
 import { auth } from './firebase';
@@ -179,6 +179,14 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
   const [prevMobileIndex, setPrevMobileIndex] = useState(0);
   const [isSliding, setIsSliding] = useState(false);
+  // Tabs already rendered. They stay mounted inside <Activity> once shown, so
+  // coming back is instant, and the ones beside the current tab in the bottom
+  // bar are pre-rendered hidden (at low priority, effects paused), so their
+  // code and first render are ready before you swipe or tap to them.
+  const [mountedTabs, setMountedTabs] = useState<ReadonlySet<AppTab>>(() => new Set(['dashboard']));
+  const tabIndex = NAV_TABS.findIndex(t => t.id === activeTab);
+  const wantedTabs = [activeTab, NAV_TABS[tabIndex - 1]?.id, NAV_TABS[tabIndex + 1]?.id].filter((t): t is AppTab => Boolean(t));
+  if (wantedTabs.some(t => !mountedTabs.has(t))) setMountedTabs(new Set([...mountedTabs, ...wantedTabs]));
 
   const [mainEl, setMainEl] = useState<HTMLElement | null>(null);
   const goToMobileTab = (tabId: AppTab) => {
@@ -431,6 +439,9 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
   // Signed in and unlocked but Firestore hasn't answered yet: placeholders instead of empty lists and zeros.
   const dataLoading = Boolean(user) && isFirebaseConfigured && !isLocked && (chartMovementsLoading || huchasLoading);
 
+  const showPanes = !dataLoading || activeTab === 'ajustes';
+  const isTabMounted = (tab: AppTab) => showPanes && (tab === activeTab || mountedTabs.has(tab));
+
   // Rendering loading state
   if (loading) {
     return <DashboardSkeleton />;
@@ -584,116 +595,126 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
 
       {/* 2. Main Content Container */}
       <main ref={setMainEl} className="flowt-container mx-auto mt-5 sm:mt-8">
-        {dataLoading && activeTab !== 'ajustes' && (activeTab === 'dashboard' ? <DashboardSkeletonBody /> : <TabLoading />)}
+        {!showPanes && (activeTab === 'dashboard' ? <DashboardSkeletonBody /> : <TabLoading />)}
 
-        {activeTab === 'dashboard' && !dataLoading && (
-          <DashboardView
-            userName={firstName}
-            hasPin={hasPin}
-            onUnlock={handlePrivacyToggle}
-            movimientos={movimientos}
-            chartMovements={chartMovements}
-            chartMovementsLoading={chartMovementsLoading}
-            olderMovements={olderMovements}
-            olderMovementsLoading={olderMovementsLoading}
-            olderMovementsLoaded={olderMovementsLoaded}
-            olderMovementsError={olderMovementsError}
-            loadOlderMovements={loadOlderMovements}
-            huchas={huchas}
-            suscripciones={suscripciones}
-            balance={balance}
-            chartData={chartData}
-            huchaMonthlyBudgets={huchaMonthlyBudgets}
-            onUpdateConcepto={handleUpdateMovimientoConcepto}
-            onUpdateCategoria={handleUpdateMovimientoCategoria}
-            onAcceptCompensation={handleLinkMovimiento}
-            onDismissCompensation={handleDismissCompensation}
-            onDismissDuplicate={dismissDuplicate}
-            onConvert={handleOpenConvertModal}
-            onLink={handleOpenLinkModal}
-            onUnlink={handleUnlinkMovimiento}
-            onChangeHucha={handleChangeMovimientoHucha}
-            onOpenHuchaModal={handleOpenHuchaModal}
-            onDeleteHucha={handleOpenDeleteHuchaModal}
-            onOpenTransferModal={() => secureAction(() => setIsTransferModalOpen(true))}
-            onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
-            onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
-            onOpenTicket={() => secureAction(() => ticketCapture.current?.open())}
-            onOpenCalendar={() => setActiveTab('calendario')}
-            onOpenWrapped={(period) =>
-              secureAction(() => {
-                writeWrappedSeen(!isFirebaseConfigured ? 'demo' : (user?.uid ?? 'demo'), period.key);
-                setWrappedPeriod(period);
-              })
-            }
-            onOpenWrappedSelector={() => secureAction(() => setIsWrappedSelectorOpen(true))}
-            userId={!isFirebaseConfigured ? 'demo' : (user?.uid ?? 'demo')}
-            onDeleteMovimiento={onDeleteMovimientoWrapper}
-            onSubsanar={handleSubsanarHucha}
-            onRevertirDeuda={handleRevertirDeuda}
-            onReconcile={handleReconcileBankBalance}
-          />
-        )}
-
-        {activeTab === 'calendario' && !dataLoading && (
-          <React.Suspense fallback={<TabLoading />}>
-            <CalendarioView
-              suscripciones={suscripciones}
-              movimientos={[...chartMovements, ...olderMovements]}
-              huchas={huchas}
-              loadOlderMovements={loadOlderMovements}
-            />
-          </React.Suspense>
-        )}
-
-        {activeTab === 'nomina' && !dataLoading && (
-          <React.Suspense fallback={<TabLoading />}>
-            <NominaView movimientos={chartMovements} huchas={huchas} suscripciones={suscripciones} />
-          </React.Suspense>
-        )}
-
-        {activeTab === 'correos' && !dataLoading && (
-          <React.Suspense fallback={<TabLoading />}>
-            <CorreosOrchestrator
-              pendingEmails={pendingEmails}
-              historicoCorreos={historicoCorreos}
-              huchas={huchas}
-              onApprove={handleApprovePendingEmail}
-              onDiscard={handleDiscardPendingEmail}
-            />
-          </React.Suspense>
-        )}
-
-        {activeTab === 'ajustes' && (
-          <React.Suspense fallback={<TabLoading />}>
-            <AjustesOrchestrator
-              suscripciones={suscripciones}
-              huchas={huchas}
-              ingresoMensualHabitual={chartMovementsLoading ? undefined : mediaIngresos}
-              onOpenSuscripcionModal={(s, draft) => {
-                setEditingSuscripcion(s || null);
-                setSuscripcionDraft(draft);
-                setIsSuscripcionModalOpen(true);
-              }}
-              onUpdateSuscripcion={s => handleCreateOrUpdateSuscripcion(s, s.id)}
-              onDeleteSuscripcion={handleDeleteSuscripcion}
-              onToggleSuscripcion={handleToggleSuscripcion}
-              onCancelSuscripcion={handleCancelSuscripcion}
-              onUndoCancelSuscripcion={handleUndoCancelSuscripcion}
-              countMovimientosWithoutBank={countMovimientosWithoutBank}
-              assignMovimientosWithoutBank={assignMovimientosWithoutBank}
+        {isTabMounted('dashboard') && (
+          <Activity mode={activeTab === 'dashboard' ? 'visible' : 'hidden'}>
+            <DashboardView
+              userName={firstName}
+              hasPin={hasPin}
+              onUnlock={handlePrivacyToggle}
+              movimientos={movimientos}
               chartMovements={chartMovements}
+              chartMovementsLoading={chartMovementsLoading}
               olderMovements={olderMovements}
               olderMovementsLoading={olderMovementsLoading}
               olderMovementsLoaded={olderMovementsLoaded}
               olderMovementsError={olderMovementsError}
               loadOlderMovements={loadOlderMovements}
-              userStats={userStats}
-              userId={user?.uid}
-              demo={!isFirebaseConfigured}
-              onRestoreHucha={handleRestoreHucha}
+              huchas={huchas}
+              suscripciones={suscripciones}
+              balance={balance}
+              chartData={chartData}
+              huchaMonthlyBudgets={huchaMonthlyBudgets}
+              onUpdateConcepto={handleUpdateMovimientoConcepto}
+              onUpdateCategoria={handleUpdateMovimientoCategoria}
+              onAcceptCompensation={handleLinkMovimiento}
+              onDismissCompensation={handleDismissCompensation}
+              onDismissDuplicate={dismissDuplicate}
+              onConvert={handleOpenConvertModal}
+              onLink={handleOpenLinkModal}
+              onUnlink={handleUnlinkMovimiento}
+              onChangeHucha={handleChangeMovimientoHucha}
+              onOpenHuchaModal={handleOpenHuchaModal}
+              onDeleteHucha={handleOpenDeleteHuchaModal}
+              onOpenTransferModal={() => secureAction(() => setIsTransferModalOpen(true))}
+              onOpenHistoryModal={() => secureAction(() => setIsHistoryModalOpen(true))}
+              onOpenManualMovimientoModal={() => secureAction(() => setIsManualMovimientoModalOpen(true))}
+              onOpenTicket={() => secureAction(() => ticketCapture.current?.open())}
+              onOpenCalendar={() => setActiveTab('calendario')}
+              onOpenWrapped={(period) =>
+                secureAction(() => {
+                  writeWrappedSeen(!isFirebaseConfigured ? 'demo' : (user?.uid ?? 'demo'), period.key);
+                  setWrappedPeriod(period);
+                })
+              }
+              onOpenWrappedSelector={() => secureAction(() => setIsWrappedSelectorOpen(true))}
+              userId={!isFirebaseConfigured ? 'demo' : (user?.uid ?? 'demo')}
+              onDeleteMovimiento={onDeleteMovimientoWrapper}
+              onSubsanar={handleSubsanarHucha}
+              onRevertirDeuda={handleRevertirDeuda}
+              onReconcile={handleReconcileBankBalance}
             />
-          </React.Suspense>
+          </Activity>
+        )}
+
+        {isTabMounted('calendario') && (
+          <Activity mode={activeTab === 'calendario' ? 'visible' : 'hidden'}>
+            <React.Suspense fallback={<TabLoading />}>
+              <CalendarioView
+                suscripciones={suscripciones}
+                movimientos={[...chartMovements, ...olderMovements]}
+                huchas={huchas}
+                loadOlderMovements={loadOlderMovements}
+              />
+            </React.Suspense>
+          </Activity>
+        )}
+
+        {isTabMounted('nomina') && (
+          <Activity mode={activeTab === 'nomina' ? 'visible' : 'hidden'}>
+            <React.Suspense fallback={<TabLoading />}>
+              <NominaView movimientos={chartMovements} huchas={huchas} suscripciones={suscripciones} />
+            </React.Suspense>
+          </Activity>
+        )}
+
+        {isTabMounted('correos') && (
+          <Activity mode={activeTab === 'correos' ? 'visible' : 'hidden'}>
+            <React.Suspense fallback={<TabLoading />}>
+              <CorreosOrchestrator
+                pendingEmails={pendingEmails}
+                historicoCorreos={historicoCorreos}
+                huchas={huchas}
+                onApprove={handleApprovePendingEmail}
+                onDiscard={handleDiscardPendingEmail}
+              />
+            </React.Suspense>
+          </Activity>
+        )}
+
+        {isTabMounted('ajustes') && (
+          <Activity mode={activeTab === 'ajustes' ? 'visible' : 'hidden'}>
+            <React.Suspense fallback={<TabLoading />}>
+              <AjustesOrchestrator
+                suscripciones={suscripciones}
+                huchas={huchas}
+                ingresoMensualHabitual={chartMovementsLoading ? undefined : mediaIngresos}
+                onOpenSuscripcionModal={(s, draft) => {
+                  setEditingSuscripcion(s || null);
+                  setSuscripcionDraft(draft);
+                  setIsSuscripcionModalOpen(true);
+                }}
+                onUpdateSuscripcion={s => handleCreateOrUpdateSuscripcion(s, s.id)}
+                onDeleteSuscripcion={handleDeleteSuscripcion}
+                onToggleSuscripcion={handleToggleSuscripcion}
+                onCancelSuscripcion={handleCancelSuscripcion}
+                onUndoCancelSuscripcion={handleUndoCancelSuscripcion}
+                countMovimientosWithoutBank={countMovimientosWithoutBank}
+                assignMovimientosWithoutBank={assignMovimientosWithoutBank}
+                chartMovements={chartMovements}
+                olderMovements={olderMovements}
+                olderMovementsLoading={olderMovementsLoading}
+                olderMovementsLoaded={olderMovementsLoaded}
+                olderMovementsError={olderMovementsError}
+                loadOlderMovements={loadOlderMovements}
+                userStats={userStats}
+                userId={user?.uid}
+                demo={!isFirebaseConfigured}
+                onRestoreHucha={handleRestoreHucha}
+              />
+            </React.Suspense>
+          </Activity>
         )}
       </main>
 
