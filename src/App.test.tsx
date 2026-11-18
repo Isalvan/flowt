@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { signOut } from 'firebase/auth';
 import App from './App';
@@ -87,7 +87,10 @@ describe('App Dashboard', () => {
     expect(await screen.findByRole('heading', { name: /Mis carteras/i })).toBeInTheDocument();
     const payrollTabs = screen.getAllByRole('button', { name: 'Nómina' });
     expect(payrollTabs).toHaveLength(2);
-    fireEvent.click(payrollTabs[0]);
+    // Awaited act: the tab's code loads lazily while its neighbours pre-render hidden.
+    await act(async () => {
+      fireEvent.click(payrollTabs[0]);
+    });
     expect(await screen.findByRole('heading', { name: 'Tu nómina' })).toBeInTheDocument();
     
     vi.unstubAllEnvs();

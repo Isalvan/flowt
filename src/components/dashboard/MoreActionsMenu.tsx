@@ -6,7 +6,6 @@ import {
   History,
   Plus,
   HelpCircle,
-  ScanLine,
   Sparkles,
 } from "lucide-react";
 
@@ -17,7 +16,6 @@ interface MoreActionsMenuProps {
   onNewHucha: () => void;
   onTransfer: () => void;
   onHistory: () => void;
-  onScanTicket?: () => void;
   onWrapped?: () => void;
 }
 
@@ -28,7 +26,6 @@ export const MoreActionsMenu: React.FC<MoreActionsMenuProps> = ({
   onNewHucha,
   onTransfer,
   onHistory,
-  onScanTicket,
   onWrapped,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -72,7 +69,6 @@ export const MoreActionsMenu: React.FC<MoreActionsMenuProps> = ({
   }, [open, onClose]);
 
   const actions = [
-    ...(onScanTicket ? [{ label: "Escanear ticket", icon: ScanLine, onClick: onScanTicket }] : []),
     { label: "Nueva hucha", icon: Plus, onClick: onNewHucha },
     { label: "Traspasar fondos", icon: ArrowRightLeft, onClick: onTransfer },
     { label: "Historial completo", icon: History, onClick: onHistory },
@@ -107,7 +103,7 @@ export const MoreActionsMenu: React.FC<MoreActionsMenuProps> = ({
         <div
           role="menu"
           aria-label="Más acciones"
-          className="glass-panel animate-in fade-in slide-in-from-top-1 absolute right-0 top-[calc(100%+8px)] z-50 w-56 rounded-2xl p-1.5 duration-150"
+          className="glass-panel animate-in fade-in slide-in-from-top-1 absolute right-0 top-[calc(100%+8px)] z-50 w-56 max-w-[calc(100vw-2rem)] rounded-2xl p-1.5 duration-150"
         >
           {actions.map(({ label, icon: Icon, onClick }, index) => (
             <button
