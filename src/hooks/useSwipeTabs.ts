@@ -38,6 +38,14 @@ export function ownsHorizontalGesture(target: EventTarget | null, root: Element)
   return false;
 }
 
+/**
+ * The page itself, or the blank space around it (one of its ancestors); never the
+ * header, the bottom bar, or anything portalled next to the app such as dialogs.
+ */
+export function isOnPage(target: EventTarget | null, root: Element): boolean {
+  return target instanceof Node && (root.contains(target) || target.contains(root));
+}
+
 interface SwipeTabsOptions {
   /** Whether there is a tab in that direction (1 = next, -1 = previous). */
   canGo: (direction: 1 | -1) => boolean;
@@ -49,8 +57,8 @@ interface SwipeTabsOptions {
  * Lets the user drag `root` sideways on a phone to move between tabs: the
  * page follows the finger, and on release it either slides out and the next
  * tab slides in, or springs back. Takes the element itself (not a ref) so it
- * attaches once the element mounts. Native listeners, so touches inside
- * portalled modals never reach it.
+ * attaches once the element mounts. Touches start anywhere on the page or the
+ * empty space around it, never on portalled modals, the header or the bar.
  */
 export function useSwipeTabs(root: HTMLElement | null, options: SwipeTabsOptions, enabled = true) {
   const opts = useRef(options);
@@ -89,7 +97,8 @@ export function useSwipeTabs(root: HTMLElement | null, options: SwipeTabsOptions
       dx = 0;
       if (animating || e.touches.length !== 1) return;
       if (mediaMatches("(min-width: 768px)")) return;
-      if (ownsHorizontalGesture(e.target, root)) return;
+      if (!isOnPage(e.target, root)) return;
+      if (root.contains(e.target as Node) && ownsHorizontalGesture(e.target, root)) return;
       const t = e.touches[0];
       start = { x: t.clientX, y: t.clientY, t: performance.now() };
       samples = [{ x: 0, t: start.t }];
@@ -171,15 +180,18 @@ export function useSwipeTabs(root: HTMLElement | null, options: SwipeTabsOptions
       }, outMs);
     };
 
-    root.addEventListener("touchstart", onStart, { passive: true });
-    root.addEventListener("touchmove", onMove, { passive: false });
-    root.addEventListener("touchend", onEnd, { passive: true });
-    root.addEventListener("touchcancel", onEnd, { passive: true });
+    // Listen on the whole document: when a tab has little content the page is short,
+    // and the empty space below it (which belongs to the page's ancestors) must swipe too.
+    const surface = root.ownerDocument;
+    surface.addEventListener("touchstart", onStart, { passive: true });
+    surface.addEventListener("touchmove", onMove, { passive: false });
+    surface.addEventListener("touchend", onEnd, { passive: true });
+    surface.addEventListener("touchcancel", onEnd, { passive: true });
     return () => {
-      root.removeEventListener("touchstart", onStart);
-      root.removeEventListener("touchmove", onMove);
-      root.removeEventListener("touchend", onEnd);
-      root.removeEventListener("touchcancel", onEnd);
+      surface.removeEventListener("touchstart", onStart);
+      surface.removeEventListener("touchmove", onMove);
+      surface.removeEventListener("touchend", onEnd);
+      surface.removeEventListener("touchcancel", onEnd);
       timers.forEach((id) => window.clearTimeout(id));
       clearStyle();
     };
