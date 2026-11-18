@@ -61,3 +61,6 @@ scratch/
 docs/maestro/
 skills-lock.json
 flowt-backend-release.zip
+
+# Credentials and keys created by npm run setup
+.flowt-setup/

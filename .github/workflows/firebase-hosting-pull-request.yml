@@ -37,7 +37,8 @@ jobs:
         uses: ./.github/actions/validate-frontend
       - name: Publish preview
         env:
-          FIREBASE_SERVICE_ACCOUNT_FLOWT_63536: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_FLOWT_63536 }}
+          # FIREBASE_SERVICE_ACCOUNT_FLOWT_63536 is the original secret name, still accepted.
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_FLOWT_63536 }}
           FIREBASE_HOSTING_CHANNEL: pr-${{ github.event.pull_request.number }}
         run: node .github/scripts/firebase-hosting.mjs deploy
       - name: Publish preview link in PR

@@ -8,7 +8,7 @@ const webVariables = [
   'VITE_FIREBASE_API_KEY', 'VITE_FIREBASE_AUTH_DOMAIN', 'VITE_FIREBASE_PROJECT_ID',
   'VITE_FIREBASE_STORAGE_BUCKET', 'VITE_FIREBASE_MESSAGING_SENDER_ID', 'VITE_FIREBASE_APP_ID',
 ];
-const accountVariable = 'FIREBASE_SERVICE_ACCOUNT_FLOWT_63536';
+const accountVariable = 'FIREBASE_SERVICE_ACCOUNT';
 
 export function validateWebConfig(env, projectId) {
   const missing = webVariables.filter(name => !env[name]?.trim());

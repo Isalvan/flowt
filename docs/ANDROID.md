@@ -17,7 +17,7 @@ La app no usa el service worker: sus archivos van dentro del APK y se actualiza 
 
 ## Instalarla en el móvil
 
-Cada vez que algo entra en `main`, el workflow **Flowt Android** compila un APK firmado y lo publica como la pre-release [`android`](https://github.com/Isalvan/flowt/releases/tag/android). Para instalarlo:
+Cada vez que algo entra en `main`, el workflow **Flowt Android** compila un APK firmado y lo publica como la pre-release `android` del repositorio (en el original, [aquí](https://github.com/Isalvan/flowt/releases/tag/android)). Sin los secretos de firma solo comprueba que compila. Para instalarlo:
 
 1. Abre ese enlace desde el móvil y descarga `flowt.apk`.
 2. Ábrelo. La primera vez Android pedirá permitir instalar apps desde el navegador (Brave): acéptalo para esa app.
@@ -26,6 +26,8 @@ Cada vez que algo entra en `main`, el workflow **Flowt Android** compila un APK 
 El repositorio es público, así que el APK también lo es. No lleva secretos: solo la web ya publicada y la configuración pública de Firebase. Los datos siguen protegidos por la lista de cuentas permitidas de las reglas de Firestore.
 
 ## Puesta en marcha (una sola vez)
+
+`npm run setup` hace estos pasos por ti (ver [INSTALAR.md](INSTALAR.md)). Si prefieres hacerlo a mano:
 
 ### 1. Clave de firma
 
@@ -42,9 +44,9 @@ keytool -list -v -keystore flowt.jks -alias flowt -storepass $pass   # copia la 
 
 ### 2. App Android en Firebase
 
-En la [consola de Firebase](https://console.firebase.google.com/project/flowt-63536/settings/general), proyecto `flowt-63536`:
+En la consola de Firebase, *Configuración del proyecto* de tu proyecto:
 
-1. *Añadir app → Android*, con el paquete `com.isalvan.flowt` y el **SHA-1** del paso anterior.
+1. *Añadir app → Android*, con el paquete `androidAppId` de `flowt.config.json` y el **SHA-1** del paso anterior.
 2. Descarga `google-services.json`.
 
 Si más adelante compilas desde Android Studio con su clave de depuración, añade también el SHA-1 de esa clave en la misma pantalla.
@@ -64,8 +66,8 @@ Después, *Actions → Flowt Android → Run workflow* genera el primer APK sin 
 ### 4. Backend
 
 - **Reglas de Firestore**: las reglas añaden `push_tokens`. Publícalas con `npx firebase deploy --only firestore:rules`.
-- **Avisos**: el tracker envía con la cuenta de servicio que ya usa. Si el envío falla con un error de permisos, activa la *Firebase Cloud Messaging API* en Google Cloud para `flowt-63536`.
-- **Origen de la app**: dentro de la app la web se sirve como `https://flowt-63536.web.app` (`server.hostname` en `capacitor.config.ts`), aunque los archivos salen del APK. Así la clave web de Firebase, restringida a ese referente, y el CORS del Worker (`APP_URL`) la aceptan sin configurar nada más. Si cambia el dominio de la web, hay que cambiarlo también ahí.
+- **Avisos**: el tracker envía con la cuenta de servicio que ya usa. Si el envío falla con un error de permisos, activa la *Firebase Cloud Messaging API* en Google Cloud para tu proyecto.
+- **Origen de la app**: dentro de la app la web se sirve con el dominio de `appUrl` (`server.hostname` en `capacitor.config.ts`), aunque los archivos salen del APK. Así la clave web de Firebase, si está restringida a ese referente, y el CORS del Worker (`APP_URL`) la aceptan sin configurar nada más. Si cambia el dominio de la web, cámbialo en `flowt.config.json` y ejecuta `npm run config:apply`.
 
 ## Desarrollo local
 

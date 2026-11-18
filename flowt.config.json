@@ -1,0 +1,9 @@
+{
+  "_info": "Configuración de esta instalación de Flowt. Tras editarla, ejecuta: npm run config:apply. El asistente (npm run setup) la rellena por ti.",
+  "firebaseProjectId": "flowt-63536",
+  "firestoreLocation": "nam5",
+  "appUrl": "https://flowt-63536.web.app",
+  "workerUrl": "https://flowt-mcp.isalvan.workers.dev",
+  "androidAppId": "com.isalvan.flowt",
+  "allowedUids": ["uWt8uACHBWaCywQWxRtaxR7AbI52", "S3w0O4kqapP91uKKaco6LwR76Nn1"]
+}

@@ -2,12 +2,13 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 // The Android app wraps the same Vite build as the web (dist/). Keep appId stable:
 // Firebase, the signing key and Google sign-in are all registered against it.
+// appId and hostname come from flowt.config.json (npm run config:apply), not edited here.
 const config: CapacitorConfig = {
   appId: 'com.isalvan.flowt',
   appName: 'Flowt',
   webDir: 'dist',
   server: {
-    // Serve the bundled files as https://flowt-63536.web.app instead of https://localhost, so
+    // Serve the bundled files from the website's own host instead of https://localhost, so
     // the app sends the same Origin and Referer as the website. The Firebase web API key only
     // accepts the site as referrer, and the Worker's CORS already allows it (APP_URL).
     // Requests to this host never reach the network: Capacitor answers them from the APK.

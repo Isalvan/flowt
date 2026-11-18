@@ -18,7 +18,7 @@ const fixture = () => ({
   VITE_FIREBASE_STORAGE_BUCKET: `${projectId}.firebasestorage.app`,
   VITE_FIREBASE_MESSAGING_SENDER_ID: '123456789',
   VITE_FIREBASE_APP_ID: '1:123456789:web:synthetic',
-  FIREBASE_SERVICE_ACCOUNT_FLOWT_63536: JSON.stringify(account),
+  FIREBASE_SERVICE_ACCOUNT: JSON.stringify(account),
 });
 const originalCwd = process.cwd();
 let dir;
@@ -42,7 +42,7 @@ test('fails before publishing for missing variables, placeholders, or the wrong 
 test('rejects absent, base64, malformed, or cross-project credentials without exposing them', () => {
   for (const value of [undefined, Buffer.from(JSON.stringify(account)).toString('base64'), '{broken-json',
     JSON.stringify({ ...account, project_id: 'another-project' }), 'null']) {
-    assert.throws(() => validateServiceAccount({ FIREBASE_SERVICE_ACCOUNT_FLOWT_63536: value }, projectId));
+    assert.throws(() => validateServiceAccount({ FIREBASE_SERVICE_ACCOUNT: value }, projectId));
   }
   assert.deepEqual(validateServiceAccount(fixture(), projectId), account);
 });
@@ -52,7 +52,7 @@ test('production publishes only Hosting and removes temporary credentials', () =
   const url = deployHosting({ env: fixture(), projectId, channel: 'live', run: (args, env) => {
     assert.deepEqual(args, ['deploy', '--only', 'hosting', '--project', projectId, '--non-interactive', '--json']);
     credentials = env.GOOGLE_APPLICATION_CREDENTIALS;
-    assert.equal(env.FIREBASE_SERVICE_ACCOUNT_FLOWT_63536, undefined);
+    assert.equal(env.FIREBASE_SERVICE_ACCOUNT, undefined);
     assert.deepEqual(JSON.parse(readFileSync(credentials, 'utf8')), account);
     if (process.platform !== 'win32') assert.equal(statSync(credentials).mode & 0o777, 0o600);
     return { status: 0, stdout: JSON.stringify({ status: 'success', result: { hosting: `https://${projectId}.web.app` } }) };
@@ -97,7 +97,7 @@ test('failed Firebase commands and invalid responses clean up credentials withou
 test('invalid channels, missing builds and missing credentials never invoke Firebase', () => {
   const run = () => assert.fail('Firebase should not be invoked');
   assert.throws(() => deployHosting({ env: fixture(), projectId, channel: 'live; command', run }), /Canal/);
-  const env = fixture(); delete env.FIREBASE_SERVICE_ACCOUNT_FLOWT_63536;
+  const env = fixture(); delete env.FIREBASE_SERVICE_ACCOUNT;
   assert.throws(() => deployHosting({ env, projectId, channel: 'live', run }), /secret/);
   rmSync('dist', { recursive: true });
   assert.throws(() => deployHosting({ env: fixture(), projectId, channel: 'live', run }), /compila/);

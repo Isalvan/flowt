@@ -18,12 +18,14 @@ describe('Manual login', () => {
   }
 
   it('authenticates with Firebase and removes the hidden path on success', async () => {
+    vi.stubEnv('VITE_FIREBASE_PROJECT_ID', 'flowt-63536');
     vi.mocked(signInWithEmailAndPassword).mockResolvedValue({} as never);
     render(<ManualLogin configured />);
     submit();
     await waitFor(() => expect(window.location.pathname).toBe('/'));
     expect(signInWithEmailAndPassword).toHaveBeenCalledWith(expect.anything(), 'chati@flowt-63536.firebaseapp.com', 'test-password');
     expect(screen.getByLabelText('Contraseña')).toHaveValue('');
+    vi.unstubAllEnvs();
   });
 
   it('rejects other usernames without starting a Firebase session', () => {
