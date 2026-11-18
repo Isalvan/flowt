@@ -102,6 +102,30 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
   const [period, setPeriod] = useState<TimePeriod>("historico");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const walletsRef = useRef<HTMLDivElement>(null);
+  const [activeWallet, setActiveWallet] = useState(0);
+  // Scroll position at which each carousel item snaps to the start.
+  const walletStops = (el: HTMLDivElement) => {
+    const pad = parseFloat(getComputedStyle(el).paddingLeft) || 0;
+    return (Array.from(el.children) as HTMLElement[]).map((c) => c.offsetLeft - el.offsetLeft - pad);
+  };
+  const onWalletsScroll = () => {
+    const el = walletsRef.current;
+    if (!el) return;
+    const stops = walletStops(el);
+    let best = 0;
+    stops.forEach((x, i) => {
+      if (Math.abs(x - el.scrollLeft) < Math.abs(stops[best] - el.scrollLeft)) best = i;
+    });
+    // At the far end the last wallet can't reach the start, so it counts as the one in view.
+    if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 4) best = stops.length - 1;
+    // The last item is the "Nueva cartera" tile, which has no dot.
+    setActiveWallet(Math.min(best, Math.max(0, stops.length - 2)));
+  };
+  const scrollToWallet = (i: number) => {
+    const el = walletsRef.current;
+    if (el) el.scrollTo({ left: walletStops(el)[i] ?? 0, behavior: "smooth" });
+  };
   const periodRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!periodOpen) return;
@@ -280,13 +304,17 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         style={step(0)}
       >
         {greeting}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={props.onOpenManualMovimientoModal}
-            className="dashboard-primary-button flex-1 md:order-last md:flex-none"
+            aria-label="Añadir movimiento"
+            className="dashboard-primary-button min-w-0 flex-1 md:order-last md:flex-none"
           >
-            <Plus size={16} /> Añadir movimiento
+            <Plus size={16} className="shrink-0" />
+            {/* Short label on narrow phones so the whole row fits on one line. */}
+            <span className="min-[440px]:hidden">Añadir</span>
+            <span className="hidden min-[440px]:inline">Añadir movimiento</span>
           </button>
           {props.onOpenTicket && <button type="button" onClick={props.onOpenTicket} className="dashboard-secondary-button" aria-label="Escanear ticket" title="Escanear ticket"><ScanLine size={16} /><span className="hidden sm:inline">Escanear ticket</span></button>}
           <div ref={periodRef} className="relative">
@@ -295,7 +323,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
               aria-haspopup="listbox"
               aria-expanded={periodOpen}
               onClick={() => setPeriodOpen(!periodOpen)}
-              className="dashboard-period-button"
+              className="dashboard-secondary-button"
             >
               {periodLabel}
               <ChevronDown
@@ -407,7 +435,10 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             })}
           </div>
         )}
-        <div className="flowt-wallets-grid -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3 xl:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
+        <div
+          ref={walletsRef}
+          onScroll={onWalletsScroll}
+          className="flowt-wallets-grid -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3 xl:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
           {wallets.length ? (
             <>
               {wallets.map((h, i) => (
@@ -449,6 +480,20 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             </div>
           )}
         </div>
+        {/* On a phone the wallets are a swipeable carousel: the dots say so and show where you are. */}
+        {wallets.length > 1 && (
+          <div className="mt-2 flex justify-center gap-1.5 sm:hidden" aria-hidden="true">
+            {wallets.map((h, i) => (
+              <button
+                key={h.id}
+                type="button"
+                tabIndex={-1}
+                onClick={() => scrollToWallet(i)}
+                className={`h-1.5 rounded-full transition-all duration-200 ${i === activeWallet ? "w-4 bg-brand" : "w-1.5 bg-line-strong"}`}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Each row fills the full width and its shorter column stretches its last card, so no row ends in a gap. */}

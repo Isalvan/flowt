@@ -7,6 +7,7 @@ import { signInWithGoogle, signOutOfGoogle } from './native/googleSignIn';
 import { useTheme } from './hooks/useTheme';
 import { useFinanceData } from './hooks/useFinanceData';
 import { writeWrappedSeen } from './hooks/useWrappedSeen';
+import { useSwipeTabs } from './hooks/useSwipeTabs';
 import { type Hucha, type Suscripcion, type Movimiento } from './types';
 import { type WrappedPeriod } from './utils/wrapped';
 
@@ -177,6 +178,29 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
   const [prevMobileIndex, setPrevMobileIndex] = useState(0);
   const [isSliding, setIsSliding] = useState(false);
+
+  const [mainEl, setMainEl] = useState<HTMLElement | null>(null);
+  const goToMobileTab = (tabId: AppTab) => {
+    const currentIndex = Math.max(0, NAV_TABS.findIndex(t => t.id === activeTab));
+    const nextIndex = Math.max(0, NAV_TABS.findIndex(t => t.id === tabId));
+    if (nextIndex === currentIndex) return;
+    const slideDuration = Math.min(420, Math.max(250, Math.abs(nextIndex - prevMobileIndex) * 85));
+    setIsSliding(true);
+    setActiveTab(tabId);
+    window.scrollTo({ top: 0 });
+    setTimeout(() => {
+      setIsSliding(false);
+      setPrevMobileIndex(nextIndex);
+    }, slideDuration);
+  };
+  // On a phone, swiping sideways on the page moves between the bottom bar's tabs.
+  useSwipeTabs(mainEl, (direction) => {
+    if (window.matchMedia('(min-width: 768px)').matches) return;
+    const currentIndex = NAV_TABS.findIndex(t => t.id === activeTab);
+    if (currentIndex < 0) return;
+    const next = NAV_TABS[currentIndex + direction];
+    if (next) goToMobileTab(next.id);
+  });
 
   // Form modals state overlays
   const [isHuchaModalOpen, setIsHuchaModalOpen] = useState(false);
@@ -551,7 +575,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
       </header>
 
       {/* 2. Main Content Container */}
-      <main className="flowt-container mx-auto mt-5 sm:mt-8">
+      <main ref={setMainEl} className="flowt-container mx-auto mt-5 sm:mt-8">
         {activeTab === 'dashboard' && (
           <DashboardView
             userName={firstName}
@@ -669,20 +693,13 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
         const distance = Math.abs(activeMobileIndex - prevMobileIndex);
         const slideDuration = Math.min(420, Math.max(250, distance * 85));
 
-        const handleMobileTabClick = (tabId: AppTab) => {
-          const nextIndex = Math.max(0, NAV_TABS.findIndex(t => t.id === tabId));
-          if (nextIndex !== activeMobileIndex) {
-            setIsSliding(true);
-            setActiveTab(tabId);
-            window.scrollTo({ top: 0 });
-            setTimeout(() => {
-              setIsSliding(false);
-              setPrevMobileIndex(nextIndex);
-            }, slideDuration);
-          }
-        };
-
         return (
+          <>
+          {/* Covers the strip under the floating bar so scrolled content doesn't peek out below it. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[calc(2.5rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-[var(--page)] from-60% to-transparent md:hidden"
+          />
           <nav
             aria-label="Secciones"
             className="fixed inset-x-3 bottom-3 z-40 pb-[env(safe-area-inset-bottom)] md:hidden"
@@ -714,7 +731,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
                   <button
                     key={id}
                     type="button"
-                    onClick={() => handleMobileTabClick(id)}
+                    onClick={() => goToMobileTab(id)}
                     aria-current={isActive ? 'page' : undefined}
                     className={`relative z-10 flex h-full w-1/5 flex-col items-center justify-center gap-1 transition-colors duration-300 ${
                       isActive ? 'text-white' : 'text-ink-soft'
@@ -734,6 +751,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
               })}
             </div>
           </nav>
+          </>
         );
       })()}
 
