@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Award, Pause, Play, RotateCcw, Share2, ShoppingBag, TrendingDown, TrendingUp, X } from 'lucide-react';
 import type { Movimiento } from '../../types';
 import { buildWrapped, type WrappedData, type WrappedPeriod, type WrappedTone } from '../../utils/wrapped';
+import { periodRangeLabel } from '../../utils/periods';
 import { usePrivacy } from '../../context/PrivacyContext';
 import { useCategories } from '../../hooks/useCategories';
 import { CelebrationConfetti } from '../common/CelebrationConfetti';
@@ -209,6 +210,7 @@ export const WrappedStories: React.FC<WrappedStoriesProps> = ({
     if (!data) return [];
     const env: VisualEnv = { reducedMotion, formatCurrency };
     const isMonth = data.period.scope === 'mes';
+    const range = isMonth && !(data.period.start.getDate() === 1 && data.period.end.getDate() === 1) ? periodRangeLabel(data.period) : null;
     const shortDate = (d: Date) => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
     const list: SlideDef[] = [];
 
@@ -230,6 +232,9 @@ export const WrappedStories: React.FC<WrappedStoriesProps> = ({
           </h2>
           {data.period.parcial && (
             <span className="wr-in mt-4 rounded-full bg-white px-3.5 py-1 text-sm font-extrabold text-slate-900" style={delay(4)}>hasta hoy</span>
+          )}
+          {range && (
+            <span className="wr-in mt-4 rounded-full bg-white px-3.5 py-1 text-sm font-extrabold text-slate-900" style={delay(4)}>{range}</span>
           )}
           <p className="wr-detail wr-in mt-7 max-w-xs" style={delay(5)}>
             Hemos repasado tus{' '}
@@ -268,7 +273,7 @@ export const WrappedStories: React.FC<WrappedStoriesProps> = ({
             <div className="wr-glass wr-in mt-7 w-full max-w-xs px-4 pb-3 pt-4" style={delay(5)}>
               <Bars
                 valores={[...history.map(h => h.gastos), data.totales.gastos]}
-                etiquetas={[...history.map(h => h.corto), isMonth ? MONTH_SHORT[data.period.start.getMonth()] : data.period.label]}
+                etiquetas={[...history.map(h => h.corto), isMonth ? data.period.label.slice(0, 3) : data.period.label]}
                 destacado={history.length}
                 formato="dinero"
                 env={env}
@@ -616,6 +621,14 @@ export const WrappedStories: React.FC<WrappedStoriesProps> = ({
   const goPrev = useCallback(() => goTo(safeIndex - 1), [goTo, safeIndex]);
 
   const isPaused = paused || userPaused;
+
+  // The previous backdrop only exists for the cross-fade; drop it afterwards so a
+  // single set of animated layers is painted while the slide is on screen.
+  useEffect(() => {
+    if (previousIndex === null) return;
+    const timer = window.setTimeout(() => setPreviousIndex(null), 750);
+    return () => window.clearTimeout(timer);
+  }, [previousIndex, safeIndex]);
 
   // Auto-advance when not paused and not reduced-motion.
   useEffect(() => {

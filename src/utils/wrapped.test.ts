@@ -241,16 +241,25 @@ describe('availableWrappeds', () => {
       expense({ tipo: 'ingreso', concepto: 'Nómina', categoria: 'nomina', importe: 100, fecha_operacion }));
     const movements = [...payroll, ...five(), expense({ fecha_operacion: d(9, 5), importe: 100 })];
     const result = availableWrappeds(movements, now, 'nomina');
-    expect(result[0]).toEqual({ scope: 'mes', key: 'mes:2026-09', start: d(9, 29), end: d(10, 28), label: 'oct' });
+    expect(result[0]).toEqual({ scope: 'mes', key: 'mes:2026-09', start: d(9, 29), end: d(10, 28), label: 'octubre' });
     const data = build(movements, result[0]);
     expect(data.comparativa?.gastosAnterior).toBe(100);
-    expect(data.curiosidades[0]).toBe('Gastaste un 50 % menos que en sep.');
+    expect(data.curiosidades[0]).toBe('Gastaste un 50 % menos que en septiembre.');
+  });
+
+  it('con mes natural pero nóminas detectadas, usa el mes de nómina a nómina', () => {
+    const payroll = [d(8, 10), d(9, 10), d(10, 10)].map(fecha_operacion =>
+      expense({ tipo: 'ingreso', concepto: 'Nómina', categoria: 'nomina', importe: 1000, fecha_operacion }));
+    const result = availableWrappeds([...payroll, ...five({ fecha_operacion: d(10, 2) }), ...five({ fecha_operacion: d(9, 20) })], d(10, 20), 1);
+    expect(result[0]).toMatchObject({ start: d(9, 10), end: d(10, 10), label: 'septiembre' });
+    // Before the first payroll there is no earlier payroll month to offer.
+    expect(result.every(p => p.start >= d(8, 10))).toBe(true);
   });
 
   it('respeta inicio fijo y excluye el periodo todavía abierto', () => {
     const result = availableWrappeds([...five(), ...five({ fecha_operacion: d(10, 29) })], now, 28);
     expect(result).toHaveLength(1);
-    expect(result[0]).toEqual({ scope: 'mes', key: 'mes:2026-09', start: d(9, 28), end: d(10, 28), label: 'oct' });
+    expect(result[0]).toEqual({ scope: 'mes', key: 'mes:2026-09', start: d(9, 28), end: d(10, 28), label: 'octubre' });
   });
 });
 

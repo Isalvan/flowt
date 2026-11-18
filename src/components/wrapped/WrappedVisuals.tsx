@@ -121,7 +121,7 @@ export const CalendarDots: React.FC<{ inicio: Date; dias: number[]; marcados?: [
                 boxShadow: inRun ? '0 0 0 2px var(--wr-accent), 0 0 16px var(--wr-accent)' : undefined,
               }}
             >
-              {day + 1}
+              {new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + day).getDate()}
             </span>
           );
         })}
