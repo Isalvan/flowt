@@ -25,7 +25,7 @@ Puedes probarlo sin cuenta en [flowt-63536.web.app](https://flowt-63536.web.app)
 - **Carteras** que reparten cada ingreso con tus reglas (un porcentaje, una cantidad fija o el resto), con objetivos y paga extra en los meses que elijas.
 - **Flujo de dinero**: un diagrama desde tus ingresos hasta cada categoría y lo que queda sin gastar, que puedes compartir sin importes.
 - **Gasto por categorías**, evolución mensual de ingresos y gastos, y una tarjeta para las compras pequeñas que suman.
-- **Flowt Wrapped** mensual y anual: un resumen animado en formato historias. Cada Wrapped elige, de un inventario de tarjetas (comercio favorito, picos de gasto, rachas, categoría que más sube o baja, comercios nuevos o abandonados, compras pequeñas, suscripciones…), las más llamativas de ese periodo y evita repetir las del anterior.
+- **Flowt Wrapped** mensual y anual: un resumen animado en formato historias. Cada Wrapped elige, de un inventario de unas 40 plantillas (podio de comercios, récords frente a tus meses anteriores, rachas, categoría que más sube o baja, comercios nuevos o abandonados, quincenas, equivalencias, ingresos extra, récord de ahorro…), las más llamativas de ese periodo y evita repetir las del anterior; la personalidad también rota.
 - **Bancos**: saldo estimado de cada banco a partir de tus movimientos, anclado a un saldo que anotas tú y cuadrado con tus carteras.
 
 <picture>

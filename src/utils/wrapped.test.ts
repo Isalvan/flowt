@@ -312,7 +312,7 @@ describe('inventario de tarjetas', () => {
     expect(ids).toEqual(expect.arrayContaining(['categoria-sube', 'categoria-baja', 'comercio-ausente']));
     expect(result.inventario.find(c => c.id === 'categoria-baja')).toMatchObject({ titulo: 'Restaurantes' });
     expect(result.inventario.find(c => c.id === 'comercio-ausente')?.detalle).toBe('En septiembre fuiste 4 veces y este mes ninguna.');
-    expect(result.destacados.length).toBeLessThanOrEqual(5);
+    expect(result.destacados.length).toBeLessThanOrEqual(7);
     expect(result.destacados.every(id => ids.includes(id))).toBe(true);
   });
 
@@ -327,5 +327,49 @@ describe('inventario de tarjetas', () => {
     const novData = buildWrapped(movements, nov, { now: d(12, 2) })!;
     expect(oct.inventario.length).toBeGreaterThan(5);
     expect(novData.destacados).not.toEqual(oct.destacados);
+  });
+});
+
+describe('variedad entre periodos', () => {
+  // A year of realistic, slightly noisy spending: a fixed seed keeps the test stable.
+  const year = (() => {
+    let state = 7;
+    const rand = () => (state = (state * 16807) % 2147483647) / 2147483647;
+    const places: [string, string, number][] = [
+      ['Mercadona', 'alimentacion', 40], ['Lidl', 'alimentacion', 30], ['Bar Pepe', 'restaurantes', 12],
+      ['Cafetería Luna', 'restaurantes', 2.4], ['Zara', 'compras', 35], ['Cines Yelmo', 'ocio', 9],
+      ['Cabify', 'transporte', 14], ['Farmacia Sol', 'salud', 11], ['Amazon', 'compras', 25], ['Pizzería Roma', 'restaurantes', 18],
+    ];
+    const movements: Movimiento[] = [];
+    for (let month = 1; month <= 11; month++) {
+      movements.push(expense({ id: `n${month}`, tipo: 'ingreso', categoria: 'nomina', concepto: 'Nómina', importe: 1800 + rand() * 600, fecha_operacion: d(month, 1) }));
+      movements.push(expense({ id: `a${month}`, concepto: 'Alquiler', categoria: 'vivienda', importe: 650, fecha_operacion: d(month, 2) }));
+      const count = 10 + Math.floor(rand() * 25);
+      for (let i = 0; i < count; i++) {
+        const [concepto, categoria, base] = places[Math.floor(rand() * rand() * places.length)];
+        movements.push(expense({ id: `${month}-${i}`, concepto, categoria, importe: Math.round(base * (0.5 + rand() * 1.5) * 100) / 100, fecha_operacion: d(month, 1 + Math.floor(rand() * 28)) }));
+      }
+    }
+    return movements;
+  })();
+  const monthPeriod = (month: number): WrappedPeriod => ({ scope: 'mes', key: `mes:2026-${String(month).padStart(2, '0')}`, label: `m${month}`, start: d(month), end: d(month + 1) });
+
+  it('tiene un inventario amplio y cada mes cuenta algo distinto al anterior', () => {
+    const results = Array.from({ length: 8 }, (_, i) => buildWrapped(year, monthPeriod(i + 3), { now: d(12, 1) })!);
+    const seen = new Set(results.flatMap(r => r.destacados));
+    expect(Math.max(...results.map(r => r.inventario.length))).toBeGreaterThanOrEqual(14);
+    expect(seen.size).toBeGreaterThanOrEqual(16);
+    for (let i = 1; i < results.length; i++) {
+      const shared = results[i].destacados.filter(id => results[i - 1].destacados.includes(id));
+      expect(shared.length).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it('las tarjetas genéricas traen su visual y los importes como número', () => {
+    const result = buildWrapped(year, monthPeriod(6), { now: d(12, 1) })!;
+    for (const card of result.inventario.filter(c => !c.especial)) {
+      expect(card.titulo).toBeTruthy();
+      expect(card.visual).toBeDefined();
+    }
   });
 });

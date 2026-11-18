@@ -35,40 +35,38 @@ describe('WrappedStories', () => {
     vi.restoreAllMocks();
   });
 
-  it('muestra la portada, avanza con → y con clic en la mitad derecha, retrocede con ← y cierra con Esc', () => {
+  it('muestra la portada, avanza con → y con clic, retrocede con ← y cierra con Esc', () => {
     const onClose = vi.fn();
     const data = buildWrapped(sampleMovements, october, { now: d(11, 3) })!;
     render(<WrappedStories data={data} onClose={onClose} />);
+    const current = () => document.querySelector('main[data-slide-id]')?.getAttribute('data-slide-id');
 
-    // 1. Portada
     const dialog = screen.getByRole('dialog', { name: /Wrapped de octubre/i });
-    expect(dialog).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /Tu octubre en Flowt/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Tu\s*octubre\s*en Flowt/i })).toBeInTheDocument();
+    expect(current()).toBe('portada');
 
-    // Avanza con tecla → a la diapositiva 2 (Gasto total)
     fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(current()).toBe('gasto-total');
     expect(screen.getByText(/Gasto total/i)).toBeInTheDocument();
 
-    // Avanza con clic en la mitad derecha a la diapositiva 3 (Categorías)
+    // A tap on the right two thirds goes forward, like stories.
     fireEvent.click(dialog, { clientX: 800 });
-    expect(screen.getByRole('heading', { name: /A dónde se fue tu dinero/i })).toBeInTheDocument();
-
-    // También avanza pulsando la zona derecha directamente
+    expect(current()).toBe(data.destacados[0]);
     fireEvent.click(screen.getByRole('button', { name: /Siguiente diapositiva/i }));
-    expect(screen.getByText(/Tu parada habitual/i)).toBeInTheDocument();
+    expect(current()).toBe(data.destacados[1]);
 
-    // Retrocede con tecla ←
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
-    expect(screen.getByRole('heading', { name: /A dónde se fue tu dinero/i })).toBeInTheDocument();
+    expect(current()).toBe(data.destacados[0]);
+    fireEvent.click(screen.getByRole('button', { name: /Diapositiva anterior/i }));
+    expect(current()).toBe('gasto-total');
 
-    // Esc cierra el overlay
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('muestra solo las tarjetas del inventario que tienen datos', () => {
     // 5 días consecutivos con cargos de suscripción cubriendo todo el periodo [1 oct, 6 oct):
-    // comercioFavorito = null, rachaSinGastos.dias = 0, curiosidades = []
+    // comercioFavorito = null, rachaSinGastos.dias = 0
     const shortPeriod: WrappedPeriod = { ...october, end: d(10, 6) };
     const subOnly: Movimiento[] = Array.from({ length: 5 }, (_, i) => ({
       id: `s-${i}`,
@@ -82,33 +80,35 @@ describe('WrappedStories', () => {
     const data = buildWrapped(subOnly, shortPeriod, { now: d(10, 5) })!;
     expect(data.comercioFavorito).toBeNull();
     expect(data.rachaSinGastos.dias).toBe(0);
-    expect(data.curiosidades).toEqual([]);
-
-    // Solo entran las tarjetas destacadas que tienen datos: ni comercio favorito ni racha.
     expect(data.destacados).not.toContain('comercios');
     expect(data.destacados).not.toContain('racha');
     render(<WrappedStories data={data} onClose={vi.fn()} />);
 
-    // Portada, gasto total, categorías, ahorro, personalidad y resumen, más las destacadas.
-    const slides = 6 + data.destacados.length;
+    // Portada, gasto total, personalidad y resumen, más las destacadas.
+    const slides = 4 + data.destacados.length;
     const progress = screen.getByRole('progressbar', { name: /Progreso del Wrapped/i });
     expect(progress).toHaveAttribute('aria-valuemax', String(slides));
 
-    const visitedHeadings: string[] = [];
+    const visited: string[] = [];
     for (let i = 0; i < slides; i++) {
-      visitedHeadings.push(document.body.textContent ?? '');
+      visited.push(document.querySelector('main[data-slide-id]')!.getAttribute('data-slide-id')!);
       fireEvent.keyDown(window, { key: 'ArrowRight' });
     }
-    const allText = visitedHeadings.join(' ');
-    expect(allText).not.toContain('Tu parada habitual');
-    expect(allText).not.toContain('Mayor racha sin gastar');
-    // Una tarjeta genérica del inventario: el peso de las suscripciones.
-    expect(allText).toContain('En piloto automático');
+    expect(visited).toEqual(['portada', 'gasto-total', ...data.destacados, 'personalidad', 'resumen']);
     expect(screen.getByRole('button', { name: /Ver otra vez/i })).toBeInTheDocument();
 
-    // "Ver otra vez" vuelve a la portada
     fireEvent.click(screen.getByRole('button', { name: /Ver otra vez/i }));
-    expect(screen.getByRole('heading', { name: /Tu octubre en Flowt/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Tu\s*octubre\s*en Flowt/i })).toBeInTheDocument();
+  });
+
+  it('pinta las tarjetas genéricas con su titular y su detalle', () => {
+    const data = buildWrapped(sampleMovements, october, { now: d(11, 3) })!;
+    const generic = data.inventario.find(card => !card.especial && card.titulo)!;
+    render(<WrappedStories data={{ ...data, destacados: [generic.id] }} onClose={vi.fn()} />);
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(screen.getByRole('heading', { name: generic.titulo })).toBeInTheDocument();
+    if (generic.detalle) expect(screen.getByText(generic.detalle)).toBeInTheDocument();
   });
 
   it('muestra "hasta hoy" cuando el periodo anual es parcial y permite compartir al portapapeles', async () => {
@@ -126,11 +126,11 @@ describe('WrappedStories', () => {
     const onShareToast = vi.fn();
 
     render(<WrappedStories data={data} onClose={vi.fn()} onShareToast={onShareToast} />);
-    expect(screen.getByRole('heading', { name: /Tu 2026 en Flowt/i })).toBeInTheDocument();
-    expect(screen.getByText(/hasta hoy/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Tu\s*2026\s*en Flowt/i })).toBeInTheDocument();
+    expect(screen.getByText(/^hasta hoy$/i)).toBeInTheDocument();
 
     // Avanzar hasta el resumen final
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 20; i++) {
       fireEvent.keyDown(window, { key: 'ArrowRight' });
     }
     fireEvent.click(screen.getByRole('button', { name: /Compartir/i }));
