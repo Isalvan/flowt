@@ -396,7 +396,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
         
         # If no huchas exist, create default
         if not huchas_state and not new_hucha_ref:
-            logger.info(f"No huchas found for user {owner_id}. Creating default 'Cuenta Principal'.")
+            logger.info("No huchas found. Creating default 'Cuenta Principal'.")
             new_hucha_ref = huchas_ref.document()
             target_gasto_hucha_id = new_hucha_ref.id
             
@@ -449,7 +449,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                     total_percentage = percentage_total(distribution_huchas)
                     logger.error(f"Total percentage ({total_percentage}%) exceeds 100%. Income not distributed.")
                 else:
-                    logger.error(f"No eligible huchas found for user {owner_id}. Income not distributed.")
+                    logger.error("No eligible huchas found. Income not distributed.")
             else:
                 for h_id, delta in split["saldos"].items():
                     huchas_state[h_id]["saldo_actual"] += euros(delta)
@@ -461,8 +461,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                 if new_hucha_ref:
                     new_hucha_has_income = True
                 if split["deudas"]:
-                    payment = euros(sum(debt["importe"] for debt in split["deudas"].values()))
-                    logger.info(f"Intercepted {payment} from income allocation to repay debts: {split['deudas']}")
+                    logger.info("Income allocation repaid debts of %s hucha(s).", len(split["deudas"]))
         else:
             # Es gasto
             target_hucha_id = find_subscription_hucha(
@@ -501,7 +500,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
             new_hucha_data["saldo_acumulado"] = huchas_state[new_hucha_ref.id]["saldo_actual"]
         new_hucha_data["saldo_acumulado"] = euros(cents(new_hucha_data["saldo_acumulado"]))
         transaction.set(new_hucha_ref, new_hucha_data)
-        logger.info(f"Created default hucha {new_hucha_ref.id} with balance {new_hucha_data['saldo_acumulado']:.2f}")
+        logger.info("Created default hucha %s.", new_hucha_ref.id)
 
     for h_id, h_info in huchas_state.items():
         original_balance = float(h_info["data"].get("saldo_acumulado", 0) or 0)
@@ -528,7 +527,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                     update_data["deuda_con"] = firestore.DELETE_FIELD
                 
             transaction.update(h_info["ref"], update_data)
-            logger.info(f"Updated hucha {h_id} balance by {new_balance - original_balance:.2f} (New: {new_balance:.2f}), deuda: {new_deuda:.2f}")
+            logger.info("Updated hucha %s (%s).", h_id, ", ".join(field for field in update_data if field != "updated_at"))
 
     # Update stats
     if stats_changes["ingresos"] > 0 or stats_changes["gastos"] > 0:
@@ -597,7 +596,8 @@ def save_to_pending_review(email: Dict[str, Any], motivo: str) -> bool:
             "banco": infer_bank_from_sender(email.get("from", "")),
             "created_at": firestore.SERVER_TIMESTAMP
         })
-        logger.info(f"Email {email['id']} saved to manual review queue. Reason: {motivo}")
+        # The reason can carry mail headers; the log is public, the queue is not.
+        logger.info("Email %s saved to manual review queue.", email["id"])
         return True
     except Exception as e:
         logger.error(f"Failed to save email {email['id']} to pending review: {e}")
@@ -660,16 +660,13 @@ def process_emails():
         
         sender_normalized = extract_email(email["from"])
         if ALLOWED_BANK_SENDERS and sender_normalized not in ALLOWED_BANK_SENDERS:
-            logger.warning(
-                f"Sender mismatch for {email_id}. "
-                f"Expected one of {sorted(ALLOWED_BANK_SENDERS)}, got {sender_normalized}"
-            )
+            logger.warning("Sender mismatch for %s: sender is not in BANK_SENDER.", email_id)
             continue
             
         auth_results = email.get("auth_results", "").lower()
         if auth_results:
             if "spf=pass" not in auth_results and "dkim=pass" not in auth_results and "dmarc=pass" not in auth_results:
-                logger.warning(f"Auth failed for {email_id}: {auth_results}")
+                logger.warning("Auth failed for %s.", email_id)
                 if save_to_pending_review(email, f"Fallo de autenticación: {auth_results}"):
                     if review_enabled():
                         finish_pending_handoff(email)
@@ -804,7 +801,7 @@ def process_emails():
                     except:
                         fecha_dt = datetime.now(timezone.utc)
             except Exception as date_err:
-                logger.warning(f"Date parsing failed for {raw_fecha}: {date_err}. Using email_date.")
+                logger.warning("Date parsing failed for movement %s from email %s. Using email_date.", index, email_id)
                 try:
                     fecha_dt = parsedate_to_datetime(email_date)
                 except:
@@ -814,7 +811,7 @@ def process_emails():
                 try:
                     email_date_dt = parsedate_to_datetime(email_date)
                     if abs((fecha_dt - email_date_dt).days) > 7:
-                        logger.warning(f"Date {fecha_dt} is too far from email date {email_date_dt}.")
+                        logger.warning("Movement %s from email %s discarded: date too far from the email date.", index, email_id)
                         has_low_confidence = True
                         continue
                 except Exception:

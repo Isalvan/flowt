@@ -55,7 +55,7 @@ def parse_amount(amount_str: str) -> Optional[float]:
         # 4. Pure digits
         return float(amount_str)
     except Exception as e:
-        logger.error(f"Failed to parse amount string '{amount_str}': {e}")
+        logger.error("Failed to parse an amount string (%s).", type(e).__name__)
         return None
 
 # Fallback logic for when AI fails
@@ -158,7 +158,7 @@ def fallback_extract_movement(body: str, email_date: str) -> Optional[List[Dict[
                 "confianza": "baja"
             }]
     except Exception as e:
-        logger.error(f"Fallback extraction failed: {e}")
+        logger.error("Fallback extraction failed (%s).", type(e).__name__)
     
     return None
 
