@@ -89,7 +89,8 @@ def get_unread_emails_from_bank(bank_sender: Any, max_results: int = 10) -> List
             from_clauses = " OR ".join([f"from:{s}" for s in senders])
             query = f"is:unread ({from_clauses})"
 
-        logger.info(f"Executing Gmail search query: {query}")
+        # The query holds the bank addresses; log only how many there are.
+        logger.info("Searching Gmail for unread mail from %s sender(s).", len(senders))
         results = service.users().messages().list(userId='me', q=query, maxResults=max_results).execute()
         messages = results.get('messages', [])
 

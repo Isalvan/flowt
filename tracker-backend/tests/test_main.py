@@ -650,7 +650,7 @@ def test_email_income_with_only_cash_still_records_movement_and_stats(mock_confi
     assert saved["income-0"]["importe"] == 100
     assert "reparto_aplicado" not in saved["income-0"]
     assert stats["total_ingresos"] == 100
-    log_error.assert_called_once_with("No eligible huchas found for user test_user_123. Income not distributed.")
+    log_error.assert_called_once_with("No eligible huchas found. Income not distributed.")
 
 
 def test_email_income_writes_whole_cents_for_half_of_three_cents(mock_config):
@@ -812,3 +812,48 @@ def test_debt_to_an_unavailable_lender_stays_pending_and_no_money_is_lost(mock_c
         "h-fija": {"saldo_acumulado": 40.0, "updated_at": main.firestore.SERVER_TIMESTAMP},
         "h-resto": {"saldo_acumulado": 60.0, "updated_at": main.firestore.SERVER_TIMESTAMP},
     }
+
+
+# The scheduled sync runs in GitHub Actions, whose logs are public for a public repo:
+# they must never show balances, debts, amounts or bank addresses.
+def assert_log_is_private(caplog, *secrets):
+    text = caplog.text
+    assert not any(secret in text for secret in secrets), text
+
+
+def test_sync_log_shows_no_balances_or_debts(mock_config, caplog):
+    caplog.set_level("INFO")
+    huchas = [
+        hucha_doc("debtor", orden=1, tipo_aportacion="flat", valor_aportacion=40,
+                  saldo_acumulado=1234.56, deuda_pendiente=60, deuda_con="rest"),
+        hucha_doc("rest", orden=2, tipo_aportacion="resto", saldo_acumulado=789.01),
+    ]
+    process_income_email(mock_config, huchas, [50])
+    assert "Updated hucha debtor (saldo_acumulado, deuda_pendiente)" in caplog.text
+    assert_log_is_private(caplog, "1234", "789", "40.0", "20.0", "50.0", "60.0", "test_user_123")
+
+
+def test_sync_log_hides_the_balance_of_a_new_main_wallet(mock_config, caplog):
+    caplog.set_level("INFO")
+    process_income_email(mock_config, [], [123.45])
+    assert "Created default hucha new-main." in caplog.text
+    assert_log_is_private(caplog, "123.45", "test_user_123")
+
+
+def test_sync_log_hides_bank_addresses_on_sender_mismatch(mock_config, mock_gmail_client, mock_gemini, caplog):
+    mock_get, _ = mock_gmail_client
+    mock_get.return_value = [{
+        "id": "spoofed", "from": "someone@elsewhere.test",
+        "date_sent": "Sat, 11 Apr 2026 20:36:55 +0200", "body": "Ingreso 100 EUR",
+    }]
+    with patch.object(main, "ALLOWED_BANK_SENDERS", frozenset({"alertas@unicaja.es"})):
+        main.process_emails()
+    assert "Sender mismatch for spoofed" in caplog.text
+    assert_log_is_private(caplog, "someone@elsewhere.test", "alertas@unicaja.es")
+
+
+def test_fallback_log_hides_unparsed_amounts(caplog):
+    from fallback_logic import parse_amount
+    assert parse_amount("98,7x6") is None
+    assert "Failed to parse an amount string" in caplog.text
+    assert_log_is_private(caplog, "98", "7x6")
