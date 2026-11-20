@@ -1,11 +1,13 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { CalendarClock, History, Hourglass, LockKeyhole, Split, type LucideIcon } from 'lucide-react';
 import type { Hucha, Movimiento, Suscripcion } from '../../types';
 import { usePrivacy } from '../../context/PrivacyContext';
+import { payrollPace } from '../../utils/payrollPace';
 import { payrollSummary } from '../../utils/payrollSummary';
 import { periodRangeLabel } from '../../utils/periods';
 import { walletAccent } from '../../utils/walletAccent';
 import { ServiceIcon } from '../dashboard/ServiceIcon';
+import { PayrollPaceCard } from './PayrollPaceCard';
 
 interface NominaViewProps { movimientos: Movimiento[]; huchas: Hucha[]; suscripciones: Suscripcion[] }
 const green = 'text-emerald-600 dark:text-emerald-400';
@@ -29,6 +31,7 @@ function MoneyRow({ label, children, color = 'text-ink', strong = false }: { lab
 export function NominaView({ movimientos, huchas, suscripciones }: NominaViewProps) {
   const { formatCurrency, isLocked, openUnlockModal } = usePrivacy();
   const summary = isLocked ? null : payrollSummary(movimientos, huchas, suscripciones);
+  const pace = useMemo(() => isLocked ? null : payrollPace(movimientos, huchas), [isLocked, movimientos, huchas]);
   const activeWallets = huchas.filter(hucha => hucha.activa !== false);
   const days = summary?.proxima.dias ?? 0;
   const remainingLabel = days === 0 ? 'hoy' : days === 1 ? 'mañana' : `en ${days} días`;
@@ -100,6 +103,7 @@ export function NominaView({ movimientos, huchas, suscripciones }: NominaViewPro
           </> : <div className="dashboard-empty"><p>No hay cargos antes de la próxima nómina</p></div>}
         </section>
       </div>
+      {pace && <PayrollPaceCard pace={pace} />}
       {/* Closes the page across both columns, so neither column ends in a gap. */}
       {summary.periodoAnterior && <section className="dashboard-surface p-5 lg:col-span-3">
         <CardHeader icon={History} title="El periodo anterior" subtitle={periodRangeLabel(summary.periodoAnterior.period)} />

@@ -34,6 +34,7 @@ describe('NominaView', () => {
     expect(privacy.openUnlockModal).toHaveBeenCalledOnce();
     expect(screen.queryByText('Última nómina')).not.toBeInTheDocument();
     expect(screen.queryByText(/Cobrada el/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Tu ritmo de gasto')).not.toBeInTheDocument();
   });
   it('shows the empty state without dates', () => {
     renderView([]);
@@ -67,5 +68,15 @@ describe('NominaView', () => {
     vi.setSystemTime(new Date(2026, 9, day, 12));
     renderView();
     expect(screen.getByText(/Cobrada el/).textContent).toContain(label);
+  });
+  it('compares the spending pace with earlier payrolls once there are two of them', () => {
+    renderView([...movimientos, { id: 'older', tipo: 'ingreso', concepto: 'Nómina', categoria: 'nomina', importe: 1900, fecha_operacion: new Date(2026, 6, 28) }]);
+    expect(screen.getByText('Tu ritmo de gasto')).toBeInTheDocument();
+    expect(screen.getByText('Comparado con tus últimas 2 nóminas')).toBeInTheDocument();
+    expect(screen.getByText(/tu ritmo habitual$/)).toBeInTheDocument();
+  });
+  it('shows the pace card empty with a single earlier payroll', () => {
+    renderView();
+    expect(screen.getByText('Aún no hay con qué comparar')).toBeInTheDocument();
   });
 });
