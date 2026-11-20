@@ -547,6 +547,20 @@ describeRules('Firestore Rules - Frontend fields', () => {
     }));
   });
 
+  it('Should not let the subscriptions wallet be unmarked and then deleted', async () => {
+    if (!testEnv) return;
+    await testEnv.withSecurityRulesDisabled(async (admin) => {
+      await setDoc(doc(admin.firestore(), 'huchas', 'subs_locked'), {
+        id_propietario: 'user_123', nombre: 'Suscripciones', tipo_aportacion: 'flat', saldo_acumulado: 0,
+        es_principal: false, es_suscripciones: true, activa: true,
+      });
+    });
+    const db = testEnv.authenticatedContext('user_123').firestore();
+    await assertFails(updateDoc(doc(db, 'huchas', 'subs_locked'), { es_suscripciones: false }));
+    await assertFails(deleteDoc(doc(db, 'huchas', 'subs_locked')));
+    await assertSucceeds(updateDoc(doc(db, 'huchas', 'subs_locked'), { nombre: 'Mis suscripciones' }));
+  });
+
   it('Should allow the automatic cash wallet creation', async () => {
     if (!testEnv) return;
     const context = testEnv.authenticatedContext('user_123');

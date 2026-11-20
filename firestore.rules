@@ -149,7 +149,9 @@ service cloud.firestore {
                        (!('extra_ultimo' in request.resource.data) || request.resource.data.extra_ultimo == null || (request.resource.data.extra_ultimo is string && request.resource.data.extra_ultimo.size() == 7)) &&
                        isNumber('saldo_acumulado') &&
                        (!('tipo_aportacion' in request.resource.data) || request.resource.data.tipo_aportacion == null || request.resource.data.tipo_aportacion in ['flat', 'porcentaje', 'resto']) &&
-                       (!('es_suscripciones' in resource.data) || resource.data.es_suscripciones == false || request.resource.data.keys().hasAll(['saldo_acumulado']));
+                       (!('es_suscripciones' in resource.data) || resource.data.es_suscripciones == false || request.resource.data.keys().hasAll(['saldo_acumulado'])) &&
+                       // Once a wallet is the subscriptions one it stays so; otherwise unmarking it would bypass the delete guard below.
+                       (!('es_suscripciones' in resource.data) || resource.data.es_suscripciones != true || request.resource.data.es_suscripciones == true);
       
       allow delete: if isDocOwner() && (!('es_suscripciones' in resource.data) || resource.data.es_suscripciones == false);
     }
