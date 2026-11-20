@@ -13,6 +13,7 @@ import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
 import { BanksCard } from "./BanksCard";
 import { SmallPurchasesCard } from "./SmallPurchasesCard";
+import { DominoCard } from "./DominoCard";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { PredictiveChart } from "./LazyCharts";
 import { MoneyFlowCard } from "./MoneyFlowCard";
@@ -605,7 +606,12 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         />
       </div>
 
-      <div className="rise" style={step(6)}>
+      {/* Sin cadenas la tarjeta no pinta nada y el hueco desaparece. */}
+      <div className="rise empty:hidden" style={step(6)}>
+        <DominoCard movimientos={props.chartMovements} />
+      </div>
+
+      <div className="rise" style={step(7)}>
         <ActivityList
           movimientos={props.movimientos}
           allMovimientos={props.chartMovements}
