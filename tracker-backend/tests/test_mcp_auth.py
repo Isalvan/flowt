@@ -98,7 +98,7 @@ def test_a_client_discovers_registers_gets_consent_and_calls_tools(flow):
     preview = client.post("/oauth/authorize/preview", headers=WEB, json={"params": request_params(client_id)})
     assert preview.json == {"client_name": "Claude", "scopes": ["flowt:read", "flowt:write"], "redirect_host": "claude.ai", "local": False}
 
-    decision = client.post("/oauth/authorize/decision", headers=WEB, json={"params": request_params(client_id), "approve": True})
+    decision = client.post("/oauth/authorize/decision", headers=WEB, json={"params": request_params(client_id), "approve": True, "write": True})
     back = urlsplit(decision.json["redirect_to"])
     query = parse_qs(back.query)
     assert f"{back.scheme}://{back.netloc}{back.path}" == CALLBACK and query["state"] == ["xyz"] and query["iss"] == [BASE]
@@ -154,6 +154,14 @@ def test_codes_expire_and_belong_to_the_client_that_asked(flow):
         data["expires_at"] = now() - timedelta(seconds=1)
     assert exchange(client, client_id, code).json["error"] == "invalid_grant"
     assert exchange(client, "flowt-unknown", code).status_code == 401
+
+
+def test_consent_without_the_write_choice_is_read_only(flow):
+    client, _ = flow
+    client_id = register(client).json["client_id"]
+    decision = client.post("/oauth/authorize/decision", headers=WEB, json={"params": request_params(client_id), "approve": True})
+    code = parse_qs(urlsplit(decision.json["redirect_to"]).query)["code"][0]
+    assert exchange(client, client_id, code).json["scope"] == "flowt:read"
 
 
 def test_read_only_consent_cannot_change_anything(flow):

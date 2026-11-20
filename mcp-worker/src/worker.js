@@ -86,10 +86,11 @@ async function readForm(request) {
 /**
  * Builds the Worker. `deps` replaces the Firestore client, the Firebase session
  * check and the clock in tests.
- * @param {{ db?: object, verifyIdToken?: (token: string) => Promise<string>, now?: () => Date, fetch?: typeof fetch }} [deps]
+ * @param {{ db?: object, verifyIdToken?: (token: string) => Promise<string>, allowedUids?: readonly string[], now?: () => Date, fetch?: typeof fetch }} [deps]
  */
 export function createWorker(deps = {}) {
   const now = deps.now || (() => new Date());
+  const permittedUids = deps.allowedUids || allowedUids;
   const ipLimiter = createRateLimiter({ limit: RATE_LIMITS.perIpPerMinute, windowMs: 60_000, now: () => now().getTime() });
   const userLimiter = createRateLimiter({ limit: RATE_LIMITS.perUserToolCallsPerMinute, windowMs: 60_000, now: () => now().getTime() });
   const ticketLimiter = createRateLimiter({ limit: TICKET_RATE_LIMIT, windowMs: 60_000, now: () => now().getTime() });
@@ -149,7 +150,8 @@ export function createWorker(deps = {}) {
       if (pilot.length >= 32 && env.FLOWT_MCP_OWNER_UID && sameSecret(token, pilot)) return { uid: env.FLOWT_MCP_OWNER_UID, scopes: [SCOPE_REVIEW] };
       if (token.startsWith('flowt_')) {
         const granted = oauth ? await oauth.authenticate(token) : null;
-        if (!granted) throw new FlowtError('unauthorized', 'Credenciales no válidas');
+        // A grant outlives the allowlist: check the account again on every call.
+        if (!granted || !permittedUids.includes(granted.uid)) throw new FlowtError('unauthorized', 'Credenciales no válidas');
         return granted;
       }
       return { uid: await verifyIdToken(token), scopes: ALL_SCOPES };
@@ -210,7 +212,7 @@ export function createWorker(deps = {}) {
         if (path === '/api/connections/revoke') return json({ revoked: await oauth.disconnect(owner, body.connection_id) }, 200, cors);
         if (path === '/oauth/authorize/preview') return json(await oauth.describe(body.params), 200, cors);
         if (path === '/oauth/authorize/decision' && typeof body.approve === 'boolean') {
-          return json({ redirect_to: await oauth.decide(owner, body.params, body.approve, body.write !== false) }, 200, cors);
+          return json({ redirect_to: await oauth.decide(owner, body.params, body.approve, body.write === true) }, 200, cors);
         }
         throw invalid();
       });

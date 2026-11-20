@@ -151,6 +151,12 @@ describe('movements', () => {
     expect((await service.list_huchas('owner')).items.map((h) => h.id)).toEqual(['main', 'trip', 'fixed']);
   });
 
+  it('never resolves a wallet id to an inherited object member', async () => {
+    for (const id of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+      await refused('invalid_hucha', () => service.transfer_between_huchas('owner', { from_hucha_id: 'main', to_hucha_id: id, importe: 1 }));
+    }
+  });
+
   it('records a cash withdrawal as an internal transfer removed as a whole', async () => {
     const result = await service.create_cash_withdrawal('owner', { hucha_origen_id: 'main', importe: 60, concepto: 'Cajero', fecha_operacion: '2026-10-02' });
     const [outLeg, inLeg] = result.movements;

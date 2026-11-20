@@ -507,7 +507,7 @@ def create_app(service=None, verifier=None, finance=None, oauth=None, ticket_cli
             if action == "preview":
                 return jsonify(server.describe(body.get("params")))
             if action == "decision" and isinstance(body.get("approve"), bool):
-                return jsonify({"redirect_to": server.decide(owner, body.get("params"), body["approve"], body.get("write") is not False)})
+                return jsonify({"redirect_to": server.decide(owner, body.get("params"), body["approve"], body.get("write") is True)})
             raise OAuthError("invalid_request", "Petición no válida")
         return oauth_endpoint(authorize)
 

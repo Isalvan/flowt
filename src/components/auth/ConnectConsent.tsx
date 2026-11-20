@@ -19,7 +19,8 @@ export function ConnectConsent({ email, onLogout, navigate = leave }: { email?: 
   const params = useMemo(() => Object.fromEntries(new URLSearchParams(window.location.search)), []);
   const available = !!connectionsApiUrl();
   const [view, setView] = useState<View>({ step: 'loading' });
-  const [write, setWrite] = useState(true);
+  // Read-only unless the user opts in: emails and concepts reaching the assistant are untrusted text.
+  const [write, setWrite] = useState(false);
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState('');
 
