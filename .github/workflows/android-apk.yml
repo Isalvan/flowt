@@ -45,8 +45,9 @@ jobs:
       VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
       VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
       VITE_REVIEW_API_URL: ${{ vars.VITE_REVIEW_API_URL }}
-      # Publish only from main/manual runs, and only once the signing secrets exist (see docs/ANDROID.md).
-      PUBLISH: ${{ github.event_name != 'pull_request' && secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.GOOGLE_SERVICES_JSON != '' }}
+      # Publish only from main (pushes or manual runs), and only once the signing secrets exist (see docs/ANDROID.md).
+      # A manual run on any other branch only checks that it builds: it never replaces the public APK.
+      PUBLISH: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.GOOGLE_SERVICES_JSON != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -61,7 +62,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Note missing signing secrets
-        if: github.event_name != 'pull_request' && env.PUBLISH != 'true'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && env.PUBLISH != 'true'
         run: echo "::notice::Sin GOOGLE_SERVICES_JSON y ANDROID_KEYSTORE_BASE64 solo se comprueba que compila; no se publica el APK. Ver docs/ANDROID.md."
       - name: Build the web app and copy it into Android
         run: |

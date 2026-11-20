@@ -113,7 +113,7 @@ def setup_config(cli_args=None):
                 firebase_admin.initialize_app()
             logger.info("Firebase initialized successfully.")
         except Exception as e:
-            logger.error(f"Failed to initialize Firebase: {e}")
+            logger.error("Failed to initialize Firebase: %s", type(e).__name__)
             # In tests we might not want to exit(1)
             if __name__ == "__main__":
                 exit(1)
@@ -554,7 +554,7 @@ def notify_owner(movements: List[Dict[str, Any]]) -> None:
         if sent:
             logger.info(f"Push notification sent to {sent} device(s).")
     except Exception as e:
-        logger.warning(f"Push notification skipped: {e}")
+        logger.warning("Push notification skipped: %s", type(e).__name__)
 
 
 def extract_email(header_value: str) -> str:
@@ -600,7 +600,7 @@ def save_to_pending_review(email: Dict[str, Any], motivo: str) -> bool:
         logger.info("Email %s saved to manual review queue.", email["id"])
         return True
     except Exception as e:
-        logger.error(f"Failed to save email {email['id']} to pending review: {e}")
+        logger.error("Failed to save email %s to pending review: %s", email['id'], type(e).__name__)
         return False
 
 @firestore.transactional
@@ -882,11 +882,11 @@ def process_emails():
                         })
                         logger.info(f"Email {email_id} saved to correos_historico with 90-day TTL.")
                     except Exception as e:
-                        logger.error(f"Failed to save email {email_id} to correos_historico: {e}")
+                        logger.error("Failed to save email %s to correos_historico: %s", email_id, type(e).__name__)
                 else:
                     logger.info(f"All movements for email {email_id} already existed. Skipping.")
             except Exception as e:
-                logger.error(f"Error saving batch movements for email {email_id}: {e}")
+                logger.error("Error saving batch movements for email %s: %s", email_id, type(e).__name__)
                 has_low_confidence = True
                 if review_enabled():
                     continue
@@ -938,7 +938,7 @@ def gmail_webhook(request):
         process_emails()
         return ("Correos procesados correctamente", 200)
     except Exception as e:
-        logger.error(f"Error en el Webhook: {e}")
+        logger.error("Error en el Webhook: %s", type(e).__name__)
         return ("Ocurrió un error interno al procesar los correos", 500)
 
 if __name__ == "__main__":
