@@ -27,6 +27,7 @@ def flow(monkeypatch):
     monkeypatch.setenv("FLOWT_REVIEW_ALLOWED_ORIGINS", BASE)
     monkeypatch.delenv("FLOWT_MCP_TOKEN", raising=False)
     monkeypatch.delenv("FLOWT_MCP_WRITES_ENABLED", raising=False)
+    monkeypatch.setattr("mcp_server.ALLOWED_UIDS", ["owner", "other"])
 
     def firebase(token, check_revoked=False):
         if not token.startswith("firebase-"):

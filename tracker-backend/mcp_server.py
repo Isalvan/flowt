@@ -217,9 +217,13 @@ def authenticate_web(header):
     try:
         if not firebase_admin._apps:
             firebase_admin.initialize_app()
-        return auth.verify_id_token(token, check_revoked=True)["uid"]
+        uid = auth.verify_id_token(token, check_revoked=True)["uid"]
     except Exception:
         raise ReviewError("unauthorized", "Credenciales no válidas") from None
+    # Same allowlist as firestore.rules and the Worker: the Admin SDK bypasses the rules.
+    if uid not in ALLOWED_UIDS:
+        raise ReviewError("unauthorized", "Credenciales no válidas")
+    return uid
 
 
 def authenticate(header, oauth=None):
@@ -230,6 +234,8 @@ def authenticate(header, oauth=None):
         return Principal(owner, frozenset({SCOPE_REVIEW}))
     granted = oauth.authenticate(token) if oauth and token else None
     if granted:
+        if granted[0] not in ALLOWED_UIDS:
+            raise ReviewError("unauthorized", "Credenciales no válidas")
         return Principal(*granted)
     return Principal(authenticate_web(header))
 
