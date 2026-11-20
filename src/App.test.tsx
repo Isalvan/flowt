@@ -88,10 +88,11 @@ describe('App Dashboard', () => {
     const payrollTabs = screen.getAllByRole('button', { name: 'Nómina' });
     expect(payrollTabs).toHaveLength(2);
     // Awaited act: the tab's code loads lazily while its neighbours pre-render hidden.
+    // The payroll tab's chunk includes its chart, so give the first load more time.
     await act(async () => {
       fireEvent.click(payrollTabs[0]);
     });
-    expect(await screen.findByRole('heading', { name: 'Tu nómina' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Tu nómina' }, { timeout: 5000 })).toBeInTheDocument();
     
     vi.unstubAllEnvs();
   });

@@ -1,7 +1,8 @@
 import type { Hucha, Movimiento, Suscripcion } from '../types';
-import { roundMoney, splitIncome } from './incomeSplit';
+import { roundMoney } from './incomeSplit';
 import { cuentaEnEstadisticas, importeEnEstadisticas } from './movements';
 import { isPayrollMovement } from './payroll';
+import { freeAmount, freeWalletOf, isFreeSpending, payrollSplit } from './payrollFree';
 import { payrollDates, periodOf, previousPeriod } from './periods';
 import { parseMovimientoDate } from './periodStats';
 import { getCancellationDate, getEffectiveSubscriptionAmount, getSubscriptionChargeForMonth, parseSubscriptionDate } from './subscriptions';
@@ -21,28 +22,22 @@ export function payrollSummary(movimientos: Movimiento[], huchas: Hucha[], suscr
   const nominas = payrollDates(candidates.map(candidate => candidate.movimiento));
   const period = periodOf(now, 'nomina', nominas);
   const dias = Math.max(0, dayNumber(period.end) - dayNumber(now));
-  const activeWallets = huchas.filter(hucha => hucha.activa !== false);
   const subscriptionWallets = huchas.filter(hucha => hucha.es_suscripciones);
-  const freeWallet = activeWallets.find(hucha => hucha.tipo_aportacion === 'resto')
-    ?? activeWallets.find(hucha => hucha.es_principal);
+  const freeWallet = freeWalletOf(huchas);
   const repartoRegistrado = latest.movimiento.reparto_aplicado != null;
-  const split = latest.movimiento.reparto_aplicado
-    ?? (activeWallets.some(hucha => !hucha.es_metalico) ? splitIncome(importe, huchas, { plain: true }) : { saldos: {}, deudas: {} });
+  const split = payrollSplit(latest.movimiento, huchas);
   const reparto = Object.entries(split.saldos).map(([huchaId, amount]) => ({
     huchaId, nombre: huchas.find(hucha => hucha.id === huchaId)?.nombre ?? 'Cartera eliminada',
     importe: roundMoney(amount), porcentaje: importe ? roundMoney(amount / importe * 100) : 0,
   })).sort((a, b) => b.importe - a.importe);
   const subscriptions = roundMoney(reparto.reduce((sum, row) => sum + (subscriptionWallets.some(h => h.id === row.huchaId) ? row.importe : 0), 0));
-  const libre = freeWallet && !freeWallet.es_suscripciones ? roundMoney(split.saldos[freeWallet.id] ?? 0) : 0;
+  const libre = freeAmount(split, freeWallet);
   // Debt repayments and allocations to deleted wallets also belong to savings.
   const ahorro = roundMoney(importe - subscriptions - libre);
-  // Spending charged to another wallet comes out of that wallet's money, not out of the free part.
-  const fromAnotherWallet = (movement: Movimiento) => huchas.some(hucha => hucha.id === movement.hucha_id
-    && hucha.id !== freeWallet?.id && !hucha.es_principal);
   const gastado = roundMoney(movimientos.reduce((sum, movement) => {
     const fecha = parseMovimientoDate(movement.fecha_operacion);
-    return movement.tipo === 'gasto' && cuentaEnEstadisticas(movement) && fecha && fecha >= latest.fecha && fecha <= now
-      && !fromAnotherWallet(movement) ? sum + importeEnEstadisticas(movement) : sum;
+    return fecha && fecha >= latest.fecha && fecha <= now && isFreeSpending(movement, huchas, freeWallet)
+      ? sum + importeEnEstadisticas(movement) : sum;
   }, 0));
   const queda = roundMoney(libre - gastado);
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
