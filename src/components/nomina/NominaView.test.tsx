@@ -79,4 +79,15 @@ describe('NominaView', () => {
     renderView();
     expect(screen.getByText('Aún no hay con qué comparar')).toBeInTheDocument();
   });
+  it('brings back what was paid around these dates last year, once there is a year of history', () => {
+    renderView();
+    expect(screen.queryByText('El eco del año pasado')).not.toBeInTheDocument();
+    renderView([...movimientos,
+      { id: 'old', tipo: 'gasto', concepto: 'Panadería', importe: 2, fecha_operacion: new Date(2025, 8, 1) },
+      { id: 'car', tipo: 'gasto', concepto: 'Seguro Coche Vía', importe: 320, fecha_operacion: new Date(2025, 9, 20) }]);
+    const echo = card('El eco del año pasado');
+    expect(echo.getByText('Podrían volver 320,00 € en los próximos 45 días')).toBeInTheDocument();
+    expect(echo.getByText('Hace un año, el 20 oct · en 9 días')).toBeInTheDocument();
+    expect(echo.getByText('Antes de tu próxima nómina')).toBeInTheDocument();
+  });
 });
