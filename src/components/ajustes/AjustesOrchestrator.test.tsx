@@ -62,7 +62,6 @@ describe('Ajustes en el móvil', () => {
     expect(screen.queryByText('Bancos de prueba')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /^Bancos/ }));
     expect(screen.getByText('Bancos de prueba')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Bancos' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Ajustes' }));
     expect(screen.queryByText('Bancos de prueba')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Tu dinero' })).toBeInTheDocument();

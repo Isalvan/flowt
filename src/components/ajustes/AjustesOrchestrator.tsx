@@ -106,7 +106,6 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
       { id: 'exportar', title: 'Exportar datos', icon: Download, subtitle: 'Descarga tus movimientos' },
     ] },
   ];
-  const titleOf = (tab: SubTab) => groups.flatMap(g => g.rows).find(r => r.id === tab)?.title ?? '';
 
   if (isPhone && subTab === null) {
     return (
@@ -145,13 +144,11 @@ export const AjustesOrchestrator: React.FC<AjustesOrchestratorProps> = ({
   return (
     <div className="w-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
+      {/* Each section brings its own title, so the screen only needs the way back. */}
       {isPhone && subTab && (
-        <div className="flex flex-col gap-1">
-          <button type="button" onClick={() => setChosen(null)} className="-ml-1 inline-flex w-fit items-center gap-0.5 rounded-lg py-1 pr-2 text-sm font-bold text-brand-ink">
-            <ChevronLeft size={18} aria-hidden="true" /> Ajustes
-          </button>
-          <h2 className="font-title text-[1.75rem] font-bold leading-tight text-ink">{titleOf(subTab)}</h2>
-        </div>
+        <button type="button" onClick={() => setChosen(null)} className="-mb-2 -ml-1 inline-flex w-fit items-center gap-0.5 rounded-lg py-1 pr-2 text-sm font-bold text-brand-ink">
+          <ChevronLeft size={18} aria-hidden="true" /> Ajustes
+        </button>
       )}
 
       {/* Elegante selector de sub-vista tipo píldora */}
