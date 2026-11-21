@@ -39,6 +39,16 @@ describe('Connection consent', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Autorizar' }));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('https://claude.ai/api/mcp/auth_callback?code=c&state=xyz'));
     expect(fetchMock.mock.calls[1][0]).toBe('https://api.example/oauth/authorize/decision');
+    expect(sent(1)).toEqual({ params: PARAMS, approve: true, write: true });
+  });
+
+  it('connects read-only unless the user ticks the write option', async () => {
+    fetchMock.mockResolvedValueOnce(response(REQUEST));
+    fetchMock.mockResolvedValueOnce(response({ redirect_to: 'https://claude.ai/api/mcp/auth_callback?code=c&state=xyz' }));
+    render(<ConnectConsent navigate={navigate} />);
+    expect(await screen.findByRole('checkbox', { name: /Hacer cambios/ })).not.toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar' }));
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
     expect(sent(1)).toEqual({ params: PARAMS, approve: true, write: false });
   });
 

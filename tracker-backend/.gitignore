@@ -1,6 +1,7 @@
 # Temporary files
 temp/
 *.txt
+!requirements*.txt
 *.log
 
 # Environment and Virtualenv

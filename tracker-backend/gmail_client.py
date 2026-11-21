@@ -54,7 +54,7 @@ def get_gmail_service():
         service = build('gmail', 'v1', credentials=creds)
         return service
     except HttpError as error:
-        logger.error(f'An error occurred: {error}')
+        logger.error('Gmail API error: HTTP %s', getattr(getattr(error, 'resp', None), 'status', '?'))
         return None
 
 def get_unread_emails_from_bank(bank_sender: Any, max_results: int = 10) -> List[Dict[str, str]]:
@@ -129,7 +129,7 @@ def get_unread_emails_from_bank(bank_sender: Any, max_results: int = 10) -> List
 
         return emails
     except HttpError as error:
-        logger.error(f'An error occurred: {error}')
+        logger.error('Gmail API error: HTTP %s', getattr(getattr(error, 'resp', None), 'status', '?'))
         return []
 
 def mark_email_as_read(message_id: str) -> bool:
@@ -148,5 +148,5 @@ def mark_email_as_read(message_id: str) -> bool:
         ).execute()
         return True
     except HttpError as error:
-        logger.error(f'An error occurred: {error}')
+        logger.error('Gmail API error: HTTP %s', getattr(getattr(error, 'resp', None), 'status', '?'))
         return False

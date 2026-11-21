@@ -204,6 +204,7 @@ def test_pilot_authentication_is_owner_scoped(monkeypatch):
     monkeypatch.setenv('FLOWT_MCP_OWNER_UID', 'pilot-owner')
     verify = Mock()
     monkeypatch.setattr('mcp_server.auth.verify_id_token', verify)
+    monkeypatch.setattr('mcp_server.ALLOWED_UIDS', ['firebase-owner'])
     pilot = authenticate('Bearer ' + token)
     assert pilot.uid == 'pilot-owner' and pilot.scopes == {'flowt:review'}
     verify.assert_not_called()
@@ -244,6 +245,7 @@ def test_pilot_mcp_token_cannot_access_manual_edit_api(monkeypatch):
 
 def test_firebase_authenticated_manual_edit_uses_verified_owner(monkeypatch):
     monkeypatch.setattr('mcp_server.auth.verify_id_token', Mock(return_value={'uid': 'firebase-owner'}))
+    monkeypatch.setattr('mcp_server.ALLOWED_UIDS', ['firebase-owner'])
     service = Mock()
     service.edit_movement.return_value = {'movement_id': 'm', 'changes': {'categoria': 'compras'}}
     client = create_app(service).test_client()
@@ -252,6 +254,33 @@ def test_firebase_authenticated_manual_edit_uses_verified_owner(monkeypatch):
     assert response.status_code == 200
     service.edit_movement.assert_called_once_with('firebase-owner', **args)
     assert response.json['changes']['categoria'] == 'compras'
+
+
+def test_firebase_accounts_outside_the_allowlist_are_rejected_everywhere(monkeypatch):
+    monkeypatch.delenv('FLOWT_MCP_TOKEN', raising=False)
+    monkeypatch.setattr('mcp_server.auth.verify_id_token', Mock(return_value={'uid': 'stranger'}))
+    monkeypatch.setattr('mcp_server.ALLOWED_UIDS', ['firebase-owner'])
+    with pytest.raises(ReviewError) as error:
+        authenticate('Bearer firebase-token')
+    assert error.value.code == 'unauthorized'
+    service = Mock()
+    client = create_app(service).test_client()
+    headers = {**HEADERS, 'Authorization': 'Bearer firebase-token'}
+    assert rpc(client, 'tools/list', headers=headers).status_code == 401
+    assert client.post('/api/reviews/history', json={}, headers=headers).status_code == 401
+    assert client.post('/api/reviews/edit', json={'movement_id': 'm', 'name': 'Manual'}, headers=headers).status_code == 401
+    assert not service.mock_calls
+
+
+def test_oauth_tokens_of_accounts_outside_the_allowlist_are_rejected(monkeypatch):
+    monkeypatch.delenv('FLOWT_MCP_TOKEN', raising=False)
+    monkeypatch.setattr('mcp_server.ALLOWED_UIDS', ['firebase-owner'])
+    oauth = Mock()
+    oauth.authenticate.return_value = ('stranger', frozenset({'flowt:read'}))
+    with pytest.raises(ReviewError):
+        authenticate('Bearer flowt_at_x', oauth)
+    oauth.authenticate.return_value = ('firebase-owner', frozenset({'flowt:read'}))
+    assert authenticate('Bearer flowt_at_x', oauth).uid == 'firebase-owner'
 
 
 @pytest.mark.parametrize('extra_field', ['saldo_acumulado', 'amount', 'importe', 'tipo', 'owner_id', 'id_propietario', 'subscription_id'])

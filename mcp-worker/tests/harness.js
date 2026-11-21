@@ -20,7 +20,7 @@ export async function verifyIdToken(token) {
 export function setup(envOverrides = {}) {
   const db = new MemoryDb();
   const clock = { now: new Date('2026-10-10T12:00:00Z') };
-  const worker = createWorker({ db, verifyIdToken, now: () => clock.now });
+  const worker = createWorker({ db, verifyIdToken, allowedUids: ['owner', 'other'], now: () => clock.now });
   const env = { APP_URL: APP, FLOWT_REVIEW_WRITES_ENABLED: 'true', ...envOverrides };
   db.put('huchas', 'main', { id_propietario: 'owner', nombre: 'Cuenta', tipo_aportacion: 'resto', es_principal: true, saldo_acumulado: 100, orden: 1 });
 

@@ -56,7 +56,7 @@ public class ShareTargetPlugin extends Plugin {
         Uri uri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri.class);
         // Consume the intent so a configuration change or relaunch does not import it twice.
         getActivity().setIntent(new Intent(Intent.ACTION_MAIN));
-        if (uri == null) return;
+        if (uri == null || !isForeignContentUri(uri)) return;
         File file = copyToCache(uri, type);
         if (file == null) return;
         JSObject share = new JSObject();
@@ -66,6 +66,17 @@ public class ShareTargetPlugin extends Plugin {
             pending = share;
         }
         notifyListeners("shareReceived", new JSObject());
+    }
+
+    /**
+     * Only content shared by another app: never file:// paths or this app's own providers,
+     * which would let any app make Flowt read its private files on that app's behalf.
+     */
+    private boolean isForeignContentUri(Uri uri) {
+        if (!ContentResolver.SCHEME_CONTENT.equals(uri.getScheme())) return false;
+        String authority = uri.getAuthority();
+        String own = getContext().getPackageName();
+        return authority != null && !authority.equals(own) && !authority.startsWith(own + ".");
     }
 
     private File copyToCache(Uri uri, String type) {

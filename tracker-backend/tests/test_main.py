@@ -857,3 +857,19 @@ def test_fallback_log_hides_unparsed_amounts(caplog):
     assert parse_amount("98,7x6") is None
     assert "Failed to parse an amount string" in caplog.text
     assert_log_is_private(caplog, "98", "7x6")
+
+def test_gmail_errors_are_logged_without_the_request_url(caplog):
+    """HttpError text carries the request URL, including the Gmail query with the bank's addresses."""
+    from unittest.mock import MagicMock
+    from googleapiclient.errors import HttpError
+    import gmail_client
+    resp = MagicMock(status=500, reason="boom")
+    error = HttpError(resp, b"{}", uri="https://gmail.googleapis.com/gmail/v1/users/me/messages?q=from%3Abank%40example.com")
+    service = MagicMock()
+    service.users.return_value.messages.return_value.modify.return_value.execute.side_effect = error
+    with patch.object(gmail_client, "get_gmail_service", return_value=service):
+        caplog.set_level("ERROR")
+        assert gmail_client.mark_email_as_read("m1") is False
+    assert "HTTP 500" in caplog.text
+    assert "bank" not in caplog.text and "gmail.googleapis.com" not in caplog.text
+
