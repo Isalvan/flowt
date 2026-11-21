@@ -64,11 +64,12 @@ const madridParts = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
 });
 interface Local { day: number; hour: number; minute: number; weekday: number }
+/** Día de la semana (0 = lunes) de un número de día desde 1970: el 1 de enero de 1970 fue jueves. */
+const weekdayOf = (day: number) => (((day + 3) % 7) + 7) % 7;
 const local = (date: Date): Local => {
   const p = Object.fromEntries(madridParts.formatToParts(date).map(part => [part.type, part.value]));
   const day = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day)) / 86_400_000;
-  // 1 ene 1970 fue jueves (índice 3 con el lunes como 0).
-  return { day, hour: Number(p.hour) % 24, minute: Number(p.minute), weekday: (((day + 3) % 7) + 7) % 7 };
+  return { day, hour: Number(p.hour) % 24, minute: Number(p.minute), weekday: weekdayOf(day) };
 };
 const round = (value: number) => Math.round(value * 100) / 100;
 
@@ -141,7 +142,7 @@ function weekdays(gastos: Gasto[]): ClockWeekday[] {
   // Cuántos lunes, martes… hay entre el primer y el último gasto: un mes puede traer cinco sábados.
   const first = Math.min(...gastos.map(g => g.at.day));
   const last = Math.max(...gastos.map(g => g.at.day));
-  for (let day = first; day <= last; day++) dias[(((day + 3) % 7) + 7) % 7].dias += 1;
+  for (let day = first; day <= last; day++) dias[weekdayOf(day)].dias += 1;
   dias.forEach(d => {
     d.total = round(d.total);
     d.media = d.dias ? round(d.total / d.dias) : 0;
