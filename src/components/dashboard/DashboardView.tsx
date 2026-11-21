@@ -13,9 +13,12 @@ import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
 import { BanksCard } from "./BanksCard";
 import { SmallPurchasesCard } from "./SmallPurchasesCard";
+import { FriendsBankCard } from "./FriendsBankCard";
+import { DominoCard } from "./DominoCard";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { PredictiveChart } from "./LazyCharts";
 import { MoneyFlowCard } from "./MoneyFlowCard";
+import { PersonalInflationCard } from "./PersonalInflationCard";
 import { ServiceIcon } from "./ServiceIcon";
 import { WrappedCard } from "../wrapped/WrappedCard";
 import { walletAccent } from "../../utils/walletAccent";
@@ -582,11 +585,17 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             )}
           </section>
           <MonthlySummary movimientos={props.chartMovements} />
+          <FriendsBankCard movimientos={props.chartMovements} />
         </div>
       </div>
 
       <div className="rise" style={step(4)}>
         <MoneyFlowCard allMovimientos={filtered} periodLabel={periodLabel} periodStatus={periodStatus} />
+      </div>
+
+      {/* Sin sitios que comparar la tarjeta no pinta nada y el hueco desaparece. */}
+      <div className="rise empty:hidden" style={step(4)}>
+        <PersonalInflationCard movimientos={props.chartMovements} />
       </div>
 
       <div className="rise grid grid-cols-1 gap-4 lg:grid-cols-3" style={step(5)}>
@@ -605,7 +614,12 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         />
       </div>
 
-      <div className="rise" style={step(6)}>
+      {/* Sin cadenas la tarjeta no pinta nada y el hueco desaparece. */}
+      <div className="rise empty:hidden" style={step(6)}>
+        <DominoCard movimientos={props.chartMovements} />
+      </div>
+
+      <div className="rise" style={step(7)}>
         <ActivityList
           movimientos={props.movimientos}
           allMovimientos={props.chartMovements}
