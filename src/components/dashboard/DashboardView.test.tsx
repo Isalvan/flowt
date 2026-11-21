@@ -1,5 +1,5 @@
-import { fireEvent, render, renderHook, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, renderHook, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import type { Movimiento } from "../../types";
 import { DashboardView } from "./DashboardView";
@@ -7,6 +7,7 @@ import { useFinanceData } from "../../hooks/useFinanceData";
 import { PreferencesProvider } from "../../context/PreferencesContext";
 import { walletAccent } from "../../utils/walletAccent";
 import { buildDemoData } from "../../utils/demoData";
+import { pretendPhone } from "../../test/phoneMedia";
 
 const privacy = vi.hoisted(() => ({ isLocked: false }));
 beforeEach(() => { privacy.isLocked = false; });
@@ -307,5 +308,63 @@ describe("Dashboard period selector", () => {
     );
     expect((await screen.findByTestId("chart-data")).textContent).toContain("500");
     expect((await screen.findByTestId("chart-data")).textContent).not.toContain("1000");
+  });
+});
+
+describe("DashboardView on a phone", () => {
+  beforeEach(() => { pretendPhone(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it("keeps the summary, wallets and activity on top and folds the analysis cards", async () => {
+    renderDashboard();
+    expect(screen.getByTestId("overview")).toBeInTheDocument();
+    expect(screen.getByText("Mis carteras")).toBeInTheDocument();
+    expect(screen.getByText("Próximos cargos")).toBeInTheDocument();
+    expect(screen.getByText("Actividad")).toBeInTheDocument();
+    const more = screen.getByRole("region", { name: "Más análisis" });
+    expect(screen.queryByTestId("banks")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("chart-data")).not.toBeInTheDocument();
+    expect(screen.queryByText("Resumen", { selector: "div" })).not.toBeInTheDocument();
+
+    const banks = within(more).getByRole("button", { name: /Tus bancos/ });
+    expect(banks).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(banks);
+    expect(banks).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("banks")).toBeInTheDocument();
+
+    // One card open at a time: opening another closes the first.
+    const evolucion = within(more).getByRole("button", { name: /Evolución de finanzas/ });
+    fireEvent.click(evolucion);
+    expect(await screen.findByTestId("chart-data")).toBeInTheDocument();
+    expect(screen.queryByTestId("banks")).not.toBeInTheDocument();
+    expect(banks).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(evolucion);
+    expect(screen.queryByTestId("chart-data")).not.toBeInTheDocument();
+  });
+
+  it("shows short names on the tiles and opens a card under its own row", () => {
+    renderDashboard();
+    const more = screen.getByRole("region", { name: "Más análisis" });
+    const tiles = within(more).getAllByRole("button");
+    expect(tiles.map((t) => t.textContent)).toEqual([
+      "Evolución", "Categorías", "A dónde va", "Proyección", "Tu IPC", "Compras", "Dominó", "Resumen", "Bancos",
+    ]);
+    // Second tile of the first row: its card follows the third tile, before the second row.
+    fireEvent.click(tiles[1]);
+    const body = document.getElementById(tiles[1].getAttribute("aria-controls")!);
+    expect(body).not.toBeNull();
+    expect(tiles[2].nextElementSibling).toBe(body);
+  });
+
+  it("lists every analysis card so nothing is lost", () => {
+    renderDashboard();
+    const titles = within(screen.getByRole("region", { name: "Más análisis" }))
+      .getAllByRole("button")
+      .map((b) => b.getAttribute("aria-label"));
+    for (const title of ["Evolución de finanzas", "Gasto por categorías", "A dónde va tu dinero", "Proyección de saldo",
+      "Tu IPC personal", "Compras pequeñas", "Dominó", "Resumen del mes", "Tus bancos"]) {
+      expect(titles.some((t) => t?.includes(title))).toBe(true);
+    }
   });
 });

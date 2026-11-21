@@ -687,6 +687,7 @@ const AppContent: React.FC<{ forceDemo: boolean; setForceDemo: React.Dispatch<Re
           <Activity mode={activeTab === 'ajustes' ? 'visible' : 'hidden'}>
             <React.Suspense fallback={<TabLoading />}>
               <AjustesOrchestrator
+                onOpenPreferences={() => setIsProfilePanelOpen(true)}
                 suscripciones={suscripciones}
                 huchas={huchas}
                 ingresoMensualHabitual={chartMovementsLoading ? undefined : mediaIngresos}
