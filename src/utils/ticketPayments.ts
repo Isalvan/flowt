@@ -7,7 +7,7 @@ export function ticketPersonNamed(concept: string, name: string): boolean {
 }
 
 /** One reimbursement can settle only one person, even when several shares match. */
-export function paidTicketPeople(expense: Movimiento, movements: Movimiento[]): Set<number> {
+export function paidTicketPeople(expense: Movimiento, movements: readonly Movimiento[]): Set<number> {
   const people = expense.ticket?.personas ?? [];
   const incomeById = new Map(movements.filter(m => m.tipo === 'ingreso').map(m => [m.id, m]));
   const payments = new Map((expense.compensado_por_detalles ?? []).map(d => [d.ingreso_id, d.importe]));
