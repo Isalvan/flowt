@@ -1,61 +1,63 @@
 import React, { useId, useState } from "react";
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import { type LucideIcon } from "lucide-react";
 
 export interface AnalysisItem {
   id: string;
+  /** Full name, read out by screen readers and shown as the tooltip. */
   title: string;
-  subtitle: string;
+  /** One-line name for the tile. */
+  short: string;
   icon: LucideIcon;
   content: React.ReactNode;
 }
 
-const AnalysisRow: React.FC<{ item: AnalysisItem }> = ({ item }) => {
-  const [open, setOpen] = useState(false);
+const COLUMNS = 3;
+
+/**
+ * On a phone the analysis cards sit folded in a compact grid. Tapping a tile opens
+ * its card right under that row of tiles; tapping it again, or another tile, closes it.
+ */
+export const MoreAnalysis: React.FC<{ items: AnalysisItem[] }> = ({ items }) => {
+  const [openId, setOpenId] = useState<string | null>(null);
   const bodyId = useId();
-  const Icon = item.icon;
+  const openIndex = items.findIndex((item) => item.id === openId);
+  const open = openIndex >= 0 ? items[openIndex] : null;
+  // The card goes after the last tile of the open tile's row.
+  const rowEnd = open ? Math.min(items.length, (Math.floor(openIndex / COLUMNS) + 1) * COLUMNS) - 1 : -1;
+
   return (
-    <div className="border-t border-line first:border-t-0">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={bodyId}
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
-      >
-        <span className="dashboard-icon !h-8 !w-8 bg-brand-tint text-brand-ink">
-          <Icon size={15} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] font-bold text-ink">{item.title}</span>
-          <span className="block truncate text-[11px] text-ink-soft">{item.subtitle}</span>
-        </span>
-        <ChevronRight
-          size={16}
-          aria-hidden="true"
-          className={`shrink-0 text-ink-faint transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-90" : ""}`}
-        />
-      </button>
-      {/* Only an open row mounts its card, so the charts cost nothing until asked for. */}
-      {open && (
-        <div id={bodyId} className="more-analysis-body px-2 pb-3 sm:px-3">
-          {item.content}
-        </div>
-      )}
-    </div>
+    <section aria-label="Más análisis" className="dashboard-surface !p-3">
+      <h3 className="dashboard-heading px-1 pb-2 pt-1">Más análisis</h3>
+      <div className="grid grid-cols-3 gap-2">
+        {items.map((item, i) => {
+          const Icon = item.icon;
+          const isOpen = item.id === openId;
+          return (
+            <React.Fragment key={item.id}>
+              <button
+                type="button"
+                aria-label={item.title}
+                title={item.title}
+                aria-expanded={isOpen}
+                aria-controls={isOpen ? bodyId : undefined}
+                onClick={() => setOpenId(isOpen ? null : item.id)}
+                className={`flex min-w-0 flex-col items-center gap-1.5 rounded-2xl border px-1 py-3 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+                  isOpen ? "border-brand bg-brand-tint text-brand-ink" : "border-transparent bg-surface-2 text-ink hover:border-line"
+                }`}
+              >
+                <Icon size={18} aria-hidden="true" className="text-brand-ink" />
+                <span className="block w-full truncate text-center text-[12px] font-bold">{item.short}</span>
+              </button>
+              {/* Only the open card mounts, so the charts cost nothing until asked for. */}
+              {open && i === rowEnd && (
+                <div id={bodyId} className="more-analysis-body col-span-3">
+                  {open.content}
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </section>
   );
 };
-
-/** On a phone the analysis cards sit folded in one list, each opening in place. */
-export const MoreAnalysis: React.FC<{ items: AnalysisItem[] }> = ({ items }) => (
-  <section aria-label="Más análisis" className="dashboard-surface overflow-hidden !p-0">
-    <div className="px-4 pb-1 pt-4">
-      <h3 className="dashboard-heading">Más análisis</h3>
-      <p className="dashboard-subtitle">Toca una para abrirla</p>
-    </div>
-    <div>
-      {items.map((item) => (
-        <AnalysisRow key={item.id} item={item} />
-      ))}
-    </div>
-  </section>
-);

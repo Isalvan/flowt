@@ -601,7 +601,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
                 {
                   id: "evolucion",
                   title: "Evolución de finanzas",
-                  subtitle: "Ingresos y gastos mes a mes, y el reloj del gasto",
+                  short: "Evolución",
                   icon: LineChart,
                   content: (
                     <AnalyticsSection
@@ -616,21 +616,21 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
                 {
                   id: "categorias",
                   title: "Gasto por categorías",
-                  subtitle: `En qué se va el gasto · ${periodLabel}`,
+                  short: "Categorías",
                   icon: PieChart,
                   content: <CategoryBreakdown allMovimientos={filtered} periodLabel={periodLabel} periodStatus={periodStatus} />,
                 },
                 {
                   id: "flujo",
                   title: "A dónde va tu dinero",
-                  subtitle: "De tus ingresos a cada gasto",
+                  short: "A dónde va",
                   icon: Waypoints,
                   content: <MoneyFlowCard allMovimientos={filtered} periodLabel={periodLabel} periodStatus={periodStatus} />,
                 },
                 {
                   id: "proyeccion",
                   title: "Proyección de saldo",
-                  subtitle: "Tu saldo en los próximos meses, con supuestos",
+                  short: "Proyección",
                   icon: TrendingUp,
                   content: (
                     <PredictiveChart
@@ -643,35 +643,35 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
                 {
                   id: "ipc",
                   title: "Tu IPC personal",
-                  subtitle: "Lo que pagas por visita en tus sitios de siempre",
+                  short: "Tu IPC",
                   icon: Percent,
                   content: <PersonalInflationCard movimientos={props.chartMovements} />,
                 },
                 {
                   id: "pequenas",
                   title: "Compras pequeñas",
-                  subtitle: `Lo que suman las compras pequeñas · ${periodLabel}`,
+                  short: "Compras",
                   icon: Coins,
                   content: <SmallPurchasesCard movimientos={filtered} periodLabel={periodLabel} totalGastos={gastos} />,
                 },
                 {
                   id: "domino",
                   title: "Dominó",
-                  subtitle: "Gastos que suelen ir seguidos",
+                  short: "Dominó",
                   icon: Dices,
                   content: <DominoCard movimientos={props.chartMovements} />,
                 },
                 {
                   id: "resumen",
                   title: inicioPeriodo === 1 ? "Resumen del mes" : "Resumen del periodo",
-                  subtitle: "Ingresos, gastos y ahorro de este periodo",
+                  short: "Resumen",
                   icon: BarChart3,
                   content: <MonthlySummary movimientos={props.chartMovements} />,
                 },
                 {
                   id: "bancos",
                   title: "Tus bancos",
-                  subtitle: "Cuadra el saldo con lo que marca tu banco",
+                  short: "Bancos",
                   icon: Landmark,
                   content: (
                     <BanksCard movimientos={props.chartMovements} walletsTotal={Math.round((walletsTotal - cashTotal) * 100) / 100} cashExcluded={cashTotal > 0} huchas={props.huchas} onReconcile={props.onReconcile} />

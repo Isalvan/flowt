@@ -324,7 +324,7 @@ describe("DashboardView on a phone", () => {
     const more = screen.getByRole("region", { name: "Más análisis" });
     expect(screen.queryByTestId("banks")).not.toBeInTheDocument();
     expect(screen.queryByTestId("chart-data")).not.toBeInTheDocument();
-    expect(screen.queryByText("Resumen")).not.toBeInTheDocument();
+    expect(screen.queryByText("Resumen", { selector: "div" })).not.toBeInTheDocument();
 
     const banks = within(more).getByRole("button", { name: /Tus bancos/ });
     expect(banks).toHaveAttribute("aria-expanded", "false");
@@ -332,18 +332,36 @@ describe("DashboardView on a phone", () => {
     expect(banks).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("banks")).toBeInTheDocument();
 
-    fireEvent.click(within(more).getByRole("button", { name: /Evolución de finanzas/ }));
+    // One card open at a time: opening another closes the first.
+    const evolucion = within(more).getByRole("button", { name: /Evolución de finanzas/ });
+    fireEvent.click(evolucion);
     expect(await screen.findByTestId("chart-data")).toBeInTheDocument();
-
-    fireEvent.click(banks);
     expect(screen.queryByTestId("banks")).not.toBeInTheDocument();
+    expect(banks).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(evolucion);
+    expect(screen.queryByTestId("chart-data")).not.toBeInTheDocument();
+  });
+
+  it("shows short names on the tiles and opens a card under its own row", () => {
+    renderDashboard();
+    const more = screen.getByRole("region", { name: "Más análisis" });
+    const tiles = within(more).getAllByRole("button");
+    expect(tiles.map((t) => t.textContent)).toEqual([
+      "Evolución", "Categorías", "A dónde va", "Proyección", "Tu IPC", "Compras", "Dominó", "Resumen", "Bancos",
+    ]);
+    // Second tile of the first row: its card follows the third tile, before the second row.
+    fireEvent.click(tiles[1]);
+    const body = document.getElementById(tiles[1].getAttribute("aria-controls")!);
+    expect(body).not.toBeNull();
+    expect(tiles[2].nextElementSibling).toBe(body);
   });
 
   it("lists every analysis card so nothing is lost", () => {
     renderDashboard();
     const titles = within(screen.getByRole("region", { name: "Más análisis" }))
       .getAllByRole("button")
-      .map((b) => b.textContent);
+      .map((b) => b.getAttribute("aria-label"));
     for (const title of ["Evolución de finanzas", "Gasto por categorías", "A dónde va tu dinero", "Proyección de saldo",
       "Tu IPC personal", "Compras pequeñas", "Dominó", "Resumen del mes", "Tus bancos"]) {
       expect(titles.some((t) => t?.includes(title))).toBe(true);
