@@ -6,8 +6,10 @@ import { payrollPace } from '../../utils/payrollPace';
 import { payrollSummary } from '../../utils/payrollSummary';
 import { periodRangeLabel } from '../../utils/periods';
 import { walletAccent } from '../../utils/walletAccent';
+import { yearEcho } from '../../utils/yearEcho';
 import { ServiceIcon } from '../dashboard/ServiceIcon';
 import { PayrollPaceCard } from './PayrollPaceCard';
+import { YearEchoCard } from './YearEchoCard';
 
 interface NominaViewProps { movimientos: Movimiento[]; huchas: Hucha[]; suscripciones: Suscripcion[] }
 const green = 'text-emerald-600 dark:text-emerald-400';
@@ -32,6 +34,7 @@ export function NominaView({ movimientos, huchas, suscripciones }: NominaViewPro
   const { formatCurrency, isLocked, openUnlockModal } = usePrivacy();
   const summary = isLocked ? null : payrollSummary(movimientos, huchas, suscripciones);
   const pace = useMemo(() => isLocked ? null : payrollPace(movimientos, huchas), [isLocked, movimientos, huchas]);
+  const echo = isLocked ? null : yearEcho(movimientos, suscripciones, new Date(), { proximaNomina: summary?.proxima.fecha });
   const activeWallets = huchas.filter(hucha => hucha.activa !== false);
   const days = summary?.proxima.dias ?? 0;
   const remainingLabel = days === 0 ? 'hoy' : days === 1 ? 'mañana' : `en ${days} días`;
@@ -102,6 +105,7 @@ export function NominaView({ movimientos, huchas, suscripciones }: NominaViewPro
             {huchas.some(hucha => hucha.es_suscripciones) && <p className="mt-1 text-[11px] text-ink-faint">Salen de tu cartera de suscripciones.</p>}
           </> : <div className="dashboard-empty"><p>No hay cargos antes de la próxima nómina</p></div>}
         </section>
+        {echo && <YearEchoCard echo={echo} />}
       </div>
       {pace && <PayrollPaceCard pace={pace} />}
       {/* Closes the page across both columns, so neither column ends in a gap. */}

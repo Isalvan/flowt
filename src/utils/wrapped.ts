@@ -3,7 +3,7 @@ import { cuentaEnEstadisticas, importeEnEstadisticas } from './movements';
 import { categoryLabel as defaultCategoryLabel } from './movementSuggestions';
 import { groupExpensesByCategory, parseMovimientoDate, type CategoryExpense } from './periodStats';
 import { payrollDates, periodName, periodOf, previousPeriod, type InicioPeriodo, type Period } from './periods';
-import { normalizeServiceName, resolveServiceKey } from './serviceNames';
+import { merchantKey } from './serviceNames';
 import { summarizeSmallPurchases, type SmallPurchasesSummary } from './smallPurchases';
 import {
   buildInventory, choosePersonality, selectHighlights,
@@ -128,13 +128,6 @@ const hasStory = (movimientos: readonly Movimiento[], period: Period) =>
 const MIN_EXPENSES = 5;
 const isFixedExpense = (m: Movimiento) => Boolean(m.suscripcion_id) || m.categoria === 'vivienda';
 const sum = (rows: Entry[]) => rows.reduce((total, row) => total + row.cents, 0) / 100;
-
-// Bank suffixes commonly start with a terminal/reference number and include a city.
-// Keep the merchant prefix, removing loose reference tokens rather than merging them.
-function merchantKey(concepto: string): string {
-  return resolveServiceKey(concepto) ?? normalizeServiceName(concepto)
-    .split(/(?:^|\s)\S*\d/)[0].replace(/\b(?:ref|referencia)\b.*$/, '').trim();
-}
 
 const HIGHLIGHTS_MONTH = 7;
 const HIGHLIGHTS_YEAR = 10;
