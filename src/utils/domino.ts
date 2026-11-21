@@ -69,6 +69,7 @@ interface Salida { importes: Map<string, number>; porHora: boolean }
 
 const dayFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' });
 const cents = (value: number) => Math.round(value * 100) / 100;
+const oneDecimal = (value: number) => Math.round(value * 10) / 10;
 
 const claveDe = (m: Movimiento): string => normalizeServiceName(m.concepto?.trim() ?? '');
 
@@ -157,19 +158,18 @@ export function findDominoChains(movimientos: readonly Movimiento[], opciones: D
       if (coincidencias < minCoincidencias || probabilidad < minProbabilidad || lift < minLift) continue;
       acompanantes.push({
         clave: otra, nombre: nombres.get(otra)!, veces: coincidencias, probabilidad,
-        lift: Math.round(lift * 10) / 10, importeMedio: cents(total / coincidencias),
+        lift: oneDecimal(lift), importeMedio: cents(total / coincidencias),
       });
     }
     if (acompanantes.length === 0) continue;
     acompanantes.sort((a, b) => b.probabilidad * b.importeMedio - a.probabilidad * a.importeMedio || a.nombre.localeCompare(b.nombre));
     const elegidos = acompanantes.slice(0, maxAcompanantes);
-    const claves = new Set(elegidos.map(a => a.clave));
 
     const costeConjunto = importeMedio + elegidos.reduce((sum, a) => sum + a.probabilidad * a.importeMedio, 0);
-    const arrastreTotal = suyas.reduce((sum, s) => sum + [...s.importes].reduce((acc, [otra, importe]) => acc + (claves.has(otra) ? importe : 0), 0), 0);
+    const arrastreTotal = suyas.reduce((sum, s) => sum + elegidos.reduce((acc, a) => acc + (s.importes.get(a.clave) ?? 0), 0), 0);
     cadenas.push({
       clave, nombre: nombres.get(clave)!, veces, importeMedio: cents(importeMedio), acompanantes: elegidos,
-      costeConjunto: cents(costeConjunto), multiplicador: Math.round((costeConjunto / importeMedio) * 10) / 10,
+      costeConjunto: cents(costeConjunto), multiplicador: oneDecimal(costeConjunto / importeMedio),
       arrastreTotal: cents(arrastreTotal), porHora: suyas.filter(s => s.porHora).length * 2 > veces,
     });
   }
