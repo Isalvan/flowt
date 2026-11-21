@@ -12,9 +12,10 @@ import {
   type TooltipContentProps,
   type TooltipValueType,
 } from "recharts";
-import { BarChart3, TrendingUp } from "lucide-react";
+import { BarChart3, Clock3, TrendingUp } from "lucide-react";
 import type { Hucha, Movimiento, Suscripcion } from "../../types";
 import { usePrivacy } from "../../context/PrivacyContext";
+import { SpendingClockView } from "./SpendingClockView";
 
 interface AnalyticsSectionProps {
   chartData: Array<{ name: string; ingresos: number; gastos: number }>;
@@ -34,9 +35,11 @@ const toNumericValue = (value: TooltipValueType | undefined): number => {
 
 export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
   chartData,
+  allMovimientos,
   periodStatus,
 }) => {
-  const [chartType, setChartType] = useState<"area" | "bar">("area");
+  const [chartType, setChartType] = useState<"area" | "bar" | "clock">("area");
+  const isClock = chartType === "clock";
   const { isLocked, formatCurrency } = usePrivacy();
   const tooltip = ({
     active,
@@ -67,12 +70,12 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="dashboard-icon bg-brand-tint text-brand-ink">
-            <TrendingUp size={18} />
+            {isClock ? <Clock3 size={18} /> : <TrendingUp size={18} />}
           </span>
           <div>
-            <h3 className="dashboard-heading">Evolución de finanzas</h3>
+            <h3 className="dashboard-heading">{isClock ? "Reloj del gasto" : "Evolución de finanzas"}</h3>
             <p className="dashboard-subtitle">
-              Tus ingresos y gastos mes a mes
+              {isClock ? "A qué horas y qué días se te va el dinero" : "Tus ingresos y gastos mes a mes"}
             </p>
           </div>
         </div>
@@ -95,9 +98,18 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
           >
             <BarChart3 size={14} />
           </button>
+          <button
+            type="button"
+            aria-label="Ver reloj del gasto"
+            onClick={() => setChartType("clock")}
+            aria-pressed={isClock}
+            className={`rounded-[0.6rem] p-1.5 transition-colors ${isClock ? "bg-surface text-ink shadow-sm" : "text-ink-faint hover:text-ink"}`}
+          >
+            <Clock3 size={14} />
+          </button>
         </div>
       </div>
-      <div className="h-64 w-full">
+      <div className={isClock && !isLocked && !periodStatus ? "w-full" : "h-64 w-full"}>
         {isLocked ? (
           <div className="grid h-full place-items-center rounded-2xl bg-surface-2 text-sm font-semibold text-ink-faint">
             Gráfica protegida por privacidad
@@ -106,6 +118,8 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
           <div className="dashboard-empty h-full" aria-busy={periodStatus === "loading"}>
             <p>{periodStatus === "error" ? "No se pudieron cargar los movimientos históricos." : "Cargando movimientos…"}</p>
           </div>
+        ) : isClock ? (
+          <SpendingClockView movimientos={allMovimientos} />
         ) : !chartData.length ? (
           <div className="dashboard-empty h-full">
             <p>Aún no hay movimientos en este periodo</p>
@@ -208,7 +222,7 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
           </ResponsiveContainer>
         )}
       </div>
-      <div className="mt-2 flex justify-center gap-5 text-[11px] font-semibold text-ink-soft">
+      {!isClock && <div className="mt-2 flex justify-center gap-5 text-[11px] font-semibold text-ink-soft">
         <span>
           <i className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />
           Ingresos
@@ -217,7 +231,7 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
           <i className="mr-1 inline-block h-2 w-2 rounded-full bg-rose-400" />
           Gastos
         </span>
-      </div>
+      </div>}
     </section>
   );
 };
