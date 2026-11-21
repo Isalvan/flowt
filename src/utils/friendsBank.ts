@@ -1,4 +1,5 @@
 import type { Movimiento } from '../types';
+import { median } from './median';
 import { parseMovimientoDate } from './periodStats';
 import { isPayrollConcept } from './movementSuggestions';
 import { paidTicketPeople } from './ticketPayments';
@@ -123,13 +124,6 @@ function ticketOwner(ticketTokens: string[], people: { clave: string }[]): strin
   return hits.length === 1 ? hits[0].clave : null;
 }
 
-const median = (values: number[]): number | null => {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-};
-
 export function buildFriendsBank(movimientos: readonly Movimiento[], now = new Date()): FriendsBank {
   const since = new Date(now.getTime() - 365 * 86_400_000);
   const inWindow = movimientos.filter(m => {
@@ -194,7 +188,7 @@ export function buildFriendsBank(movimientos: readonly Movimiento[], now = new D
   for (const gasto of inWindow) {
     const personas = gasto.tipo === 'gasto' ? gasto.ticket?.personas : undefined;
     if (!personas?.some(p => !p.yo)) continue;
-    const paid = paidTicketPeople(gasto, [...movimientos]);
+    const paid = paidTicketPeople(gasto, movimientos);
     personas.forEach((persona, i) => {
       if (persona.yo || paid.has(i) || !(persona.importe > 0)) return;
       const tokens = nameTokens(normalizeTicketText(persona.nombre).split(' ').filter(Boolean));
@@ -214,7 +208,7 @@ export function buildFriendsBank(movimientos: readonly Movimiento[], now = new D
     enviado: round(p.enviado),
     teDebe: round(p.teDebe),
     adelantado: round(p.adelantado),
-    diasDevolucion: median(dias),
+    diasDevolucion: dias.length ? median(dias) : null,
     pendientes: p.pendientes.sort((a, b) => (b.fecha?.getTime() ?? 0) - (a.fecha?.getTime() ?? 0)),
   })).sort((a, b) => b.teDebe - a.teDebe || (b.recibido + b.enviado) - (a.recibido + a.enviado) || a.nombre.localeCompare(b.nombre, 'es'));
 

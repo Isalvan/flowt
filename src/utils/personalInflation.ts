@@ -1,5 +1,6 @@
 import type { Movimiento } from '../types';
 import { roundMoney } from './incomeSplit';
+import { median } from './median';
 import { cuentaEnEstadisticas, importeEnEstadisticas } from './movements';
 import { parseMovimientoDate } from './periodStats';
 // The same merchant rule Wrapped uses, so a place has the same name in both.
@@ -46,12 +47,6 @@ export interface PersonalInflation {
 
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 const addDays = (date: Date, days: number) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
-}
 
 interface Visits { nombre: string; latest: number; antes: number[]; ahora: number[] }
 
