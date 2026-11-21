@@ -13,7 +13,6 @@ import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
 import { BanksCard } from "./BanksCard";
 import { SmallPurchasesCard } from "./SmallPurchasesCard";
-import { FriendsBankCard } from "./FriendsBankCard";
 import { DominoCard } from "./DominoCard";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { PredictiveChart } from "./LazyCharts";
@@ -585,7 +584,6 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
             )}
           </section>
           <MonthlySummary movimientos={props.chartMovements} />
-          <FriendsBankCard movimientos={props.chartMovements} />
         </div>
       </div>
 
