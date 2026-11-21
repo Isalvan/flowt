@@ -217,6 +217,23 @@ html[data-theme='dark'] {
   box-shadow: var(--shadow-card);
 }
 
+/* A card opened inside «Más análisis» sits flat in the list instead of as a second card. */
+.more-analysis-body .dashboard-surface {
+  border-color: transparent;
+  border-radius: 1rem;
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+/* Cards with nothing to show render nothing; say so instead of opening onto a blank. */
+.more-analysis-body:empty::before {
+  content: "Todavía no hay datos suficientes para esta tarjeta.";
+  display: block;
+  padding: 0.25rem 0.75rem 0.5rem 3.75rem;
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+}
+
 /* Cards you can act on rise a little under the pointer. */
 .is-liftable {
   transition: transform 200ms var(--ease-soft), box-shadow 200ms ease, border-color 200ms ease;

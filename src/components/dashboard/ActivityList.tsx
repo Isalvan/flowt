@@ -55,6 +55,8 @@ interface ActivityListProps {
   onUnlink: (ingreso: Movimiento) => void;
   onChangeHucha: (mov: Movimiento, newHuchaId: string) => void;
   onDeleteMovimiento: (mov: Movimiento) => void;
+  /** Shows only this many movements, without the search bar, until «Ver todos» opens the full list. */
+  initialVisible?: number;
 }
 
 export const ActivityList: React.FC<ActivityListProps> = ({
@@ -72,6 +74,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   onUnlink,
   onChangeHucha,
   onDeleteMovimiento,
+  initialVisible,
 }) => {
   const { categories: MOVEMENT_CATEGORIES, categoryLabel, suggestCategory } = useCategories();
   const { banks } = useBanks();
@@ -94,6 +97,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   const [customEndDate, setCustomEndDate] = useState('');
   const [selectedBanco, setSelectedBanco] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const { formatCurrency, isLocked } = usePrivacy();
   const { horasSemanales } = usePreferences();
@@ -289,6 +293,9 @@ export const ActivityList: React.FC<ActivityListProps> = ({
     searchTerm || selectedHucha !== 'all' || selectedTipo !== 'all' || selectedCategoria !== 'all' ||
     selectedBanco !== 'all' || minAmount || maxAmount || dateRange !== 'all'
   );
+  // Short list on a phone: a few movements and one button to the full list with search and filters.
+  const compact = initialVisible !== undefined && !expanded && !hasActiveFilters;
+  const visibleMovimientos = compact ? filteredMovimientos.slice(0, initialVisible) : filteredMovimientos;
   const field = 'w-full rounded-xl border border-line bg-surface-2 px-2.5 py-2 text-xs font-semibold text-ink placeholder:text-ink-faint focus:outline-none focus-visible:border-brand';
   const toolbarButton = 'inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition-colors duration-150';
   const toolbarIdle = 'border-line bg-surface text-ink-soft hover:bg-surface-2 hover:text-ink';
@@ -301,19 +308,31 @@ export const ActivityList: React.FC<ActivityListProps> = ({
           <h3 className="dashboard-heading">Actividad reciente</h3>
           <p className="dashboard-subtitle">Últimos movimientos registrados</p>
         </div>
-        <button
-          type="button"
-          onClick={exportToCSV}
-          aria-label="Exportar CSV"
-          className={`${toolbarButton} ${toolbarIdle}`}
-        >
-          <Download className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Exportar CSV</span>
-        </button>
+        <div className="flex shrink-0 gap-2">
+          {compact && !isLocked && pendingCount > 0 && (
+            <button
+              type="button"
+              onClick={() => { setExpanded(true); setSelectedCategoria('pending'); }}
+              className={`${toolbarButton} ${toolbarIdle}`}
+            >
+              <Sparkles size={13} /> Revisar{' '}
+              <span className="rounded-md bg-sun-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-ink">{pendingCount}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={exportToCSV}
+            aria-label="Exportar CSV"
+            className={`${toolbarButton} ${toolbarIdle}`}
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Exportar CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* Search and filters */}
-      <div className="mb-3 space-y-3">
+      <div className="mb-3 space-y-3" hidden={compact}>
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
@@ -448,8 +467,8 @@ export const ActivityList: React.FC<ActivityListProps> = ({
       </div>
 
       <div className="custom-scrollbar -mr-2 max-h-[440px] divide-y divide-line overflow-y-auto pr-2 sm:max-h-[520px]">
-        {filteredMovimientos.length > 0 ? (
-          filteredMovimientos.map((m) => {
+        {visibleMovimientos.length > 0 ? (
+          visibleMovimientos.map((m) => {
             const hasCompensaciones =
               (m.tipo === 'gasto' && ((m.compensado_por?.length ?? 0) > 0 || (m.compensado_por_detalles?.length ?? 0) > 0)) ||
               (m.tipo === 'ingreso' && (!!m.compensa_movimiento_id || (m.compensaciones_destinos?.length ?? 0) > 0));
@@ -739,6 +758,20 @@ export const ActivityList: React.FC<ActivityListProps> = ({
           </div>
         )}
       </div>
+      {initialVisible !== undefined && (compact || expanded) && (
+        <button
+          type="button"
+          onClick={() => {
+            if (compact) { setExpanded(true); return; }
+            clearAllFilters();
+            setShowFilters(false);
+            setExpanded(false);
+          }}
+          className="mt-3 w-full rounded-xl border border-line py-2.5 text-xs font-bold text-brand-ink transition-colors duration-150 hover:bg-surface-2"
+        >
+          {compact ? 'Ver todos y buscar' : 'Ver menos'}
+        </button>
+      )}
     </section>
   );
 };

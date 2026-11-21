@@ -51,3 +51,26 @@ describe('aviso de duplicados en la lista', () => {
     expect(screen.getByRole('button', { name: 'Es correcto' })).not.toBeDisabled();
   });
 });
+
+describe('lista corta en el móvil', () => {
+  const many: Movimiento[] = Array.from({ length: 8 }, (_, i) => ({ id: `m${i}`, tipo: 'gasto', concepto: `Compra ${i}`, importe: 5 + i, fecha_operacion: '2026-10-11' }));
+  const renderShort = () => render(<ActivityList movimientos={many} allMovimientos={many} huchas={[]} huchaMonthlyBudgets={{}} onUpdateConcepto={vi.fn()} onConvert={vi.fn()} onLink={vi.fn()} onUnlink={vi.fn()} onChangeHucha={vi.fn()} onDeleteMovimiento={vi.fn()} initialVisible={5} />);
+
+  it('enseña cinco movimientos sin buscador y abre la lista entera con «Ver todos»', () => {
+    renderShort();
+    expect(screen.getByText('Compra 4')).toBeInTheDocument();
+    expect(screen.queryByText('Compra 5')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Buscar por concepto' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Ver todos y buscar' }));
+    expect(screen.getByText('Compra 7')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Buscar por concepto' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Ver menos' }));
+    expect(screen.queryByText('Compra 5')).not.toBeInTheDocument();
+  });
+
+  it('sin initialVisible la lista se ve entera como siempre', () => {
+    render(<ActivityList movimientos={many} allMovimientos={many} huchas={[]} huchaMonthlyBudgets={{}} onUpdateConcepto={vi.fn()} onConvert={vi.fn()} onLink={vi.fn()} onUnlink={vi.fn()} onChangeHucha={vi.fn()} onDeleteMovimiento={vi.fn()} />);
+    expect(screen.getByText('Compra 7')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ver todos y buscar' })).not.toBeInTheDocument();
+  });
+});

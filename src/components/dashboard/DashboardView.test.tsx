@@ -1,5 +1,5 @@
-import { fireEvent, render, renderHook, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, renderHook, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import type { Movimiento } from "../../types";
 import { DashboardView } from "./DashboardView";
@@ -7,6 +7,7 @@ import { useFinanceData } from "../../hooks/useFinanceData";
 import { PreferencesProvider } from "../../context/PreferencesContext";
 import { walletAccent } from "../../utils/walletAccent";
 import { buildDemoData } from "../../utils/demoData";
+import { pretendPhone } from "../../test/phoneMedia";
 
 const privacy = vi.hoisted(() => ({ isLocked: false }));
 beforeEach(() => { privacy.isLocked = false; });
@@ -307,5 +308,45 @@ describe("Dashboard period selector", () => {
     );
     expect((await screen.findByTestId("chart-data")).textContent).toContain("500");
     expect((await screen.findByTestId("chart-data")).textContent).not.toContain("1000");
+  });
+});
+
+describe("DashboardView on a phone", () => {
+  beforeEach(() => { pretendPhone(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it("keeps the summary, wallets and activity on top and folds the analysis cards", async () => {
+    renderDashboard();
+    expect(screen.getByTestId("overview")).toBeInTheDocument();
+    expect(screen.getByText("Mis carteras")).toBeInTheDocument();
+    expect(screen.getByText("Próximos cargos")).toBeInTheDocument();
+    expect(screen.getByText("Actividad")).toBeInTheDocument();
+    const more = screen.getByRole("region", { name: "Más análisis" });
+    expect(screen.queryByTestId("banks")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("chart-data")).not.toBeInTheDocument();
+    expect(screen.queryByText("Resumen")).not.toBeInTheDocument();
+
+    const banks = within(more).getByRole("button", { name: /Tus bancos/ });
+    expect(banks).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(banks);
+    expect(banks).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("banks")).toBeInTheDocument();
+
+    fireEvent.click(within(more).getByRole("button", { name: /Evolución de finanzas/ }));
+    expect(await screen.findByTestId("chart-data")).toBeInTheDocument();
+
+    fireEvent.click(banks);
+    expect(screen.queryByTestId("banks")).not.toBeInTheDocument();
+  });
+
+  it("lists every analysis card so nothing is lost", () => {
+    renderDashboard();
+    const titles = within(screen.getByRole("region", { name: "Más análisis" }))
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+    for (const title of ["Evolución de finanzas", "Gasto por categorías", "A dónde va tu dinero", "Proyección de saldo",
+      "Tu IPC personal", "Compras pequeñas", "Dominó", "Resumen del mes", "Tus bancos"]) {
+      expect(titles.some((t) => t?.includes(title))).toBe(true);
+    }
   });
 });
