@@ -50,3 +50,9 @@ export const isSubscriptionMovement = (
     );
   });
 };
+
+// Bank suffixes commonly start with a terminal/reference number and include a city.
+// Keep the merchant prefix, removing loose reference tokens rather than merging them.
+export const merchantKey = (concepto: string): string =>
+  resolveServiceKey(concepto) ?? normalizeServiceName(concepto)
+    .split(/(?:^|\s)\S*\d/)[0].replace(/\b(?:ref|referencia)\b.*$/, '').trim();
