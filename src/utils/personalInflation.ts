@@ -2,7 +2,8 @@ import type { Movimiento } from '../types';
 import { roundMoney } from './incomeSplit';
 import { cuentaEnEstadisticas, importeEnEstadisticas } from './movements';
 import { parseMovimientoDate } from './periodStats';
-import { normalizeServiceName, resolveServiceKey } from './serviceNames';
+// The same merchant rule Wrapped uses, so a place has the same name in both.
+import { merchantKey } from './serviceNames';
 
 /** The recent stretch: the last 90 days. */
 export const RECENT_DAYS = 90;
@@ -42,13 +43,6 @@ export interface PersonalInflation {
   antesDesde: Date;
   antesHasta: Date;
 }
-
-// Bank suffixes commonly start with a terminal/reference number and include a city.
-// Keep the merchant prefix, removing loose reference tokens rather than merging them.
-// The same rule Wrapped uses, so a place has the same name in both.
-export const merchantKey = (concepto: string): string =>
-  resolveServiceKey(concepto) ?? normalizeServiceName(concepto)
-    .split(/(?:^|\s)\S*\d/)[0].replace(/\b(?:ref|referencia)\b.*$/, '').trim();
 
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 const addDays = (date: Date, days: number) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Movimiento } from '../types';
-import { merchantKey, percentChange, personalInflation } from './personalInflation';
+import { percentChange, personalInflation } from './personalInflation';
+import { merchantKey } from './serviceNames';
 
 // Fictitious places and prices. "Now" is 20 Nov 2026: the recent stretch starts on 23 Aug 2026,
 // and the year-ago stretch runs from 21 Sep to 20 Dec 2025.
