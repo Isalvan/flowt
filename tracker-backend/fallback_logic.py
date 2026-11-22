@@ -1,6 +1,7 @@
 # -*- coding: cp1252 -*-
 import re
 import logging
+import unicodedata
 from typing import Optional, List, Dict, Any
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,26 @@ def parse_amount(amount_str: str) -> Optional[float]:
         logger.error("Failed to parse an amount string (%s).", type(e).__name__)
         return None
 
+CASH_WITHDRAWAL_TERMS = ("retirada", "reintegro", "disposicion", "sacar dinero")
+CASH_WITHDRAWAL_CONTEXT = ("cajero", "efectivo", "atm")
+
+
+def _without_accents(value: str) -> str:
+    normalized = unicodedata.normalize("NFD", value or "")
+    return "".join(char for char in normalized if unicodedata.category(char) != "Mn").lower()
+
+
+def is_cash_withdrawal(text: str) -> bool:
+    """A cajero withdrawal moves money to the cash wallet; it is not spending."""
+    normalized = _without_accents(text)
+    if "ingreso en efectivo" in normalized or "deposito" in normalized:
+        return False
+    if "cajero automatico" in normalized or re.search(r"\ben (?:el )?cajero\b", normalized):
+        return True
+    return (any(term in normalized for term in CASH_WITHDRAWAL_TERMS)
+            and any(re.search(rf"\b{context}\b", normalized) for context in CASH_WITHDRAWAL_CONTEXT))
+
+
 # Fallback logic for when AI fails
 def fallback_extract_movement(body: str, email_date: str) -> Optional[List[Dict[str, Any]]]:
     """
@@ -106,17 +127,11 @@ def fallback_extract_movement(body: str, email_date: str) -> Optional[List[Dict[
         if any(word in lower_text for word in income_keywords):
             tipo = "ingreso"
 
-        internal_cash_keywords = [
-            "retirada de efectivo",
-            "retirada en cajero",
-            "reintegro en cajero",
-            "disposicion de efectivo",
-            "disposición de efectivo",
-            "sacar dinero",
-            "cajero automatico",
-            "cajero automático",
-        ]
-        es_interno = any(keyword in lower_text for keyword in internal_cash_keywords)
+        es_retirada_efectivo = is_cash_withdrawal(clean_text)
+        if es_retirada_efectivo:
+            # Money leaves the account; the synchroniser adds the cash leg.
+            tipo = "gasto"
+        es_interno = es_retirada_efectivo
 
         # 4. Extract Description
         # Look for phrases like "en [STUFF]", "operaciÃ³n de [AMOUNT] en [STUFF]", "autorizado... en [STUFF]"
@@ -136,6 +151,8 @@ def fallback_extract_movement(body: str, email_date: str) -> Optional[List[Dict[
                 if extracted and len(extracted) > 2:
                     descripcion = extracted[:50]
                     break
+        if es_retirada_efectivo:
+            descripcion = "Reintegro en cajero"
 
         # Exclusion Rule: Ignore internal card recharges
         if "SISTEMA DE RECARGAS" in clean_text.upper() or "RECARGA" in clean_text.upper():
@@ -155,6 +172,7 @@ def fallback_extract_movement(body: str, email_date: str) -> Optional[List[Dict[
                 "fecha": fecha,
                 "descripcion": f"[RESCUE] {descripcion}",
                 "es_interno": es_interno,
+                "es_retirada_efectivo": es_retirada_efectivo,
                 "confianza": "baja"
             }]
     except Exception as e:
