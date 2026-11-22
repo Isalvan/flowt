@@ -466,7 +466,8 @@ export const ActivityList: React.FC<ActivityListProps> = ({
         )}
       </div>
 
-      <div className="custom-scrollbar -mr-2 max-h-[440px] divide-y divide-line overflow-y-auto pr-2 sm:max-h-[520px]">
+      {/* The short list on a phone grows with the page instead of scrolling inside it. */}
+      <div className={compact ? "divide-y divide-line" : "custom-scrollbar -mr-2 max-h-[440px] divide-y divide-line overflow-y-auto pr-2 sm:max-h-[520px]"}>
         {visibleMovimientos.length > 0 ? (
           visibleMovimientos.map((m) => {
             const hasCompensaciones =
@@ -657,7 +658,8 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-end justify-between gap-x-3">
+                    {/* The short list is for a glance; editing lives in the full list. */}
+                    <div className="flex flex-wrap items-end justify-between gap-x-3" hidden={compact}>
                       {onUpdateCategoria && <CategoryPicker movimiento={m} onSave={onUpdateCategoria} />}
 
                       {/* Actions (reassign, convert, link, delete) */}

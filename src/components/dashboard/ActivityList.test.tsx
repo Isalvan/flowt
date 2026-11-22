@@ -68,6 +68,13 @@ describe('lista corta en el móvil', () => {
     expect(screen.queryByText('Compra 5')).not.toBeInTheDocument();
   });
 
+  it('la lista corta no trae los botones de editar, que siguen en la lista entera', () => {
+    renderShort();
+    expect(screen.queryByRole('button', { name: 'Eliminar movimiento' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Ver todos y buscar' }));
+    expect(screen.getAllByRole('button', { name: 'Eliminar movimiento' })).toHaveLength(8);
+  });
+
   it('sin initialVisible la lista se ve entera como siempre', () => {
     render(<ActivityList movimientos={many} allMovimientos={many} huchas={[]} huchaMonthlyBudgets={{}} onUpdateConcepto={vi.fn()} onConvert={vi.fn()} onLink={vi.fn()} onUnlink={vi.fn()} onChangeHucha={vi.fn()} onDeleteMovimiento={vi.fn()} />);
     expect(screen.getByText('Compra 7')).toBeInTheDocument();
