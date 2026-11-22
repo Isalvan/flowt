@@ -25,12 +25,13 @@ const mediaMatches = (query: string) => window.matchMedia?.(query)?.matches ?? f
 /**
  * True when the touch started inside something that handles horizontal
  * gestures itself: a carousel or other horizontal scroller, a slider, a
- * text field, a dialog, or anything that opts out with `data-no-swipe`.
+ * text field, a dialog, a chart (dragging across it moves its tooltip), or
+ * anything that opts out with `data-no-swipe`.
  */
 export function ownsHorizontalGesture(target: EventTarget | null, root: Element): boolean {
   let el = target instanceof Element ? target : null;
   while (el && el !== root) {
-    if (el.closest("input, textarea, select, [contenteditable='true'], [role='dialog'], [data-no-swipe]")) return true;
+    if (el.closest("input, textarea, select, [contenteditable='true'], [role='dialog'], [data-no-swipe], .recharts-wrapper")) return true;
     const overflowX = window.getComputedStyle(el).overflowX;
     if ((overflowX === "auto" || overflowX === "scroll") && el.scrollWidth > el.clientWidth) return true;
     el = el.parentElement;

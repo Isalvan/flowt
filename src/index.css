@@ -860,11 +860,24 @@ html[data-theme='dark'] .border-slate-200:not([class*='dark:border-']) {
   }
 }
 
-.recharts-wrapper:focus,
-.recharts-surface:focus,
-.recharts-wrapper svg:focus,
-.recharts-wrapper path:focus,
-.recharts-wrapper rect:focus,
-.recharts-wrapper circle:focus {
-  outline: none;
+/* Charts: a tap or a drag only moves the tooltip. No focus ring, tap highlight,
+   text selection or long-press callout drawn over the chart. */
+.recharts-responsive-container,
+.recharts-responsive-container *,
+.recharts-wrapper,
+.recharts-wrapper * {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Someone moving through the page with a keyboard still sees which chart has focus.
+   Only where there is a mouse or trackpad, so a tap on a phone never draws it. */
+@media (any-pointer: fine) {
+  .recharts-wrapper:has(.recharts-surface:focus-visible) {
+    border-radius: 0.75rem;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 70%, transparent);
+  }
 }

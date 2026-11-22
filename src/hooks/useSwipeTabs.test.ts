@@ -23,6 +23,11 @@ describe("ownsHorizontalGesture", () => {
     for (const id of ["a", "b", "c"]) expect(ownsHorizontalGesture(root.querySelector(`#${id}`), root)).toBe(true);
   });
 
+  it("leaves charts alone, so dragging across one moves its tooltip", () => {
+    const root = setup("<div class='recharts-wrapper'><svg><g><path id='t'></path></g></svg></div>");
+    expect(ownsHorizontalGesture(root.querySelector("#t"), root)).toBe(true);
+  });
+
   it("leaves horizontal scrollers such as the wallets carousel alone", () => {
     const root = setup("<div id='s' style='overflow-x:auto'><p id='t'>x</p></div>");
     const scroller = root.querySelector<HTMLElement>("#s")!;
