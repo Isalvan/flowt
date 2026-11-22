@@ -12,7 +12,8 @@ Una vez configurado el acceso que se describe abajo:
 - Al fusionar una PR o hacer un push a `main`, **Firebase Hosting production** repite esas comprobaciones y publica `dist/` en el canal `live`. También puede ejecutarse desde **Actions → Firebase Hosting production → Run workflow**, seleccionando `main`.
 - Si falla la instalación, configuración, lint, tests o compilación, no se inicia la publicación. Las publicaciones de producción se serializan y no se cancelan a mitad de ejecución.
 - En cada PR hacia `main` y en cada push a `main`, **Backend tests** instala las dependencias de `tracker-backend` y ejecuta su batería de Pytest con el mismo Python que el sincronizador. No despliega nada ni usa secretos. El sincronizador programado ejecuta el código de `main`, así que conviene no fusionar una PR con este workflow en rojo.
-- Solo se despliega **Firebase Hosting**. Las reglas e índices de Firestore siguen siendo manuales; si un cambio los necesita, publícalos antes de la web. El workflow no ejecuta el sincronizador ni modifica Firebase Auth.
+- Al fusionar en `main` un cambio del Worker (`mcp-worker/src/`, `wrangler.json` o los JSON que incluye de `src/shared/` y `tracker-backend/prompts/`), **MCP Worker deploy** ejecuta los tests del Worker y lo publica en Cloudflare con Wrangler. En las PR que tocan esos archivos solo lo compila (`--dry-run`), sin secretos. Ver [Worker de Cloudflare](#worker-de-cloudflare).
+- Aparte del Worker, solo se despliega **Firebase Hosting**. Las reglas e índices de Firestore siguen siendo manuales; si un cambio los necesita, publícalos antes de la web. El workflow no ejecuta el sincronizador ni modifica Firebase Auth.
 
 El proyecto de destino es `firebaseProjectId` de [`flowt.config.json`](../flowt.config.json); `npm run config:apply` lo copia a `.firebaserc` y a la URL del environment `production`. El helper comprueba que la configuración web y la cuenta de despliegue pertenezcan a ese proyecto.
 
@@ -40,6 +41,15 @@ El proyecto de destino es `firebaseProjectId` de [`flowt.config.json`](../flowt.
    Genera una clave JSON de esa cuenta. En **GitHub → Settings → Secrets and variables → Actions → Secrets**, crea **`FIREBASE_SERVICE_ACCOUNT`** pegando el JSON completo, **sin codificar en base64**. Se sigue aceptando el nombre antiguo `FIREBASE_SERVICE_ACCOUNT_FLOWT_63536`. El archivo no se añade al repositorio. Esta cuenta no necesita permisos de escritura sobre Firestore o Auth ni acceso a Gmail; no se reutiliza la cuenta del tracker.
 
 3. Vuelve a ejecutar el workflow que hubiera fallado por falta de configuración. Puedes publicar el `main` actual con **Run workflow**; no hace falta otro commit. Si el environment `production` tiene una aprobación obligatoria configurada en GitHub, la publicación esperará esa aprobación.
+
+### Worker de Cloudflare
+
+El workflow **MCP Worker deploy** necesita dos **Repository Secrets** en **GitHub → Settings → Secrets and variables → Actions → Secrets**:
+
+- **`CLOUDFLARE_API_TOKEN`**: un token creado en **Cloudflare → My Profile → API Tokens → Create Token** con la plantilla **Edit Cloudflare Workers**, limitado a tu cuenta.
+- **`CLOUDFLARE_ACCOUNT_ID`**: el Account ID que aparece en la página de Workers de Cloudflare.
+
+Sin ellos, el paso de publicación falla con un aviso y no cambia nada. El despliegue usa `--keep-vars`, así que no borra variables añadidas desde el panel de Cloudflare, y nunca toca los secretos del Worker (`FIREBASE_SERVICE_ACCOUNT`, `GEMINI_API_KEY`...). También puede lanzarse desde **Actions → MCP Worker deploy → Run workflow**, seleccionando `main`.
 
 ### Previews y comprobación de la publicación
 
