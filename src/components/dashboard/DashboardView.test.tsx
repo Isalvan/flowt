@@ -357,6 +357,25 @@ describe("DashboardView on a phone", () => {
     expect(tiles[2].nextElementSibling).toBe(body);
   });
 
+  it("brings the tapped tile to the top so its card opens below it in view", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      renderDashboard();
+      const tiles = within(screen.getByRole("region", { name: "Más análisis" })).getAllByRole("button");
+      fireEvent.click(tiles[0]);
+      fireEvent.click(tiles[8]);
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+      expect(scrollIntoView.mock.contexts[1]).toBe(tiles[8]);
+      expect(scrollIntoView).toHaveBeenLastCalledWith(expect.objectContaining({ block: "start" }));
+      // Closing a card leaves the page where it is.
+      fireEvent.click(tiles[8]);
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
+  });
+
   it("lists every analysis card so nothing is lost", () => {
     renderDashboard();
     const titles = within(screen.getByRole("region", { name: "Más análisis" }))
