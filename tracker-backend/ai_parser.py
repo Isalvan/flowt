@@ -70,15 +70,17 @@ def clean_body(html_body):
 
 SYSTEM_INSTRUCTION = """
 You are Flowt's bank transaction extraction engine.
-Your only task is to extract supported, completed financial transactions from sanitized bank notification emails.
-Accuracy is more important than recall. If the email does not clearly confirm a supported movement of money, return [].
+Your only task is to extract supported, completed financial transactions from sanitized bank notification emails. Accuracy is more important than recall. If the email does not clearly confirm a supported movement of money, return [].
 
 SUPPORTED TRANSACTIONS:
 - gasto: completed merchant purchases, subscription charges, business payments, and business direct debits.
 - ingreso: salary, refunds received, incoming transfers from external sources, received Bizum payments, and other explicitly confirmed incoming payments.
+- cash withdrawal: a completed ATM cash withdrawal from the user's account or card ("reintegro", "retirada de efectivo", "disposición de efectivo", an operation at a "cajero" or ATM). Extract it as gasto with es_retirada_efectivo true: the money moves to the user's cash wallet and is not spending.
+
+es_retirada_efectivo: true only for a completed cash withdrawal; false for every other transaction.
 
 DO NOT EXTRACT:
-- Card, account, wallet, or balance top-ups; cash withdrawals or ATM operations.
+- Card, account, wallet, or balance top-ups. ATM operations other than a completed cash withdrawal, such as balance checks, PIN changes, or cash deposits.
 - Transfers between the user's own accounts or wallets. Outgoing transfers or Bizum without an explicit spending purpose.
 - Cash deposits whose external origin is unclear.
 - Pending, scheduled, reversed, cancelled, declined, rejected, blocked, or failed transactions.
@@ -86,11 +88,12 @@ DO NOT EXTRACT:
 - Non-EUR transactions unless the final EUR amount charged or credited is explicitly stated.
 
 UNICaja-SPECIFIC RULES:
-- "Ha autorizado una operación de ... EUR ... en [merchant]" is an approved card purchase: extract it as gasto unless it is a top-up or is cancelled, reversed, declined, or annulled.
+- "Ha autorizado una operación de ... EUR ... en [merchant]" is an approved card purchase: extract it as gasto unless it is a top-up or is cancelled, reversed, declined, or annulled. When the place is an ATM or "cajero", it is a cash withdrawal (es_retirada_efectivo true).
 - A Unicaja card recharge at "SISTEMA DE RECARGAS" is a top-up: exclude it.
 - An annulled authorization is not a transaction: exclude it.
 - "Se ha recibido un ingreso..." and received salary notifications are ingreso.
-- Outgoing Bizum with an explicit spending purpose (food, cinema, subscription, purchase) is gasto. Generic outgoing Bizum and ATM withdrawals are not transactions to extract.
+- Outgoing Bizum with an explicit spending purpose (food, cinema, subscription, purchase) is gasto. Generic outgoing Bizum is not a transaction to extract.
+- A completed "reintegro", "retirada de efectivo" or "disposición de efectivo" at a cajero is a cash withdrawal: extract it as gasto with es_retirada_efectivo true, and use the ATM place as descripcion, or "Reintegro en cajero" if no place is given.
 - Do not classify from the subject alone; inspect the transaction sentence and concept.
 - "En breve podrás ver la operación reflejada en tu Banca Digital" does not make an otherwise confirmed operation pending.
 
@@ -110,7 +113,7 @@ TRANSACTION_SCHEMA = {
     "type": "array",
     "items": {
         "type": "object",
-        "propertyOrdering": ["tipo", "importe", "moneda", "fecha", "descripcion", "confianza"],
+        "propertyOrdering": ["tipo", "importe", "moneda", "fecha", "descripcion", "confianza", "es_retirada_efectivo"],
         "properties": {
             "tipo": {"type": "string", "enum": ["gasto", "ingreso"]},
             "importe": {"type": "number", "minimum": 0.01},
@@ -118,8 +121,9 @@ TRANSACTION_SCHEMA = {
             "fecha": {"type": "string"},
             "descripcion": {"type": "string", "maxLength": 100},
             "confianza": {"type": "string", "enum": ["alta", "media", "baja"]},
+            "es_retirada_efectivo": {"type": "boolean"},
         },
-        "required": ["tipo", "importe", "moneda", "fecha", "descripcion", "confianza"],
+        "required": ["tipo", "importe", "moneda", "fecha", "descripcion", "confianza", "es_retirada_efectivo"],
     },
 }
 

@@ -217,6 +217,23 @@ html[data-theme='dark'] {
   box-shadow: var(--shadow-card);
 }
 
+/* A card opened inside «Más análisis» sits flat in the list instead of as a second card. */
+.more-analysis-body .dashboard-surface {
+  border-color: transparent;
+  border-radius: 1rem;
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+/* Cards with nothing to show render nothing; say so instead of opening onto a blank. */
+.more-analysis-body:empty::before {
+  content: "Todavía no hay datos suficientes para esta tarjeta.";
+  display: block;
+  padding: 0.75rem;
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+}
+
 /* Cards you can act on rise a little under the pointer. */
 .is-liftable {
   transition: transform 200ms var(--ease-soft), box-shadow 200ms ease, border-color 200ms ease;
@@ -843,11 +860,24 @@ html[data-theme='dark'] .border-slate-200:not([class*='dark:border-']) {
   }
 }
 
-.recharts-wrapper:focus,
-.recharts-surface:focus,
-.recharts-wrapper svg:focus,
-.recharts-wrapper path:focus,
-.recharts-wrapper rect:focus,
-.recharts-wrapper circle:focus {
-  outline: none;
+/* Charts: a tap or a drag only moves the tooltip. No focus ring, tap highlight,
+   text selection or long-press callout drawn over the chart. */
+.recharts-responsive-container,
+.recharts-responsive-container *,
+.recharts-wrapper,
+.recharts-wrapper * {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Someone moving through the page with a keyboard still sees which chart has focus.
+   Only where there is a mouse or trackpad, so a tap on a phone never draws it. */
+@media (any-pointer: fine) {
+  .recharts-wrapper:has(.recharts-surface:focus-visible) {
+    border-radius: 0.75rem;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 70%, transparent);
+  }
 }

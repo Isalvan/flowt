@@ -222,6 +222,46 @@ def find_subscription_hucha(
     return default_hucha_id if default_hucha_id in huchas_state else None
 
 
+def is_cash_wallet(hucha: Dict[str, Any]) -> bool:
+    """The Efectivo wallet, recognised the same way as the web does."""
+    name = normalize_subscription_text(hucha.get("nombre", ""))
+    return bool(hucha.get("es_metalico")) or "efectivo" in name or "metalico" in name
+
+
+def is_cash_leg(movimiento: Dict[str, Any]) -> bool:
+    """Incoming leg of a cajero withdrawal: it lands in Efectivo, never in the split."""
+    return (movimiento.get("tipo") == "ingreso" and bool(movimiento.get("es_metalico"))
+            and bool(movimiento.get("transfer_id")))
+
+
+def cash_withdrawal_legs(doc_id: str, entrada_doc_id: str, movimiento: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """A cajero withdrawal moves money from the bank wallet to Efectivo.
+
+    Same two linked internal legs as a manual withdrawal on the web: neither
+    counts as income or spending.
+    """
+    concept = movimiento["concepto"]
+    transfer_id = f"transfer-{doc_id[:16]}"
+    salida = {
+        **movimiento,
+        "tipo": "gasto",
+        "concepto": f"Retirada de efectivo: {concept}",
+        "es_interno": True,
+        "transfer_id": transfer_id,
+    }
+    entrada = {
+        key: value for key, value in movimiento.items() if key != "banco"
+    }
+    entrada.update({
+        "tipo": "ingreso",
+        "concepto": f"Entrada en efectivo: {concept}",
+        "es_interno": True,
+        "es_metalico": True,
+        "transfer_id": transfer_id,
+    })
+    return [{"doc_id": doc_id, "movimiento": salida}, {"doc_id": entrada_doc_id, "movimiento": entrada}]
+
+
 def as_local_date(value: Any) -> Optional[date]:
     if value is None:
         return None
@@ -379,6 +419,8 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
     new_hucha_ref = None
     new_hucha_data = None
     new_hucha_has_income = False
+    new_cash_ref = None
+    new_cash_data = None
     
     for m in movements_to_process:
         doc_id = m["doc_id"]
@@ -428,7 +470,39 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                     stats_changes["gastos"] += amount
                 continue
 
-        if movimiento["tipo"] == "ingreso":
+        if is_cash_leg(movimiento):
+            target_gasto_hucha_id = next(
+                (h_id for h_id, h_info in huchas_state.items() if is_cash_wallet(h_info["data"])), None)
+            if not target_gasto_hucha_id:
+                new_cash_ref = huchas_ref.document()
+                target_gasto_hucha_id = new_cash_ref.id
+                new_cash_data = {
+                    "id_propietario": owner_id,
+                    "nombre": "Efectivo",
+                    "tipo_aportacion": "flat",
+                    "valor_aportacion": 0,
+                    "objetivo": None,
+                    "saldo_acumulado": 0,
+                    "orden": max(
+                        [int((doc.to_dict() or {}).get("orden") or 0) for doc in huchas_docs]
+                        + [int(info["data"].get("orden") or 0) for info in huchas_state.values()]
+                        + [0]
+                    ) + 1,
+                    "es_metalico": True,
+                    "es_principal": False,
+                    "activa": True,
+                    "created_at": firestore.SERVER_TIMESTAMP,
+                    "updated_at": firestore.SERVER_TIMESTAMP,
+                }
+                huchas_state[target_gasto_hucha_id] = {
+                    "ref": new_cash_ref,
+                    "data": new_cash_data,
+                    "saldo_actual": 0.0,
+                    "deuda_actual": 0.0,
+                }
+                logger.info("No cash wallet found. Creating 'Efectivo'.")
+            huchas_state[target_gasto_hucha_id]["saldo_actual"] += amount
+        elif movimiento["tipo"] == "ingreso":
             # Every income sees balances and debts accumulated earlier in this email.
             distribution_huchas = {
                 h_id: {
@@ -464,7 +538,7 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
                     logger.info("Income allocation repaid debts of %s hucha(s).", len(split["deudas"]))
         else:
             # Es gasto
-            target_hucha_id = find_subscription_hucha(
+            target_hucha_id = None if movimiento.get("transfer_id") else find_subscription_hucha(
                 movimiento,
                 active_subscriptions,
                 huchas_state,
@@ -502,6 +576,11 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
         transaction.set(new_hucha_ref, new_hucha_data)
         logger.info("Created default hucha %s.", new_hucha_ref.id)
 
+    if new_cash_ref and new_cash_data:
+        new_cash_data["saldo_acumulado"] = euros(cents(huchas_state[new_cash_ref.id]["saldo_actual"]))
+        transaction.set(new_cash_ref, new_cash_data)
+        logger.info("Created cash hucha %s.", new_cash_ref.id)
+
     for h_id, h_info in huchas_state.items():
         original_balance = float(h_info["data"].get("saldo_acumulado", 0) or 0)
         original_deuda = float(h_info["data"].get("deuda_pendiente", 0) or 0)
@@ -513,6 +592,8 @@ def process_email_movements_transaction(transaction, movements_to_process: List[
         if abs(new_balance - original_balance) > 0.001 or abs(new_deuda - original_deuda) > 0.001 or extra_changed:  # if changed
             # Don't update the new default hucha twice if we just created it
             if new_hucha_ref and h_id == new_hucha_ref.id:
+                continue
+            if new_cash_ref and h_id == new_cash_ref.id:
                 continue
             
             update_data = {
@@ -832,6 +913,14 @@ def process_emails():
                 "created_at": firestore.SERVER_TIMESTAMP,
                 "email_id": email_id
             }
+
+            if parsed_data.get("es_retirada_efectivo") is True:
+                # Not spending: the amount moves from the bank wallet to Efectivo.
+                entrada_doc_id = hashlib.sha256(f"{unique_id}_efectivo".encode()).hexdigest()
+                for leg in cash_withdrawal_legs(doc_id, entrada_doc_id, movimiento):
+                    movements_to_process.append({**leg, "index": index})
+                continue
+
             movimiento.update(category_fields(parsed_data))
             
             movements_to_process.append({

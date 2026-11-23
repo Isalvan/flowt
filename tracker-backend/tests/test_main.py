@@ -873,3 +873,155 @@ def test_gmail_errors_are_logged_without_the_request_url(caplog):
     assert "HTTP 500" in caplog.text
     assert "bank" not in caplog.text and "gmail.googleapis.com" not in caplog.text
 
+
+# --- Reintegros en cajero: pasan de la cuenta a Efectivo ---
+
+def run_withdrawal_transaction(mock_config, huchas, amount=50, concepto="Cajero Plaza Mayor", subscriptions=()):
+    """Run one cajero withdrawal through the email transaction; new wallets get distinct refs."""
+    mock_firestore, mock_collection = mock_config
+    references = {}
+    created = []
+
+    def document(doc_id=None):
+        if doc_id is None:
+            doc_id = f"new-{len(created)}"
+            created.append(doc_id)
+        if doc_id not in references:
+            references[doc_id] = MagicMock(name=f"{doc_id}-ref")
+            references[doc_id].id = doc_id
+        return references[doc_id]
+
+    mock_collection.document.side_effect = document
+    document("test_user_123").get.return_value.to_dict.return_value = {}
+    mock_collection.where.return_value.order_by.return_value.stream.return_value = huchas
+    mock_collection.where.return_value.where.return_value.stream.return_value = [
+        hucha_doc(f"sub-{i}", **sub) for i, sub in enumerate(subscriptions)
+    ]
+    mock_firestore.get_all.return_value = []
+    base = {"id_propietario": "test_user_123", "banco": "Unicaja", "tipo": "gasto", "concepto": concepto,
+            "importe": float(amount), "fecha_operacion": "2026-11-20", "email_id": "atm-email", "es_interno": False}
+    movements = main.cash_withdrawal_legs("salida-doc", "entrada-doc", base)
+    transaction = mock_firestore.transaction.return_value
+    with patch.object(main, "review_enabled", return_value=False):
+        recorded = main.process_email_movements_transaction.to_wrap(
+            transaction, movements, "test_user_123", email_id="atm-email",
+        )
+    wallet_refs = {hucha.reference: hucha.id for hucha in huchas}
+    updates = {wallet_refs[call.args[0]]: call.args[1]
+               for call in transaction.update.call_args_list if call.args[0] in wallet_refs}
+    sets = {ref_id: next((call.args[1] for call in transaction.set.call_args_list
+                          if call.args[0] is ref), None)
+            for ref_id, ref in references.items()}
+    return recorded, updates, sets, created
+
+
+def test_cash_withdrawal_moves_money_from_main_wallet_to_cash(mock_config):
+    huchas = [
+        hucha_doc("main", orden=1, tipo_aportacion="resto", saldo_acumulado=100, es_principal=True),
+        hucha_doc("cash", orden=2, tipo_aportacion="flat", valor_aportacion=0, saldo_acumulado=5, es_metalico=True),
+    ]
+    recorded, updates, sets, created = run_withdrawal_transaction(mock_config, huchas)
+    assert recorded == ["salida-doc", "entrada-doc"]
+    assert updates["main"]["saldo_acumulado"] == 50
+    assert updates["cash"]["saldo_acumulado"] == 55
+    salida, entrada = sets["salida-doc"], sets["entrada-doc"]
+    assert salida["tipo"] == "gasto" and salida["hucha_id"] == "main"
+    assert entrada["tipo"] == "ingreso" and entrada["hucha_id"] == "cash"
+    assert salida["es_interno"] and entrada["es_interno"] and entrada["es_metalico"]
+    assert salida["transfer_id"] == entrada["transfer_id"]
+    assert salida["concepto"] == "Retirada de efectivo: Cajero Plaza Mayor"
+    assert entrada["concepto"] == "Entrada en efectivo: Cajero Plaza Mayor"
+    assert salida["banco"] == "Unicaja" and "banco" not in entrada
+    assert entrada["email_id"] == "atm-email"
+    # Neither leg is income or spending.
+    assert sets["test_user_123"] is None
+    assert created == []
+
+
+def test_cash_withdrawal_creates_the_cash_wallet_when_missing(mock_config):
+    huchas = [
+        hucha_doc("main", orden=1, tipo_aportacion="resto", saldo_acumulado=100, es_principal=True),
+        hucha_doc("savings", orden=4, tipo_aportacion="porcentaje", valor_aportacion=10, saldo_acumulado=20),
+    ]
+    _, updates, sets, created = run_withdrawal_transaction(mock_config, huchas, amount=20)
+    assert created == ["new-0"]
+    cash = sets["new-0"]
+    assert cash["nombre"] == "Efectivo" and cash["es_metalico"] is True and cash["activa"] is True
+    assert cash["saldo_acumulado"] == 20
+    assert cash["orden"] == 5
+    assert updates["main"]["saldo_acumulado"] == 80
+    assert sets["entrada-doc"]["hucha_id"] == "new-0"
+    assert "savings" not in updates
+
+
+def test_cash_withdrawal_ignores_archived_cash_wallet(mock_config):
+    huchas = [
+        hucha_doc("main", orden=1, tipo_aportacion="resto", saldo_acumulado=100, es_principal=True),
+        hucha_doc("old-cash", orden=2, saldo_acumulado=0, es_metalico=True, activa=False),
+    ]
+    _, updates, sets, created = run_withdrawal_transaction(mock_config, huchas)
+    assert created == ["new-0"]
+    assert "old-cash" not in updates
+    assert sets["entrada-doc"]["hucha_id"] == "new-0"
+
+
+def test_cash_withdrawal_is_not_routed_to_a_subscription_with_the_same_amount(mock_config):
+    huchas = [
+        hucha_doc("main", orden=1, tipo_aportacion="resto", saldo_acumulado=100, es_principal=True),
+        hucha_doc("subs", orden=2, saldo_acumulado=60, es_suscripciones=True),
+        hucha_doc("cash", orden=3, saldo_acumulado=0, es_metalico=True),
+    ]
+    subscriptions = [{"nombre": "Gimnasio", "importe": 50, "activa": True, "hucha_id": "subs"}]
+    _, updates, sets, _ = run_withdrawal_transaction(mock_config, huchas, subscriptions=subscriptions)
+    assert sets["salida-doc"]["hucha_id"] == "main"
+    assert "subs" not in updates
+    assert updates["cash"]["saldo_acumulado"] == 50
+
+
+def test_email_with_cash_withdrawal_becomes_two_internal_legs(mock_config, mock_gmail_client, mock_gemini):
+    mock_get, _ = mock_gmail_client
+    _, mock_collection = mock_config
+    mock_get.return_value = [{
+        "id": "atm-mail", "from": "test@bank.com",
+        "date_sent": "Fri, 20 Nov 2026 10:00:00 +0100", "body": "Reintegro en cajero de 40,00 EUR",
+    }]
+    mock_gemini.return_value = [{
+        "tipo": "gasto", "importe": 40, "fecha": "2026-11-20", "descripcion": "Reintegro en cajero",
+        "moneda": "EUR", "confianza": "alta", "es_retirada_efectivo": True,
+        "categoria_sugerida": "otros_gastos", "categoria_confianza": "media",
+    }]
+    mock_collection.document.return_value.get.return_value.exists = False
+    with patch.object(main, "process_email_movements_transaction", return_value=[]) as process, \
+         patch.object(main, "review_enabled", return_value=False):
+        main.process_emails()
+    movements = process.call_args.args[1]
+    assert [m["doc_id"] for m in movements] == [
+        hashlib.sha256(b"atm-mail_0").hexdigest(),
+        hashlib.sha256(b"atm-mail_0_efectivo").hexdigest(),
+    ]
+    salida, entrada = (m["movimiento"] for m in movements)
+    assert salida["tipo"] == "gasto" and entrada["tipo"] == "ingreso"
+    assert salida["es_interno"] is True and entrada["es_interno"] is True
+    assert entrada["es_metalico"] is True and main.is_cash_leg(entrada)
+    assert "categoria_sugerida" not in salida and "categoria_sugerida" not in entrada
+
+
+def test_email_without_withdrawal_flag_stays_a_single_movement(mock_config, mock_gmail_client, mock_gemini):
+    mock_get, _ = mock_gmail_client
+    _, mock_collection = mock_config
+    mock_get.return_value = [{
+        "id": "shop-mail", "from": "test@bank.com",
+        "date_sent": "Fri, 20 Nov 2026 10:00:00 +0100", "body": "Compra de 40,00 EUR",
+    }]
+    mock_gemini.return_value = [{
+        "tipo": "gasto", "importe": 40, "fecha": "2026-11-20", "descripcion": "Mercado",
+        "moneda": "EUR", "confianza": "alta", "es_retirada_efectivo": False,
+    }]
+    mock_collection.document.return_value.get.return_value.exists = False
+    with patch.object(main, "process_email_movements_transaction", return_value=[]) as process, \
+         patch.object(main, "review_enabled", return_value=False):
+        main.process_emails()
+    movements = process.call_args.args[1]
+    assert len(movements) == 1
+    assert "transfer_id" not in movements[0]["movimiento"]
+    assert movements[0]["movimiento"]["es_interno"] is False

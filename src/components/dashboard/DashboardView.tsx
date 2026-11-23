@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarClock, Check, ChevronDown, Fingerprint, Lock, Plus, ScanLine } from "lucide-react";
+import { BarChart3, CalendarClock, Check, ChevronDown, Coins, Dices, Fingerprint, Landmark, LineChart, Lock, Percent, PieChart, Plus, ScanLine, TrendingUp, Waypoints } from "lucide-react";
 import type { Hucha, Movimiento, Suscripcion } from "../../types";
 import { usePrivacy } from "../../context/PrivacyContext";
 import { groupMovementsByMonth, parseMovimientoDate } from "../../utils/periodStats";
@@ -13,10 +13,14 @@ import { FinancialOverview } from "./FinancialOverview";
 import { MonthlySummary } from "./MonthlySummary";
 import { BanksCard } from "./BanksCard";
 import { SmallPurchasesCard } from "./SmallPurchasesCard";
+import { DominoCard } from "./DominoCard";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { PredictiveChart } from "./LazyCharts";
 import { MoneyFlowCard } from "./MoneyFlowCard";
+import { PersonalInflationCard } from "./PersonalInflationCard";
 import { ServiceIcon } from "./ServiceIcon";
+import { MoreAnalysis } from "./MoreAnalysis";
+import { PHONE_QUERY, useMediaQuery } from "../../hooks/useMediaQuery";
 import { WrappedCard } from "../wrapped/WrappedCard";
 import { walletAccent } from "../../utils/walletAccent";
 import { usePreferences } from "../../context/PreferencesContext";
@@ -90,6 +94,8 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = (props) => {
   const { isLocked, formatCurrency, biometricEnabled, openUnlockModal } = usePrivacy();
   const { inicioPeriodo, cifraDestacada } = usePreferences();
+  // On a phone, Inicio keeps what you check daily on top and folds the analysis cards.
+  const isPhone = useMediaQuery(PHONE_QUERY);
   // `movimientos` only holds the latest few; the pace needs the loaded 12-month window.
   const forecast = useMemo(() => forecastMonthEnd(props.huchas, props.chartMovements, props.suscripciones),
     [props.huchas, props.chartMovements, props.suscripciones]);
@@ -297,6 +303,90 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
     );
   }
 
+  const upcomingCard = (
+    <section className="dashboard-surface min-w-0 p-5">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="dashboard-icon bg-brand-tint text-brand-ink">
+            <CalendarClock size={18} />
+          </span>
+          <div className="min-w-0">
+            <h3 className="dashboard-heading">Próximos cargos</h3>
+            <p className="dashboard-subtitle">Movimientos programados</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={props.onOpenCalendar}
+          className="shrink-0 rounded-lg py-1 text-xs font-bold text-brand-ink underline-offset-4 hover:underline"
+        >
+          Ver calendario
+        </button>
+      </div>
+      {upcoming.length ? (
+        <div className="divide-y divide-line">
+          {upcoming.map(({ sub, date, daysLeft }) => (
+            <div key={sub.id} className="flex items-center gap-3 py-3">
+              <ServiceIcon name={sub.nombre} color={sub.color} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-bold text-ink">
+                  {sub.nombre}
+                </p>
+                <p className="text-[11px] text-ink-soft">
+                  <span
+                    className={
+                      daysLeft <= 3
+                        ? "font-bold text-sun-600 dark:text-sun-300"
+                        : ""
+                    }
+                  >
+                    {dueLabel(daysLeft)}
+                  </span>{" "}
+                  ·{" "}
+                  {date.toLocaleDateString("es-ES", {
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </p>
+              </div>
+              <span className="text-[13px] font-extrabold tabular-nums text-ink">
+                {isLocked
+                  ? "•• €"
+                  : formatCurrency(sub.mi_parte ?? sub.importe)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="dashboard-empty">
+          <p>No hay cargos próximos</p>
+        </div>
+      )}
+      {upcoming.length > 0 && (
+        <p className="mt-2 text-[11px] leading-relaxed text-ink-faint">
+          Las fechas se calculan desde tus suscripciones activas.
+        </p>
+      )}
+    </section>
+  );
+
+  const activityProps = {
+    movimientos: props.movimientos,
+    allMovimientos: props.chartMovements,
+    huchas: props.huchas,
+    huchaMonthlyBudgets: props.huchaMonthlyBudgets,
+    onUpdateConcepto: props.onUpdateConcepto,
+    onUpdateCategoria: props.onUpdateCategoria,
+    onAcceptCompensation: props.onAcceptCompensation,
+    onDismissCompensation: props.onDismissCompensation,
+    onDismissDuplicate: props.onDismissDuplicate,
+    onConvert: props.onConvert,
+    onLink: props.onLink,
+    onUnlink: props.onUnlink,
+    onChangeHucha: props.onChangeHucha,
+    onDeleteMovimiento: props.onDeleteMovimiento,
+  };
+
   return (
     <div className="space-y-5 sm:space-y-7">
       <header
@@ -495,134 +585,166 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
         )}
       </section>
 
-      {/* Each row fills the full width and its shorter column stretches its last card, so no row ends in a gap. */}
-      <div
-        className="rise grid grid-cols-1 gap-4 lg:grid-cols-3"
-        style={step(3)}
-      >
-        <div className={`${column} lg:col-span-2`}>
-          <AnalyticsSection
-            chartData={periodChartData}
-            huchas={props.huchas}
-            suscripciones={props.suscripciones}
-            allMovimientos={filtered}
-            periodStatus={periodStatus}
-          />
-          <CategoryBreakdown
-            allMovimientos={filtered}
+      {isPhone ? (
+        <>
+          <div className="rise" style={step(3)}>
+            {upcomingCard}
+          </div>
+
+          <div className="rise" style={step(4)}>
+            <ActivityList {...activityProps} initialVisible={5} />
+          </div>
+
+          <div className="rise" style={step(5)}>
+            <MoreAnalysis
+              items={[
+                {
+                  id: "evolucion",
+                  title: "Evolución de finanzas",
+                  short: "Evolución",
+                  icon: LineChart,
+                  content: (
+                    <AnalyticsSection
+                      chartData={periodChartData}
+                      huchas={props.huchas}
+                      suscripciones={props.suscripciones}
+                      allMovimientos={filtered}
+                      periodStatus={periodStatus}
+                    />
+                  ),
+                },
+                {
+                  id: "categorias",
+                  title: "Gasto por categorías",
+                  short: "Categorías",
+                  icon: PieChart,
+                  content: <CategoryBreakdown allMovimientos={filtered} periodLabel={periodLabel} periodStatus={periodStatus} />,
+                },
+                {
+                  id: "flujo",
+                  title: "A dónde va tu dinero",
+                  short: "A dónde va",
+                  icon: Waypoints,
+                  content: <MoneyFlowCard allMovimientos={filtered} periodLabel={periodLabel} periodStatus={periodStatus} />,
+                },
+                {
+                  id: "proyeccion",
+                  title: "Proyección de saldo",
+                  short: "Proyección",
+                  icon: TrendingUp,
+                  content: (
+                    <PredictiveChart
+                      huchas={props.huchas}
+                      suscripciones={props.suscripciones}
+                      allMovimientos={props.chartMovements}
+                    />
+                  ),
+                },
+                {
+                  id: "ipc",
+                  title: "Tu IPC personal",
+                  short: "Tu IPC",
+                  icon: Percent,
+                  content: <PersonalInflationCard movimientos={props.chartMovements} />,
+                },
+                {
+                  id: "pequenas",
+                  title: "Compras pequeñas",
+                  short: "Compras",
+                  icon: Coins,
+                  content: <SmallPurchasesCard movimientos={filtered} periodLabel={periodLabel} totalGastos={gastos} />,
+                },
+                {
+                  id: "domino",
+                  title: "Dominó",
+                  short: "Dominó",
+                  icon: Dices,
+                  content: <DominoCard movimientos={props.chartMovements} />,
+                },
+                {
+                  id: "resumen",
+                  title: inicioPeriodo === 1 ? "Resumen del mes" : "Resumen del periodo",
+                  short: "Resumen",
+                  icon: BarChart3,
+                  content: <MonthlySummary movimientos={props.chartMovements} />,
+                },
+                {
+                  id: "bancos",
+                  title: "Tus bancos",
+                  short: "Bancos",
+                  icon: Landmark,
+                  content: (
+                    <BanksCard movimientos={props.chartMovements} walletsTotal={Math.round((walletsTotal - cashTotal) * 100) / 100} cashExcluded={cashTotal > 0} huchas={props.huchas} onReconcile={props.onReconcile} />
+                  ),
+                },
+              ]}
+            />
+          </div>
+        </>
+      ) : (
+        <>
+        {/* Each row fills the full width and its shorter column stretches its last card, so no row ends in a gap. */}
+        <div
+          className="rise grid grid-cols-1 gap-4 lg:grid-cols-3"
+          style={step(3)}
+        >
+          <div className={`${column} lg:col-span-2`}>
+            <AnalyticsSection
+              chartData={periodChartData}
+              huchas={props.huchas}
+              suscripciones={props.suscripciones}
+              allMovimientos={filtered}
+              periodStatus={periodStatus}
+            />
+            <CategoryBreakdown
+              allMovimientos={filtered}
+              periodLabel={periodLabel}
+              periodStatus={periodStatus}
+            />
+          </div>
+          {/* On a phone, what you check most often comes before the charts. */}
+          <div className={`${column} order-first lg:order-none`}>
+            <BanksCard movimientos={props.chartMovements} walletsTotal={Math.round((walletsTotal - cashTotal) * 100) / 100} cashExcluded={cashTotal > 0} huchas={props.huchas} onReconcile={props.onReconcile} />
+            {upcomingCard}
+            <MonthlySummary movimientos={props.chartMovements} />
+          </div>
+        </div>
+
+        <div className="rise" style={step(4)}>
+          <MoneyFlowCard allMovimientos={filtered} periodLabel={periodLabel} periodStatus={periodStatus} />
+        </div>
+
+        {/* Sin sitios que comparar la tarjeta no pinta nada y el hueco desaparece. */}
+        <div className="rise empty:hidden" style={step(4)}>
+          <PersonalInflationCard movimientos={props.chartMovements} />
+        </div>
+
+        <div className="rise grid grid-cols-1 gap-4 lg:grid-cols-3" style={step(5)}>
+          {/* Takes the whole row when there are no small purchases to show beside it. */}
+          <div className="min-w-0 lg:col-span-2 lg:only:col-span-3 [&>*]:h-full">
+            <PredictiveChart
+              huchas={props.huchas}
+              suscripciones={props.suscripciones}
+              allMovimientos={props.chartMovements}
+            />
+          </div>
+          <SmallPurchasesCard
+            movimientos={filtered}
             periodLabel={periodLabel}
-            periodStatus={periodStatus}
+            totalGastos={gastos}
           />
         </div>
-        {/* On a phone, what you check most often comes before the charts. */}
-        <div className={`${column} order-first lg:order-none`}>
-          <BanksCard movimientos={props.chartMovements} walletsTotal={Math.round((walletsTotal - cashTotal) * 100) / 100} cashExcluded={cashTotal > 0} huchas={props.huchas} onReconcile={props.onReconcile} />
-          <section className="dashboard-surface min-w-0 p-5">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="dashboard-icon bg-brand-tint text-brand-ink">
-                  <CalendarClock size={18} />
-                </span>
-                <div className="min-w-0">
-                  <h3 className="dashboard-heading">Próximos cargos</h3>
-                  <p className="dashboard-subtitle">Movimientos programados</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={props.onOpenCalendar}
-                className="shrink-0 rounded-lg py-1 text-xs font-bold text-brand-ink underline-offset-4 hover:underline"
-              >
-                Ver calendario
-              </button>
-            </div>
-            {upcoming.length ? (
-              <div className="divide-y divide-line">
-                {upcoming.map(({ sub, date, daysLeft }) => (
-                  <div key={sub.id} className="flex items-center gap-3 py-3">
-                    <ServiceIcon name={sub.nombre} color={sub.color} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-bold text-ink">
-                        {sub.nombre}
-                      </p>
-                      <p className="text-[11px] text-ink-soft">
-                        <span
-                          className={
-                            daysLeft <= 3
-                              ? "font-bold text-sun-600 dark:text-sun-300"
-                              : ""
-                          }
-                        >
-                          {dueLabel(daysLeft)}
-                        </span>{" "}
-                        ·{" "}
-                        {date.toLocaleDateString("es-ES", {
-                          day: "numeric",
-                          month: "short",
-                        })}
-                      </p>
-                    </div>
-                    <span className="text-[13px] font-extrabold tabular-nums text-ink">
-                      {isLocked
-                        ? "•• €"
-                        : formatCurrency(sub.mi_parte ?? sub.importe)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="dashboard-empty">
-                <p>No hay cargos próximos</p>
-              </div>
-            )}
-            {upcoming.length > 0 && (
-              <p className="mt-2 text-[11px] leading-relaxed text-ink-faint">
-                Las fechas se calculan desde tus suscripciones activas.
-              </p>
-            )}
-          </section>
-          <MonthlySummary movimientos={props.chartMovements} />
+
+        {/* Sin cadenas la tarjeta no pinta nada y el hueco desaparece. */}
+        <div className="rise empty:hidden" style={step(6)}>
+          <DominoCard movimientos={props.chartMovements} />
         </div>
-      </div>
 
-      <div className="rise" style={step(4)}>
-        <MoneyFlowCard allMovimientos={filtered} periodLabel={periodLabel} periodStatus={periodStatus} />
-      </div>
-
-      <div className="rise grid grid-cols-1 gap-4 lg:grid-cols-3" style={step(5)}>
-        {/* Takes the whole row when there are no small purchases to show beside it. */}
-        <div className="min-w-0 lg:col-span-2 lg:only:col-span-3 [&>*]:h-full">
-          <PredictiveChart
-            huchas={props.huchas}
-            suscripciones={props.suscripciones}
-            allMovimientos={props.chartMovements}
-          />
+        <div className="rise" style={step(7)}>
+          <ActivityList {...activityProps} />
         </div>
-        <SmallPurchasesCard
-          movimientos={filtered}
-          periodLabel={periodLabel}
-          totalGastos={gastos}
-        />
-      </div>
-
-      <div className="rise" style={step(6)}>
-        <ActivityList
-          movimientos={props.movimientos}
-          allMovimientos={props.chartMovements}
-          huchas={props.huchas}
-          huchaMonthlyBudgets={props.huchaMonthlyBudgets}
-          onUpdateConcepto={props.onUpdateConcepto}
-          onUpdateCategoria={props.onUpdateCategoria}
-          onAcceptCompensation={props.onAcceptCompensation}
-          onDismissCompensation={props.onDismissCompensation}
-          onDismissDuplicate={props.onDismissDuplicate}
-          onConvert={props.onConvert}
-          onLink={props.onLink}
-          onUnlink={props.onUnlink}
-          onChangeHucha={props.onChangeHucha}
-          onDeleteMovimiento={props.onDeleteMovimiento}
-        />
-      </div>
+        </>
+      )}
 
     </div>
   );

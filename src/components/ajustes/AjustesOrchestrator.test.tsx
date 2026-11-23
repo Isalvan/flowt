@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Movimiento } from '../../types';
 import { AjustesOrchestrator } from './AjustesOrchestrator';
+import { pretendPhone } from '../../test/phoneMedia';
 
 vi.mock('../../context/PrivacyContext', () => ({ usePrivacy: () => ({ formatCurrency: (n: number) => `${n.toFixed(2)} €` }) }));
 vi.mock('./BancosView', () => ({ BancosView: () => <p>Bancos de prueba</p> }));
@@ -46,5 +47,36 @@ describe('avisos en Ajustes', () => {
     rerender(<AjustesOrchestrator {...p} demo chartMovements={history} />);
     fireEvent.click(screen.getByRole('button', { name: 'No es una suscripción' }));
     expect(localStorage.getItem('flowt:recurring-dismissed:demo')).toContain('new:gimnasio x');
+  });
+});
+
+describe('Ajustes en el móvil', () => {
+  beforeEach(() => { pretendPhone(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('abre en una lista por grupos y cada fila lleva a su pantalla con vuelta atrás', () => {
+    render(<AjustesOrchestrator {...props()} />);
+    expect(screen.getByRole('region', { name: 'Tu dinero' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Automático' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Tus datos' })).toBeInTheDocument();
+    expect(screen.queryByText('Bancos de prueba')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Bancos/ }));
+    expect(screen.getByText('Bancos de prueba')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Ajustes' }));
+    expect(screen.queryByText('Bancos de prueba')).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Tu dinero' })).toBeInTheDocument();
+  });
+
+  it('muestra los avisos en la fila de Suscripciones y abre Preferencias si se puede', () => {
+    const onOpenPreferences = vi.fn();
+    render(<AjustesOrchestrator {...props()} chartMovements={movements()} onOpenPreferences={onOpenPreferences} />);
+    expect(screen.getByLabelText('1 avisos pendientes')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Preferencias/ }));
+    expect(onOpenPreferences).toHaveBeenCalled();
+  });
+
+  it('sin manejador no ofrece la fila de Preferencias', () => {
+    render(<AjustesOrchestrator {...props()} />);
+    expect(screen.queryByRole('button', { name: /Preferencias/ })).not.toBeInTheDocument();
   });
 });

@@ -34,6 +34,10 @@
       "es_interno": {
         "type": "boolean",
         "description": "True si es un traspaso propio, retirada/reintegro de cajero o movimiento interno que no debe contar como ingreso/gasto historico"
+      },
+      "es_retirada_efectivo": {
+        "type": "boolean",
+        "description": "True si es un reintegro o retirada de efectivo en cajero: el importe pasa de la cuenta a la cartera de Efectivo"
       }
     },
     "required": ["tipo", "importe", "moneda", "fecha", "descripcion", "confianza", "es_interno"]
