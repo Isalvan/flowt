@@ -45,7 +45,7 @@ ALLOWED_BANK_SENDERS = frozenset()
 UID_PROPIETARIO = None
 MAX_EMAILS_PER_RUN = None
 AI_MODEL = None
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 args = None
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,9 @@
       "fecha",
       "descripcion",
       "confianza",
-      "es_retirada_efectivo"
+      "es_retirada_efectivo",
+      "categoria_sugerida",
+      "categoria_confianza"
     ],
     "properties": {
       "tipo": {
@@ -30,7 +32,8 @@
         ]
       },
       "fecha": {
-        "type": "string"
+        "type": "string",
+        "description": "ISO 8601 date: YYYY-MM-DD, or YYYY-MM-DDTHH:MM:SS with its UTC offset when the time is stated."
       },
       "descripcion": {
         "type": "string",
