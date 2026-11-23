@@ -8,7 +8,8 @@
       "moneda",
       "fecha",
       "descripcion",
-      "confianza"
+      "confianza",
+      "es_retirada_efectivo"
     ],
     "properties": {
       "tipo": {
@@ -42,6 +43,9 @@
           "media",
           "baja"
         ]
+      },
+      "es_retirada_efectivo": {
+        "type": "boolean"
       },
       "categoria_sugerida": {
         "type": "string",
@@ -82,7 +86,8 @@
       "moneda",
       "fecha",
       "descripcion",
-      "confianza"
+      "confianza",
+      "es_retirada_efectivo"
     ]
   }
 }
