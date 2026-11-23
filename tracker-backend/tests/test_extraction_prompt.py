@@ -113,3 +113,69 @@ def test_iso_dates_from_the_prompt_are_stored_as_given(fecha, expected):
     [movement] = run_one_email([bizum_row(fecha=fecha)])
     assert movement["fecha_operacion"] == expected
     assert movement["fecha_operacion"].tzinfo is not None
+
+
+# --- Una transferencia de Unicaja llega en dos avisos: se apunta una sola vez ---
+
+TRANSFER_NOTICE = {
+    "id": "transfer-mail", "from": "Aviso de Unicaja <no-reply@notifica.unicaja.es>",
+    "subject": "Transferencia realizada por importe de 150,00 €",
+    "date_sent": "Mon, 23 Nov 2026 07:59:33 +0100",
+    "body": "Se ha realizado una transferencia por importe de 150,00 € en concepto de Alquiler.",
+}
+CHARGE_NOTICE = {
+    "id": "charge-mail", "from": "Aviso de Unicaja <no-reply@notifica.unicaja.es>",
+    "subject": "Nuevo pago y cargo en tu cuenta por importe de 150,00 EUR",
+    "date_sent": "Mon, 23 Nov 2026 07:59:27 +0100",
+    "body": "Se ha cargado la cantidad de 150,00 EUR en tu cuenta en concepto de alquiler.",
+}
+
+
+def run_emails(emails, review=False):
+    row = bizum_row(importe=150, descripcion="Alquiler")
+    with patch.object(main, "get_unread_emails_from_bank", return_value=emails), \
+         patch.object(main, "mark_email_as_read", return_value=True) as mark, \
+         patch.object(main, "extract_with_gemini", return_value=[row]) as gemini, \
+         patch.object(main, "process_email_movements_transaction", return_value=[]) as process, \
+         patch.object(main, "review_enabled", return_value=review), \
+         patch.object(main, "read_processing", return_value={}), \
+         patch.object(main, "record_resolved_branches") as resolved, \
+         patch.object(main, "finish_review_handoff") as handoff, \
+         patch.object(main, "save_to_pending_review") as pending, \
+         patch.object(main, "db") as db:
+        db.collection.return_value.document.return_value.get.return_value.exists = False
+        main.process_emails()
+    return {"mark": mark, "gemini": gemini, "process": process, "resolved": resolved,
+            "handoff": handoff, "pending": pending}
+
+
+def test_transfer_with_two_notices_is_recorded_once():
+    calls = run_emails([TRANSFER_NOTICE, CHARGE_NOTICE])
+    assert calls["gemini"].call_count == 1
+    assert calls["process"].call_count == 1
+    [movement] = [m["movimiento"] for m in calls["process"].call_args.args[1]]
+    assert movement["importe"] == 150.0 and movement["email_id"] == "charge-mail"
+    # The skipped notice is closed, not sent to manual review.
+    calls["mark"].assert_any_call("transfer-mail")
+    calls["pending"].assert_not_called()
+
+
+def test_duplicate_transfer_notice_is_closed_in_review_mode():
+    calls = run_emails([TRANSFER_NOTICE], review=True)
+    calls["gemini"].assert_not_called()
+    calls["process"].assert_not_called()
+    [call] = calls["resolved"].call_args_list
+    assert call.args[2:] == ("transfer-mail", False)
+    calls["handoff"].assert_called_once_with(TRANSFER_NOTICE, [])
+
+
+@pytest.mark.parametrize("email, duplicate", [
+    (TRANSFER_NOTICE, True),
+    ({**TRANSFER_NOTICE, "subject": "  TRANSFERENCIA REALIZADA por importe de 10,00 €"}, True),
+    (CHARGE_NOTICE, False),
+    ({**TRANSFER_NOTICE, "subject": "Transferencia recibida por importe de 150,00 €"}, False),
+    ({**TRANSFER_NOTICE, "from": "BBVA <avisos@bbva.es>"}, False),
+    ({**TRANSFER_NOTICE, "subject": None}, False),
+])
+def test_only_unicaja_transfer_notices_are_duplicates(email, duplicate):
+    assert main.is_duplicate_bank_notice(email) is duplicate

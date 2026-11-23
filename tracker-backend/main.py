@@ -61,6 +61,19 @@ def infer_bank_from_sender(sender_str: str) -> str:
             return bank["nombre"]
     return "Banco"
 
+# Unicaja sends two notices for each outgoing transfer, seconds apart: "Transferencia
+# realizada" and "Nuevo pago y cargo en tu cuenta" for the same amount. The charge
+# notice is the one every account payment gets (Bizum, transfers), so the transfer
+# notice is skipped to record the money once.
+DUPLICATE_NOTICE_SUBJECTS = {"Unicaja": ("transferencia realizada",)}
+
+
+def is_duplicate_bank_notice(email: Dict[str, Any]) -> bool:
+    prefixes = DUPLICATE_NOTICE_SUBJECTS.get(infer_bank_from_sender(email.get("from", "")), ())
+    subject = unicodedata.normalize("NFKC", email.get("subject") or "").strip().lower()
+    return any(subject.startswith(prefix) for prefix in prefixes)
+
+
 def setup_config(cli_args=None):
     global BANK_SENDER, ALLOWED_BANK_SENDERS, UID_PROPIETARIO, MAX_EMAILS_PER_RUN, AI_MODEL, args, logger
     
@@ -795,6 +808,18 @@ def process_emails():
             except Exception as exc:
                 logger.error("Unable to recover processing %s: %s", email_id, exc)
                 continue
+
+        if is_duplicate_bank_notice(email):
+            logger.info("Email %s duplicates the bank's charge notice for the same transfer. Skipping.", email_id)
+            if review_enabled():
+                try:
+                    record_resolved_branches(db, UID_PROPIETARIO, email_id, False)
+                    finish_review_handoff(email, [])
+                except Exception as exc:
+                    logger.error("Unable to close duplicate notice %s: %s", email_id, type(exc).__name__)
+            elif not mark_email_as_read(email_id):
+                logger.error("Failed to mark duplicate notice %s as read.", email_id)
+            continue
 
         # 1. Limpiar HTML gigante (ahorra tokens)
         body_clean = clean_body(email["body"])
