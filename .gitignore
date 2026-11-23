@@ -42,6 +42,11 @@ __pycache__/
 !.env.example
 *.env
 serviceAccountKey.json
+# Google's default names for downloaded keys and OAuth clients
+*-firebase-adminsdk-*.json
+client_secret_*.json
+*.pem
+*.p12
 token.json
 credentials.json
 tracker-backend/token.json

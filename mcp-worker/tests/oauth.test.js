@@ -36,7 +36,7 @@ describe('connecting an assistant', () => {
 
     const preview = await t.send('/oauth/authorize/preview', { headers: WEB, json: { params: t.requestParams(clientId) } });
     expect(preview.data).toEqual({ client_name: 'Claude', scopes: ['flowt:read', 'flowt:write'], redirect_host: 'claude.ai', local: false });
-    const decision = await t.send('/oauth/authorize/decision', { headers: WEB, json: { params: t.requestParams(clientId), approve: true } });
+    const decision = await t.send('/oauth/authorize/decision', { headers: WEB, json: { params: t.requestParams(clientId), approve: true, write: true } });
     const back = new URL(decision.data.redirect_to);
     expect(`${back.origin}${back.pathname}`).toBe(CALLBACK);
     expect(query(decision.data.redirect_to)).toMatchObject({ state: 'xyz', iss: BASE });
@@ -102,6 +102,13 @@ describe('connecting an assistant', () => {
 });
 
 describe('what a connection may do', () => {
+  it('grants read-only access when the consent does not ask for writes', async () => {
+    const clientId = (await t.register()).data.client_id;
+    const decision = await t.send('/oauth/authorize/decision', { headers: WEB, json: { params: t.requestParams(clientId), approve: true } });
+    const code = new URL(decision.data.redirect_to).searchParams.get('code');
+    expect((await t.exchange(clientId, code)).data.scope).toBe('flowt:read');
+  });
+
   it('cannot change anything with read-only consent', async () => {
     const { tokens } = await t.connect({ write: false });
     expect(tokens.scope).toBe('flowt:read');
@@ -122,6 +129,11 @@ describe('what a connection may do', () => {
     expect((await t.tool(tokens.access_token, 'list_huchas')).structuredContent.items.map((h) => h.id)).toEqual(['theirs']);
     // The owner is the signed-in user of the consent screen; a tool argument cannot change it.
     expect((await t.tool(tokens.access_token, 'list_huchas', { owner: 'owner' })).isError).toBe(true);
+  });
+
+  it('stops honouring a connection once its account is no longer allowed', async () => {
+    const { tokens } = await t.connect({ headers: { ...WEB, Authorization: 'Bearer firebase-stranger' } });
+    expect((await t.rpc(tokens.access_token)).status).toBe(401);
   });
 
   it('can be switched to read-only for everyone', async () => {

@@ -66,7 +66,8 @@ export class FinanceService {
 
   async _owned(collection, owner, tx = null) {
     const rows = await this.db.query({ collection, where: [[OWNER, '==', owner]] }, tx);
-    return Object.fromEntries(rows.map((snapshot) => [snapshot.id, snapshot.data]));
+    // No prototype: an id such as 'constructor' must never resolve to an inherited member.
+    return Object.assign(Object.create(null), Object.fromEntries(rows.map((snapshot) => [snapshot.id, snapshot.data])));
   }
 
   async _categories(owner, tx = null) {
@@ -87,7 +88,9 @@ export class FinanceService {
   }
 
   _usable(huchaId, huchas) {
-    const hucha = huchas[checkedId(huchaId)];
+    const id = checkedId(huchaId);
+    // Own keys only: ids like 'constructor' must not resolve to Object.prototype members.
+    const hucha = Object.hasOwn(huchas, id) ? huchas[id] : null;
     if (!hucha || !d.isActive(hucha)) fail('invalid_hucha', 'La cartera no existe o está archivada');
     return hucha;
   }

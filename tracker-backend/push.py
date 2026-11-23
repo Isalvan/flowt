@@ -94,5 +94,5 @@ def notify_new_movements(
             snapshot.reference.delete()
             logger.info("Removed a push token that FCM no longer accepts.")
         else:
-            logger.warning(f"Push notification failed: {result.exception}")
+            logger.warning("Push notification failed: %s", type(result.exception).__name__)
     return response.success_count

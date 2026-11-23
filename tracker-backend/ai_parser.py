@@ -193,5 +193,5 @@ def extract_with_gemini(text, email_date):
                     transaction["tipo"] = "gasto"
         return transactions
     except Exception as e:
-        print(f"Error llamando a Gemini: {e}")
+        print(f"Error llamando a Gemini: {type(e).__name__}")
         return None
