@@ -27,7 +27,7 @@ Expense categories: {expenses}.
 Income categories: {incomes}.
 Choose only a category matching the transaction direction. These are suggestions for user review, never confirmed decisions.
 alta: explicit recognizable merchant or explicit purpose. media: plausible purpose with limited detail. baja: unclear purpose.
-If only a person's name or a generic transfer/Bizum is present, use otros_ingresos or otros_gastos and baja. Never infer a gift, sale, salary or reimbursement from a person's name or amount alone.
+For an incoming transfer or Bizum with only a person's name or no clear purpose, use otros_ingresos and baja. For an outgoing transfer or Bizum without an explicit spending purpose, use sin_categorizar and baja: Flowt records it as an uncategorized expense for the user to classify. Never infer a gift, sale, salary or reimbursement from a person's name or amount alone.
 Generic Google/PayPal descriptors do not identify the purchased service: use a broad plausible category and baja. A bank name is not a merchant.
 For a Bizum with an explicit spending concept (cinema, food, Spotify, purchases), suggest the corresponding expense category. "Comida" alone is ambiguous between groceries and restaurants: use baja.
 Do not change the extracted description to match a category. Never invent a purpose or a compensation link.
